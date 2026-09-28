@@ -26,6 +26,29 @@ schema_meta(key TEXT PRIMARY KEY, value TEXT NOT NULL)
 kinds(code TEXT PRIMARY KEY, name TEXT NOT NULL)
     -- сиды: transistor, diode, resistor, capacitor; расширяемо (тиристоры и др.)
 
+designation_systems(code TEXT PRIMARY KEY, name TEXT NOT NULL, description TEXT NULL)
+    -- системы обозначений: сиды — gost, ost, pro, jedec, jis, series, other,
+    -- partnumber (03-data-model.md §1.2); расширение — вставкой строк
+
+designation_system_kinds(system_code TEXT NOT NULL
+                             REFERENCES designation_systems(code) ON DELETE CASCADE,
+                         kind_code TEXT NOT NULL REFERENCES kinds(code) ON DELETE CASCADE,
+                         PRIMARY KEY (system_code, kind_code))
+    -- применимость систем к классам (03-data-model.md §1.1); проверяется метасхемой
+
+series_families(series TEXT NOT NULL, kind_code TEXT NOT NULL REFERENCES kinds(code),
+                name TEXT NULL, tail_semantic TEXT NULL,
+                PRIMARY KEY (series, kind_code))
+    -- реестр семейств для system = series (бывшие легаси-реестры + мировые дом-номера);
+    -- tail_semantic = 'power' — хвост-число есть мощность, Вт (МЛТ-0.5, ПЭВ-10),
+    -- NULL — общий слабый разбор хвоста (число/буквы); реестр — данные
+
+manufacturer_pn_parsers(manufacturer_name TEXT NOT NULL, parser_code TEXT NOT NULL,
+                        PRIMARY KEY (manufacturer_name))
+    -- привязка ПН-декодера к производителю по имени (без FK: производитель появляется
+    -- позже записи каталога); parser_code — имя из реестра кода internal/domain;
+    -- неизвестное имя — ошибка импорта каталога (громко, не молча)
+
 units(code TEXT PRIMARY KEY, name TEXT NOT NULL, symbol TEXT NOT NULL)
     -- канонические единицы, см. 03-data-model.md; символ — для вывода
 
@@ -108,20 +131,41 @@ kind_validation_rules(kind_code TEXT NOT NULL REFERENCES kinds(code) ON DELETE C
 
 ```
 devices(id PK, kind_code TEXT NOT NULL REFERENCES kinds(code),
+        system_code TEXT NOT NULL REFERENCES designation_systems(code),
         designation TEXT NOT NULL,
         UNIQUE (kind_code, designation))
-    -- designation — каноническая строка парсера (точный ключ внутри класса)
+    -- designation — каноническая строка парсера (точный ключ внутри класса);
+    -- system_code — система обозначений записи (gost/ost/pro/jedec/jis/series/other/
+    -- partnumber), фильтр и разбор; для partnumber глобальная уникальность ПН между
+    -- производителями не гарантируется — коллизия двух разных компонентов с одним ПН
+    -- в рамках класса отсекается ошибкой импорта с явным текстом (риск R9)
 
 device_designation_fields(device_id NOT NULL REFERENCES devices(id) ON DELETE CASCADE,
-                          field TEXT NOT NULL,                -- material, subclass, assembly,
-                                                            -- feature, dev_number, letters,
-                                                            -- modification, chip | system (gost|
-                                                            -- ost|legacy), family, prefix, group,
-                                                            -- power, letters …
-                          text_value TEXT NULL, num_value REAL NULL,
-                          PRIMARY KEY (device_id, field))
+                           field TEXT NOT NULL,                -- состав — по системе
+                                                             -- (03-data-model.md §2):
+                                                             -- gost-полупроводники:
+                                                             --   material, subclass, assembly,
+                                                             --   feature, dev_number, letters,
+                                                             --   modification, chip
+                                                             -- pro: material, subclass,
+                                                             --   dev_number, letters
+                                                             -- jedec: junctions, dev_number,
+                                                             --   letters
+                                                             -- jis: junctions, subclass,
+                                                             --   dev_number, letters
+                                                             -- gost-резисторы: family, group,
+                                                             --   dev_number, letters
+                                                             -- gost-конденсаторы: prefix,
+                                                             --   group, dev_number, letters
+                                                             -- series: series, dev_number,
+                                                             --   letters, power
+                                                             -- partnumber: series + поля
+                                                             --   ПН-декодера производителя
+                           text_value TEXT NULL, num_value REAL NULL,
+                           PRIMARY KEY (device_id, field))
     -- разложение обозначения для фильтрации/вывода; поле всегда одно из пары значений
-    -- (текст или число); заполнение — при создании записи парсером
+    -- (текст или число); заполнение — при создании записи парсером; сама система —
+    -- колонка devices.system_code, не поле
 
 device_attribute_values(device_id NOT NULL REFERENCES devices(id) ON DELETE CASCADE,
                         attribute_code TEXT NOT NULL REFERENCES attributes(code),
@@ -160,8 +204,18 @@ parameter_value_conditions(parameter_value_id NOT NULL
 manufacturers(id PK, name TEXT NOT NULL UNIQUE)
 
 device_manufacturers(device_id NOT NULL REFERENCES devices(id) ON DELETE CASCADE,
-                     manufacturer_id NOT NULL REFERENCES manufacturers(id) ON DELETE CASCADE,
-                     PRIMARY KEY (device_id, manufacturer_id))
+                      manufacturer_id NOT NULL REFERENCES manufacturers(id) ON DELETE CASCADE,
+                      PRIMARY KEY (device_id, manufacturer_id))
+
+device_analogs(device_id NOT NULL REFERENCES devices(id) ON DELETE CASCADE,
+               analog_device_id NOT NULL REFERENCES devices(id) ON DELETE CASCADE,
+               note TEXT NULL,
+               PRIMARY KEY (device_id, analog_device_id),
+               CHECK (device_id <> analog_device_id))
+    -- прямые ссылки «аналог/замена» между записями одного класса (решение README,
+    -- вопрос 6); одна строка на пару (нормализация направления — сервис), на карточке
+    -- отображаются в обе стороны; note — характер замены текстом;
+    -- автоподбор аналогов по характеристикам — вне модуля (бэкэнд-потребитель)
 ```
 
 Уникальность значений параметров на уровне БД сознательно не навязывается (дубль «параметр + одинаковые условия» возможен физически, отсекается движком валидации при записи через сервисы; прямой доступ к БД — вне контракта).
@@ -171,12 +225,14 @@ device_manufacturers(device_id NOT NULL REFERENCES devices(id) ON DELETE CASCADE
 | Индекс | Назначение |
 |--------|-----------|
 | `devices (kind_code, designation)` UNIQUE | точный поиск, `find` |
-| `device_designation_fields (field, text_value)`, `(field, num_value)` | фильтры списка: материал, подкласс, группа, номер… |
+| `devices (system_code)` | фильтр/подсчёт по системе обозначений (в т.ч. совместно с `kind_code`) |
+| `device_designation_fields (field, text_value)`, `(field, num_value)` | фильтры списка: материал, подкласс, серия, группа, номер… |
 | `device_attribute_values (attribute_code, text_value)`, `(attribute_code, num_value)` | фильтры по атрибутам |
 | `parameter_values (parameter_code, value_min)`, `(parameter_code, value_max)` | фильтры-диапазоны по параметрам (например, h21e ≥ 50) |
 | `parameter_values (device_id)` | карточка устройства |
 | `parameter_values (variant_id)` | группировка значений по исполнению (карточка-матрица, вариантные фильтры) |
 | `manufacturers (name)` UNIQUE | поиск производителя при привязке |
+| `device_analogs (analog_device_id)` | обратная сторона пары аналогов (карточка: «у кого аналог») |
 
 Полнотекстового поиска в первом релизе нет: `search` — префикс/подстрока по `designation` (`LIKE` с escape, переносимо) + фильтры. Регистронезависимость — нормализация к верхнему регистру на входе (как `normalizeDesignation` сейчас), `LIKE` по канонической строке.
 
@@ -194,15 +250,15 @@ device_manufacturers(device_id NOT NULL REFERENCES devices(id) ON DELETE CASCADE
 
 1. `EnsureCreated` выполняет полный DDL и записывает `schema_version = N` (N — константа модуля, инкрементируется при любом изменении DDL) и `catalog_revision = 1`, `data_revision = 1`.
 2. Если база уже существует: читается `schema_version`; несовпадение — `*domain.Error{Code: schema_version_mismatch}` с текстом «база данных создана другой версией модуля (N ≠ M); пересоздайте её: удалите файл/базу и выполните import». Продолжение работы запрещено — тихая порча данных исключена.
-3. **Сиды каталога** (`seed/`): единицы, условия, группы, именованные правила, стартовые каталоги параметров/атрибутов четырёх классов (`03-data-model.md`). Применяются при `EnsureCreated` на пустую базу; содержимое каталога — данные, поэтому его эволюция не требует изменения `schema_version` (новый параметр — строки).
+3. **Сиды каталога** (`seed/`): единицы, условия, группы, именованные правила, системы обозначений и применимость к классам, реестры семейств (`series_families`), привязки ПН-декодеров (`manufacturer_pn_parsers`), стартовые каталоги параметров/атрибутов четырёх классов (`03-data-model.md`). Применяются при `EnsureCreated` на пустую базу; содержимое каталога — данные, поэтому его эволюция не требует изменения `schema_version` (новый параметр/семейство — строки).
 4. Каталог может расширяться файлом наполнения (секция `catalog`) или экспортироваться целиком (`catalog export`) — round-trip идемпотентен; валидация метасхемы при импорте (единицы/условия/enum существуют, наборы условий корректны, правила известны).
 5. Изменение `catalog_revision`/`data_revision` — в тех же транзакциях, что меняют каталог/устройства; REST отдаёт их в `ETag`.
 
 ## 6. Жизненный цикл записи (переносится из действующего проекта)
 
-- `Upsert` — транзакция: вставка устройства «если нет» (`INSERT … SELECT … WHERE NOT EXISTS`) либо поиск по `(kind, designation)`; затем секции: атрибуты — REPLACE-семантика по строкам, параметры группы — delete+insert значений с условиями, секция `variants` — полная замена исполнений вместе с их значениями, производители — полная замена связей + чистка сирот `manufacturers` (NOT IN по `device_manufacturers`); ни одна секция не применяется частично при ошибке в любой (защита от частичного стирания).
-- `Delete` — каскад из `devices` (FK ON DELETE CASCADE) + чистка сирот производителей.
-- `Get/Card` — устройство + поля обозначения + атрибуты + значения параметров с условиями + производители; сборка группами каталога.
+- `Upsert` — транзакция: разбор обозначения (класс + система + канонизация; для `partnumber` — декодер производителя, если привязан) → вставка устройства «если нет» (`INSERT … SELECT … WHERE NOT EXISTS`) либо поиск по `(kind, designation)`; затем секции: атрибуты — REPLACE-семантика по строкам, параметры группы — delete+insert значений с условиями, секция `variants` — полная замена исполнений вместе с их значениями, производители — полная замена связей + чистка сирот `manufacturers` (NOT IN по `device_manufacturers`), аналоги — полная замена ссылок (разрешение обозначений в пределах класса, нормализация пары); ни одна секция не применяется частично при ошибке в любой (защита от частичного стирания).
+- `Delete` — каскад из `devices` (FK ON DELETE CASCADE, включая обе стороны `device_analogs`) + чистка сирот производителей.
+- `Get/Card` — устройство + система + поля обозначения + атрибуты + значения параметров с условиями + аналоги + производители; сборка группами каталога.
 
 ## 7. Обратная совместимость с действующим справочником
 
