@@ -1,0 +1,326 @@
+# Данные для наполнения базы: 19 советских транзисторов.
+# Числа правдоподобные и не претендуют на точность даташитов.
+#
+# Формат записи (эквивалентен jsonc):
+#   строка — только обозначение;
+#   name + секции — обозначение + данные;
+#   явные поля обозначения + секции — то же без name.
+# Секции: attributes, parameters, ratings — все необязательные.
+# Единицы канонические: В, мА (токи), мкА (обратные токи), МГц, пФ, Ом, пс, нс, °C, мВт, г.
+# Частота f — в МГц (1 кГц = 0.001, 1 ГГц = 1000).
+transistors:
+  # строки — только обозначения
+  - КТ315А
+
+  # массовый маломощный кремниевый (характеристики — eandc.ru, даташит ЖК3.365.200ТУ)
+  - name: КТ315Б
+    attributes:
+      structure: npn
+      technology: эпитаксиально-планарная
+      package: КТ-13
+      packageMaterial: пластик
+      tu: ЖК3.365.200ТУ
+      yearFrom: 1967
+      yearTo: 1992
+      massMax: 0.18
+    parameters:
+      - {parameter: h21e, min: 50, max: 350, Uke: 10, Ik: 1}
+      - {parameter: FGran, min: 250, Uke: 10, Ik: 5}
+      - {parameter: UkeNas, max: 0.4, Ik: 20}
+      - {parameter: Ikbo, max: 1, Ukb: 10, temp: 25}
+      - {parameter: Ck, max: 7, Ukb: 10}
+    ratings: {UkeoMax: 20, UbeMax: 6, IkMax: 100, PkMax: 150, tempJunctionMax: 120, tempMin: -60, tempMax: 100}
+
+  # германиевый pnp для выходных каскадов
+  - name: ГТ404А
+    attributes:
+      structure: pnp
+      technology: сплавная
+      colorMarking: зелёная точка
+      notes: Германиевый pnp для двухтактных выходных каскадов УНЧ.
+      yearFrom: 1964
+      yearTo: 1979
+      manufacturers: [Терма, Восход]
+    parameters:
+      - {parameter: h21e, min: 30, max: 90, Uke: 10, Ik: 100}
+      - {parameter: Ikbo, max: 20, Ukb: 10, temp: 25}
+    ratings: {UkeMax: 25, UkbMax: 30, UbeMax: 10, IkMax: 500, IbMax: 100, PkMax: 600, tempMin: -40, tempMax: 55}
+
+  # ранний германиевый маломощный, запись явными полями обозначения
+  - material: Г
+    subclass: Т
+    assembly: false
+    feature: 1
+    number: 15
+    letters: А
+    attributes:
+      structure: pnp
+      technology: сплавная
+      colorMarking: красная точка
+      yearFrom: 1959
+      yearTo: 1975
+    parameters:
+      - {parameter: h21e, min: 30, max: 90, Ukb: 5, Ie: 1}
+      - {parameter: Ikbo, max: 10, Ukb: 5, temp: 25}
+      - {parameter: Ikbo, max: 60, Ukb: 5, temp: 70}
+      - {parameter: Ck, max: 15, Ukb: 5}
+    ratings: {UkeMax: 25, UkbMax: 30, UbeMax: 10, IkMax: 50, IbMax: 10, PkMax: 70, tempMin: -40, tempMax: 55}
+
+  # германиевый для ВЧ-каскадов
+  - name: ГТ321А
+    attributes:
+      structure: pnp
+      technology: сплавно-диффузионная
+      package: КТ-12
+      packageMaterial: металл
+      yearFrom: 1962
+      yearTo: 1978
+      massMax: 2
+    parameters:
+      - {parameter: h21e, min: 20, max: 90, Uke: 10, Ik: 10}
+      - {parameter: FGran, min: 80, Uke: 5, Ik: 10}
+      - {parameter: UGran, min: 40, Ik: 10}
+      - {parameter: Tauk, max: 300, Ukb: 5, Ie: 10}
+      - {parameter: Ce, max: 25, Ueb: 5}
+      - {parameter: Ck, max: 20, Ukb: 5}
+    ratings: {UkeMax: 30, UkbMax: 30, UbeMax: 10, IkMax: 200, IbMax: 50, PkMax: 200, tempMin: -40, tempMax: 70}
+
+  # кремниевый малошумящий
+  - name: КТ3102А
+    attributes:
+      structure: npn
+      technology: планарная
+      package: КТ-26
+      packageMaterial: пластик
+      pinout: КБЭ
+      yearFrom: 1980
+      datasheetUrl: https://example.org/datasheets/kt3102.pdf
+      manufacturers: [Позистор]
+    parameters:
+      - {parameter: h21e, min: 100, max: 250, Uke: 10, Ik: 1}
+      - {parameter: FGran, min: 100, Uke: 10, Ik: 10}
+      - {parameter: KShum, max: 10, Uke: 5, Ik: 0.2, freq: 0.001, Rg: 200}
+      - {parameter: UkeNas, max: 0.4, Ik: 10}
+      - {parameter: Ikbo, max: 0.05, Ukb: 10}
+      - {parameter: Ck, max: 6, Ukb: 10}
+    ratings: {UkeMax: 30, UkbMax: 40, UbeMax: 5, IkMax: 100, IbMax: 20, PkMax: 250, tempMin: -40, tempMax: 85}
+
+  # pnp малошумящий с нормированным Кш на 1 кГц (характеристики — eandc.ru, аА0.336.170ТУ/04)
+  - name: КТ3107В
+    attributes:
+      structure: pnp
+      technology: эпитаксиально-планарная
+      package: КТ-26
+      packageMaterial: пластик
+      colorMarking: голубая и синяя точки
+      tu: аА0.336.170ТУ/04
+      yearFrom: 1980
+      massMax: 0.3
+      manufacturers: [Позистор]
+    parameters:
+      # условия включения с общей базой: Uкб = 5 В, Iэ = 2 мА
+      - {parameter: h21e, min: 70, max: 140, Ukb: 5, Ie: 2}
+    ratings: {UkeoMax: 25, UkbMax: 30, UbeMax: 5, IkMax: 100, PkMax: 300, tempMin: -60, tempMax: 125}
+
+  # ранний кремниевый
+  - name: КТ312В
+    attributes:
+      structure: npn
+      technology: диффузионная
+      package: КТ-12
+      packageMaterial: металл
+      yearFrom: 1964
+      yearTo: 1976
+      massMax: 1.2
+      manufacturers: [Восход]
+    parameters:
+      - {parameter: h21e, min: 50, max: 280, Uke: 10, Ik: 5}
+      - {parameter: FGran, min: 80, Uke: 10, Ik: 10}
+      - {parameter: h11, min: 40, Uke: 10, Ik: 5}
+      - {parameter: Ck, max: 10, Ukb: 10}
+    ratings: {UkeMax: 20, UkbMax: 20, UbeMax: 4, IkMax: 50, IbMax: 10, PkMax: 150, tempMin: -40, tempMax: 85}
+
+  # полевой с управляющим p-n-переходом
+  - name: КП303Е
+    attributes:
+      structure: n-fet
+      technology: планарная
+      package: КТ-9
+      packageMaterial: металл
+      esdSensitive: true
+      yearFrom: 1975
+      massMax: 3
+      manufacturers: [Светлана, Исток]
+    ratings: {UkeMax: 25, UkbMax: 30, IkMax: 50, PkMax: 250, tempMin: -60, tempMax: 85}
+
+  - name: КП302А
+    attributes:
+      structure: n-fet
+      technology: планарная
+      package: КТ-12
+      packageMaterial: металл
+      yearFrom: 1968
+      yearTo: 1978
+      massMax: 2
+      manufacturers: [Светлана]
+    ratings: {UkeMax: 15, UkbMax: 15, IkMax: 25, PkMax: 100, tempMin: -60, tempMax: 85}
+
+  # средней мощности, повышенное напряжение
+  - name: КТ603А
+    attributes:
+      structure: npn
+      technology: планарная
+      package: КТ-9
+      packageMaterial: металл
+      pinout: 1-Э 2-К 3-Б
+      tu: ТУ 11.365.003-71
+      yearFrom: 1968
+      yearTo: 1985
+      massMax: 4
+      manufacturers: [Экватор]
+    parameters:
+      - {parameter: h21e, min: 20, max: 80, Uke: 10, Ik: 100}
+      - {parameter: UkeNas, max: 0.6, Ik: 300}
+      - {parameter: Ikep, max: 100, Uke: 30, Rbe: 10}
+      - {parameter: Ikbo, max: 10, Ukb: 30}
+    ratings: {UkeMax: 60, UkeoMax: 60, UkbMax: 60, UbeMax: 4, IkMax: 300, IbMax: 100, PkMax: 500, tempMin: -60, tempMax: 125, tempJunctionMax: 150}
+
+  # мощный npn для выходных каскадов УНЧ
+  - name: КТ805А
+    attributes:
+      structure: npn
+      technology: эпитаксиальная
+      package: КТ-9
+      packageMaterial: металл
+      pinout: 1-Э 2-К 3-Б
+      yearFrom: 1972
+      massMax: 6
+      manufacturers: [Экватор, Исток]
+    parameters:
+      - {parameter: h21e, min: 10, max: 70, Uke: 10, Ik: 2000}
+      - {parameter: UkeNas, max: 1.0, Ik: 5000}
+      - {parameter: Ikbo, max: 1000, Ukb: 30}
+    ratings: {UkeMax: 60, UkeoMax: 60, UkbMax: 70, UbeMax: 4, IkMax: 5000, IbMax: 2000, PkMax: 15000, IkPulseMax: 10000, pulseDuration: 10, tempMin: -60, tempMax: 125, tempJunctionMax: 150, Rth: 3.5}
+
+  # мощный pnp, комплементарный к КТ805
+  - name: КТ818АМ
+    attributes:
+      structure: pnp
+      technology: эпитаксиальная
+      package: КТ-9
+      packageMaterial: металл
+      yearFrom: 1978
+      massMax: 6
+      manufacturers: [Экватор]
+    parameters:
+      - {parameter: h21e, min: 15, max: 40, Uke: 10, Ik: 5000}
+      - {parameter: UkeNas, max: 1.5, Ik: 5000}
+      - {parameter: Ikbo, max: 1500, Ukb: 30}
+    ratings: {UkeMax: 40, UkbMax: 45, UbeMax: 5, IkMax: 10000, IbMax: 3000, PkMax: 60000, tempMin: -60, tempMax: 125, tempJunctionMax: 150, Rth: 3.3}
+
+  # обозначение цифрой (2 = кремний), военное исполнение
+  - name: 2Т819А
+    attributes:
+      structure: npn
+      technology: эпитаксиальная
+      package: КТ-9
+      packageMaterial: металл
+      militaryGrade: true
+      yearFrom: 1980
+      massMax: 6
+      notes: Комплементарная пара к КТ818.
+    parameters:
+      - {parameter: h21e, min: 15, max: 40, Uke: 10, Ik: 5000}
+      - {parameter: UkeNas, max: 1.5, Ik: 5000}
+      - {parameter: Ikbo, max: 1500, Ukb: 30}
+    ratings: {UkeMax: 40, UkbMax: 45, UbeMax: 5, IkMax: 10000, IbMax: 3000, PkMax: 60000, tempMin: -60, tempMax: 125}
+
+  # средней мощности, пара для двухтактных каскадов
+  - name: КТ815А
+    attributes:
+      structure: npn
+      technology: эпитаксиальная
+      package: КТ-28
+      packageMaterial: пластик
+      pinout: 1-Э 2-К 3-Б
+      yearFrom: 1977
+      massMax: 1.5
+      manufacturers: [Экватор, Восход]
+    parameters:
+      - {parameter: h21e, min: 30, max: 100, Uke: 10, Ik: 500}
+      - {parameter: UkeNas, max: 0.6, Ik: 1500}
+      - {parameter: UbeNas, max: 1.4, Ik: 1500}
+      - {parameter: Ton, max: 60, Ik: 500, Ib: 50}
+      - {parameter: Toff, max: 600, Ik: 500, Ib: 50}
+      - {parameter: Ikbo, max: 50, Ukb: 40}
+    ratings: {UkeMax: 40, UkeoMax: 35, UkbMax: 45, UbeMax: 5, IkMax: 1500, IbMax: 500, PkMax: 8000, tempMin: -40, tempMax: 125, tempJunctionMax: 150, Rth: 8.3}
+
+  - name: КТ814А
+    attributes:
+      structure: pnp
+      technology: эпитаксиальная
+      package: КТ-28
+      packageMaterial: пластик
+      yearFrom: 1977
+      massMax: 1.5
+      manufacturers: [Экватор, Восход]
+    parameters:
+      - {parameter: h21e, min: 30, max: 100, Uke: 10, Ik: 500}
+      - {parameter: UkeNas, max: 0.6, Ik: 1500}
+    ratings: {UkeMax: 40, UkbMax: 45, UbeMax: 5, IkMax: 1500, IbMax: 500, PkMax: 8000, tempMin: -40, tempMax: 125}
+
+  # составной (Дарлингтон) с модификацией 1
+  - name: КТ825А1
+    attributes:
+      structure: npn
+      technology: эпитаксиальная
+      package: КТ-9
+      packageMaterial: металл
+      militaryGrade: true
+      yearFrom: 1985
+      massMax: 6
+      manufacturers: [Экватор]
+    parameters:
+      - {parameter: h21e, min: 10000, max: 30000, Uke: 5, Ik: 2500}
+      - {parameter: UkeNas, max: 1.5, Ik: 2500}
+      - {parameter: UbeNas, max: 2.5, Ik: 2500}
+      - {parameter: Ton, max: 250, Ik: 2000, Ib: 10}
+      - {parameter: Toff, max: 1500, Ik: 2000, Ib: 10}
+    ratings: {UkeMax: 60, UkbMax: 70, UbeMax: 10, IkMax: 8000, IbMax: 500, PkMax: 50000, PkPulseMax: 90000, pulseDuration: 5, tempMin: -60, tempMax: 125}
+
+  # ВЧ средней мощности
+  - name: КТ903А
+    attributes:
+      structure: npn
+      technology: эпитаксиальная
+      package: КТ-30
+      packageMaterial: металл
+      yearFrom: 1970
+      massMax: 15
+      manufacturers: [Исток]
+    parameters:
+      - {parameter: h21e, min: 20, max: 80, Uke: 10, Ik: 500}
+      - {parameter: FGran, min: 120, Uke: 10, Ik: 100}
+      - {parameter: Tauk, max: 150, Ukb: 10, Ie: 100}
+      - {parameter: Ck, max: 30, Ukb: 20}
+      - {parameter: PVyh, min: 5, freq: 400}
+      - {parameter: KUr, min: 9, Uke: 20, Ik: 400, freq: 400}
+    ratings: {UkeMax: 60, UkbMax: 60, UbeMax: 4, IkMax: 2000, IbMax: 500, PkMax: 5000, tempMin: -60, tempMax: 125, tempJunctionMax: 150, Rth: 7}
+
+  # СВЧ генераторный, бескорпусное исполнение (-1)
+  - name: 2Т914А-1
+    attributes:
+      structure: npn
+      technology: эпитаксиально-планарная
+      militaryGrade: true
+      esdSensitive: true
+      yearFrom: 1978
+      massMax: 0.5
+    parameters:
+      - {parameter: FGran, min: 1200, Uke: 8, Ik: 50}
+      - {parameter: PVyh, min: 3, freq: 1000}
+      - {parameter: KUr, min: 8, Uke: 15, Ik: 100, freq: 1000}
+      - {parameter: Kpd, min: 40, Uke: 15, Ik: 100, freq: 1000}
+      - {parameter: Ck, max: 4, Ukb: 12}
+      - {parameter: Ikbo, max: 10, Ukb: 12}
+    ratings: {UkeMax: 30, UkbMax: 35, UbeMax: 3, IkMax: 300, IbMax: 50, PkMax: 3000, tempMin: -60, tempMax: 125}
