@@ -98,7 +98,7 @@
 | `pulse_duration` | длительность импульса | мкс |
 | `temp` | температура среды (может быть отрицательной) | °C |
 
-Пространства имён параметров и условий независимы: код `Unom` — и параметр (§6.8), и условие (нормирование `Iut`); в файле наполнения они не конфликтуют — параметр выбирается ключом `parameter`, условия задаются соседними ключами внутри значения (§12).
+Пространства имён параметров и условий независимы: код `Unom` — и параметр (§6.8), и условие (нормирование `Iut`); в файле наполнения они не конфликтуют — параметр выбирается ключом `parameter`, условия задаются соседними ключами внутри значения (`06-examples.md`).
 
 Импульсные предельные значения связываются с длительностью не отдельным правилом, а **обязательным условием** `pulse_duration` у соответствующих параметров.
 
@@ -202,82 +202,4 @@
 - каждый набор условий непуст (`required` ≥ 1) либо у параметра нет наборов (безусловный);
 - коды параметров глобально уникальны; `value_ceiling` положителен; `sort_order` ≥ 0.
 
-## 12. Примеры записи наполнения
-
-Форма секций групп параметров **едина для всех групп** (`parameters`, `ratings`, `dimensions`) — список объектов `{ "parameter": <код>, значение, условия }`; значение — `value` (exact) | `min`/`max` | `text` (text/enum). Условия — соседние ключи по `jsonc_key` условия.
-
-```jsonc
-{
-  "transistors": [
-    {
-      "name": "КТ315Б",
-      "attributes": {
-        "structure": "npn", "package": "КТ-13", "tu": "ЖК3.365.200ТУ",
-        "yearFrom": 1967, "yearTo": 1992,
-        "manufacturers": ["Восход", "Терма"]
-      },
-      "parameters": [
-        { "parameter": "h21e",  "min": 50, "max": 350, "Uke": 10, "Ik": 1 },
-        { "parameter": "Ikbo",  "max": 0.5, "Ukb": 10, "temp": 25 }
-      ],
-      "ratings": [
-        { "parameter": "UkeoMax", "value": 20 },
-        { "parameter": "TempMin", "value": -60 },
-        { "parameter": "TempMax", "value": 100 }
-      ],
-      "analogs": ["BC547"]
-    }
-  ],
-
-  "capacitors": [
-    // Электролитический: данные типа в целом + матрица исполнений «ёмкость × напряжение»
-    {
-      "name": "К50-35",
-      "attributes": { "polarized": true, "tu": "ОЖ0.464.036ТУ", "yearFrom": 1980 },
-      "parameters": [                       // тип в целом (variant_id NULL)
-        { "parameter": "Dop", "max": 20 },
-        { "parameter": "Tgd", "max": 0.15, "temp": 20 }
-      ],
-      "variants": [
-        {
-          "label": "160 В",
-          "parameters": [                   // характеристики исполнения; ёмкость — в пФ
-            { "parameter": "Unom", "value": 160 },
-            { "parameter": "Cnom", "min": 1000000, "max": 10000000 }   // 1–10 мкФ — только на 160 В
-          ],
-          "dimensions": [ { "parameter": "diameter", "value": 8 },
-                          { "parameter": "leadLength", "value": 12 },
-                          { "parameter": "massMax", "value": 1.5 } ]
-        },
-        {
-          "label": "25 В",
-          "parameters": [
-            { "parameter": "Unom", "value": 25 },
-            { "parameter": "Cnom", "min": 47000000, "max": 4700000000 }   // 47–4700 мкФ
-          ],
-          "dimensions": [ { "parameter": "diameter", "value": 10 },
-                          { "parameter": "leadLength", "value": 16 },
-                          { "parameter": "massMax", "value": 3 } ]
-        }
-      ]
-    },
-
-    // Керамический: варианты не нужны, габариты постоянны для типа
-    {
-      "name": "К10-17Б",
-      "attributes": { "package": "монолитный", "tu": "ОЖ0.464.036ТУ", "yearFrom": 1980 },
-      "parameters": [
-        { "parameter": "Cnom", "min": 22, "max": 1000000 },        // 22 пФ – 1 мкФ
-        { "parameter": "TKE", "text": "Н30" },
-        { "parameter": "Unom", "value": 25 }
-      ],
-      "dimensions": [ { "parameter": "massMax", "value": 1 },
-                      { "parameter": "length", "value": 6 },
-                      { "parameter": "width", "value": 4 },
-                      { "parameter": "height", "value": 5 } ]
-    }
-  ]
-}
-```
-
-Семантика секций: отсутствует/`null` — не менять; задана — заменить целиком; `[]`/`{}` — очистить; ошибка в любом значении секции (включая любой вариант) — запись не применяется вовсе; `manufacturers` внутри `attributes` — `null` «не менять список». Секция `variants` заменяет набор исполнений целиком вместе с их значениями; секция `analogs` заменяет список аналогов целиком (как `manufacturers`). Ключ `system` необязателен (по умолчанию — автодетект) и обязателен для `other`.
+Примеры записи наполнения — `06-examples.md`.
