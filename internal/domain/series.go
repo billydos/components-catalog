@@ -186,6 +186,35 @@ func parseSeries(canonical string, kindHint Kind) (ParsedDesignation, error) {
 	if !ok {
 		return ParsedDesignation{}, seriesUnknownFamily(canonical, kindHint)
 	}
+	return parseSeriesFamily(canonical, &family, kindHint)
+}
+
+// ParseSeriesWithRegistry разбирает обозначение системы series над внешним
+// реестром семейств — данными каталога (series_families расширяем без правки
+// кода): стартовый реестр домена синхронизирован с сидами пин-тестом, каталог
+// может быть расширен импортом. Сопоставление — по самому длинному префиксу
+// (как у стартового реестра); грамматика хвоста — единая. Каноническая строка
+// передаётся уже канонизированной (Canonicalize).
+func ParseSeriesWithRegistry(canonical string, registry []SeriesFamily, kindHint Kind) (ParsedDesignation, error) {
+	var best *SeriesFamily
+	bestLen := 0
+	for i := range registry {
+		f := &registry[i]
+		if !strings.HasPrefix(canonical, f.Series) {
+			continue
+		}
+		if n := utf8.RuneCountInString(f.Series); n > bestLen {
+			best, bestLen = f, n
+		}
+	}
+	if best == nil {
+		return ParsedDesignation{}, seriesUnknownFamily(canonical, kindHint)
+	}
+	return parseSeriesFamily(canonical, best, kindHint)
+}
+
+// parseSeriesFamily разбирает хвост обозначения в опознанном семействе.
+func parseSeriesFamily(canonical string, family *SeriesFamily, kindHint Kind) (ParsedDesignation, error) {
 	if kindHint != "" && family.Kind != kindHint {
 		return ParsedDesignation{}, kindMismatch(canonical, family.Kind, kindHint)
 	}
