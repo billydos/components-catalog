@@ -19,9 +19,11 @@ const (
 	CodeDesignationMismatch    Code = "designation_mismatch"
 	CodeInvalidDesignation     Code = "invalid_designation"
 	CodeInvalidImportFile      Code = "invalid_import_file"
+	CodeKindAmbiguous          Code = "kind_ambiguous"
 	CodeKindNotSupported       Code = "kind_not_supported"
 	CodeNotFound               Code = "not_found"
 	CodeParameterNotApplicable Code = "parameter_not_applicable"
+	CodePowerSuffix            Code = "power_suffix_not_supported"
 	CodeSchemaVersionMismatch  Code = "schema_version_mismatch"
 	CodeUnknownParameter       Code = "unknown_parameter"
 	CodeValidationFailed       Code = "validation_failed"
@@ -34,9 +36,11 @@ var codeRegistry = map[Code]struct{}{
 	CodeDesignationMismatch:    {},
 	CodeInvalidDesignation:     {},
 	CodeInvalidImportFile:      {},
+	CodeKindAmbiguous:          {},
 	CodeKindNotSupported:       {},
 	CodeNotFound:               {},
 	CodeParameterNotApplicable: {},
+	CodePowerSuffix:            {},
 	CodeSchemaVersionMismatch:  {},
 	CodeUnknownParameter:       {},
 	CodeValidationFailed:       {},
@@ -92,6 +96,7 @@ const (
 	msgSchemaVersionMismatch  = "база данных создана другой версией модуля (%d ≠ %d); пересоздайте её: удалите файл/базу и выполните import"
 	msgDatabaseNotInitialized = "база данных не инициализирована или не является базой модуля; выполните init (CLI) или EnsureCreated"
 	msgKindNotSupported       = "обозначение принадлежит классу, не поддерживаемому модулем"
+	msgKindAmbiguous          = "класс прибора не определяется по обозначению однозначно; укажите класс явно"
 )
 
 // SchemaVersionMismatch — версия схемы базы (dbVersion) не совпадает
@@ -113,4 +118,11 @@ func DatabaseNotInitialized() *Error {
 // не поддерживаемому модулем.
 func KindNotSupported() *Error {
 	return &Error{Code: CodeKindNotSupported, Message: msgKindNotSupported}
+}
+
+// KindAmbiguous — класс не определяется по обозначению однозначно
+// (фотоприборы: фотодиоды и фототранзисторы) — требуется явное указание
+// класса (ключ kind / --kind), которое переопределяет автодетект.
+func KindAmbiguous() *Error {
+	return &Error{Code: CodeKindAmbiguous, Message: msgKindAmbiguous}
 }

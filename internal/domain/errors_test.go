@@ -20,9 +20,11 @@ func TestKnownCodes(t *testing.T) {
 		"designation_mismatch",
 		"invalid_designation",
 		"invalid_import_file",
+		"kind_ambiguous",
 		"kind_not_supported",
 		"not_found",
 		"parameter_not_applicable",
+		"power_suffix_not_supported",
 		"schema_version_mismatch",
 		"unknown_parameter",
 		"validation_failed",
@@ -70,6 +72,11 @@ func TestContractMessages(t *testing.T) {
 			"kind_not_supported",
 			domain.KindNotSupported(),
 			"обозначение принадлежит классу, не поддерживаемому модулем",
+		},
+		{
+			"kind_ambiguous",
+			domain.KindAmbiguous(),
+			"класс прибора не определяется по обозначению однозначно; укажите класс явно",
 		},
 	}
 	for _, tc := range cases {
