@@ -2,9 +2,9 @@
 
 Примеры иллюстрируют форму записи наполнения по каталогам `03-data-model.md` (классы, системы обозначений, параметры, атрибуты, варианты, аналоги); корневая структура файлов наполнения и форматы (jsonc/yaml/ndjson) — `04-module-functionality.md`.
 
-Форма секций групп параметров **едина для всех групп** (`parameters`, `ratings`, `dimensions`) — список объектов `{ "parameter": <код>, значение, условия }`; значение — `value` (exact) | `min`/`max` | `text` (text/enum). Условия — соседние ключи по `jsonc_key` условия.
+Форма секций групп параметров **едина для всех групп** (`parameters`, `ratings`, `dimensions`) — список объектов `{ "parameter": <код>, значение, условия }`; значение — `value` (exact) | `min`/`max` | `text` (text/enum). Условия — соседние ключи по коду условия.
 
-Примеры разбиты по классам — один блок кода соответствует секции одного класса в файле наполнения. Внутри блока записи сгруппированы по системам обозначений, **по три записи на систему**. Записи минимальны: они демонстрируют форму записи и отличия систем обозначений, а не полноту данных типа; поля разбора (материал, подкласс, семейство) в файле не задаются — их даёт разбор обозначения. Ключ `system` проставлен каждой записи явно — чтобы система читалась из самой записи, без комментариев; в рабочем наполнении он нужен только для `other` (автодетекта нет) и при неоднозначности автодетекта, в остальных случаях систему определяет автодетект (формы `gost`/`ost` у резисторов не пересекаются — `С`/`СП` против `Р`/`РП`). Аналоги в примерах ссылаются только на записи своего блока. Предметные атрибуции примеров выверены — `07-r1-verification.md`.
+Примеры разбиты по классам — один блок кода соответствует секции одного класса в файле наполнения. Внутри блока записи сгруппированы по системам обозначений, **по три записи на систему**. Записи минимальны: они демонстрируют форму записи и отличия систем обозначений, а не полноту данных типа; поля разбора (материал, подкласс, семейство) в файле не задаются — их даёт разбор обозначения. Ключ `system` проставлен каждой записи явно — чтобы система читалась из самой записи, без комментариев; в рабочем наполнении он нужен только для `other` (автодетекта нет) и при неоднозначности автодетекта, в остальных случаях систему определяет автодетект (формы `gost`/`ost` у резисторов не пересекаются — `С`/`СП` против `Р`/`РП`). Аналоги в примерах ссылаются только на записи своего блока; ссылки направленные (`03-data-model.md` §8): секция `analogs` записи задаёт её исходящие ссылки (встречные отображаются на карточке получателя). Предметные атрибуции примеров выверены — `07-r1-verification.md`.
 
 ## 1. Транзисторы
 
@@ -17,9 +17,9 @@
       "system": "gost",
       "attributes": {
         "structure": "npn", "package": "КТ-13", "tu": "ЖК3.365.200ТУ",
-        "yearFrom": 1967, "yearTo": 1992,
-        "manufacturers": ["Восход", "Терма"]
+        "yearFrom": 1967, "yearTo": 1992
       },
+      "manufacturers": ["Восход", "Терма"],
       "parameters": [
         { "parameter": "h21e",  "min": 50, "max": 350, "Uke": 10, "Ik": 1 },
         { "parameter": "Ikbo",  "max": 0.5, "Ukb": 10, "temp": 25 }
@@ -88,12 +88,13 @@
       ]
     },
     {
-      "name": "BF245",                      // полевой: параметры полевых (ток стока, отсечка) — вне стартового каталога `03-data-model.md` §6.1
+      "name": "BF245",                      // полевой: электрические параметры полевых (ток стока, отсечка) — вне стартового каталога
+                                           // `03-data-model.md` §6.1; предельные для полевых — UsiMax/IsiMax (§6.2)
       "system": "pro",
       "attributes": { "structure": "n-канал" },
       "ratings": [
-        { "parameter": "UkeoMax", "value": 30 },
-        { "parameter": "IkMax", "value": 25 },
+        { "parameter": "UsiMax", "value": 30 },
+        { "parameter": "IsiMax", "value": 25 },
         { "parameter": "PkMax", "value": 300 }
       ]
     },
@@ -115,9 +116,9 @@
       "name": "2N3055",
       "system": "jedec",
       "attributes": {
-        "structure": "npn", "category": "низкочастотный мощный", "package": "TO-3",
-        "manufacturers": ["Motorola", "RCA", "ST"]
+        "structure": "npn", "category": "низкочастотный мощный", "package": "TO-3"
       },
+      "manufacturers": ["Motorola", "RCA", "ST"],
       "parameters": [ { "parameter": "h21e", "min": 20, "max": 70, "Uke": 4, "Ik": 4000 } ],
       "ratings": [
         { "parameter": "UkeoMax", "value": 60 },
@@ -163,8 +164,8 @@
       "system": "jis",
       "attributes": { "structure": "n-канал", "package": "TO-3P" },
       "ratings": [
-        { "parameter": "UkeoMax", "value": 160 },
-        { "parameter": "IkMax", "value": 7000 },
+        { "parameter": "UsiMax", "value": 160 },
+        { "parameter": "IsiMax", "value": 7000 },
         { "parameter": "PkMax", "value": 100000 }
       ]
     },
@@ -227,8 +228,8 @@
       "system": "other",
       "attributes": { "structure": "n-канал", "category": "МОП мощный", "package": "TO-220" },
       "ratings": [
-        { "parameter": "UkeoMax", "value": 100 },
-        { "parameter": "IkMax", "value": 28000 },
+        { "parameter": "UsiMax", "value": 100 },
+        { "parameter": "IsiMax", "value": 28000 },
         { "parameter": "PkMax", "value": 150000 }
       ]
     },
@@ -689,8 +690,8 @@
         { "parameter": "Unom", "value": 250 },
         { "parameter": "Tgd", "max": 1 },
         { "parameter": "Riz", "min": 10000000000 },
-        { "parameter": "tempMin", "value": -60 },
-        { "parameter": "tempMax", "value": 70 }
+        { "parameter": "opTempMin", "value": -60 },
+        { "parameter": "opTempMax", "value": 70 }
       ]
     },
 
@@ -704,8 +705,8 @@
         { "parameter": "Unom", "value": 500 },
         { "parameter": "Tgd", "max": 0.1 },
         { "parameter": "Riz", "min": 10000000000 },
-        { "parameter": "tempMin", "value": -60 },
-        { "parameter": "tempMax", "value": 70 }
+        { "parameter": "opTempMin", "value": -60 },
+        { "parameter": "opTempMax", "value": 70 }
       ]
     },
     {
@@ -716,8 +717,8 @@
         { "parameter": "Dop", "max": 10 },
         { "parameter": "Unom", "value": 250 },
         { "parameter": "Tgd", "max": 1 },
-        { "parameter": "tempMin", "value": -60 },
-        { "parameter": "tempMax", "value": 70 }
+        { "parameter": "opTempMin", "value": -60 },
+        { "parameter": "opTempMax", "value": 70 }
       ],
       "analogs": ["К42-19"]
     },
@@ -729,8 +730,8 @@
         { "parameter": "Dop", "max": 10 },
         { "parameter": "Unom", "value": 500 },
         { "parameter": "Tgd", "max": 1 },
-        { "parameter": "tempMin", "value": -60 },
-        { "parameter": "tempMax", "value": 70 }
+        { "parameter": "opTempMin", "value": -60 },
+        { "parameter": "opTempMax", "value": 70 }
       ]
     },
 
@@ -748,8 +749,8 @@
         { "parameter": "Cnom", "min": 100000, "max": 100000 },     // 0.1 мкФ — единичный номинал кода, границы равны
         { "parameter": "Dop", "max": 10 },
         { "parameter": "Unom", "value": 50 },
-        { "parameter": "tempMin", "value": -55 },
-        { "parameter": "tempMax", "value": 125 }
+        { "parameter": "opTempMin", "value": -55 },
+        { "parameter": "opTempMax", "value": 125 }
       ]
     },
     {
@@ -761,12 +762,12 @@
         { "parameter": "Dop", "max": 10 },
         { "parameter": "Unom", "value": 16 },
         { "parameter": "Iut", "max": 8, "Unom": 16 },
-        { "parameter": "tempMin", "value": -55 },
-        { "parameter": "tempMax", "value": 125 }
+        { "parameter": "opTempMin", "value": -55 },
+        { "parameter": "opTempMax", "value": 125 }
       ]
     }
   ]
 }
 ```
 
-Семантика секций: отсутствует/`null` — не менять; задана — заменить целиком; `[]`/`{}` — очистить; ошибка в любом значении секции (включая любой вариант) — запись не применяется вовсе; `manufacturers` внутри `attributes` — `null` «не менять список». Секция `variants` заменяет набор исполнений целиком вместе с их значениями; секция `analogs` заменяет список аналогов целиком (как `manufacturers`). Ключ `system` необязателен (по умолчанию — автодетект) и обязателен для `other`.
+Семантика секций: отсутствует/`null` — не менять; задана — заменить целиком; `[]`/`{}` — очистить; ошибка в любом значении секции (включая любой вариант) — запись не применяется вовсе. `manufacturers` — отдельная секция записи со стандартной семантикой (`null` — не менять список, `[]` — очистить). Секция `variants` заменяет набор исполнений целиком вместе с их значениями; секция `analogs` заменяет целиком исходящие направленные ссылки записи (встречные ссылки других записей не затрагиваются — `03-data-model.md` §8). Ключ `system` необязателен (по умолчанию — автодетект) и обязателен для `other`. Порядок элементов массивов секций — это `sort_order` значений и вариантов.

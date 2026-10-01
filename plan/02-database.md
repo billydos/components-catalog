@@ -48,12 +48,12 @@ units(code TEXT PRIMARY KEY, name TEXT NOT NULL, symbol TEXT NOT NULL)
 
 conditions(code TEXT PRIMARY KEY, name TEXT NOT NULL,
            unit_code TEXT NULL REFERENCES units(code),
-           jsonc_key TEXT NOT NULL,
            allow_negative INTEGER NOT NULL DEFAULT 0)
     -- условия измерения/контекста значения: Uke «напряжение коллектор-эмиттер, В»,
     -- freq «частота, МГц», pulse_duration «длительность импульса, мкс» …
     -- unit_code NULL — безразмерное условие; allow_negative = 1 (temp) — значению
-    -- условия разрешено быть неположительным, по умолчанию условия положительны
+    -- условия разрешено быть неположительным, по умолчанию условия положительны;
+    -- ключ условия в файле наполнения — код (отдельной колонки нет)
 
 parameter_groups(code TEXT PRIMARY KEY, section_name TEXT NOT NULL,
                  display_name TEXT NOT NULL, sort_order INTEGER NOT NULL)
@@ -64,19 +64,26 @@ parameter_groups(code TEXT PRIMARY KEY, section_name TEXT NOT NULL,
     -- display группы на карточке и порядок — данные
 
 parameters(code TEXT PRIMARY KEY,
-           kind_code TEXT NULL REFERENCES kinds(code),      -- NULL = общее для всех классов
            group_code TEXT NOT NULL REFERENCES parameter_groups(code),
            display_name TEXT NOT NULL,
            unit_code TEXT NULL REFERENCES units(code),
            value_type TEXT NOT NULL                          -- exact | at_least | at_most |
-                                                             -- range | text | enum
+                                                              -- range | text | enum
            value_ceiling REAL NULL,                          -- потолок значения (например, %)
            allow_negative INTEGER NOT NULL DEFAULT 0,        -- 1 — значению разрешено быть
-                                                             -- неположительным (температурные
-                                                             -- пределы), по умолчанию > 0
+                                                              -- неположительным (температурные
+                                                              -- пределы), по умолчанию > 0
            validation_rule TEXT NULL REFERENCES validation_rules(code),
-           jsonc_key TEXT NOT NULL,                          -- ключ в файле наполнения
            sort_order INTEGER NOT NULL, is_active INTEGER NOT NULL DEFAULT 1)
+
+parameter_kinds(parameter_code TEXT NOT NULL REFERENCES parameters(code) ON DELETE CASCADE,
+                kind_code TEXT NOT NULL REFERENCES kinds(code) ON DELETE CASCADE,
+                PRIMARY KEY (parameter_code, kind_code))
+    -- применимость параметра к классам (D7): пустой набор = «все классы», включая
+    -- добавленные в будущем; непустой — явный список (Dop: resistor + capacitor);
+    -- значение неприменимого параметра у записи — ошибка валидации
+    -- (parameter_not_applicable); ключ параметра в файле — код (внутри объекта
+    -- значения по ключу "parameter")
 
 parameter_enum_values(parameter_code TEXT NOT NULL REFERENCES parameters(code) ON DELETE CASCADE,
                       value TEXT NOT NULL, PRIMARY KEY (parameter_code, value))
@@ -89,21 +96,32 @@ parameter_condition_sets(parameter_code TEXT NOT NULL REFERENCES parameters(code
 parameter_condition_set_items(parameter_code TEXT NOT NULL, set_no INTEGER NOT NULL,
                               condition_code TEXT NOT NULL REFERENCES conditions(code),
                               mode TEXT NOT NULL,             -- required | optional
+                              fixed_value REAL NULL,          -- условие-константа (Esr:
+                                                              -- freq = 0.1 МГц): при заданном
+                                                              -- значении mode = required,
+                                                              -- значение в файле можно опустить
+                                                              -- либо задать равным fixed_value
                               PRIMARY KEY (parameter_code, set_no, condition_code),
                               FOREIGN KEY (parameter_code, set_no)
                                   REFERENCES parameter_condition_sets(parameter_code, set_no)
                                   ON DELETE CASCADE)
     -- семантика набора: required — обязательны, optional — допустимы, остальные — запрещены
-    -- (допустимые комбинации условий как данные)
+    -- (допустимые комбинации условий как данные); набор может состоять и из одних
+    -- optional (Tgd с опциональной temp); fixed_value допустим только при mode = required
 
 attributes(code TEXT PRIMARY KEY,
-           kind_code TEXT NULL REFERENCES kinds(code),        -- NULL = общее
            display_name TEXT NOT NULL, group TEXT NULL,
            value_type TEXT NOT NULL,                           -- text | bool | int | number | enum
            unit_code TEXT NULL REFERENCES units(code),
            validation_rule TEXT NULL REFERENCES validation_rules(code),
-           jsonc_key TEXT NOT NULL,
            sort_order INTEGER NOT NULL, is_active INTEGER NOT NULL DEFAULT 1)
+
+attribute_kinds(attribute_code TEXT NOT NULL REFERENCES attributes(code) ON DELETE CASCADE,
+                kind_code TEXT NOT NULL REFERENCES kinds(code) ON DELETE CASCADE,
+                PRIMARY KEY (attribute_code, kind_code))
+    -- применимость атрибута к классам (D7): пустой набор = «все классы»,
+    -- непустой — явный список (polarized: capacitor; structure: transistor + diode);
+    -- ключ атрибута в секции attributes файла — код
 
 attribute_enum_values(attribute_code TEXT NOT NULL REFERENCES attributes(code) ON DELETE CASCADE,
                       value TEXT NOT NULL, PRIMARY KEY (attribute_code, value))
@@ -202,11 +220,13 @@ device_analogs(device_id NOT NULL REFERENCES devices(id) ON DELETE CASCADE,
                note TEXT NULL,
                PRIMARY KEY (device_id, analog_device_id),
                CHECK (device_id <> analog_device_id))
-    -- прямые ссылки «аналог/замена» между записями одного класса; одна строка
-    -- на пару (нормализация направления — сервис); несколько аналогов на запись —
-    -- норма (по строке на пару); на карточке отображаются в обе стороны;
-    -- note — характер замены текстом (относится к паре целиком — модель симметрична);
-    -- автоподбор аналогов по характеристикам — вне модуля (бэкэнд-потребитель)
+    -- направленные ссылки-аналоги (D8): device_id — запись-владелец ссылки (секция
+    -- analogs этой записи), analog_device_id — аналог; note — характер замены именно
+    -- в этом направлении (A→B и B→A — две независимые ссылки, могут существовать
+    -- одновременно с разными note); ссылки между записями одного класса; несколько
+    -- исходящих ссылок у записи — норма; карточка показывает исходящие («аналоги»)
+    -- и встречные («кто ссылается») — встречные выбираются индексом по
+    -- analog_device_id; автоподбор аналогов — вне модуля (бэкэнд-потребитель)
 ```
 
 Уникальность значений параметров на уровне БД сознательно не навязывается (дубль «параметр + одинаковые условия» возможен физически, отсекается движком валидации при записи через сервисы; прямой доступ к БД — вне контракта).
@@ -220,7 +240,8 @@ device_analogs(device_id NOT NULL REFERENCES devices(id) ON DELETE CASCADE,
 | `device_designation_fields (field, text_value)`, `(field, num_value)` | фильтры списка: материал, подкласс, серия, группа, номер… |
 | `device_attribute_values (attribute_code, text_value)`, `(attribute_code, num_value)` | фильтры по атрибутам |
 | `parameter_values (parameter_code, value_min)`, `(parameter_code, value_max)` | фильтры-диапазоны по параметрам (например, h21e ≥ 50) |
-| `parameter_values (parameter_code, value_exact)` | фильтры-равенства по точным значениям (например, `Unom = 25`, `TKE = М47`) |
+| `parameter_values (parameter_code, value_exact)` | фильтры-равенства по точным значениям (например, `Unom = 25`) |
+| `parameter_values (parameter_code, value_text)` | фильтры-равенства по enum/текстовым значениям (например, `TKE = М47`) |
 | `parameter_values (device_id)` | карточка устройства |
 | `parameter_values (variant_id)` | группировка значений по исполнению (карточка-матрица, вариантные фильтры) |
 | `device_variants (device_id)` | сборка карточки: исполнения записи |
@@ -233,7 +254,7 @@ device_analogs(device_id NOT NULL REFERENCES devices(id) ON DELETE CASCADE,
 
 | Элемент | SQLite (modernc.org/sqlite) | PostgreSQL (pgx/v5 stdlib) |
 |---------|------------------------------|-----------------------------|
-| Соединение | файл, `PRAGMA foreign_keys = ON`, режим WAL + `busy_timeout`, `SetMaxOpenConns(1)` на процесс | DSN, пул (`MaxOpen/MaxIdle/ConnMaxLifetime` из конфигурации) |
+| Соединение | файл; пул чтения (несколько соединений, размер из конфигурации) + одно выделенное соединение записи; на каждом соединении `PRAGMA foreign_keys = ON`, WAL, `busy_timeout`; весь DML — только в транзакциях соединения записи, вне транзакций — только SELECT из пула чтения | DSN, единый пул (`MaxOpen/MaxIdle/ConnMaxLifetime` из конфигурации) |
 | PK с автогенерацией | `INTEGER PRIMARY KEY AUTOINCREMENT` | `INTEGER GENERATED BY DEFAULT AS IDENTITY` |
 | id после вставки | `last_insert_rowid()` после вставки в том же соединении | `INSERT … RETURNING id` |
 | Именованные параметры | `@имя` (native) | `@имя` через pgx stdlib (native) |
@@ -243,17 +264,17 @@ device_analogs(device_id NOT NULL REFERENCES devices(id) ON DELETE CASCADE,
 
 ## 5. Версия схемы и сидирование (без миграций)
 
-1. `EnsureCreated` выполняет полный DDL и записывает `schema_version = N` (N — константа модуля, инкрементируется при любом изменении DDL) и `catalog_revision = 1`, `data_revision = 1`.
-2. Если база уже существует: читается `schema_version`; несовпадение — `*domain.Error{Code: schema_version_mismatch}` с текстом «база данных создана другой версией модуля (N ≠ M); пересоздайте её: удалите файл/базу и выполните import». Продолжение работы запрещено — тихая порча данных исключена. Отсутствие таблицы `schema_meta` (файл другой программы, повреждённая база) трактуется так же.
+1. `EnsureCreated` выполняет полный DDL (`CREATE … IF NOT EXISTS`) и записывает `schema_version = N` (N — константа модуля, инкрементируется при любом изменении DDL) и `catalog_revision = 1`, `data_revision = 1`; вставка версии — `INSERT … SELECT … WHERE NOT EXISTS`, конфликт PK при конкурентном создании трактуется как проигранная гонка с перечитыванием версии.
+2. Если база уже существует: читается `schema_version`; несовпадение — `*domain.Error{Code: schema_version_mismatch}` с текстом «база данных создана другой версией модуля (N ≠ M); пересоздайте её: удалите файл/базу и выполните import»; продолжение работы запрещено — тихая порча данных исключена. Отсутствие таблицы `schema_meta` (не инициализированная база, файл другой программы, повреждённая база) — отдельный код `database_not_initialized` с текстом «база данных не инициализирована или не является базой модуля; выполните init (CLI) или EnsureCreated».
 3. **Сиды каталога** (`seed/`, формат — та же секция `catalog` файла наполнения): единицы, условия, группы, именованные правила, системы обозначений и применимость к классам, реестры семейств (`series_families`), стартовые каталоги параметров/атрибутов четырёх классов (`03-data-model.md`). Применяются при `EnsureCreated` на пустую базу; содержимое каталога — данные, поэтому его эволюция не требует изменения `schema_version` (новый параметр/семейство — строки).
-4. Каталог может расширяться файлом наполнения (секция `catalog`) или экспортироваться целиком (`catalog export`) — round-trip идемпотентен; валидация метасхемы при импорте (единицы/условия/enum существуют, наборы условий корректны, правила известны).
-5. Изменение `catalog_revision`/`data_revision` — атомарным инкрементом (`UPDATE … SET value = value + 1`) в тех же транзакциях, что меняют каталог/устройства (корректно при конкурентных записях); REST отдаёт их в `ETag`.
+4. Каталог может расширяться файлом наполнения (секция `catalog`) или экспортироваться целиком (`catalog export`); импорт каталога — **upsert по коду**: вставка новой строки либо обновление полей существующей (enum-значения, наборы условий и применимость `parameter_kinds`/`attribute_kinds` замещаются целиком); удаление строк каталога файлом не поддерживается — только деактивация (`is_active = 0`); round-trip идемпотентен (экспорт включает все строки, включая сиды); валидация метасхемы при импорте (единицы/условия/enum существуют, наборы условий корректны, правила известны).
+5. Изменение `catalog_revision`/`data_revision` — атомарным инкрементом (`UPDATE … SET value = value + 1`) по одному разу в каждой транзакции, меняющей каталог/устройства (корректно при конкурентных записях; upsert с исходом `Skipped` ничего не меняет и не инкрементирует); REST отдаёт их в `ETag`.
 
 ## 6. Жизненный цикл записи
 
-- `Upsert` — транзакция: разбор обозначения (класс + система + канонизация) → вставка устройства «если нет» (`INSERT … SELECT … WHERE NOT EXISTS`) либо поиск по `(kind, designation)`; затем секции: атрибуты — REPLACE-семантика по строкам, параметры группы — delete+insert значений с условиями, секция `variants` — полная замена исполнений вместе с их значениями, производители — полная замена связей + чистка сирот `manufacturers` (NOT IN по `device_manufacturers`), аналоги — полная замена ссылок (разрешение обозначений в пределах класса, нормализация пары); ни одна секция не применяется частично при ошибке в любой (защита от частичного стирания).
+- `Upsert` — транзакция: разбор обозначения (класс + система + канонизация) → вставка устройства «если нет» (`INSERT … SELECT … WHERE NOT EXISTS`) либо поиск по `(kind, designation)`; строится слитое состояние записи (вход + текущие секции по правилам слияния) и канонически сравнивается с текущим — совпадение даёт исход `Skipped` без записи в БД и без инкремента ревизий; иначе применяются секции: атрибуты — REPLACE-семантика по строкам, параметры группы — delete+insert значений с условиями, секция `variants` — полная замена исполнений вместе с их значениями, производители (секция `manufacturers`) — полная замена связей + чистка сирот `manufacturers` (NOT IN по `device_manufacturers`), аналоги — полная замена исходящих ссылок (разрешение обозначений в пределах класса; встречные ссылки других записей не затрагиваются — D8); ни одна секция не применяется частично при ошибке в любой (защита от частичного стирания).
 - `Delete` — каскад из `devices` (FK ON DELETE CASCADE, включая обе стороны `device_analogs`) + чистка сирот производителей.
-- `Get/Card` — устройство + система + поля обозначения + атрибуты + значения параметров с условиями + аналоги + производители; сборка группами каталога.
+- `Get/Card` — устройство + система + поля обозначения + атрибуты + значения параметров с условиями + аналоги (исходящие и встречные) + производители; сборка группами каталога.
 
 ## 7. Совместимость данных и форматов
 
