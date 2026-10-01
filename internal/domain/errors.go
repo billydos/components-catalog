@@ -25,6 +25,8 @@ const (
 	CodeParameterNotApplicable Code = "parameter_not_applicable"
 	CodePowerSuffix            Code = "power_suffix_not_supported"
 	CodeSchemaVersionMismatch  Code = "schema_version_mismatch"
+	CodeUnknownAttribute       Code = "unknown_attribute"
+	CodeUnknownCondition       Code = "unknown_condition"
 	CodeUnknownParameter       Code = "unknown_parameter"
 	CodeValidationFailed       Code = "validation_failed"
 )
@@ -42,6 +44,8 @@ var codeRegistry = map[Code]struct{}{
 	CodeParameterNotApplicable: {},
 	CodePowerSuffix:            {},
 	CodeSchemaVersionMismatch:  {},
+	CodeUnknownAttribute:       {},
+	CodeUnknownCondition:       {},
 	CodeUnknownParameter:       {},
 	CodeValidationFailed:       {},
 }

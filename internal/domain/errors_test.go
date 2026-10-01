@@ -26,6 +26,8 @@ func TestKnownCodes(t *testing.T) {
 		"parameter_not_applicable",
 		"power_suffix_not_supported",
 		"schema_version_mismatch",
+		"unknown_attribute",
+		"unknown_condition",
 		"unknown_parameter",
 		"validation_failed",
 	}
