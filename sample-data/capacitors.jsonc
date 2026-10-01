@@ -1,0 +1,137 @@
+{
+  // Конденсаторы: правдоподобные непроверенные значения (план работ 4.5,
+  // форма записей — plan/06-examples.md §4). Ёмкость — в пФ.
+  "capacitors": [
+    // gost (единая система, действующая кодификация — ГОСТ Р 57440-2017)
+    {
+      "name": "К50-35",                     // электролитический: данные типа + матрица исполнений
+      "system": "gost",
+      "attributes": { "polarized": true, "tu": "ОЖ0.464.036ТУ", "yearFrom": 1980 },
+      "parameters": [                       // тип в целом (variant_id NULL)
+        { "parameter": "Dop", "max": 20 },
+        { "parameter": "Tgd", "max": 0.15, "temp": 20 }
+      ],
+      "variants": [
+        {
+          "label": "160 В",
+          "parameters": [
+            { "parameter": "Unom", "value": 160 },
+            { "parameter": "Cnom", "min": 1000000, "max": 10000000 }   // 1–10 мкФ — только на 160 В
+          ],
+          "dimensions": [ { "parameter": "diameter", "value": 8 },
+                          { "parameter": "leadLength", "value": 12 },
+                          { "parameter": "massMax", "value": 1.5 } ]
+        },
+        {
+          "label": "25 В",
+          "parameters": [
+            { "parameter": "Unom", "value": 25 },
+            { "parameter": "Cnom", "min": 47000000, "max": 4700000000 }   // 47–4700 мкФ
+          ],
+          "dimensions": [ { "parameter": "diameter", "value": 10 },
+                          { "parameter": "leadLength", "value": 16 },
+                          { "parameter": "massMax", "value": 3 } ]
+        }
+      ]
+    },
+    {
+      "name": "К10-17Б",                    // керамический: габариты постоянны для типа
+      "system": "gost",
+      "attributes": { "package": "монолитный", "tu": "ОЖ0.464.036ТУ", "yearFrom": 1980 },
+      "parameters": [
+        { "parameter": "Cnom", "min": 22, "max": 1000000 },        // 22 пФ – 1 мкФ
+        { "parameter": "TKE", "text": "Н30" },
+        { "parameter": "Unom", "value": 25 }
+      ],
+      "dimensions": [ { "parameter": "massMax", "value": 1 },
+                      { "parameter": "length", "value": 6 },
+                      { "parameter": "width", "value": 4 },
+                      { "parameter": "height", "value": 5 } ]
+    },
+    {
+      "name": "К42-19",
+      "system": "gost",
+      "parameters": [
+        { "parameter": "Cnom", "min": 10000, "max": 1000000 },     // 0.01–1 мкФ
+        { "parameter": "Dop", "max": 10 },
+        { "parameter": "Unom", "value": 250 },
+        { "parameter": "Tgd", "max": 1 },
+        { "parameter": "Riz", "min": 10000000000 },
+        { "parameter": "opTempMin", "value": -60 },
+        { "parameter": "opTempMax", "value": 70 }
+      ]
+    },
+
+    // series: слюдяные и металлобумажные семейства
+    {
+      "name": "КСО-2",
+      "system": "series",
+      "parameters": [
+        { "parameter": "Cnom", "min": 51, "max": 3300 },
+        { "parameter": "Dop", "max": 10 },
+        { "parameter": "Unom", "value": 500 },
+        { "parameter": "Tgd", "max": 0.1 },
+        { "parameter": "Riz", "min": 10000000000 },
+        { "parameter": "opTempMin", "value": -60 },
+        { "parameter": "opTempMax", "value": 70 }
+      ]
+    },
+    {
+      "name": "МБМ",
+      "system": "series",
+      "parameters": [
+        { "parameter": "Cnom", "min": 47000, "max": 470000 },      // 0.047–0.47 мкФ
+        { "parameter": "Dop", "max": 10 },
+        { "parameter": "Unom", "value": 250 },
+        { "parameter": "Tgd", "max": 1 },
+        { "parameter": "opTempMin", "value": -60 },
+        { "parameter": "opTempMax", "value": 70 }
+      ],
+      "analogs": ["К42-19"]
+    },
+    {
+      "name": "МБГЧ-1",
+      "system": "series",
+      "parameters": [
+        { "parameter": "Cnom", "min": 100000, "max": 1000000 },    // 0.1–1 мкФ
+        { "parameter": "Dop", "max": 10 },
+        { "parameter": "Unom", "value": 500 },
+        { "parameter": "Tgd", "max": 1 },
+        { "parameter": "opTempMin", "value": -60 },
+        { "parameter": "opTempMax", "value": 70 }
+      ]
+    },
+
+    // other: полные заказные коды производителей и MIL-форма; ключ system обязателен
+    {
+      "name": "M39003/01-6045",             // MIL-PRF-39003 (танталовые); /01 — лист-спецификация
+      "system": "other",
+      "attributes": { "polarized": true, "militaryGrade": true }
+    },
+    {
+      "name": "GRM188R71H104KA93D",
+      "system": "other",
+      "attributes": { "technology": "керамика X7R", "package": "0603" },
+      "parameters": [
+        { "parameter": "Cnom", "min": 100000, "max": 100000 },     // 0.1 мкФ — единичный номинал кода
+        { "parameter": "Dop", "max": 10 },
+        { "parameter": "Unom", "value": 50 },
+        { "parameter": "opTempMin", "value": -55 },
+        { "parameter": "opTempMax", "value": 125 }
+      ]
+    },
+    {
+      "name": "T491B476K016AT",
+      "system": "other",
+      "attributes": { "polarized": true, "technology": "танталовые", "package": "B" },
+      "parameters": [
+        { "parameter": "Cnom", "min": 47000000, "max": 47000000 }, // 47 мкФ
+        { "parameter": "Dop", "max": 10 },
+        { "parameter": "Unom", "value": 16 },
+        { "parameter": "Iut", "max": 8, "Unom": 16 },
+        { "parameter": "opTempMin", "value": -55 },
+        { "parameter": "opTempMax", "value": 125 }
+      ]
+    }
+  ]
+}

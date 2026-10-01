@@ -204,7 +204,7 @@
       "name": "TIP120",
       "system": "series",
       "attributes": { "structure": "npn", "category": "составной", "package": "TO-220" },
-      "parameters": [ { "parameter": "h21e", "min": 1000, "Uke": 3, "Ik": 3000 } ],
+      "parameters": [ { "parameter": "h21e", "min": 1000, "max": 20000, "Uke": 3, "Ik": 3000 } ],
       "ratings": [
         { "parameter": "UkeoMax", "value": 60 },
         { "parameter": "IkMax", "value": 5000 },
@@ -339,7 +339,6 @@
       "parameters": [
         { "parameter": "Upr", "max": 1, "Ipr": 10 },
         { "parameter": "trr", "max": 4, "Ipr": 10 },
-        { "parameter": "Cn", "max": 4, "Uobr": 0 },
         { "parameter": "Iobr", "max": 0.025, "Uobr": 20 }
       ],
       "ratings": [

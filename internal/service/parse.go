@@ -22,6 +22,14 @@ func (s *DesignationService) Parse(ctx context.Context, text string) (domain.Par
 	return s.parse(ctx, text, "", "")
 }
 
+// ParseForSystem разбирает обозначение с явной системой и необязательным
+// классом (переопределяют автодетект; класс обязателен для other) над
+// расширенным реестром семейств каталога — CLI parse --system/--kind.
+func (s *DesignationService) ParseForSystem(ctx context.Context, text string,
+	system domain.System, kind domain.Kind) (domain.ParsedDesignation, error) {
+	return s.parse(ctx, text, system, kind)
+}
+
 // parse — разбор с необязательными явными системой и классом
 // (переопределяют автодетект; класс обязателен для other).
 func (s *DesignationService) parse(ctx context.Context, text string, system domain.System, kind domain.Kind) (domain.ParsedDesignation, error) {

@@ -1,0 +1,312 @@
+package cli_test
+
+import (
+	"bytes"
+	"os"
+	"path/filepath"
+	"strings"
+	"testing"
+
+	"github.com/billydos/components-catalog/internal/cli"
+)
+
+// Сценарные прогоны CLI (этап 4): полный контур команд на временной базе
+// sqlite, префиксы ошибок и коды выхода, справка, round-trip экспорта.
+
+func run(t *testing.T, args ...string) (string, string, int) {
+	t.Helper()
+	var stdout, stderr bytes.Buffer
+	code := cli.Run(args, &stdout, &stderr)
+	return stdout.String(), stderr.String(), code
+}
+
+func testDB(t *testing.T) string {
+	t.Helper()
+	return filepath.Join(t.TempDir(), "catalog.db")
+}
+
+func sample(t *testing.T, name string) string {
+	t.Helper()
+	path := filepath.Join("..", "..", "sample-data", name)
+	if _, err := os.Stat(path); err != nil {
+		t.Fatalf("sample-data/%s: %v", name, err)
+	}
+	return path
+}
+
+func TestNoArgsPrintsUsage(t *testing.T) {
+	stdout, stderr, code := run(t)
+	if code != 1 || stdout != "" || !strings.Contains(stderr, "Команды:") {
+		t.Fatalf("код %d, stdout %q, stderr %q", code, stdout, stderr)
+	}
+}
+
+func TestUnknownCommand(t *testing.T) {
+	_, stderr, code := run(t, "frobnicate")
+	if code != 1 || !strings.HasPrefix(stderr, "Ошибка: ") {
+		t.Fatalf("код %d, stderr %q", code, stderr)
+	}
+	if stderr != "Ошибка: неизвестная команда «frobnicate»; справка: catalogctl help\n" {
+		t.Fatalf("текст: %q", stderr)
+	}
+}
+
+func TestHelp(t *testing.T) {
+	stdout, _, code := run(t, "help")
+	if code != 0 || !strings.Contains(stdout, "catalog import <файл>") {
+		t.Fatalf("справка: код %d", code)
+	}
+	stdout, _, code = run(t, "help", "import")
+	if code != 0 || !strings.Contains(stdout, "формат: catalogctl import") {
+		t.Fatalf("справка import: код %d, %q", code, stdout)
+	}
+	_, errOut, code := run(t, "help", "frobnicate")
+	if code != 1 || !strings.HasPrefix(errOut, "Ошибка: ") {
+		t.Fatalf("справка об ошибке: код %d, %q", code, errOut)
+	}
+}
+
+func TestParseWithoutDatabase(t *testing.T) {
+	stdout, _, code := run(t, "parse", "КТ315Б")
+	if code != 0 {
+		t.Fatalf("код %d", code)
+	}
+	want := "КТ315Б: транзисторы (transistor), система ГОСТ (gost)\n" +
+		"  материал: кремний\n  подкласс: Т\n  сборка: прибор\n" +
+		"  номер разработки: 315\n  буквы: Б\n"
+	if stdout != want {
+		t.Fatalf("вывод:\n got:  %q\n want: %q", stdout, want)
+	}
+	_, errOut, code := run(t, "parse", "XX42")
+	if code != 1 || !strings.HasPrefix(errOut, "Ошибка: ") {
+		t.Fatalf("разбор ошибки: код %d, %q", code, errOut)
+	}
+}
+
+func TestUnknownFlag(t *testing.T) {
+	_, stderr, code := run(t, "list", "--bogus")
+	if code != 1 || !strings.HasPrefix(stderr, "Ошибка: неизвестный флаг «--bogus»") {
+		t.Fatalf("код %d, stderr %q", code, stderr)
+	}
+}
+
+func TestFullCycle(t *testing.T) {
+	db := testDB(t)
+
+	stdout, stderr, code := run(t, "init", "--db", db)
+	if code != 0 || stderr != "" || !strings.Contains(stdout, "база инициализирована") {
+		t.Fatalf("init: код %d, stdout %q, stderr %q", code, stdout, stderr)
+	}
+
+	stdout, stderr, code = run(t, "import", sample(t, "transistors.jsonc"), "--db", db)
+	if code != 0 || stderr != "" {
+		t.Fatalf("import: код %d, stderr %q", code, stderr)
+	}
+	want := sample(t, "transistors.jsonc") + ": записей: 18, добавлено: 18, обновлено: 0, без изменений: 0\n"
+	if stdout != want {
+		t.Fatalf("итог импорта:\n got:  %q\n want: %q", stdout, want)
+	}
+
+	// Идемпотентность повторного импорта.
+	stdout, _, code = run(t, "import", sample(t, "transistors.jsonc"), "--db", db)
+	if code != 0 || !strings.Contains(stdout, "без изменений: 18") {
+		t.Fatalf("повторный import: код %d, %q", code, stdout)
+	}
+
+	stdout, stderr, code = run(t, "count", "--db", db)
+	if code != 0 || stdout != "18\n" || stderr != "" {
+		t.Fatalf("count: код %d, %q, %q", code, stdout, stderr)
+	}
+
+	stdout, stderr, code = run(t, "list", "--kind", "transistor", "--material", "кремний", "--db", db)
+	if code != 0 || stderr != "" {
+		t.Fatalf("list: код %d, %q", code, stderr)
+	}
+	// tabwriter выравнивает колонки пробелами — проверяем построчно.
+	hasLine := func(parts ...string) bool {
+		for _, line := range strings.Split(strings.TrimRight(stdout, "\n"), "\n") {
+			fields := strings.Fields(line)
+			if len(fields) == 3 {
+				match := true
+				for _, p := range parts {
+					if !strings.Contains(line, p) {
+						match = false
+					}
+				}
+				if match {
+					return true
+				}
+			}
+		}
+		return false
+	}
+	if !hasLine("КТ315Б", "transistor", "gost") || !hasLine("2Т914А-1", "transistor", "gost") {
+		t.Fatalf("list --material кремний: кремниевые записи отсутствуют: %q", stdout)
+	}
+	if hasLine("ГТ109Г") {
+		t.Fatalf("list --material кремний: германиевая запись попала в выборку: %q", stdout)
+	}
+	stdout, stderr, code = run(t, "info", "КТ315Б", "--db", db)
+	if code != 0 || stderr != "" || !strings.Contains(stdout, "КТ315Б — транзисторы") ||
+		!strings.Contains(stdout, "Аналоги: 2SC1815; BC547B") {
+		t.Fatalf("info: код %d, %q, %q", code, stdout, stderr)
+	}
+
+	stdout, stderr, code = run(t, "find", "КТ315Б", "--db", db)
+	if code != 0 || stderr != "" || !strings.Contains(stdout, "КТ315Б — транзисторы") {
+		t.Fatalf("find: код %d, %q, %q", code, stdout, stderr)
+	}
+
+	// find по отсутствующей записи с равнозначной подсказкой (материал).
+	stdout, _, code = run(t, "find", "2Т315Б", "--db", db)
+	if code != 1 || !strings.Contains(stdout, "равнозначная по материалу: КТ315Б") {
+		t.Fatalf("find 2Т315Б: код %d, %q", code, stdout)
+	}
+
+	stdout, stderr, code = run(t, "delete", "КТ315Б", "--dry-run", "--db", db)
+	if code != 0 || stdout != "КТ315Б: будет удалена\n" || stderr != "" {
+		t.Fatalf("delete --dry-run: код %d, %q, %q", code, stdout, stderr)
+	}
+	stdout, _, code = run(t, "count", "--db", db)
+	if code != 0 || stdout != "18\n" {
+		t.Fatalf("dry-run удалил запись: %q", stdout)
+	}
+
+	stdout, stderr, code = run(t, "delete", "КТ315Б", "--db", db)
+	if code != 0 || stdout != "КТ315Б: удалено\n" || stderr != "" {
+		t.Fatalf("delete: код %d, %q, %q", code, stdout, stderr)
+	}
+	stdout, _, code = run(t, "count", "--db", db)
+	if code != 0 || stdout != "17\n" {
+		t.Fatalf("count после удаления: %q", stdout)
+	}
+
+	_, stderr, code = run(t, "info", "КТ315Б", "--db", db)
+	if code != 1 || stderr != "Ошибка: запись «КТ315Б» не найдена\n" {
+		t.Fatalf("info отсутствующей: код %d, %q", code, stderr)
+	}
+}
+
+func TestImportIssuesReportedToStderr(t *testing.T) {
+	db := testDB(t)
+	if _, _, code := run(t, "init", "--db", db); code != 0 {
+		t.Fatalf("init: %d", code)
+	}
+	bad := filepath.Join(t.TempDir(), "bad.jsonc")
+	content := `{"transistors": [
+		{ "name": "МП39", "ratings": [ { "parameter": "UkeoMax", "value": -1 } ] },
+		"ГТ109Г"
+	]}`
+	if err := os.WriteFile(bad, []byte(content), 0o644); err != nil {
+		t.Fatalf("запись: %v", err)
+	}
+	stdout, stderr, code := run(t, "import", bad, "--db", db)
+	if code != 1 {
+		t.Fatalf("код: %d (ожидался 1 при проблемах)", code)
+	}
+	if !strings.Contains(stdout, "записей: 2, добавлено: 1") {
+		t.Fatalf("итог: %q", stdout)
+	}
+	want := "Проблема: запись «МП39»: параметр «UkeoMax»: значение ключа value должно быть положительным\n"
+	if stderr != want {
+		t.Fatalf("stderr:\n got:  %q\n want: %q", stderr, want)
+	}
+}
+
+func TestImportDryRunReportAndNoChanges(t *testing.T) {
+	db := testDB(t)
+	run(t, "init", "--db", db)
+	stdout, stderr, code := run(t, "import", sample(t, "diodes.jsonc"), "--db", db, "--dry-run")
+	if code != 0 || stderr != "" {
+		t.Fatalf("dry-run: код %d, %q", code, stderr)
+	}
+	if !strings.HasPrefix(stdout, "контрольный прогон (без записи в базу): ") ||
+		!strings.Contains(stdout, "добавлено: 18") {
+		t.Fatalf("итог dry-run: %q", stdout)
+	}
+	_, _, code = run(t, "count", "--db", db)
+	stdout2, _, _ := run(t, "count", "--db", db)
+	if code != 0 && stdout2 != "0\n" {
+		t.Fatalf("после dry-run count: %q", stdout2)
+	}
+}
+
+func TestExportRoundTripAllFormats(t *testing.T) {
+	db := testDB(t)
+	run(t, "init", "--db", db)
+	run(t, "import", sample(t, "resistors.jsonc"), "--db", db)
+	for _, format := range []string{"jsonc", "yaml", "ndjson"} {
+		stdout, stderr, code := run(t, "export", "--kind", "resistor", "--format", format, "--db", db)
+		if code != 0 || stderr != "" || !strings.Contains(stdout, "С2-33Н") {
+			t.Fatalf("export %s: код %d, %q, %q", format, code, stdout, stderr)
+		}
+		ext := map[string]string{"jsonc": ".jsonc", "yaml": ".yaml", "ndjson": ".ndjson"}[format]
+		file := filepath.Join(t.TempDir(), "export"+ext)
+		if err := os.WriteFile(file, []byte(stdout), 0o644); err != nil {
+			t.Fatalf("запись: %v", err)
+		}
+		out, stderr, code := run(t, "import", file, "--db", db)
+		if code != 0 || stderr != "" || !strings.Contains(out, "без изменений: 11") {
+			t.Fatalf("round-trip %s: код %d, %q, %q", format, code, out, stderr)
+		}
+	}
+}
+
+func TestCatalogCommands(t *testing.T) {
+	db := testDB(t)
+	run(t, "init", "--db", db)
+
+	stdout, stderr, code := run(t, "catalog", "export", "--db", db)
+	if code != 0 || stderr != "" || !strings.Contains(stdout, "\"catalog\"") {
+		t.Fatalf("catalog export: код %d, %q", code, stdout)
+	}
+	catFile := filepath.Join(t.TempDir(), "catalog.jsonc")
+	if err := os.WriteFile(catFile, []byte(stdout), 0o644); err != nil {
+		t.Fatalf("запись: %v", err)
+	}
+
+	db2 := testDB(t)
+	stdout, stderr, code = run(t, "catalog", "import", catFile, "--db", db2)
+	if code != 0 || stderr != "" || !strings.Contains(stdout, "каталог расширен") {
+		t.Fatalf("catalog import: код %d, %q, %q", code, stdout, stderr)
+	}
+
+	// catalog import отвергает файл с записями классов.
+	_, stderr, code = run(t, "catalog", "import", sample(t, "diodes.jsonc"), "--db", db2)
+	if code != 1 || !strings.Contains(stderr, "Ошибка: ") ||
+		!strings.Contains(stderr, "файл содержит записи классов; catalog import применяется к файлам только с секцией catalog") {
+		t.Fatalf("catalog import записей: код %d, %q", code, stderr)
+	}
+
+	stdout, stderr, code = run(t, "catalog", "list", "--db", db2)
+	if code != 0 || stderr != "" || !strings.Contains(stdout, "Параметры:") ||
+		!strings.Contains(stdout, "h21e —") || !strings.Contains(stdout, "Атрибуты:") {
+		t.Fatalf("catalog list: код %d, %q", code, stdout)
+	}
+}
+
+func TestAddRequiresKindForOther(t *testing.T) {
+	db := testDB(t)
+	run(t, "init", "--db", db)
+	// Обозначение вне строгих систем: обязателен --kind (и --system other —
+	// автодетекта для other нет).
+	_, stderr, code := run(t, "add", "MJE340", "--db", db)
+	if code != 1 || !strings.HasPrefix(stderr, "Ошибка: ") {
+		t.Fatalf("add без --kind (other): код %d, %q", code, stderr)
+	}
+	_, stderr, code = run(t, "add", "MJE340", "--kind", "transistor", "--db", db)
+	if code != 1 || !strings.HasPrefix(stderr, "Ошибка: ") {
+		t.Fatalf("add без --system other: код %d, %q", code, stderr)
+	}
+	stdout, stderr, code := run(t, "add", "MJE340", "--kind", "transistor", "--system", "other", "--db", db)
+	if code != 0 || stderr != "" || stdout != "MJE340: добавлено\n" {
+		t.Fatalf("add с --kind/--system: код %d, %q, %q", code, stdout, stderr)
+	}
+}
+
+func TestLimitFlagValidation(t *testing.T) {
+	_, stderr, code := run(t, "list", "--limit", "много")
+	if code != 1 || !strings.HasPrefix(stderr, "Ошибка: флаг «--limit» требует неотрицательное число") {
+		t.Fatalf("код %d, %q", code, stderr)
+	}
+}

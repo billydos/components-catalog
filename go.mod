@@ -3,7 +3,9 @@ module github.com/billydos/components-catalog
 go 1.26.0
 
 require (
+	github.com/goccy/go-yaml v1.19.2
 	github.com/jackc/pgx/v5 v5.11.0
+	github.com/tailscale/hujson v0.0.0-20260727124030-b80ff77dac4f
 	modernc.org/sqlite v1.60.1
 )
 

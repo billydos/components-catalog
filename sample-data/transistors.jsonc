@@ -1,0 +1,238 @@
+{
+  // Транзисторы: правдоподобные непроверенные значения (план работ 4.5,
+  // форма записей — plan/06-examples.md §1). Порядок систем: gost, pro,
+  // jedec, jis, series, other; по три записи на систему.
+  "transistors": [
+    // gost (ГОСТ 10862-64): материал и подкласс кодируются обозначением
+    {
+      "name": "КТ315Б",
+      "system": "gost",
+      "attributes": {
+        "structure": "npn", "package": "КТ-13", "tu": "ЖК3.365.200ТУ",
+        "yearFrom": 1967, "yearTo": 1992
+      },
+      "manufacturers": ["Восход", "Терма"],
+      "parameters": [
+        { "parameter": "h21e", "min": 50, "max": 350, "Uke": 10, "Ik": 1 },
+        { "parameter": "Ikbo", "max": 0.5, "Ukb": 10, "temp": 25 }
+      ],
+      "ratings": [
+        { "parameter": "UkeoMax", "value": 20 },
+        { "parameter": "TempMin", "value": -60 },
+        { "parameter": "TempMax", "value": 100 }
+      ],
+      "analogs": ["BC547B", "2SC1815"]
+    },
+    {
+      "name": "ГТ109Г",                     // Г — германий, Т — биполярный
+      "system": "gost",
+      "attributes": { "structure": "pnp" },
+      "parameters": [
+        { "parameter": "h21e", "min": 50, "max": 120, "Uke": 5, "Ik": 10 },
+        { "parameter": "Ikbo", "max": 100, "Ukb": 5 }
+      ],
+      "ratings": [
+        { "parameter": "UkeoMax", "value": 15 },
+        { "parameter": "PkMax", "value": 150 },
+        { "parameter": "TempMin", "value": -60 },
+        { "parameter": "TempMax", "value": 70 }
+      ]
+    },
+    {
+      "name": "2Т914А-1",                   // пара «2Т» ≡ «КТ»: записи раздельные; -1 — бескорпусное
+      "system": "gost",
+      "attributes": { "structure": "npn" },
+      "parameters": [ { "parameter": "PVyh", "min": 2, "freq": 400 } ],
+      "ratings": [
+        { "parameter": "UkeoMax", "value": 36 },
+        { "parameter": "PkMax", "value": 5000 },
+        { "parameter": "TempMin", "value": -60 },
+        { "parameter": "TempMax", "value": 100 }
+      ]
+    },
+
+    // pro (PRO ELECTRON): материал и класс прибора — первые две буквы
+    {
+      "name": "BC547B",                     // B — кремний, C — маломощный НЧ; суффикс B — группа по усилению
+      "system": "pro",
+      "attributes": { "structure": "npn", "package": "TO-92" },
+      "parameters": [
+        { "parameter": "h21e", "min": 200, "max": 450, "Uke": 5, "Ik": 2 },
+        { "parameter": "FGran", "min": 300, "Uke": 5, "Ik": 2 }
+      ],
+      "ratings": [
+        { "parameter": "UkeoMax", "value": 45 },
+        { "parameter": "IkMax", "value": 100 },
+        { "parameter": "PkMax", "value": 500 }
+      ]
+    },
+    {
+      "name": "AD161",                      // A — германий, D — мощный НЧ
+      "system": "pro",
+      "attributes": { "structure": "pnp", "package": "TO-66" },
+      "parameters": [ { "parameter": "h21e", "min": 80, "max": 200, "Uke": 2, "Ik": 500 } ],
+      "ratings": [
+        { "parameter": "UkeoMax", "value": 32 },
+        { "parameter": "IkMax", "value": 1000 },
+        { "parameter": "PkMax", "value": 6000 },
+        { "parameter": "TempMin", "value": -40 },
+        { "parameter": "TempMax", "value": 90 }
+      ]
+    },
+    {
+      "name": "BF245",                      // полевой: электрические параметры полевых — вне стартового каталога
+      "system": "pro",                      // (plan/03-data-model.md §6.1); предельные — UsiMax/IsiMax (§6.2)
+      "attributes": { "structure": "n-канал" },
+      "ratings": [
+        { "parameter": "UsiMax", "value": 30 },
+        { "parameter": "IsiMax", "value": 25 },
+        { "parameter": "PkMax", "value": 300 }
+      ]
+    },
+
+    // jedec: материал и категория не кодируются — задаются атрибутами
+    {
+      "name": "2N2222A",
+      "system": "jedec",
+      "attributes": { "structure": "npn", "category": "универсальный", "package": "TO-18" },
+      "parameters": [ { "parameter": "h21e", "min": 100, "max": 300, "Uke": 10, "Ik": 10 } ],
+      "ratings": [
+        { "parameter": "UkeoMax", "value": 40 },
+        { "parameter": "IkMax", "value": 800 },
+        { "parameter": "TempMin", "value": -65 },
+        { "parameter": "TempMax", "value": 150 }
+      ]
+    },
+    {
+      "name": "2N3055",
+      "system": "jedec",
+      "attributes": {
+        "structure": "npn", "category": "низкочастотный мощный", "package": "TO-3"
+      },
+      "manufacturers": ["Motorola", "RCA", "ST"],
+      "parameters": [ { "parameter": "h21e", "min": 20, "max": 70, "Uke": 4, "Ik": 4000 } ],
+      "ratings": [
+        { "parameter": "UkeoMax", "value": 60 },
+        { "parameter": "IkMax", "value": 15000 },
+        { "parameter": "PkMax", "value": 115000 },
+        { "parameter": "TempJunctionMax", "value": 200 }
+      ]
+    },
+    {
+      "name": "2N3904",
+      "system": "jedec",
+      "attributes": { "structure": "npn", "category": "универсальный", "package": "TO-92" },
+      "parameters": [ { "parameter": "h21e", "min": 100, "max": 300, "Uke": 10, "Ik": 10 } ],
+      "ratings": [ { "parameter": "UkeoMax", "value": 40 }, { "parameter": "IkMax", "value": 200 } ],
+      "analogs": ["КТ315Б"]
+    },
+
+    // jis (JIS/EIAJ): переходы и класс кодируются — A p-n-p ВЧ, C n-p-n ВЧ, K n-канал ПТ
+    {
+      "name": "2SA1015",
+      "system": "jis",
+      "attributes": { "structure": "pnp", "package": "TO-92" },
+      "parameters": [ { "parameter": "h21e", "min": 120, "max": 240, "Uke": 6, "Ik": 2 } ],
+      "ratings": [
+        { "parameter": "UkeoMax", "value": 50 },
+        { "parameter": "IkMax", "value": 150 },
+        { "parameter": "PkMax", "value": 400 }
+      ]
+    },
+    {
+      "name": "2SC1815",                    // группа hFE — суффиксом обозначения
+      "system": "jis",
+      "attributes": { "structure": "npn", "package": "TO-92" },
+      "parameters": [ { "parameter": "h21e", "min": 70, "max": 700, "Uke": 6, "Ik": 2 } ],
+      "ratings": [
+        { "parameter": "UkeoMax", "value": 50 },
+        { "parameter": "IkMax", "value": 150 },
+        { "parameter": "PkMax", "value": 400 }
+      ]
+    },
+    {
+      "name": "2SK1058",
+      "system": "jis",
+      "attributes": { "structure": "n-канал", "package": "TO-3P" },
+      "ratings": [
+        { "parameter": "UsiMax", "value": 160 },
+        { "parameter": "IsiMax", "value": 7000 },
+        { "parameter": "PkMax", "value": 100000 }
+      ]
+    },
+
+    // series: семейство из реестра series_families + слабый хвост
+    {
+      "name": "МП39",
+      "system": "series",
+      "attributes": { "structure": "pnp", "category": "низкочастотный" },
+      "parameters": [
+        { "parameter": "h21e", "min": 20, "max": 50, "Uke": 5, "Ik": 5 },
+        { "parameter": "Ikbo", "max": 15, "Ukb": 5 }
+      ],
+      "ratings": [
+        { "parameter": "UkeoMax", "value": 15 },
+        { "parameter": "IkMax", "value": 150 },
+        { "parameter": "PkMax", "value": 150 },
+        { "parameter": "TempMin", "value": -60 },
+        { "parameter": "TempMax", "value": 70 }
+      ]
+    },
+    {
+      "name": "П214",
+      "system": "series",
+      "attributes": { "structure": "pnp", "category": "низкочастотный мощный" },
+      "parameters": [ { "parameter": "h21e", "min": 20, "max": 80, "Uke": 10, "Ik": 2000 } ],
+      "ratings": [
+        { "parameter": "UkeoMax", "value": 60 },
+        { "parameter": "IkMax", "value": 5000 },
+        { "parameter": "PkMax", "value": 10000 },
+        { "parameter": "TempMax", "value": 85 }
+      ],
+      "analogs": ["AD161"]                  // пара из разных систем — главный случай
+    },
+    {
+      "name": "TIP120",
+      "system": "series",
+      "attributes": { "structure": "npn", "category": "составной", "package": "TO-220" },
+      "parameters": [ { "parameter": "h21e", "min": 1000, "max": 20000, "Uke": 3, "Ik": 3000 } ],
+      "ratings": [
+        { "parameter": "UkeoMax", "value": 60 },
+        { "parameter": "IkMax", "value": 5000 },
+        { "parameter": "PkMax", "value": 65000 }
+      ]
+    },
+
+    // other: разбора нет, ключ system обязателен; классификация — атрибутами
+    {
+      "name": "MJE340",
+      "system": "other",
+      "attributes": { "structure": "npn", "category": "универсальный", "package": "TO-126" },
+      "ratings": [
+        { "parameter": "UkeoMax", "value": 300 },
+        { "parameter": "IkMax", "value": 500 },
+        { "parameter": "PkMax", "value": 20000 }
+      ]
+    },
+    {
+      "name": "IRF540",
+      "system": "other",
+      "attributes": { "structure": "n-канал", "category": "МОП мощный", "package": "TO-220" },
+      "ratings": [
+        { "parameter": "UsiMax", "value": 100 },
+        { "parameter": "IsiMax", "value": 28000 },
+        { "parameter": "PkMax", "value": 150000 }
+      ]
+    },
+    {
+      "name": "JANTX2N3055",                // MIL-форма на базе JEDEC-номера — вне строгих систем
+      "system": "other",
+      "attributes": { "structure": "npn", "category": "низкочастотный мощный", "package": "TO-3", "militaryGrade": true },
+      "ratings": [
+        { "parameter": "UkeoMax", "value": 60 },
+        { "parameter": "IkMax", "value": 15000 },
+        { "parameter": "PkMax", "value": 115000 }
+      ]
+    }
+  ]
+}

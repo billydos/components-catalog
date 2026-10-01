@@ -24,6 +24,11 @@ type resolvedAnalog struct {
 	note        string
 }
 
+// PendingDesignations сообщает, будет ли обозначение создано этим же
+// прогоном импорта: разрешение исходящих ссылок-аналогов на записи,
+// встречающиеся в файле позже (dry-run без записи в БД).
+type PendingDesignations func(kind domain.Kind, designation string) bool
+
 // Upsert применяет запись наполнения с семантикой секций
 // (plan/02-database.md §6): разбор обозначения → транзакция → слитое
 // состояние (вход + текущие секции) → валидация движком → каноническое
@@ -31,6 +36,21 @@ type resolvedAnalog struct {
 // ревизий) → применение секций целиком + инкремент data_revision.
 // Ошибка в любом значении секции — запись не применяется вовсе.
 func (s *DeviceService) Upsert(ctx context.Context, in DeviceInput) (Outcome, error) {
+	return s.applyUpsert(ctx, in, nil, nil, true)
+}
+
+// DryRun проверяет запись наполнения без изменения базы и возвращает
+// исход, который вернул бы Upsert (import --dry-run). snap — снимок
+// каталога для проверки (nil — актуальный из кэша; dry-run файла,
+// расширяющего каталог, проверяет записи по гипотетическому снимку);
+// pending разрешает ссылки на обозначения, создаваемые этим же прогоном.
+func (s *DeviceService) DryRun(ctx context.Context, in DeviceInput, snap *catalog.Snapshot,
+	pending PendingDesignations) (Outcome, error) {
+	return s.applyUpsert(ctx, in, snap, pending, false)
+}
+
+func (s *DeviceService) applyUpsert(ctx context.Context, in DeviceInput,
+	snapOverride *catalog.Snapshot, pending PendingDesignations, write bool) (Outcome, error) {
 	if strings.TrimSpace(in.Name) == "" {
 		return "", domain.NewError(domain.CodeValidationFailed, "не задано обозначение записи")
 	}
@@ -43,9 +63,12 @@ func (s *DeviceService) Upsert(ctx context.Context, in DeviceInput) (Outcome, er
 		return "", err
 	}
 
-	snap, err := s.app.cache.Snapshot(ctx)
-	if err != nil {
-		return "", err
+	snap := snapOverride
+	if snap == nil {
+		snap, err = s.app.cache.Snapshot(ctx)
+		if err != nil {
+			return "", err
+		}
 	}
 	// Имена секций — из групп каталога (неизвестная секция — ошибка,
 	// значения не теряются молча).
@@ -81,7 +104,7 @@ func (s *DeviceService) Upsert(ctx context.Context, in DeviceInput) (Outcome, er
 
 	var analogs []resolvedAnalog
 	if in.Analogs != nil {
-		analogs, err = resolveAnalogs(ctx, tx, p.Kind, p.Designation, *in.Analogs)
+		analogs, err = resolveAnalogs(ctx, tx, p.Kind, p.Designation, *in.Analogs, pending)
 		if err != nil {
 			return "", err
 		}
@@ -118,20 +141,32 @@ func (s *DeviceService) Upsert(ctx context.Context, in DeviceInput) (Outcome, er
 		return OutcomeSkipped, nil
 	}
 
-	outcome := OutcomeUpdatedExisting
-	deviceID := int64(0)
-	if dev != nil {
-		deviceID = dev.ID
-	} else {
+	if dev == nil {
+		if !write {
+			return OutcomeAdded, nil // записи нет — откатит defer (транзакция без DML)
+		}
+		return OutcomeAdded, s.writeUpsert(ctx, tx, 0, p, in, merged, analogs, snap)
+	}
+	if !write {
+		return OutcomeUpdatedExisting, nil // откатит defer (транзакция без DML)
+	}
+	return OutcomeUpdatedExisting, s.writeUpsert(ctx, tx, dev.ID, p, in, merged, analogs, snap)
+}
+
+// writeUpsert применяет слитое состояние записи в БД (секции целиком)
+// и инкрементирует data_revision.
+func (s *DeviceService) writeUpsert(ctx context.Context, tx *storage.Tx, deviceID int64,
+	p domain.ParsedDesignation, in DeviceInput, merged *deviceState, analogs []resolvedAnalog,
+	snap *catalog.Snapshot) error {
+	if deviceID == 0 {
 		id, _, err := tx.InsertDevice(ctx, p.Kind, p.System, p.Designation)
 		if err != nil {
-			return "", err
+			return err
 		}
 		deviceID = id
 		if err := tx.InsertDesignationFields(ctx, deviceID, p.Fields); err != nil {
-			return "", err
+			return err
 		}
-		outcome = OutcomeAdded
 	}
 
 	if in.Attributes != nil {
@@ -142,13 +177,13 @@ func (s *DeviceService) Upsert(ctx context.Context, in DeviceInput) (Outcome, er
 			})
 		}
 		if err := tx.ReplaceAttributes(ctx, deviceID, rows); err != nil {
-			return "", err
+			return err
 		}
 	}
 	for _, sec := range in.Sections {
 		g, _ := snap.GroupBySection(sec.Section)
 		if err := tx.DeleteTypeGroupValues(ctx, deviceID, g.Code); err != nil {
-			return "", err
+			return err
 		}
 		vals := make([]storage.ParamValue, 0, len(merged.groupValues[g.Code]))
 		for _, v := range merged.groupValues[g.Code] {
@@ -158,17 +193,17 @@ func (s *DeviceService) Upsert(ctx context.Context, in DeviceInput) (Outcome, er
 			})
 		}
 		if err := tx.InsertValues(ctx, deviceID, nil, vals); err != nil {
-			return "", err
+			return err
 		}
 	}
 	if in.Variants != nil {
 		if err := tx.DeleteVariants(ctx, deviceID); err != nil {
-			return "", err
+			return err
 		}
 		for i, v := range merged.variants {
 			vid, err := tx.InsertVariant(ctx, deviceID, v.Label, i)
 			if err != nil {
-				return "", err
+				return err
 			}
 			vals := make([]storage.ParamValue, 0, len(v.Values))
 			for _, val := range v.Values {
@@ -178,13 +213,13 @@ func (s *DeviceService) Upsert(ctx context.Context, in DeviceInput) (Outcome, er
 				})
 			}
 			if err := tx.InsertValues(ctx, deviceID, &vid, vals); err != nil {
-				return "", err
+				return err
 			}
 		}
 	}
 	if in.Manufacturers != nil {
 		if err := tx.ReplaceManufacturers(ctx, deviceID, merged.manufacturers); err != nil {
-			return "", err
+			return err
 		}
 	}
 	if in.Analogs != nil {
@@ -195,17 +230,14 @@ func (s *DeviceService) Upsert(ctx context.Context, in DeviceInput) (Outcome, er
 			})
 		}
 		if err := tx.ReplaceAnalogs(ctx, deviceID, rows); err != nil {
-			return "", err
+			return err
 		}
 	}
 
 	if err := tx.BumpDataRevision(ctx); err != nil {
-		return "", err
+		return err
 	}
-	if err := tx.Commit(); err != nil {
-		return "", err
-	}
-	return outcome, nil
+	return tx.Commit()
 }
 
 func condsToStorage(conds []catalog.ConditionValue) []storage.Cond {
@@ -286,9 +318,11 @@ func safeVariants(in *DeviceInput) []VariantInput {
 // resolveAnalogs разрешает обозначения аналогов в пределах класса записи
 // (структурная валидация — plan/03-data-model.md §8): канонизация,
 // запрет самоссылки и дубликатов, существование цели; note — характер
-// замены именно в этом направлении.
+// замены именно в этом направлении. pending (dry-run) допускает цель,
+// которая будет создана этим же прогоном импорта позже (прямые ссылки
+// на позднейшие записи файла).
 func resolveAnalogs(ctx context.Context, tx *storage.Tx, kind domain.Kind,
-	ownerDesignation string, list []AnalogInput) ([]resolvedAnalog, error) {
+	ownerDesignation string, list []AnalogInput, pending PendingDesignations) ([]resolvedAnalog, error) {
 	seen := make(map[string]bool, len(list))
 	out := make([]resolvedAnalog, 0, len(list))
 	for _, a := range list {
@@ -313,6 +347,12 @@ func resolveAnalogs(ctx context.Context, tx *storage.Tx, kind domain.Kind,
 			return nil, err
 		}
 		if dev == nil {
+			if pending != nil && pending(kind, canonical) {
+				// Цель будет создана этим же прогоном: dry-run без записи,
+				// идентификатор не используется.
+				out = append(out, resolvedAnalog{designation: canonical, note: strings.TrimSpace(a.Note)})
+				continue
+			}
 			return nil, domain.NewError(domain.CodeNotFound,
 				fmt.Sprintf("аналог «%s» не найден в классе %s", canonical, string(kind)))
 		}
