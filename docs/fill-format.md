@@ -5,7 +5,9 @@
 `docs/plan/06-examples.md`; живые образцы — `data/` (выверенное наполнение).
 Реестр действующих кодов параметров/атрибутов/условий —
 `catalogctl catalog list --db <база>`; эталон формы секции `catalog` —
-`catalogctl catalog export --db <база>`.
+`catalogctl catalog export --db <база>`. Сводный справочник кодов по
+классам (параметры, атрибуты, условия, семейства series) —
+`docs/class-keys.md`.
 
 ## 1. Форматы и общие правила
 
