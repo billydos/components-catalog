@@ -43,3 +43,7 @@ jobs:
           fi
       - name: Test
         run: go test ./...
+      - name: QA scenarios (SQLite + PostgreSQL)
+        run: ./qa/scenarios.sh
+      - name: Load estimate (SQLite, 10^4)
+        run: CATALOG_QA_SCALE=10000 go test ./qa -run TestLoad -v -timeout 30m

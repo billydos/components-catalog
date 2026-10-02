@@ -73,6 +73,41 @@ func (p ParsedDesignation) String() string {
 	return strings.Join(parts, "; ")
 }
 
+// Реестр полей разбора по разрядам: текстовые и числовые. Единый источник
+// для фильтров и сортировки поиска (REST/CLI) — транспорты собственных
+// списков полей не ведут: новое поле парсера попадает в реестр и сразу
+// доступно фильтрам. Состав синхронен полям, которые создают парсеры
+// строгих систем и series (закреплён тестом).
+var (
+	textDesignationFields = map[string]bool{
+		"material": true, "subclass": true, "letters": true,
+		"prefix": true, "family": true, "series": true,
+	}
+	numericDesignationFields = map[string]bool{
+		"assembly": true, "feature": true, "dev_number": true,
+		"modification": true, "chip": true, "junctions": true,
+		"group": true, "power": true,
+	}
+)
+
+// KnownDesignationField сообщает, существует ли поле разбора с кодом name.
+func KnownDesignationField(name string) bool {
+	return textDesignationFields[name] || numericDesignationFields[name]
+}
+
+// NumericDesignationField возвращает разряд поля разбора: числовое либо
+// текстовое (второе значение — существование поля; числовые поля допускают
+// eq-фильтр и числовую сортировку).
+func NumericDesignationField(name string) (numeric, known bool) {
+	if numericDesignationFields[name] {
+		return true, true
+	}
+	if textDesignationFields[name] {
+		return false, true
+	}
+	return false, false
+}
+
 // scanner — по-позиционный разбор канонической строки; все сообщения
 // об ошибках несут позицию (1-based) и форму «ожидалось/получено» —
 // дословный контракт (план 03 §2.4). Каноническая строка кэшируется,

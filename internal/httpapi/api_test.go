@@ -680,7 +680,8 @@ func TestInternalError(t *testing.T) {
 	app, srv := newTestAPI(t, Config{})
 	app.Close() //nolint:errcheck — проверка деградации транспорта
 	status, _, eb := do(t, srv, http.MethodGet, apiPrefix+"/kinds", "")
-	if status != http.StatusInternalServerError || eb.Code != "internal_error" {
+	if status != http.StatusInternalServerError || eb.Code != "internal_error" ||
+		eb.Message != "внутренняя ошибка обработки запроса" {
 		t.Fatalf("внутренняя ошибка: %d %+v", status, eb)
 	}
 }

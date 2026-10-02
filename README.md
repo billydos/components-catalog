@@ -3,8 +3,15 @@
 Локальный/встраиваемый справочник электронных компонентов (советская и
 мировая элементная база): Go-библиотека с сервисным слоем, встраиваемый
 версионируемый REST API `/api/v1` и CLI `catalogctl`. Хранилища: SQLite и
-PostgreSQL (равноправные, pure Go). Архитектура и контракты — `plan/`
-(`README.md` — решения, `01`–`06` — разделы плана).
+PostgreSQL (равноправные, pure Go). Четыре класса приборов — транзисторы,
+диоды, резисторы, конденсаторы; системы обозначений ГОСТ/ОСТ,
+PRO ELECTRON, JEDEC, JIS, серии и `other`.
+
+Документация: `docs/fill-format.md` — регламент наполнения (формат файлов,
+типичные ошибки, процедура); `CHANGELOG.md` — история релизов;
+`qa/README.md` — сквозные прогоны и нагрузочная прикидка;
+`qa/architecture-review.md` — ревью архитектуры против плана. Архитектура
+и контракты — `plan/` (`README.md` — решения D1–D8, `01`–`08` — разделы).
 
 ## Сборка и проверка
 
@@ -13,6 +20,30 @@ go build ./... && go vet ./... && gofmt -l . && go test ./...
 ```
 
 CLI: `go build ./cmd/catalogctl`. Справка команд: `catalogctl help`.
+Сквозные сценарии CLI+REST на SQLite и PostgreSQL: `./qa/scenarios.sh`
+(PostgreSQL — `CATALOG_TEST_POSTGRES_DSN`).
+
+## Быстрый старт (CLI)
+
+```
+catalogctl init --db catalog.db
+catalogctl import data/transistors.jsonc --db catalog.db
+for f in data/*.jsonc; do catalogctl import "$f" --db catalog.db; done
+catalogctl list --kind transistor --q КТ3 --db catalog.db
+catalogctl info КТ315Б --db catalog.db
+catalogctl find 2Т315Б --db catalog.db        # подсказка: КТ315Б
+catalogctl export --format ndjson --db catalog.db
+```
+
+Формат файлов наполнения (jsonc/yaml/ndjson), семантика секций, единицы
+и типичные ошибки — `docs/fill-format.md`. Два набора данных в репозитории:
+
+- `data/` — выверенная выборка (транзисторы, диоды, резисторы,
+  конденсаторы; матрица исполнений К50-35, ряд мощностей С2-33Н,
+  направленные аналоги) — источники по каждой записи:
+  `plan/08-data-verification.md`;
+- `sample-data/` — примеры формы записей (правдоподобные непроверенные
+  значения).
 
 ## Встраивание (Go API)
 
@@ -62,21 +93,27 @@ mux.Handle("/api/v1/", httpapi.New(app, httpapi.Config{
 
 ## Импорт/экспорт
 
-Файлы наполнения jsonc/yaml/ndjson. Два набора в репозитории:
-
-- `sample-data/` — примеры формы записей (правдоподобные непроверенные
-  значения, план работ 4.5);
-- `data/` — выверенная выборка этапа 6 (транзисторы, диоды, резисторы,
-  конденсаторы; матрица исполнений К50-35, ряд мощностей С2-33Н,
-  направленные аналоги) — источники по каждой записи:
-  `plan/08-data-verification.md`.
-
 ```
 catalogctl import data/transistors.jsonc --db catalog.db
 catalogctl import sample-data/transistors.jsonc --db catalog.db
+catalogctl import bulk.ndjson --db catalog.db          # потоковый формат
+catalogctl import data/transistors.jsonc --dry-run --db catalog.db
 catalogctl export --format ndjson --db catalog.db
 catalogctl catalog export|import|list --db catalog.db
 ```
+
+Импорт идемпотентен: повторный прогон того же файла — «без изменений»
+по всем записям, без инкремента ревизий. Каталог (параметры, атрибуты,
+условия, семейства) расширяется секцией `catalog` файлов наполнения —
+без правки кода и пересборки.
+
+## Производительность
+
+Ориентиры первого релиза: поиск с фильтрами ≤ 100 мс, карточка ≤ 20 мс
+на 10⁴–10⁵ устройств. Подтверждено прикидкой на 10⁴ (SQLite, локально);
+на 10⁵ карточки/подстрока/suggest в норме, фильтрованный поиск (EXISTS
+по EAV) на SQLite превышает ориентир — детали и план Б (R2):
+`qa/reports/2026-10-02-stage7.md`.
 
 ## Лицензия
 

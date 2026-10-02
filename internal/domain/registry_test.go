@@ -146,3 +146,46 @@ func TestParsedDesignationFields(t *testing.T) {
 		t.Errorf("текстовое поле: %s", got)
 	}
 }
+
+// Реестр полей разбора: разряды и полнота. Фильтры и сортировка поиска
+// (REST/CLI) используют реестр домена — состав обязан быть синхронен
+// полям, которые создают парсеры.
+func TestDesignationFieldRegistry(t *testing.T) {
+	for code, numeric := range map[string]bool{
+		"material": false, "subclass": false, "letters": false,
+		"prefix": false, "family": false, "series": false,
+		"assembly": true, "feature": true, "dev_number": true,
+		"modification": true, "chip": true, "junctions": true,
+		"group": true, "power": true,
+	} {
+		n, known := domain.NumericDesignationField(code)
+		if !domain.KnownDesignationField(code) || !known || n != numeric {
+			t.Errorf("поле %s: known=%v numeric=%v, ожидалось numeric=%v", code, known, n, numeric)
+		}
+	}
+	if _, known := domain.NumericDesignationField("bogus"); known {
+		t.Error("bogus не должно быть полем разбора")
+	}
+	// Поля реальных разборов всех систем — только из реестра и с тем же
+	// разрядом.
+	for _, d := range []string{
+		"КТ315Б", "2Т914А-1", "ГТ109Г", "КДС111В", "2Т805А", "С2-33Н", "СП3-19А",
+		"Р1-4", "К50-35", "К10-17Б", "BC547B", "AD161", "BZX85C5V1", "2N2222A",
+		"1N4148", "2SA1015", "2SK1058", "МП39", "ПЭВ-10", "МЛТ-0.5", "TIP120",
+	} {
+		p, err := domain.ParseDesignation(d)
+		if err != nil {
+			t.Fatalf("%s: %v", d, err)
+		}
+		for _, f := range p.Fields {
+			n, known := domain.NumericDesignationField(f.Name)
+			if !known {
+				t.Errorf("%s: поле %s вне реестра полей разбора", d, f.Name)
+				continue
+			}
+			if n != f.IsNum {
+				t.Errorf("%s: поле %s: реестр numeric=%v, разбор IsNum=%v", d, f.Name, n, f.IsNum)
+			}
+		}
+	}
+}

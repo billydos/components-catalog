@@ -314,13 +314,14 @@ func (a *API) writeDomainErr(w *responseWriter, err error, inQuery bool) {
 	writeJSON(w, statusFor(de.Code, inQuery), errorBody{Code: string(de.Code), Message: de.Message})
 }
 
-// writeErr — неожидаемая ошибка: 500 internal_error, журнал error
-// (технический текст сообщения контрактом не является).
+// writeErr — неожидаемая ошибка: 500 internal_error с фиксированным
+// текстом (технический текст — только в журнале error уровня; наружу
+// детали инфраструктуры не отдаются), журнал error.
 func (a *API) writeErr(w *responseWriter, err error) {
 	a.log.Error("непредвиденная ошибка REST", "error", err)
 	w.fail(domain.CodeInternal)
 	writeJSON(w, http.StatusInternalServerError,
-		errorBody{Code: string(domain.CodeInternal), Message: err.Error()})
+		errorBody{Code: string(domain.CodeInternal), Message: msgPanic})
 }
 
 // statusFor — HTTP-статус по коду ошибки (план 04 §2: 400/404/409/422/500).

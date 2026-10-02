@@ -14,22 +14,9 @@ import (
 
 // Разбор параметров поиска GET /api/v1/components
 // (plan/04-module-functionality.md §2): kind, system, q, поля обозначения
-// (коды полей разбора), attr.<код>, par.<код>(.min/.max/.exact), sort,
-// limit, offset. Неизвестный ключ — ошибка (опечатки не молчат).
-
-// Словарь кодов полей разбора обозначения (по парсерам домена):
-// текстовые и числовые (числовые — eq-фильтр и числовая сортировка).
-var (
-	textFieldCodes = map[string]bool{
-		"material": true, "subclass": true, "letters": true,
-		"prefix": true, "family": true, "series": true,
-	}
-	numericFieldCodes = map[string]bool{
-		"assembly": true, "feature": true, "dev_number": true,
-		"modification": true, "chip": true, "junctions": true,
-		"group": true, "power": true,
-	}
-)
+// (коды полей разбора — реестр домена), attr.<код>, par.<код>(.min/.max/
+// .exact), sort, limit, offset. Неизвестный ключ — ошибка (опечатки
+// не молчат).
 
 // queryLimit — разбор limit с потолком (поиск 200, suggest 50).
 func queryLimit(values []string, max int) (int, bool, error) {
@@ -83,12 +70,13 @@ func parseSearchQuery(r *http.Request, snap *catalog.Snapshot) (service.SearchQu
 	sort.Strings(names)
 	for _, name := range names {
 		v := values[name][0]
+		numeric, known := domain.NumericDesignationField(name)
 		switch {
 		case reservedQueryParam(name):
 			// разобраны выше
-		case textFieldCodes[name]:
+		case known && !numeric:
 			q.Fields = append(q.Fields, service.FieldFilter{Field: name, Text: v})
-		case numericFieldCodes[name]:
+		case known:
 			f, err := strconv.ParseFloat(v, 64)
 			if err != nil {
 				return q, domain.NewError(domain.CodeValidationFailed,
@@ -142,8 +130,9 @@ func parseSort(spec string) ([]service.SortField, error) {
 			out = append(out, service.SortField{Key: key, Desc: desc})
 		case key == "id":
 			out = append(out, service.SortField{Key: key, Numeric: true, Desc: desc})
-		case textFieldCodes[key] || numericFieldCodes[key]:
-			out = append(out, service.SortField{Key: key, Numeric: numericFieldCodes[key], Desc: desc})
+		case domain.KnownDesignationField(key):
+			numeric, _ := domain.NumericDesignationField(key)
+			out = append(out, service.SortField{Key: key, Numeric: numeric, Desc: desc})
 		default:
 			return nil, domain.NewError(domain.CodeValidationFailed,
 				fmt.Sprintf(msgSortKey, key))
