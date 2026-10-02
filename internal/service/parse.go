@@ -85,10 +85,10 @@ func (s *DesignationService) Suggest(ctx context.Context, prefix string, kind do
 		return nil, err
 	}
 	if limit <= 0 {
-		limit = suggestDefaultLimit
+		limit = SuggestDefaultLimit
 	}
-	if limit > suggestMaxLimit {
-		limit = suggestMaxLimit
+	if limit > SuggestLimitMax {
+		limit = SuggestLimitMax
 	}
 	k := ""
 	if kind != "" {

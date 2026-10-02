@@ -19,8 +19,10 @@ const (
 	CodeDesignationMismatch    Code = "designation_mismatch"
 	CodeInvalidDesignation     Code = "invalid_designation"
 	CodeInvalidImportFile      Code = "invalid_import_file"
+	CodeInternal               Code = "internal_error"
 	CodeKindAmbiguous          Code = "kind_ambiguous"
 	CodeKindNotSupported       Code = "kind_not_supported"
+	CodeMethodNotAllowed       Code = "method_not_allowed"
 	CodeNotFound               Code = "not_found"
 	CodeParameterNotApplicable Code = "parameter_not_applicable"
 	CodePowerSuffix            Code = "power_suffix_not_supported"
@@ -38,8 +40,10 @@ var codeRegistry = map[Code]struct{}{
 	CodeDesignationMismatch:    {},
 	CodeInvalidDesignation:     {},
 	CodeInvalidImportFile:      {},
+	CodeInternal:               {},
 	CodeKindAmbiguous:          {},
 	CodeKindNotSupported:       {},
+	CodeMethodNotAllowed:       {},
 	CodeNotFound:               {},
 	CodeParameterNotApplicable: {},
 	CodePowerSuffix:            {},

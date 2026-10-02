@@ -226,10 +226,11 @@ type Suggestion struct {
 	Designation string
 }
 
-// Лимиты пагинации поиска (plan/04-module-functionality.md §1.1: limit ≤ 200).
+// Лимиты пагинации (plan/04-module-functionality.md §1.1: limit ≤ 200);
+// потолки нужны транспорту для валидации параметров запроса.
 const (
-	searchDefaultLimit  = 50
-	searchMaxLimit      = 200
-	suggestDefaultLimit = 10
-	suggestMaxLimit     = 50
+	SearchDefaultLimit  = 50
+	SearchLimitMax      = 200
+	SuggestDefaultLimit = 10
+	SuggestLimitMax     = 50
 )

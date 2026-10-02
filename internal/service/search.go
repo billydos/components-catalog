@@ -109,10 +109,10 @@ func buildSearchRequest(snap *catalog.Snapshot, q SearchQuery) (storage.SearchRe
 		Offset: q.Offset,
 	}
 	if req.Limit <= 0 {
-		req.Limit = searchDefaultLimit
+		req.Limit = SearchDefaultLimit
 	}
-	if req.Limit > searchMaxLimit {
-		req.Limit = searchMaxLimit
+	if req.Limit > SearchLimitMax {
+		req.Limit = SearchLimitMax
 	}
 	if req.Offset < 0 {
 		req.Offset = 0

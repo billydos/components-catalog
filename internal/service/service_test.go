@@ -788,7 +788,7 @@ func suiteSearch(t *testing.T, factory configFactory) {
 	}
 	// limit ≤ 200: ограничение сверху.
 	page, err = svc.Search(ctx, SearchQuery{Limit: 100000})
-	if err != nil || page.Limit != searchMaxLimit {
+	if err != nil || page.Limit != SearchLimitMax {
 		t.Fatalf("clamp limit: %d err=%v", page.Limit, err)
 	}
 
