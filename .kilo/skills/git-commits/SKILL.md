@@ -43,7 +43,7 @@ type(scope): short imperative summary
 | `internal/cli/**`, `cmd/**` | `cli` |
 | `README.md`, `*.md`, `AGENTS.md` | `docs` |
 | `.kilo/skills/**` | `skill` |
-| `sample-data.jsonc` | `data` |
+| `data/**` | `data` |
 | прочее (`go.mod`, корень) | scope опустить |
 
 Затронуто несколько слоёв — берётся доминирующий; нет доминирующего — scope опускается. Один коммит с четырьмя scope — сигнал, что изменение не атомарно.
@@ -59,7 +59,7 @@ type(scope): short imperative summary
 
 1. **Атомарность** — одно логическое изменение на коммит: код + его тесты вместе; рефакторинг отдельно от изменения поведения; правка линтера (`style`) отдельно от `feat`/`fix`; документация отдельно, если она не является частью изменения.
 2. **Staged — осознанно**: stage конкретными путями (`git add internal/domain/parameters.go`), перед коммитом просмотреть `git diff --cached`; не пользоваться вслепую `git add -A`.
-3. **Не коммитить никогда**: секреты и ключи, `transistors.db` (генерируется импортом), временные и служебные файлы. `sample-data.jsonc` — коммитится.
+3. **Не коммитить никогда**: секреты и ключи, `transistors.db` (генерируется импортом), временные и служебные файлы. `data/*.jsonc` — коммитится.
 4. **Коммит — только по явной просьбе пользователя**; сообщения черновиком не предлагать без запроса.
 5. Не amend/force-push опубликованные коммиты, не переписывать историю без явного запроса; merge- и revert-коммиты не переформулировать (у revert в заголовке — хеш отбрасываемого коммита).
 6. Пустые коммиты не создавать; упавший хук — починить причину и закоммитить заново, не `--no-verify`.
@@ -94,7 +94,7 @@ feat(domain): add Pnorm parameter to catalog
 fix(cli): reject find without argument as UserError
 refactor(storage): extract dialect DDL composition
 docs(skill): document yaml import in SKILL.md
-chore(data): extend sample-data with KT315 variants
+chore(data): extend verified dataset with KT315 variants
 feat(storage)!: drop composite key for manufacturers
 
 Add surrogate id for manufacturers and rewire FKs.

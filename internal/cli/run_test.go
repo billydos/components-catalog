@@ -25,11 +25,12 @@ func testDB(t *testing.T) string {
 	return filepath.Join(t.TempDir(), "catalog.db")
 }
 
-func sample(t *testing.T, name string) string {
+// dataFile — путь к файлу выверенного наполнения data/ из тестов пакета.
+func dataFile(t *testing.T, name string) string {
 	t.Helper()
-	path := filepath.Join("..", "..", "sample-data", name)
+	path := filepath.Join("..", "..", "data", name)
 	if _, err := os.Stat(path); err != nil {
-		t.Fatalf("sample-data/%s: %v", name, err)
+		t.Fatalf("data/%s: %v", name, err)
 	}
 	return path
 }
@@ -98,23 +99,23 @@ func TestFullCycle(t *testing.T) {
 		t.Fatalf("init: код %d, stdout %q, stderr %q", code, stdout, stderr)
 	}
 
-	stdout, stderr, code = run(t, "import", sample(t, "transistors.jsonc"), "--db", db)
+	stdout, stderr, code = run(t, "import", dataFile(t, "transistors.jsonc"), "--db", db)
 	if code != 0 || stderr != "" {
 		t.Fatalf("import: код %d, stderr %q", code, stderr)
 	}
-	want := sample(t, "transistors.jsonc") + ": записей: 18, добавлено: 18, обновлено: 0, без изменений: 0\n"
+	want := dataFile(t, "transistors.jsonc") + ": записей: 23, добавлено: 23, обновлено: 0, без изменений: 0\n"
 	if stdout != want {
 		t.Fatalf("итог импорта:\n got:  %q\n want: %q", stdout, want)
 	}
 
 	// Идемпотентность повторного импорта.
-	stdout, _, code = run(t, "import", sample(t, "transistors.jsonc"), "--db", db)
-	if code != 0 || !strings.Contains(stdout, "без изменений: 18") {
+	stdout, _, code = run(t, "import", dataFile(t, "transistors.jsonc"), "--db", db)
+	if code != 0 || !strings.Contains(stdout, "без изменений: 23") {
 		t.Fatalf("повторный import: код %d, %q", code, stdout)
 	}
 
 	stdout, stderr, code = run(t, "count", "--db", db)
-	if code != 0 || stdout != "18\n" || stderr != "" {
+	if code != 0 || stdout != "23\n" || stderr != "" {
 		t.Fatalf("count: код %d, %q, %q", code, stdout, stderr)
 	}
 
@@ -140,7 +141,7 @@ func TestFullCycle(t *testing.T) {
 		}
 		return false
 	}
-	if !hasLine("КТ315Б", "transistor", "gost") || !hasLine("2Т914А-1", "transistor", "gost") {
+	if !hasLine("КТ315Б", "transistor", "gost") || !hasLine("КТ805А", "transistor", "gost") {
 		t.Fatalf("list --material кремний: кремниевые записи отсутствуют: %q", stdout)
 	}
 	if hasLine("ГТ109Г") {
@@ -148,7 +149,7 @@ func TestFullCycle(t *testing.T) {
 	}
 	stdout, stderr, code = run(t, "info", "КТ315Б", "--db", db)
 	if code != 0 || stderr != "" || !strings.Contains(stdout, "КТ315Б — транзисторы") ||
-		!strings.Contains(stdout, "Аналоги: 2SC1815; BC547B") {
+		!strings.Contains(stdout, "Аналоги: 2N3904") {
 		t.Fatalf("info: код %d, %q, %q", code, stdout, stderr)
 	}
 
@@ -168,7 +169,7 @@ func TestFullCycle(t *testing.T) {
 		t.Fatalf("delete --dry-run: код %d, %q, %q", code, stdout, stderr)
 	}
 	stdout, _, code = run(t, "count", "--db", db)
-	if code != 0 || stdout != "18\n" {
+	if code != 0 || stdout != "23\n" {
 		t.Fatalf("dry-run удалил запись: %q", stdout)
 	}
 
@@ -177,7 +178,7 @@ func TestFullCycle(t *testing.T) {
 		t.Fatalf("delete: код %d, %q, %q", code, stdout, stderr)
 	}
 	stdout, _, code = run(t, "count", "--db", db)
-	if code != 0 || stdout != "17\n" {
+	if code != 0 || stdout != "22\n" {
 		t.Fatalf("count после удаления: %q", stdout)
 	}
 
@@ -216,12 +217,12 @@ func TestImportIssuesReportedToStderr(t *testing.T) {
 func TestImportDryRunReportAndNoChanges(t *testing.T) {
 	db := testDB(t)
 	run(t, "init", "--db", db)
-	stdout, stderr, code := run(t, "import", sample(t, "diodes.jsonc"), "--db", db, "--dry-run")
+	stdout, stderr, code := run(t, "import", dataFile(t, "diodes.jsonc"), "--db", db, "--dry-run")
 	if code != 0 || stderr != "" {
 		t.Fatalf("dry-run: код %d, %q", code, stderr)
 	}
 	if !strings.HasPrefix(stdout, "контрольный прогон (без записи в базу): ") ||
-		!strings.Contains(stdout, "добавлено: 18") {
+		!strings.Contains(stdout, "добавлено: 16") {
 		t.Fatalf("итог dry-run: %q", stdout)
 	}
 	_, _, code = run(t, "count", "--db", db)
@@ -234,7 +235,7 @@ func TestImportDryRunReportAndNoChanges(t *testing.T) {
 func TestExportRoundTripAllFormats(t *testing.T) {
 	db := testDB(t)
 	run(t, "init", "--db", db)
-	run(t, "import", sample(t, "resistors.jsonc"), "--db", db)
+	run(t, "import", dataFile(t, "resistors.jsonc"), "--db", db)
 	for _, format := range []string{"jsonc", "yaml", "ndjson"} {
 		stdout, stderr, code := run(t, "export", "--kind", "resistor", "--format", format, "--db", db)
 		if code != 0 || stderr != "" || !strings.Contains(stdout, "С2-33Н") {
@@ -246,7 +247,7 @@ func TestExportRoundTripAllFormats(t *testing.T) {
 			t.Fatalf("запись: %v", err)
 		}
 		out, stderr, code := run(t, "import", file, "--db", db)
-		if code != 0 || stderr != "" || !strings.Contains(out, "без изменений: 11") {
+		if code != 0 || stderr != "" || !strings.Contains(out, "без изменений: 9") {
 			t.Fatalf("round-trip %s: код %d, %q, %q", format, code, out, stderr)
 		}
 	}
@@ -272,7 +273,7 @@ func TestCatalogCommands(t *testing.T) {
 	}
 
 	// catalog import отвергает файл с записями классов.
-	_, stderr, code = run(t, "catalog", "import", sample(t, "diodes.jsonc"), "--db", db2)
+	_, stderr, code = run(t, "catalog", "import", dataFile(t, "diodes.jsonc"), "--db", db2)
 	if code != 1 || !strings.Contains(stderr, "Ошибка: ") ||
 		!strings.Contains(stderr, "файл содержит записи классов; catalog import применяется к файлам только с секцией catalog") {
 		t.Fatalf("catalog import записей: код %d, %q", code, stderr)

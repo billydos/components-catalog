@@ -15,9 +15,11 @@ import (
 
 // Интеграционный набор этапа 4 (план работ 4.2–4.6): один и тот же набор
 // на SQLite (память/файл) и PostgreSQL (локально по
-// CATALOG_TEST_POSTGRES_DSN). Критерии: импорт sample-data всех форматов
-// идемпотентен; --dry-run не пишет; негативные файлы дают полный список
-// проблем за прогон; round-trip значений и условий во всех форматах.
+// CATALOG_TEST_POSTGRES_DSN). Критерии: --dry-run не пишет; негативные
+// файлы дают полный список проблем за прогон; round-trip значений и
+// условий во всех форматах. Идемпотентность импорта выверенного
+// наполнения data/ (все классы, обе СУБД) — verified_test.go; NDJSON
+// покрывается round-trip экспортом (строка-обёртка на запись).
 
 type configFactory func(t *testing.T) service.Config
 
@@ -52,16 +54,6 @@ func openApp(t *testing.T, factory configFactory) *service.App {
 	return app
 }
 
-// sampleDataPath — путь к файлу sample-data из тестов пакета.
-func sampleDataPath(t *testing.T, name string) string {
-	t.Helper()
-	path := filepath.Join("..", "..", "sample-data", name)
-	if _, err := os.Stat(path); err != nil {
-		t.Fatalf("sample-data/%s недоступен: %v", name, err)
-	}
-	return path
-}
-
 func importFile(t *testing.T, app *service.App, path string, dryRun bool) Report {
 	t.Helper()
 	f, err := os.Open(path)
@@ -77,46 +69,13 @@ func importFile(t *testing.T, app *service.App, path string, dryRun bool) Report
 }
 
 func runImporterSuite(t *testing.T, factory configFactory) {
-	t.Run("SampleDataIdempotent", func(t *testing.T) {
-		app := openApp(t, factory)
-		files := []string{"transistors.jsonc", "diodes.jsonc", "resistors.jsonc", "capacitors.jsonc"}
-		wantCounts := map[string]int{
-			"transistors.jsonc": 18, "diodes.jsonc": 18, "resistors.jsonc": 11, "capacitors.jsonc": 9,
-		}
-		for _, name := range files {
-			rep := importFile(t, app, sampleDataPath(t, name), false)
-			if rep.HasIssues() {
-				t.Fatalf("%s: проблемы: %v", name, issueMessages(rep.Issues))
-			}
-			if rep.Records != wantCounts[name] || rep.Added != wantCounts[name] {
-				t.Fatalf("%s: записей %d, добавлено %d (ожидалось %d)", name, rep.Records, rep.Added, wantCounts[name])
-			}
-		}
-		// NDJSON — те же записи диодов: все без изменений.
-		rep := importFile(t, app, sampleDataPath(t, "diodes.ndjson"), false)
-		if rep.HasIssues() || rep.Skipped != 18 {
-			t.Fatalf("diodes.ndjson: %+v; проблемы: %v", rep, issueMessages(rep.Issues))
-		}
-		// Повторный импорт всех форматов — исход Skipped по всем записям.
-		for _, name := range files {
-			rep := importFile(t, app, sampleDataPath(t, name), false)
-			if rep.HasIssues() || rep.Added != 0 || rep.Updated != 0 || rep.Skipped != wantCounts[name] {
-				t.Fatalf("повторный %s: %+v; проблемы: %v", name, rep, issueMessages(rep.Issues))
-			}
-		}
-		rep = importFile(t, app, sampleDataPath(t, "diodes.ndjson"), false)
-		if rep.HasIssues() || rep.Skipped != 18 {
-			t.Fatalf("повторный diodes.ndjson: %+v", rep)
-		}
-	})
-
 	t.Run("DryRunDoesNotWrite", func(t *testing.T) {
 		app := openApp(t, factory)
-		rep := importFile(t, app, sampleDataPath(t, "transistors.jsonc"), true)
+		rep := importFile(t, app, dataPath(t, "transistors.jsonc"), true)
 		if rep.HasIssues() {
 			t.Fatalf("проблемы dry-run: %v", issueMessages(rep.Issues))
 		}
-		if rep.Added != 18 || rep.DryRun != true {
+		if rep.Added != 23 || rep.DryRun != true {
 			t.Fatalf("dry-run: %+v", rep)
 		}
 		n, err := app.Services().Devices.Count(context.Background(), nil)
@@ -127,8 +86,8 @@ func runImporterSuite(t *testing.T, factory configFactory) {
 			t.Fatalf("dry-run записал в базу: записей %d", n)
 		}
 		// Прогон после dry-run применяет всё то же самое.
-		rep = importFile(t, app, sampleDataPath(t, "transistors.jsonc"), false)
-		if rep.Added != 18 || rep.HasIssues() {
+		rep = importFile(t, app, dataPath(t, "transistors.jsonc"), false)
+		if rep.Added != 23 || rep.HasIssues() {
 			t.Fatalf("импорт после dry-run: %+v; %v", rep, issueMessages(rep.Issues))
 		}
 	})
@@ -304,7 +263,7 @@ func runImporterSuite(t *testing.T, factory configFactory) {
 
 	t.Run("CatalogImportFileRejectsRecords", func(t *testing.T) {
 		app := openApp(t, factory)
-		file := sampleDataPath(t, "diodes.jsonc")
+		file := dataPath(t, "diodes.jsonc")
 		f, err := os.Open(file)
 		if err != nil {
 			t.Fatalf("открытие: %v", err)
@@ -322,9 +281,9 @@ func runImporterSuite(t *testing.T, factory configFactory) {
 
 	t.Run("ExportRoundTripAllFormats", func(t *testing.T) {
 		app := openApp(t, factory)
-		importFile(t, app, sampleDataPath(t, "transistors.jsonc"), false)
-		importFile(t, app, sampleDataPath(t, "resistors.jsonc"), false)
-		importFile(t, app, sampleDataPath(t, "capacitors.jsonc"), false)
+		importFile(t, app, dataPath(t, "transistors.jsonc"), false)
+		importFile(t, app, dataPath(t, "resistors.jsonc"), false)
+		importFile(t, app, dataPath(t, "capacitors.jsonc"), false)
 
 		for _, format := range []Format{FormatJSONC, FormatYAML, FormatNDJSON} {
 			var buf bytes.Buffer
@@ -392,8 +351,8 @@ func runImporterSuite(t *testing.T, factory configFactory) {
 	t.Run("ValuesAndConditionsRoundTrip", func(t *testing.T) {
 		app := openApp(t, factory)
 		// Значения всех форм и условия сохраняются экспортом без потерь.
-		importFile(t, app, sampleDataPath(t, "transistors.jsonc"), false)
-		importFile(t, app, sampleDataPath(t, "diodes.jsonc"), false)
+		importFile(t, app, dataPath(t, "transistors.jsonc"), false)
+		importFile(t, app, dataPath(t, "diodes.jsonc"), false)
 		var buf bytes.Buffer
 		if err := New(app).Export(context.Background(), &buf, FormatJSONC, nil); err != nil {
 			t.Fatalf("экспорт: %v", err)

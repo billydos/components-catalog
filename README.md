@@ -36,14 +36,13 @@ catalogctl export --format ndjson --db catalog.db
 ```
 
 Формат файлов наполнения (jsonc/yaml/ndjson), семантика секций, единицы
-и типичные ошибки — `docs/fill-format.md`. Два набора данных в репозитории:
-
-- `data/` — выверенная выборка (транзисторы, диоды, резисторы,
-  конденсаторы; матрица исполнений К50-35, ряд мощностей С2-33Н,
-  направленные аналоги) — источники по каждой записи:
-  `docs/plan/08-data-verification.md`;
-- `sample-data/` — примеры формы записей (правдоподобные непроверенные
-  значения).
+и типичные ошибки — `docs/fill-format.md`. Примеры записей по классам и
+системам обозначений — `docs/plan/06-examples.md`; выверенное наполнение в
+репозитории — `data/` (транзисторы, диоды, резисторы, конденсаторы;
+матрица исполнений К50-35, ряд мощностей С2-33Н, направленные аналоги) —
+источники по каждой записи: `docs/plan/08-data-verification.md`. NDJSON-поток
+для больших объёмов воспроизводится экспортом:
+`catalogctl export --format ndjson`.
 
 ## Встраивание (Go API)
 
@@ -95,7 +94,6 @@ mux.Handle("/api/v1/", httpapi.New(app, httpapi.Config{
 
 ```
 catalogctl import data/transistors.jsonc --db catalog.db
-catalogctl import sample-data/transistors.jsonc --db catalog.db
 catalogctl import bulk.ndjson --db catalog.db          # потоковый формат
 catalogctl import data/transistors.jsonc --dry-run --db catalog.db
 catalogctl export --format ndjson --db catalog.db

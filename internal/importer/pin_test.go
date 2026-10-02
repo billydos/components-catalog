@@ -1,6 +1,7 @@
 package importer
 
 import (
+	"bytes"
 	"context"
 	"os"
 	"path/filepath"
@@ -40,9 +41,50 @@ func TestPinGroupSections(t *testing.T) {
 	}
 }
 
-// TestPinSampleDataKeysFromCatalog — ключи-классы и секции записей
-// sample-data принадлежат каталогу (вид дерева — формат наполнения).
-func TestPinSampleDataKeysFromCatalog(t *testing.T) {
+// forEachRecord обходит записи документа наполнения в любом формате
+// реестра: jsonc/yaml — секции классов с массивами записей, ndjson —
+// строка-обёртка на запись (writer.go). Секция catalog пропускается.
+func forEachRecord(t *testing.T, label string, data []byte, format Format, fn func(kind string, rec value)) {
+	t.Helper()
+	if format == FormatNDJSON {
+		sc := newNDJSONScanner(strings.NewReader(string(data)))
+		for {
+			line, number, ok, err := sc.next()
+			if err != nil {
+				t.Fatalf("%s: строка %d: %v", label, number, err)
+			}
+			if !ok {
+				return
+			}
+			v, err := parseLineJSON(line, number)
+			if err != nil {
+				t.Fatalf("%s: строка %d: %v", label, number, err)
+			}
+			for _, m := range v.members {
+				if m.name == "catalog" {
+					continue
+				}
+				fn(m.name, m.value)
+			}
+		}
+	}
+	root, err := parseTree(data, format)
+	if err != nil {
+		t.Fatalf("%s: %v", label, err)
+	}
+	for _, m := range root.members {
+		if m.name == "catalog" {
+			continue
+		}
+		for _, rec := range m.value.items {
+			fn(m.name, rec)
+		}
+	}
+}
+
+// TestPinDataKeysFromCatalog — ключи-классы и секции записей data/
+// принадлежат каталогу (вид дерева — формат наполнения).
+func TestPinDataKeysFromCatalog(t *testing.T) {
 	snap := testSnapshot(t)
 	sections := map[string]bool{}
 	for _, g := range snap.Groups {
@@ -56,71 +98,25 @@ func TestPinSampleDataKeysFromCatalog(t *testing.T) {
 		"name": true, "system": true, "attributes": true,
 		"manufacturers": true, "variants": true, "analogs": true,
 	}
-	files, err := filepath.Glob(filepath.Join("..", "..", "sample-data", "*"))
+	files, err := filepath.Glob(filepath.Join("..", "..", "data", "*"))
 	if err != nil || len(files) == 0 {
-		t.Fatalf("sample-data недоступны: %v", err)
+		t.Fatalf("data недоступны: %v", err)
 	}
 	for _, file := range files {
-		if _, err := FormatByFilename(file); err != nil {
+		format, err := FormatByFilename(file)
+		if err != nil {
 			continue // служебные файлы каталога (например, .gitkeep)
 		}
 		data, err := os.ReadFile(file)
 		if err != nil {
 			t.Fatalf("%s: %v", file, err)
 		}
-		format, err := FormatByFilename(file)
-		if err != nil {
-			t.Fatalf("%s: %v", file, err)
-		}
-		var root value
-		if format == FormatNDJSON {
-			sc := newNDJSONScanner(strings.NewReader(string(data)))
-			for {
-				line, number, ok, err := sc.next()
-				if err != nil {
-					t.Fatalf("%s: строка %d: %v", file, number, err)
-				}
-				if !ok {
-					break
-				}
-				v, err := parseLineJSON(line, number)
-				if err != nil {
-					t.Fatalf("%s: строка %d: %v", file, number, err)
-				}
-				root = v
-				checkRecordWrapperKeys(t, file, snap, kinds, sections, serviceKeys, v)
+		forEachRecord(t, file, data, format, func(kind string, rec value) {
+			if !kinds[kind] {
+				t.Errorf("%s: ключ корня «%s» не является классом каталога", file, kind)
 			}
-			continue
-		}
-		root, err = parseTree(data, format)
-		if err != nil {
-			t.Fatalf("%s: %v", file, err)
-		}
-		for _, m := range root.members {
-			if m.name == "catalog" {
-				continue
-			}
-			if !kinds[m.name] {
-				t.Errorf("%s: ключ корня «%s» не является классом каталога", file, m.name)
-			}
-			for _, rec := range m.value.items {
-				checkRecordKeys(t, file, snap, kinds, sections, serviceKeys, rec)
-			}
-		}
-	}
-}
-
-func checkRecordWrapperKeys(t *testing.T, file string, snap *catalog.Snapshot,
-	kinds, sections, serviceKeys map[string]bool, wrapper value) {
-	t.Helper()
-	for _, m := range wrapper.members {
-		if m.name == "catalog" {
-			continue
-		}
-		if !kinds[m.name] {
-			t.Errorf("%s: ключ-класс «%s» не является классом каталога", file, m.name)
-		}
-		checkRecordKeys(t, file, snap, kinds, sections, serviceKeys, m.value)
+			checkRecordKeys(t, file, snap, kinds, sections, serviceKeys, rec)
+		})
 	}
 }
 
@@ -161,8 +157,8 @@ func checkRecordKeys(t *testing.T, file string, snap *catalog.Snapshot,
 }
 
 // TestPinExportShapeFromCatalog — экспорт пишет только ключи формата
-// наполнения: секции — из групп каталога, условия значений — из условий
-// каталога (round-trip пин).
+// наполнения во всех форматах реестра: секции — из групп каталога,
+// условия значений — из условий каталога (round-trip пин).
 func TestPinExportShapeFromCatalog(t *testing.T) {
 	app, err := service.Open(context.Background(), service.Config{
 		Dialect: "sqlite", DSN: ":memory:", EnsureCreated: true,
@@ -171,8 +167,8 @@ func TestPinExportShapeFromCatalog(t *testing.T) {
 		t.Fatalf("open: %v", err)
 	}
 	defer app.Close() //nolint:errcheck
-	importFile(t, app, sampleDataPath(t, "transistors.jsonc"), false)
-	importFile(t, app, sampleDataPath(t, "capacitors.jsonc"), false)
+	importFile(t, app, dataPath(t, "transistors.jsonc"), false)
+	importFile(t, app, dataPath(t, "capacitors.jsonc"), false)
 
 	snap, err := app.Snapshot(context.Background())
 	if err != nil {
@@ -182,48 +178,38 @@ func TestPinExportShapeFromCatalog(t *testing.T) {
 	for _, g := range snap.Groups {
 		sections[g.SectionName] = true
 	}
+	kinds := map[string]bool{}
+	for _, k := range snap.Kinds {
+		kinds[KindSection(k.Code)] = true
+	}
 	serviceKeys := map[string]bool{
 		"name": true, "system": true, "attributes": true,
 		"manufacturers": true, "variants": true, "analogs": true,
 		"label": true,
 	}
 
-	var buf strings.Builder
-	if err := New(app).Export(context.Background(), &bufWriter{&buf}, FormatJSONC, nil); err != nil {
-		t.Fatalf("экспорт: %v", err)
-	}
-	root, err := parseJSONC([]byte(buf.String()))
-	if err != nil {
-		t.Fatalf("разбор экспорта: %v", err)
-	}
-	for _, sec := range root.members {
-		for _, rec := range sec.value.items {
-			for _, m := range rec.members {
-				if !serviceKeys[m.name] && !sections[m.name] {
-					t.Errorf("экспорт: неизвестный ключ записи «%s»", m.name)
-				}
-				if !sections[m.name] || m.value.kind != kindArray {
-					continue
-				}
-				for _, item := range m.value.items {
-					for _, vm := range item.members {
-						switch vm.name {
-						case "parameter", "value", "min", "max", "text":
-						default:
-							if _, ok := snap.Condition(vm.name); !ok {
-								t.Errorf("экспорт: ключ «%s» значения — не условие каталога", vm.name)
-							}
-						}
-					}
-				}
+	for _, format := range []Format{FormatJSONC, FormatYAML, FormatNDJSON} {
+		var buf bytes.Buffer
+		if err := New(app).Export(context.Background(), &buf, format, nil); err != nil {
+			t.Fatalf("экспорт %s: %v", format, err)
+		}
+		label := "export." + string(format)
+		forEachRecord(t, label, buf.Bytes(), format, func(kind string, rec value) {
+			if !kinds[kind] {
+				t.Errorf("%s: класс «%s» не является классом каталога", label, kind)
 			}
+			checkRecordKeys(t, label, snap, nil, sections, serviceKeys, rec)
+		})
+		// Повторный экспорт байтово совпадает: детерминированность.
+		var buf2 bytes.Buffer
+		if err := New(app).Export(context.Background(), &buf2, format, nil); err != nil {
+			t.Fatalf("повторный экспорт %s: %v", format, err)
+		}
+		if buf.String() != buf2.String() {
+			t.Fatalf("экспорт %s недетерминирован", format)
 		}
 	}
 }
-
-type bufWriter struct{ b *strings.Builder }
-
-func (w *bufWriter) Write(p []byte) (int, error) { return w.b.Write(p) }
 
 // TestPinVerbatimFormatErrors — дословные тексты ошибок формата.
 func TestPinVerbatimFormatErrors(t *testing.T) {
