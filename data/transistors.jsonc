@@ -1,0 +1,521 @@
+{
+  // Транзисторы: выверенная выборка этапа 6 (план работ 6.3, ≈20+ записей:
+  // обозначения, параметры с условиями, предельные, атрибуты,
+  // производители, аналоги). Источники по каждой записи — код [S…] —
+  // и полные таблицы: plan/08-data-verification.md §1. Единицы —
+  // канонические (мВт, мА, МГц); для pnp условия — модули напряжений/токов.
+  "transistors": [
+    // gost (ГОСТ 10862-64): материал и подкласс кодируются обозначением.
+    {
+      "name": "КТ315Б",                      // h21э 50–350; UкэR 20 В
+      "system": "gost",
+      "attributes": {
+        "structure": "npn", "package": "КТ-13", "tu": "ЖК3.365.200ТУ",
+        "yearFrom": 1967, "datasheetUrl": "https://esociety.ru/poznavatelnoe/tranzistor-kt315-harakteristiki-markirovka-tsokolevka-i-analogi/"
+      },
+      "manufacturers": ["Кремний (Брянск)", "Элькор (Нальчик)", "НИИПП (Томск)"],
+      "parameters": [
+        { "parameter": "h21e", "min": 50, "max": 350, "Uke": 10, "Ik": 1 },
+        { "parameter": "Ikbo", "max": 0.5, "Ukb": 10, "temp": 25 }
+      ],
+      "ratings": [
+        { "parameter": "UkeoMax", "value": 20 },
+        { "parameter": "UkbMax", "value": 20 },
+        { "parameter": "UbeMax", "value": 6 },
+        { "parameter": "IkMax", "value": 100 },
+        { "parameter": "PkMax", "value": 150 },
+        { "parameter": "TempMin", "value": -60 },
+        { "parameter": "TempMax", "value": 100 },
+        { "parameter": "TempJunctionMax", "value": 125 }
+      ],
+      "analogs": ["2N3904"]
+    },
+    {
+      "name": "КТ315Г",                      // отличия от Б: напряжения 35 В
+      "system": "gost",
+      "attributes": {
+        "structure": "npn", "package": "КТ-13", "tu": "ЖК3.365.200ТУ",
+        "yearFrom": 1967, "datasheetUrl": "https://esociety.ru/poznavatelnoe/tranzistor-kt315-harakteristiki-markirovka-tsokolevka-i-analogi/"
+      },
+      "parameters": [
+        { "parameter": "h21e", "min": 50, "max": 350, "Uke": 10, "Ik": 1 },
+        { "parameter": "Ikbo", "max": 0.5, "Ukb": 10, "temp": 25 }
+      ],
+      "ratings": [
+        { "parameter": "UkeoMax", "value": 35 },
+        { "parameter": "UkbMax", "value": 35 },
+        { "parameter": "UbeMax", "value": 6 },
+        { "parameter": "IkMax", "value": 100 },
+        { "parameter": "PkMax", "value": 150 },
+        { "parameter": "TempMin", "value": -60 },
+        { "parameter": "TempMax", "value": 100 },
+        { "parameter": "TempJunctionMax", "value": 125 }
+      ]
+    },
+    {
+      "name": "КТ361А",                      // pnp-комплемент КТ315
+      "system": "gost",
+      "attributes": {
+        "structure": "pnp", "tu": "ФЫО.336.201ТУ",
+        "datasheetUrl": "https://r9al.ru/data/transistors/rus/kt361/index.htm"
+      },
+      "parameters": [
+        { "parameter": "h21e", "min": 20, "max": 90, "Uke": 10, "Ik": 1 },
+        { "parameter": "Ikbo", "max": 1, "Ukb": 10, "temp": 25 }
+      ],
+      "ratings": [
+        { "parameter": "UkeoMax", "value": 25 },
+        { "parameter": "UkbMax", "value": 25 },
+        { "parameter": "UbeMax", "value": 4 },
+        { "parameter": "IkMax", "value": 50 },
+        { "parameter": "PkMax", "value": 150 },
+        { "parameter": "TempMin", "value": -60 },
+        { "parameter": "TempMax", "value": 100 },
+        { "parameter": "TempJunctionMax", "value": 120 }
+      ]
+    },
+    {
+      "name": "КТ3102А",
+      "system": "gost",
+      "attributes": {
+        "structure": "npn", "datasheetUrl": "https://r9al.ru/data/transistors/rus/kt3102/index.htm"
+      },
+      "parameters": [
+        { "parameter": "h21e", "min": 100, "max": 250, "Uke": 5, "Ik": 2 },
+        { "parameter": "Ikbo", "max": 0.05, "Ukb": 50, "temp": 25 }
+      ],
+      "ratings": [
+        { "parameter": "UkeoMax", "value": 50 },
+        { "parameter": "UkbMax", "value": 50 },
+        { "parameter": "UbeMax", "value": 5 },
+        { "parameter": "IkMax", "value": 100 },
+        { "parameter": "IkPulseMax", "value": 200, "pulse_duration": 40 },
+        { "parameter": "PkMax", "value": 250 },
+        { "parameter": "TempMin", "value": -40 },
+        { "parameter": "TempMax", "value": 85 },
+        { "parameter": "TempJunctionMax", "value": 125 }
+      ]
+    },
+    {
+      "name": "КТ3102Б",
+      "system": "gost",
+      "attributes": {
+        "structure": "npn", "datasheetUrl": "http://www.5v.ru/ds/trnz/kt3102.htm"
+      },
+      "parameters": [
+        { "parameter": "h21e", "min": 200, "max": 500, "Uke": 5, "Ik": 2 },
+        { "parameter": "Ikbo", "max": 0.05, "Ukb": 50, "temp": 25 }
+      ],
+      "ratings": [
+        { "parameter": "UkeoMax", "value": 50 },
+        { "parameter": "UkbMax", "value": 50 },
+        { "parameter": "UbeMax", "value": 5 },
+        { "parameter": "IkMax", "value": 100 },
+        { "parameter": "PkMax", "value": 250 },
+        { "parameter": "TempMin", "value": -40 },
+        { "parameter": "TempMax", "value": 85 },
+        { "parameter": "TempJunctionMax", "value": 125 }
+      ],
+      "analogs": ["BC547B"]
+    },
+    {
+      "name": "ГТ109Г",                      // германиевый pnp маломощный
+      "system": "gost",
+      "attributes": {
+        "structure": "pnp",
+        "datasheetUrl": "https://elektrouzel.ru/reference/transistors/163-tranzistory-tipa-gt109a-gt109b-gt109v-gt109g-gt109d-gt109e-gt109zh-gt109i.html"
+      },
+      "parameters": [
+        { "parameter": "h21e", "min": 110, "max": 250, "Ukb": 5, "Ie": 1 },
+        { "parameter": "Ikbo", "max": 5, "Ukb": 5, "temp": 25 },
+        { "parameter": "FGran", "min": 1, "Ukb": 5, "Ie": 1 }
+      ],
+      "ratings": [
+        { "parameter": "UkeoMax", "value": 6 },
+        { "parameter": "UkbMax", "value": 10 },
+        { "parameter": "IkMax", "value": 20 },
+        { "parameter": "PkMax", "value": 30 },
+        { "parameter": "TempMin", "value": -45 },
+        { "parameter": "TempMax", "value": 55 },
+        { "parameter": "TempJunctionMax", "value": 85 }
+      ]
+    },
+    {
+      "name": "КТ805А",                      // мощный npn; 2N3055 аналогом НЕ подтверждён (аналог 2N3055 — КТ729)
+      "system": "gost",
+      "attributes": {
+        "structure": "npn", "category": "низкочастотный мощный",
+        "datasheetUrl": "https://rudatasheet.ru/transistors/kt805/"
+      },
+      "parameters": [
+        { "parameter": "h21e", "min": 15, "max": 35, "Uke": 10, "Ik": 2000 }
+      ],
+      "ratings": [
+        { "parameter": "UkeoMax", "value": 160 },
+        { "parameter": "UkbMax", "value": 180 },
+        { "parameter": "UbeMax", "value": 5 },
+        { "parameter": "IkMax", "value": 5000 },
+        { "parameter": "PkMax", "value": 30000 },
+        { "parameter": "TempMax", "value": 100 },
+        { "parameter": "TempJunctionMax", "value": 150 }
+      ]
+    },
+
+    // pro (PRO ELECTRON): материал и класс прибора — первые две буквы.
+    {
+      "name": "BC547B",                      // B кремний, C маломощный НЧ
+      "system": "pro",
+      "attributes": {
+        "structure": "npn", "package": "TO-92",
+        "datasheetUrl": "https://web.archive.org/web/20160613155425/https://www.fairchildsemi.com/datasheets/BC/BC547.pdf"
+      },
+      "manufacturers": ["Fairchild", "Philips", "onsemi"],
+      "parameters": [
+        { "parameter": "h21e", "min": 200, "max": 450, "Uke": 5, "Ik": 2 },
+        { "parameter": "Ikbo", "max": 0.015, "Ukb": 30 }
+      ],
+      "ratings": [
+        { "parameter": "UkeoMax", "value": 45 },
+        { "parameter": "UkbMax", "value": 50 },
+        { "parameter": "UbeMax", "value": 6 },
+        { "parameter": "IkMax", "value": 100 },
+        { "parameter": "PkMax", "value": 500 },
+        { "parameter": "TempMin", "value": -65 },
+        { "parameter": "TempMax", "value": 150 },
+        { "parameter": "TempJunctionMax", "value": 150 }
+      ]
+    },
+    {
+      "name": "BC557B",                      // pnp-комплемент BC547B; условия — модули
+      "system": "pro",
+      "attributes": {
+        "structure": "pnp", "package": "TO-92",
+        "datasheetUrl": "https://www.onsemi.com/pub/Collateral/BC556B-D.PDF"
+      },
+      "manufacturers": ["onsemi", "Philips"],
+      "parameters": [
+        { "parameter": "h21e", "min": 180, "max": 460, "Uke": 5, "Ik": 2 },
+        { "parameter": "Ikbo", "max": 0.1, "Ukb": 20 }
+      ],
+      "ratings": [
+        { "parameter": "UkeoMax", "value": 45 },
+        { "parameter": "UkbMax", "value": 50 },
+        { "parameter": "UbeMax", "value": 5 },
+        { "parameter": "IkMax", "value": 100 },
+        { "parameter": "PkMax", "value": 625 },
+        { "parameter": "TempMin", "value": -55 },
+        { "parameter": "TempMax", "value": 150 },
+        { "parameter": "TempJunctionMax", "value": 150 }
+      ]
+    },
+    {
+      "name": "AD161",                       // германиевый npn мощной; комплемент — AD162 (pnp)
+      "system": "pro",
+      "attributes": {
+        "structure": "npn", "category": "низкочастотный мощной", "yearFrom": 1962,
+        "datasheetUrl": "https://www.radiomuseum.org/tubes/tube_ad161.html"
+      },
+      "manufacturers": ["Valvo", "Telefunken", "Mullard", "Tesla"]
+    },
+
+    // jedec: материал и категория не кодируются — задаются атрибутами.
+    {
+      "name": "2N2222A",
+      "system": "jedec",
+      "attributes": {
+        "structure": "npn", "category": "универсальный", "package": "TO-18",
+        "datasheetUrl": "https://web.archive.org/web/20220331223626/https://www.st.com/resource/en/datasheet/CD00003223.pdf"
+      },
+      "manufacturers": ["ST", "Motorola", "Texas Instruments"],
+      "parameters": [
+        { "parameter": "h21e", "min": 100, "max": 300, "Uke": 10, "Ik": 10 },
+        { "parameter": "FGran", "min": 300, "Uke": 20, "Ik": 20 },
+        { "parameter": "Ikbo", "max": 0.01, "Ukb": 60 }
+      ],
+      "ratings": [
+        { "parameter": "UkeoMax", "value": 40 },
+        { "parameter": "UkbMax", "value": 75 },
+        { "parameter": "UbeMax", "value": 6 },
+        { "parameter": "IkMax", "value": 600 },
+        { "parameter": "PkMax", "value": 500 },
+        { "parameter": "TempMin", "value": -65 },
+        { "parameter": "TempMax", "value": 175 },
+        { "parameter": "TempJunctionMax", "value": 175 }
+      ]
+    },
+    {
+      "name": "2N3055",
+      "system": "jedec",
+      "attributes": {
+        "structure": "npn", "category": "низкочастотный мощный", "package": "TO-3",
+        "datasheetUrl": "https://www.st.com/resource/en/datasheet/cd00000895.pdf"
+      },
+      "manufacturers": ["ST", "onsemi", "Motorola", "RCA"],
+      "parameters": [
+        { "parameter": "h21e", "min": 20, "max": 70, "Uke": 4, "Ik": 4000 },
+        { "parameter": "FGran", "min": 2.5, "Uke": 10, "Ik": 500 },
+        { "parameter": "Ikeo", "max": 700, "Uke": 30 }
+      ],
+      "ratings": [
+        { "parameter": "UkeoMax", "value": 60 },
+        { "parameter": "UkbMax", "value": 100 },
+        { "parameter": "UbeMax", "value": 7 },
+        { "parameter": "IkMax", "value": 15000 },
+        { "parameter": "PkMax", "value": 115000 },
+        { "parameter": "TempMin", "value": -65 },
+        { "parameter": "TempMax", "value": 200 },
+        { "parameter": "TempJunctionMax", "value": 200 }
+      ]
+    },
+    {
+      "name": "2N3904",
+      "system": "jedec",
+      "attributes": {
+        "structure": "npn", "category": "универсальный", "package": "TO-92",
+        "datasheetUrl": "https://www.mccsemi.com/pdf/Products/2N3904(TO-92).pdf"
+      },
+      "manufacturers": ["onsemi", "Motorola", "MCC"],
+      "parameters": [
+        { "parameter": "h21e", "min": 100, "max": 300, "Uke": 1, "Ik": 10 },
+        { "parameter": "FGran", "min": 300, "Uke": 20, "Ik": 10 }
+      ],
+      "ratings": [
+        { "parameter": "UkeoMax", "value": 40 },
+        { "parameter": "UkbMax", "value": 60 },
+        { "parameter": "UbeMax", "value": 6 },
+        { "parameter": "IkMax", "value": 200 },
+        { "parameter": "PkMax", "value": 625 },
+        { "parameter": "TempMin", "value": -55 },
+        { "parameter": "TempMax", "value": 150 },
+        { "parameter": "TempJunctionMax", "value": 150 }
+      ]
+    },
+
+    // jis (JIS/EIAJ): переходы и класс кодируются — A p-n-p ВЧ, C n-p-n ВЧ, K n-канал ПТ.
+    {
+      "name": "2SA1015",                     // ранги O/Y/GR: 70–140/120–240/200–400
+      "system": "jis",
+      "attributes": {
+        "structure": "pnp", "package": "TO-92",
+        "datasheetUrl": "https://media.digikey.com/pdf/Data%20Sheets/Toshiba%20PDFs/2SA1015.pdf"
+      },
+      "manufacturers": ["Toshiba"],
+      "parameters": [
+        { "parameter": "h21e", "min": 70, "max": 400, "Uke": 6, "Ik": 2 },
+        { "parameter": "FGran", "min": 80, "Uke": 10, "Ik": 1 },
+        { "parameter": "Ikbo", "max": 0.1, "Ukb": 50 }
+      ],
+      "ratings": [
+        { "parameter": "UkeoMax", "value": 50 },
+        { "parameter": "UkbMax", "value": 50 },
+        { "parameter": "UbeMax", "value": 5 },
+        { "parameter": "IkMax", "value": 150 },
+        { "parameter": "PkMax", "value": 400 },
+        { "parameter": "TempMin", "value": -55 },
+        { "parameter": "TempMax", "value": 125 },
+        { "parameter": "TempJunctionMax", "value": 125 }
+      ]
+    },
+    {
+      "name": "2SC1815",                     // ранги O/Y/GR/BL: 70–140/120–240/200–400/350–700
+      "system": "jis",
+      "attributes": {
+        "structure": "npn", "package": "TO-92",
+        "datasheetUrl": "https://media.digikey.com/pdf/Data%20Sheets/Toshiba%20PDFs/2SC1815.pdf"
+      },
+      "manufacturers": ["Toshiba"],
+      "parameters": [
+        { "parameter": "h21e", "min": 70, "max": 700, "Uke": 6, "Ik": 2 },
+        { "parameter": "FGran", "min": 80, "Uke": 10, "Ik": 1 },
+        { "parameter": "Ikbo", "max": 0.1, "Ukb": 60 }
+      ],
+      "ratings": [
+        { "parameter": "UkeoMax", "value": 50 },
+        { "parameter": "UkbMax", "value": 60 },
+        { "parameter": "UbeMax", "value": 5 },
+        { "parameter": "IkMax", "value": 150 },
+        { "parameter": "PkMax", "value": 400 },
+        { "parameter": "TempMin", "value": -55 },
+        { "parameter": "TempMax", "value": 125 },
+        { "parameter": "TempJunctionMax", "value": 125 }
+      ]
+    },
+    {
+      "name": "2SK1058",                     // мощной МОП (Hitachi); электрические параметры полевых — вне стартового каталога
+      "system": "jis",
+      "attributes": {
+        "structure": "n-канал", "package": "TO-3P",
+        "datasheetUrl": "https://diyaudioprojects.com/Solid/ZCA/Hitachi-2SK1056-2SK1057-2SK1058-Datatsheet.pdf"
+      },
+      "manufacturers": ["Hitachi"],
+      "ratings": [
+        { "parameter": "UsiMax", "value": 160 },
+        { "parameter": "IsiMax", "value": 7000 },
+        { "parameter": "PkMax", "value": 100000 },
+        { "parameter": "TempMin", "value": -55 },
+        { "parameter": "TempMax", "value": 150 },
+        { "parameter": "TempJunctionMax", "value": 150 }
+      ]
+    },
+
+    // series: семейство из реестра series_families; материал и категория — атрибутами.
+    {
+      "name": "МП39",                        // германиевый pnp; h21э нормирован только снизу (≥12) — в модель не ложится
+      "system": "series",
+      "attributes": {
+        "structure": "pnp", "category": "низкочастотный",
+        "datasheetUrl": "https://elektrouzel.ru/reference/transistors/215-tranzistory-tipa-mp39-mp39b-mp40-mp40a-mp41-mp41a.html"
+      },
+      "manufacturers": ["Светлана (Ленинград)", "Кремний", "Планета (Великий Новгород)"],
+      "parameters": [
+        { "parameter": "Ikbo", "max": 15, "Ukb": 5, "temp": 20 }
+      ],
+      "ratings": [
+        { "parameter": "UkeoMax", "value": 15 },
+        { "parameter": "UkbMax", "value": 15 },
+        { "parameter": "UbeMax", "value": 10 },
+        { "parameter": "IkMax", "value": 30 },
+        { "parameter": "PkMax", "value": 150 },
+        { "parameter": "TempMin", "value": -60 },
+        { "parameter": "TempMax", "value": 70 },
+        { "parameter": "TempJunctionMax", "value": 85 },
+        { "parameter": "Rth", "value": 200 }
+      ]
+    },
+    {
+      "name": "МП41А",                       // h21э 50–100 (нормирован диапазоном, в отличие от МП39)
+      "system": "series",
+      "attributes": {
+        "structure": "pnp", "category": "низкочастотный",
+        "datasheetUrl": "https://elektrouzel.ru/reference/transistors/215-tranzistory-tipa-mp39-mp39b-mp40-mp40a-mp41-mp41a.html"
+      },
+      "parameters": [
+        { "parameter": "h21e", "min": 50, "max": 100, "Ukb": 5, "Ie": 1 },
+        { "parameter": "Ikbo", "max": 15, "Ukb": 5, "temp": 20 }
+      ],
+      "ratings": [
+        { "parameter": "UkeoMax", "value": 15 },
+        { "parameter": "UkbMax", "value": 15 },
+        { "parameter": "UbeMax", "value": 10 },
+        { "parameter": "IkMax", "value": 30 },
+        { "parameter": "PkMax", "value": 150 },
+        { "parameter": "TempMin", "value": -60 },
+        { "parameter": "TempMax", "value": 70 },
+        { "parameter": "TempJunctionMax", "value": 85 }
+      ]
+    },
+    {
+      "name": "П214",                        // германиевый pnp мощной
+      "system": "series",
+      "attributes": {
+        "structure": "pnp", "category": "низкочастотный мощной",
+        "datasheetUrl": "http://d-vt.ru/p214.html"
+      },
+      "parameters": [
+        { "parameter": "h21e", "min": 20, "max": 60, "Uke": 5, "Ik": 200 },
+        { "parameter": "Ikbo", "max": 300, "Ukb": 60, "temp": 20 },
+        { "parameter": "FGran", "min": 0.15, "Ukb": 10, "Ie": 100 }
+      ],
+      "ratings": [
+        { "parameter": "UkeoMax", "value": 60 },
+        { "parameter": "UkbMax", "value": 60 },
+        { "parameter": "UbeMax", "value": 15 },
+        { "parameter": "IbMax", "value": 500 },
+        { "parameter": "IkMax", "value": 5000 },
+        { "parameter": "PkMax", "value": 10000 },
+        { "parameter": "TempMin", "value": -60 },
+        { "parameter": "TempMax", "value": 70 },
+        { "parameter": "TempJunctionMax", "value": 85 },
+        { "parameter": "Rth", "value": 4 }
+      ]
+    },
+    {
+      "name": "TIP120",                      // составной (Дарлингтон); h21э ≥1000 (верхняя граница не нормируется)
+      "system": "series",
+      "attributes": {
+        "structure": "npn", "category": "составной", "package": "TO-220",
+        "datasheetUrl": "https://www.st.com/resource/en/datasheet/tip120.pdf"
+      },
+      "manufacturers": ["ST", "onsemi"],
+      "parameters": [
+        { "parameter": "Ikbo", "max": 200, "Ukb": 60 },
+        { "parameter": "Ikeo", "max": 500, "Uke": 30 }
+      ],
+      "ratings": [
+        { "parameter": "UkeoMax", "value": 60 },
+        { "parameter": "UkbMax", "value": 60 },
+        { "parameter": "UbeMax", "value": 5 },
+        { "parameter": "IkMax", "value": 5000 },
+        { "parameter": "PkMax", "value": 65000 },
+        { "parameter": "TempMin", "value": -65 },
+        { "parameter": "TempMax", "value": 150 },
+        { "parameter": "TempJunctionMax", "value": 150 }
+      ]
+    },
+    {
+      "name": "MPSA42",                      // высоковольтный; h21э ≥40 (верхняя граница не нормируется)
+      "system": "series",
+      "attributes": {
+        "structure": "npn", "category": "высоковольтный универсальный", "package": "TO-92",
+        "datasheetUrl": "https://www.onsemi.com/pub/Collateral/MPSA42-D.PDF"
+      },
+      "manufacturers": ["onsemi", "Philips"],
+      "parameters": [
+        { "parameter": "FGran", "min": 50, "Uke": 20, "Ik": 10 },
+        { "parameter": "Ikbo", "max": 0.1, "Ukb": 200 }
+      ],
+      "ratings": [
+        { "parameter": "UkeoMax", "value": 300 },
+        { "parameter": "UkbMax", "value": 300 },
+        { "parameter": "UbeMax", "value": 6 },
+        { "parameter": "IkMax", "value": 500 },
+        { "parameter": "PkMax", "value": 625 },
+        { "parameter": "TempMin", "value": -55 },
+        { "parameter": "TempMax", "value": 150 },
+        { "parameter": "TempJunctionMax", "value": 150 }
+      ]
+    },
+
+    // other: разбора нет, ключ system обязателен; классификация — атрибутами.
+    {
+      "name": "IRF540",                      // МОП; атрибуция Vishay 91021
+      "system": "other",
+      "attributes": {
+        "structure": "n-канал", "category": "МОП мощный", "package": "TO-220AB",
+        "datasheetUrl": "https://www.vishay.com/docs/91021/irf540.pdf"
+      },
+      "manufacturers": ["Vishay Siliconix", "International Rectifier"],
+      "ratings": [
+        { "parameter": "UsiMax", "value": 100 },
+        { "parameter": "IsiMax", "value": 28000 },
+        { "parameter": "PkMax", "value": 150000 },
+        { "parameter": "TempMin", "value": -55 },
+        { "parameter": "TempMax", "value": 175 },
+        { "parameter": "TempJunctionMax", "value": 175 }
+      ]
+    },
+    {
+      "name": "MJE340",                      // высоковольтный драйверный
+      "system": "other",
+      "attributes": {
+        "structure": "npn", "category": "высоковольтный универсальный", "package": "TO-126",
+        "datasheetUrl": "https://www.st.com/resource/en/datasheet/mje340.pdf"
+      },
+      "manufacturers": ["ST", "onsemi"],
+      "parameters": [
+        { "parameter": "h21e", "min": 30, "max": 240, "Uke": 10, "Ik": 50 },
+        { "parameter": "Ikbo", "max": 100, "Ukb": 300 }
+      ],
+      "ratings": [
+        { "parameter": "UkeoMax", "value": 300 },
+        { "parameter": "UkbMax", "value": 300 },
+        { "parameter": "UbeMax", "value": 3 },
+        { "parameter": "IkMax", "value": 500 },
+        { "parameter": "PkMax", "value": 20800 },
+        { "parameter": "TempMin", "value": -65 },
+        { "parameter": "TempMax", "value": 150 },
+        { "parameter": "TempJunctionMax", "value": 150 }
+      ]
+    }
+  ]
+}

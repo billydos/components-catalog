@@ -6,7 +6,7 @@
     {
       "name": "К50-35",                     // электролитический: данные типа + матрица исполнений
       "system": "gost",
-      "attributes": { "polarized": true, "tu": "ОЖ0.464.036ТУ", "yearFrom": 1980 },
+      "attributes": { "polarized": true, "tu": "ОЖ0.460.172ТУ" },
       "parameters": [                       // тип в целом (variant_id NULL)
         { "parameter": "Dop", "max": 20 },
         { "parameter": "Tgd", "max": 0.15, "temp": 20 }
@@ -37,7 +37,7 @@
     {
       "name": "К10-17Б",                    // керамический: габариты постоянны для типа
       "system": "gost",
-      "attributes": { "package": "монолитный", "tu": "ОЖ0.464.036ТУ", "yearFrom": 1980 },
+      "attributes": { "package": "монолитный", "tu": "ОЖ0.460.172ТУ" },
       "parameters": [
         { "parameter": "Cnom", "min": 22, "max": 1000000 },        // 22 пФ – 1 мкФ
         { "parameter": "TKE", "text": "Н30" },

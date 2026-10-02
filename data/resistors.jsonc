@@ -1,0 +1,259 @@
+{
+  // Резисторы: выверенное наполнение этапа 6 (план работ 6.2–6.3); ряд
+  // мощностей С2-33Н — исполнениями с обязательным Pnom (D6). Источники —
+  // код [S…] — и конфликты: plan/08-data-verification.md §3. Сопротивление —
+  // в Ом, мощность — в Вт, ТКС — в 10⁻⁶/°C.
+  "resistors": [
+    // gost (ГОСТ 3453-68): С постоянные, СП переменные; группа — материал.
+    {
+      "name": "С2-33Н",                      // металлодиэлектрические постоянные; ряд мощностей — исполнениями
+      "system": "gost",
+      "attributes": {
+        "technology": "металлодиэлектрические", "tu": "ОЖ0.467.173ТУ",
+        "datasheetUrl": "http://l7805cv.ru/handbook-res-S2-33N.html"
+      },
+      "manufacturers": ["НПО «ЭРКОН» (Нижний Новгород)"],
+      "parameters": [
+        { "parameter": "Rnom", "min": 0.1, "max": 22000000 },     // 0,1 Ом – 22 МОм (ряды Е24/Е96)
+        { "parameter": "Dop", "max": 10 },                         // ±1; ±2; ±5; ±10 %
+        { "parameter": "TKS", "max": 1500 },                       // ±100…±1500 по исполнениям
+        { "parameter": "Ush", "max": 10 }                          // гр. А — 1; гр. Б — 5/10 мкВ/В
+      ],
+      "ratings": [
+        { "parameter": "TempMin", "value": -60 },
+        { "parameter": "TempMax", "value": 155 }
+      ],
+      "variants": [
+        {
+          "label": "0.125 Вт",
+          "ratings": [ { "parameter": "Pnom", "value": 0.125 },
+                       { "parameter": "Umax", "value": 200 } ],
+          "dimensions": [ { "parameter": "diameter", "value": 2.2 },
+                          { "parameter": "height", "value": 6 },
+                          { "parameter": "massMax", "value": 0.15 } ]
+        },
+        {
+          "label": "0.25 Вт",
+          "ratings": [ { "parameter": "Pnom", "value": 0.25 },
+                       { "parameter": "Umax", "value": 250 } ],
+          "dimensions": [ { "parameter": "diameter", "value": 3.2 },
+                          { "parameter": "height", "value": 7.1 },
+                          { "parameter": "massMax", "value": 0.25 } ]
+        },
+        {
+          "label": "0.5 Вт",
+          "ratings": [ { "parameter": "Pnom", "value": 0.5 },
+                       { "parameter": "Umax", "value": 350 } ],
+          "dimensions": [ { "parameter": "diameter", "value": 4 },
+                          { "parameter": "height", "value": 10.8 },
+                          { "parameter": "massMax", "value": 1 } ]
+        },
+        {
+          "label": "1 Вт",
+          "ratings": [ { "parameter": "Pnom", "value": 1 },
+                       { "parameter": "Umax", "value": 500 } ],
+          "dimensions": [ { "parameter": "diameter", "value": 6.3 },
+                          { "parameter": "height", "value": 13 },
+                          { "parameter": "massMax", "value": 2 } ]
+        },
+        {
+          "label": "2 Вт",
+          "ratings": [ { "parameter": "Pnom", "value": 2 },
+                       { "parameter": "Umax", "value": 750 } ],
+          "dimensions": [ { "parameter": "diameter", "value": 8.5 },
+                          { "parameter": "height", "value": 18 },
+                          { "parameter": "massMax", "value": 3.5 } ]
+        }
+      ]
+    },
+    {
+      "name": "СП3-19А",                     // переменный подстроечный; закон изменения сопротивления — А (линейный)
+      "system": "gost",
+      "attributes": {
+        "functionalChar": "А",
+        "datasheetUrl": "https://www.ecworld.ru/support/ssf/pot.htm"
+      },
+      "manufacturers": ["РИКОР"],
+      "parameters": [
+        { "parameter": "Rnom", "min": 10, "max": 1000000 },       // 10 Ом – 1 МОм
+        { "parameter": "Dop", "max": 20 }
+      ],
+      "ratings": [ { "parameter": "Pnom", "value": 0.5 } ],
+      "dimensions": [ { "parameter": "diameter", "value": 6 },
+                      { "parameter": "height", "value": 4 } ]
+    },
+    {
+      "name": "С5-16МВ",                     // прецизионные проволочные; мощности — исполнениями
+      "system": "gost",
+      "attributes": {
+        "technology": "проволочные", "tu": "ОЖ0.467.545ТУ",
+        "datasheetUrl": "http://l7805cv.ru/handbook-res-S5-16MV.html"
+      },
+      "manufacturers": ["Завод «Элия»"],
+      "parameters": [
+        { "parameter": "Dop", "max": 5 },                          // ±0,5; ±1; ±2; ±5 %
+        { "parameter": "TKS", "max": 150 },
+        { "parameter": "Riz", "min": 10000000000 }
+      ],
+      "ratings": [
+        { "parameter": "Umax", "value": 300 },
+        { "parameter": "TempMin", "value": -60 },
+        { "parameter": "TempMax", "value": 155 }
+      ],
+      "variants": [
+        {
+          "label": "1 Вт",
+          "parameters": [ { "parameter": "Rnom", "min": 0.1, "max": 2 } ],
+          "ratings": [ { "parameter": "Pnom", "value": 1 } ],
+          "dimensions": [ { "parameter": "diameter", "value": 9 },
+                          { "parameter": "height", "value": 19 },
+                          { "parameter": "massMax", "value": 3.5 } ]
+        },
+        {
+          "label": "2 Вт",
+          "parameters": [ { "parameter": "Rnom", "min": 0.1, "max": 2 } ],
+          "ratings": [ { "parameter": "Pnom", "value": 2 } ],
+          "dimensions": [ { "parameter": "diameter", "value": 11 },
+                          { "parameter": "height", "value": 24 },
+                          { "parameter": "massMax", "value": 6 } ]
+        },
+        {
+          "label": "5 Вт",
+          "parameters": [ { "parameter": "Rnom", "min": 0.1, "max": 5.1 } ],
+          "ratings": [ { "parameter": "Pnom", "value": 5 } ],
+          "dimensions": [ { "parameter": "diameter", "value": 11 },
+                          { "parameter": "height", "value": 32 },
+                          { "parameter": "massMax", "value": 8 } ]
+        }
+      ]
+    },
+
+    // ost (ОСТ 11.074.009-78): Р постоянные, РП переменные; группа — материал.
+    {
+      "name": "Р1-4",                        // канонический пример стандарта; мощности — исполнениями
+      "system": "ost",
+      "attributes": {
+        "technology": "непроволочные",
+        "datasheetUrl": "http://l7805cv.ru/handbook-res-R1-4.html"
+      },
+      "parameters": [
+        { "parameter": "Dop", "max": 5 },                          // ±1; ±2; ±5 %
+        { "parameter": "TKS", "max": 500 },
+        { "parameter": "Ush", "max": 1.5 }
+      ],
+      "ratings": [
+        { "parameter": "TempMin", "value": -60 },
+        { "parameter": "TempMax", "value": 85 }
+      ],
+      "variants": [
+        {
+          "label": "0.25 Вт",
+          "parameters": [ { "parameter": "Rnom", "min": 100, "max": 2000000 } ],
+          "ratings": [ { "parameter": "Pnom", "value": 0.25 },
+                       { "parameter": "Umax", "value": 100 } ],
+          "dimensions": [ { "parameter": "diameter", "value": 1.8 },
+                          { "parameter": "height", "value": 5 },
+                          { "parameter": "massMax", "value": 0.3 } ]
+        },
+        {
+          "label": "0.5 Вт",
+          "parameters": [ { "parameter": "Rnom", "min": 1, "max": 10000000 } ],
+          "ratings": [ { "parameter": "Pnom", "value": 0.5 },
+                       { "parameter": "Umax", "value": 250 } ],
+          "dimensions": [ { "parameter": "diameter", "value": 2.8 },
+                          { "parameter": "height", "value": 8.5 },
+                          { "parameter": "massMax", "value": 0.5 } ]
+        }
+      ]
+    },
+    {
+      "name": "РП1-46",                      // переменный подстроечный; числовые данные в доступных источниках отсутствуют
+      "system": "ost",
+      "attributes": {
+        "category": "переменный подстроечный",
+        "datasheetUrl": "http://www.155la3.ru/rp1_46.htm"
+      }
+    },
+
+    // series: досистемные семейства; мощность — хвостом обозначения.
+    {
+      "name": "МЛТ-0.5",                     // металлоплёночные лакированные теплостойкие
+      "system": "series",
+      "attributes": {
+        "technology": "металлоплёночные", "tu": "ОЖ0.467.180ТУ", "yearFrom": 1964,
+        "datasheetUrl": "https://www.radiolibrary.ru/reference/resistor/mlt-0_5.html"
+      },
+      "manufacturers": ["Резистор-НН (Нижний Новгород)", "Кермет (Пенза)"],
+      "parameters": [
+        { "parameter": "Rnom", "min": 1, "max": 5100000 },         // 1 Ом – 5,1 МОм
+        { "parameter": "Dop", "max": 10 },                         // ±2; ±5; ±10 %
+        { "parameter": "TKS", "max": 1200 },
+        { "parameter": "Ush", "max": 5 }
+      ],
+      "ratings": [
+        { "parameter": "Pnom", "value": 0.5 },
+        { "parameter": "Umax", "value": 350 },
+        { "parameter": "TempMin", "value": -60 },
+        { "parameter": "TempMax", "value": 70 }
+      ],
+      "dimensions": [ { "parameter": "diameter", "value": 4.2 },
+                      { "parameter": "leadLength", "value": 25 },
+                      { "parameter": "massMax", "value": 1 } ]
+    },
+    {
+      "name": "ВС-0.5",                      // углеродистые высокостабильные; диапазон — по серии ВС
+      "system": "series",
+      "attributes": {
+        "technology": "углеродистые",
+        "datasheetUrl": "http://www.155la3.ru/vs.htm"
+      },
+      "parameters": [
+        { "parameter": "Rnom", "min": 10, "max": 10000000 },       // по серии ВС
+        { "parameter": "Dop", "max": 20 },
+        { "parameter": "TKS", "max": 2000 },                       // отрицательный
+        { "parameter": "Ush", "max": 5 }
+      ],
+      "ratings": [
+        { "parameter": "Pnom", "value": 0.5 },
+        { "parameter": "TempMin", "value": -60 },
+        { "parameter": "TempMax", "value": 125 }
+      ]
+    },
+    {
+      "name": "ПЭВ-10",                      // проволочные эмалированные влагостойкие
+      "system": "series",
+      "attributes": {
+        "technology": "проволочные", "tu": "ОЖ0.467.576ТУ",
+        "datasheetUrl": "https://eandc.ru/catalog/pev-10-10/"
+      },
+      "parameters": [
+        { "parameter": "Rnom", "min": 1.8, "max": 10000 },         // 1,8 Ом – 10 кОм
+        { "parameter": "Dop", "max": 10 },                         // ±5; ±10 %
+        { "parameter": "TKS", "max": 500 },                        // ±200; ±500
+        { "parameter": "Riz", "min": 1000000000 }
+      ],
+      "ratings": [
+        { "parameter": "Pnom", "value": 10 },
+        { "parameter": "Umax", "value": 1400 },
+        { "parameter": "TempMin", "value": -60 },
+        { "parameter": "TempMax", "value": 155 }
+      ],
+      "dimensions": [ { "parameter": "diameter", "value": 14 },
+                      { "parameter": "height", "value": 40 },
+                      { "parameter": "massMax", "value": 27 } ]
+    },
+
+    // other: фирменные семейства; ключ system обязателен.
+    {
+      "name": "CFR-25",                      // YAGEO углеродистые плёночные, осевые; 25 = 0,25 Вт
+      "system": "other",
+      "attributes": {
+        "technology": "углеродистые",
+        "datasheetUrl": "https://www.datasheetarchive.com/CFR-25-datasheet.html"
+      },
+      "manufacturers": ["YAGEO"],
+      "parameters": [ { "parameter": "Dop", "max": 5 } ],
+      "ratings": [ { "parameter": "Pnom", "value": 0.25 } ]
+    }
+  ]
+}

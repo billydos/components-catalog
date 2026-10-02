@@ -1,0 +1,355 @@
+{
+  // Конденсаторы: выверенное наполнение этапа 6 (план работ 6.2–6.3);
+  // источники — код [S…] — и полные таблицы корпусов: plan/08-data-verification.md
+  // §4. Ёмкость — в пФ (каноническая единица). Матрица исполнений К50-35 —
+  // «ёмкость × напряжение → габариты/масса»: вариант = напряжение (Unom
+  // уникален в пределах записи), Cnom — диапазон ряда на это напряжение,
+  // габариты — наибольший корпус напряжения с полным набором D×H+шаг по [S2];
+  // полная таблица корпусов (несколько корпусов на напряжение) — отчёт 08.
+  "capacitors": [
+    // gost (единая система, действующая кодификация — ГОСТ Р 57440-2017)
+    {
+      "name": "К50-35",                      // алюминиевые оксидно-электролитические
+      "system": "gost",
+      "attributes": { "polarized": true, "tu": "ОЖ0.464.214ТУ" },
+      "parameters": [                        // тип в целом (variant_id NULL)
+        { "parameter": "Dop", "max": 50 },                    // +50/−20 %
+        { "parameter": "Tgd", "max": 30, "temp": 20 },        // 30 % (6,3–16 В) … 10 % (160 В)
+        { "parameter": "opTempMin", "value": -40 },
+        { "parameter": "opTempMax", "value": 85 }
+      ],
+      "variants": [
+        {
+          "label": "6.3 В",
+          "parameters": [
+            { "parameter": "Unom", "value": 6.3 },
+            { "parameter": "Cnom", "min": 47000000, "max": 10000000000 }    // 47–10000 мкФ
+          ],
+          "dimensions": [ { "parameter": "diameter", "value": 14 },
+                          { "parameter": "height", "value": 19 },
+                          { "parameter": "leadPitch", "value": 5 },
+                          { "parameter": "massMax", "value": 5.5 } ]
+        },
+        {
+          "label": "16 В",
+          "parameters": [
+            { "parameter": "Unom", "value": 16 },
+            { "parameter": "Cnom", "min": 33000000, "max": 4700000000 }     // 33–4700 мкФ
+          ],
+          "dimensions": [ { "parameter": "diameter", "value": 14 },
+                          { "parameter": "height", "value": 24 },
+                          { "parameter": "leadPitch", "value": 5 },
+                          { "parameter": "massMax", "value": 7 } ]
+        },
+        {
+          "label": "25 В",
+          "parameters": [
+            { "parameter": "Unom", "value": 25 },
+            { "parameter": "Cnom", "min": 22000000, "max": 4700000000 }     // 22–4700 мкФ
+          ],
+          "dimensions": [ { "parameter": "diameter", "value": 16 },
+                          { "parameter": "height", "value": 30 },
+                          { "parameter": "leadPitch", "value": 7.5 },
+                          { "parameter": "massMax", "value": 12 } ]
+        },
+        {
+          "label": "40 В",
+          "parameters": [
+            { "parameter": "Unom", "value": 40 },
+            { "parameter": "Cnom", "min": 22000000, "max": 1000000000 }     // 22–1000 мкФ
+          ],
+          "dimensions": [ { "parameter": "diameter", "value": 18 },
+                          { "parameter": "height", "value": 30 },
+                          { "parameter": "leadPitch", "value": 7.5 },
+                          { "parameter": "massMax", "value": 15 } ]
+        },
+        {
+          "label": "63 В",
+          "parameters": [
+            { "parameter": "Unom", "value": 63 },
+            { "parameter": "Cnom", "min": 10000000, "max": 2200000000 }     // 10–2200 мкФ
+          ],
+          "dimensions": [ { "parameter": "diameter", "value": 18 },
+                          { "parameter": "height", "value": 40 },
+                          { "parameter": "leadPitch", "value": 7.5 },
+                          { "parameter": "massMax", "value": 20 } ]
+        },
+        {
+          "label": "100 В",
+          "parameters": [
+            { "parameter": "Unom", "value": 100 },
+            { "parameter": "Cnom", "min": 2200000, "max": 220000000 }       // 2,2–220 мкФ
+          ],
+          "dimensions": [ { "parameter": "diameter", "value": 14 },
+                          { "parameter": "height", "value": 24 },
+                          { "parameter": "leadPitch", "value": 5 },
+                          { "parameter": "massMax", "value": 7 } ]
+        },
+        {
+          "label": "160 В",
+          "parameters": [
+            { "parameter": "Unom", "value": 160 },
+            { "parameter": "Cnom", "min": 1000000, "max": 100000000 }       // 1–100 мкФ
+          ],
+          "dimensions": [ { "parameter": "diameter", "value": 18 },
+                          { "parameter": "height", "value": 35 },
+                          { "parameter": "leadPitch", "value": 7.5 },
+                          { "parameter": "massMax", "value": 17 } ]
+        },
+        {
+          "label": "200 В",
+          "parameters": [
+            { "parameter": "Unom", "value": 200 },
+            { "parameter": "Cnom", "min": 22000000, "max": 47000000 }       // 22–47 мкФ
+          ],
+          "dimensions": [ { "parameter": "diameter", "value": 14 },
+                          { "parameter": "height", "value": 24 },
+                          { "parameter": "leadPitch", "value": 5 },
+                          { "parameter": "massMax", "value": 7 } ]
+        },
+        {
+          "label": "250 В",
+          "parameters": [
+            { "parameter": "Unom", "value": 250 },
+            { "parameter": "Cnom", "min": 22000000, "max": 100000000 }      // 22–100 мкФ
+          ],
+          "dimensions": [ { "parameter": "diameter", "value": 18 },
+                          { "parameter": "height", "value": 30 },
+                          { "parameter": "leadPitch", "value": 7.5 },
+                          { "parameter": "massMax", "value": 15 } ]
+        },
+        {
+          "label": "315 В",
+          "parameters": [
+            { "parameter": "Unom", "value": 315 },
+            { "parameter": "Cnom", "min": 10000000, "max": 47000000 }       // 10–47 мкФ
+          ],
+          "dimensions": [ { "parameter": "diameter", "value": 18 },
+                          { "parameter": "height", "value": 40 },
+                          { "parameter": "leadPitch", "value": 7.5 },
+                          { "parameter": "massMax", "value": 20 } ]
+        }
+      ]
+    },
+    {
+      "name": "К10-17Б",                     // керамический многослойный; ТКЕ/допуск зависят от группы (М47, М1500, Н20, Н50, Н90)
+      "system": "gost",
+      "attributes": { "package": "монолитный", "tu": "ОЖ0.460.172ТУ" },
+      "parameters": [
+        { "parameter": "Cnom", "min": 2.2, "max": 2200000 },  // 2,2 пФ – 2,2 мкФ (по группам ТКЕ)
+        { "parameter": "Dop", "max": 80 },                    // ±5…±20 %; +80/−20 % (Н90)
+        { "parameter": "Unom", "value": 50 },                 // Н90 — 40 В
+        { "parameter": "Tgd", "max": 3.5 },                   // сегнетокерамика; М47/М1500 — ≤0,15 %
+        { "parameter": "Riz", "min": 4000000000 },
+        { "parameter": "opTempMin", "value": -60 },
+        { "parameter": "opTempMax", "value": 125 }
+      ]
+    },
+    {
+      "name": "К73-17",                      // металлизированные ПЭТ (лавсановые)
+      "system": "gost",
+      "attributes": { "tu": "ТУ 6261-015-07594095-2006" },
+      "manufacturers": ["СКЗ (Северо-Задонский завод)"],
+      "parameters": [
+        { "parameter": "Cnom", "min": 1000, "max": 4700000 },   // 0,001–4,7 мкФ
+        { "parameter": "Dop", "max": 20 },                      // ±5/±10/±20 %
+        { "parameter": "Tgd", "max": 0.8 },                     // 1 кГц
+        { "parameter": "Riz", "min": 12000000000 },             // 12000 МОм (C ≤ 0,33 мкФ, 63/100 В)
+        { "parameter": "opTempMin", "value": -60 },
+        { "parameter": "opTempMax", "value": 125 }
+      ]
+    },
+    {
+      "name": "К42-19",                      // металлобумажные уплотнённые частотные
+      "system": "gost",
+      "attributes": {
+        "datasheetUrl": "https://eandc.ru/pdf/kondensator/k42-19.pdf"
+      },
+      "parameters": [
+        { "parameter": "Dop", "max": 20 },                      // ±10/±20 %
+        { "parameter": "Tgd", "max": 1 },
+        { "parameter": "opTempMin", "value": -25 },
+        { "parameter": "opTempMax", "value": 55 }
+      ],
+      "variants": [
+        {
+          "label": "250 В",
+          "parameters": [
+            { "parameter": "Unom", "value": 250 },
+            { "parameter": "Cnom", "min": 2000000, "max": 20000000 }       // 2–20 мкФ
+          ],
+          "dimensions": [ { "parameter": "massMax", "value": 320 } ]
+        },
+        {
+          "label": "500 В",
+          "parameters": [
+            { "parameter": "Unom", "value": 500 },
+            { "parameter": "Cnom", "min": 1000000, "max": 16000000 }       // 1–16 мкФ
+          ],
+          "dimensions": [ { "parameter": "massMax", "value": 740 } ]
+        }
+      ]
+    },
+
+    // series: старые системы вне единой.
+    {
+      "name": "КСО-2",                       // слюдяные опрессованные
+      "system": "series",
+      "attributes": { "datasheetUrl": "https://rudatasheet.ru/capacitors/kso-2/" },
+      "parameters": [
+        { "parameter": "Cnom", "min": 100, "max": 2400 },
+        { "parameter": "Dop", "max": 20 },                      // классы 0…III: ±2…±20 %
+        { "parameter": "Unom", "value": 500 },
+        { "parameter": "Tgd", "max": 0.5 },                     // группы обкладок Б/В/Г: 0,5/0,2/0,1 %
+        { "parameter": "opTempMin", "value": -60 },
+        { "parameter": "opTempMax", "value": 70 }
+      ]
+    },
+    {
+      "name": "МБМ",                         // металлобумажные малогабаритные
+      "system": "series",
+      "attributes": { "datasheetUrl": "https://eandc.ru/pdf/kondensator/mbm.pdf" },
+      "parameters": [
+        { "parameter": "Dop", "max": 20 },
+        { "parameter": "Tgd", "max": 1.5 },
+        { "parameter": "Riz", "min": 2000000000 },              // 2000 МОм (160 В, C ≤ 0,1 мкФ)
+        { "parameter": "opTempMin", "value": -60 },
+        { "parameter": "opTempMax", "value": 70 }
+      ],
+      "variants": [
+        {
+          "label": "160 В",
+          "parameters": [
+            { "parameter": "Unom", "value": 160 },
+            { "parameter": "Cnom", "min": 50000, "max": 1000000 }          // 0,05–1 мкФ
+          ],
+          "dimensions": [ { "parameter": "massMax", "value": 8 } ]
+        },
+        {
+          "label": "250 В",
+          "parameters": [
+            { "parameter": "Unom", "value": 250 },
+            { "parameter": "Cnom", "min": 50000, "max": 1000000 }          // 0,05–1 мкФ
+          ],
+          "dimensions": [ { "parameter": "massMax", "value": 20 } ]
+        },
+        {
+          "label": "500 В",
+          "parameters": [
+            { "parameter": "Unom", "value": 500 },
+            { "parameter": "Cnom", "min": 10000, "max": 500000 }           // 0,01–0,5 мкФ
+          ],
+          "dimensions": [ { "parameter": "massMax", "value": 8 } ]
+        },
+        {
+          "label": "750 В",
+          "parameters": [
+            { "parameter": "Unom", "value": 750 },
+            { "parameter": "Cnom", "min": 10000, "max": 250000 }           // 0,01–0,25 мкФ
+          ],
+          "dimensions": [ { "parameter": "massMax", "value": 12 } ]
+        },
+        {
+          "label": "1000 В",
+          "parameters": [
+            { "parameter": "Unom", "value": 1000 },
+            { "parameter": "Cnom", "min": 10000, "max": 100000 }           // 0,01–0,1 мкФ
+          ],
+          "dimensions": [ { "parameter": "massMax", "value": 15 } ]
+        },
+        {
+          "label": "1500 В",
+          "parameters": [
+            { "parameter": "Unom", "value": 1500 },
+            { "parameter": "Cnom", "min": 5000, "max": 100000 }            // 0,005–0,1 мкФ
+          ]
+        }
+      ]
+    },
+    {
+      "name": "МБГЧ-1",                      // металлобумажные герметизированные частотные
+      "system": "series",
+      "attributes": { "datasheetUrl": "https://asenergi.ru/catalog/kondensatory-puskovye/mbgch.html" },
+      "parameters": [
+        { "parameter": "Dop", "max": 20 },
+        { "parameter": "Tgd", "max": 2.5 },
+        { "parameter": "opTempMin", "value": -60 },
+        { "parameter": "opTempMax", "value": 70 }
+      ],
+      "variants": [
+        {
+          "label": "250 В",
+          "parameters": [
+            { "parameter": "Unom", "value": 250 },
+            { "parameter": "Cnom", "min": 500000, "max": 10000000 }        // 0,5–10 мкФ
+          ],
+          "dimensions": [ { "parameter": "massMax", "value": 270 } ]
+        },
+        {
+          "label": "500 В",
+          "parameters": [
+            { "parameter": "Unom", "value": 500 },
+            { "parameter": "Cnom", "min": 250000, "max": 4000000 }         // 0,25–4 мкФ
+          ],
+          "dimensions": [ { "parameter": "massMax", "value": 270 } ]
+        },
+        {
+          "label": "750 В",
+          "parameters": [
+            { "parameter": "Unom", "value": 750 },
+            { "parameter": "Cnom", "min": 250000, "max": 2000000 }         // 0,25–2 мкФ
+          ],
+          "dimensions": [ { "parameter": "massMax", "value": 420 } ]
+        },
+        {
+          "label": "1000 В",
+          "parameters": [
+            { "parameter": "Unom", "value": 1000 },
+            { "parameter": "Cnom", "min": 250000, "max": 1000000 }         // 0,25–1 мкФ
+          ],
+          "dimensions": [ { "parameter": "massMax", "value": 420 } ]
+        }
+      ]
+    },
+
+    // other: полные заказные коды производителей; ключ system обязателен.
+    {
+      "name": "GRM188R71H104KA93D",          // Murata MLCC: декодирование кода заказа
+      "system": "other",
+      "attributes": {
+        "technology": "керамика X7R", "package": "0603 (1608)",
+        "datasheetUrl": "https://www.digikey.com/en/products/detail/murata-electronics/GRM188R71H104KA93D/587143"
+      },
+      "manufacturers": ["Murata"],
+      "parameters": [
+        { "parameter": "Cnom", "min": 100000, "max": 100000 },  // 0,1 мкФ — единичный номинал кода
+        { "parameter": "Dop", "max": 10 },
+        { "parameter": "Unom", "value": 50 },
+        { "parameter": "opTempMin", "value": -55 },
+        { "parameter": "opTempMax", "value": 125 }
+      ]
+    },
+    {
+      "name": "T491C476K016AT",              // KEMET танталовые (MnO2), корпус C (6032-28)
+      "system": "other",
+      "attributes": {
+        "polarized": true, "technology": "танталовые", "package": "C (6032-28)",
+        "datasheetUrl": "https://content.kemet.com/datasheets/KEM_T2005_T491.pdf"
+      },
+      "manufacturers": ["KEMET"],
+      "parameters": [
+        { "parameter": "Cnom", "min": 47000000, "max": 47000000 },  // 47 мкФ — единичный номинал кода
+        { "parameter": "Dop", "max": 10 },                          // K = ±10 %
+        { "parameter": "Unom", "value": 16 },
+        { "parameter": "Iut", "max": 7.5, "Unom": 16 },             // DCL при номинальном напряжении
+        { "parameter": "Tgd", "max": 6 },
+        { "parameter": "Esr", "max": 1 },                           // 100 кГц = 0,1 МГц
+        { "parameter": "opTempMin", "value": -55 },
+        { "parameter": "opTempMax", "value": 125 }
+      ],
+      "dimensions": [ { "parameter": "length", "value": 6 },
+                      { "parameter": "width", "value": 3.2 },
+                      { "parameter": "height", "value": 2.5 } ]
+    }
+  ]
+}

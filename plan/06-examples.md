@@ -635,31 +635,32 @@
     {
       "name": "К50-35",
       "system": "gost",
-      "attributes": { "polarized": true, "tu": "ОЖ0.464.036ТУ", "yearFrom": 1980 },
+      "attributes": { "polarized": true, "tu": "ОЖ0.464.214ТУ" },
       "parameters": [                       // тип в целом (variant_id NULL)
-        { "parameter": "Dop", "max": 20 },
-        { "parameter": "Tgd", "max": 0.15, "temp": 20 }
+        { "parameter": "Dop", "max": 50 },                              // +50/−20 %
+        { "parameter": "Tgd", "max": 30, "temp": 20 }                   // 30 % (6,3–16 В) … 10 % (160 В)
       ],
       "variants": [
         {
           "label": "160 В",
-          "parameters": [                   // характеристики исполнения; ёмкость — в пФ
+          "parameters": [
             { "parameter": "Unom", "value": 160 },
-            { "parameter": "Cnom", "min": 1000000, "max": 10000000 }   // 1–10 мкФ — только на 160 В
+            { "parameter": "Cnom", "min": 1000000, "max": 100000000 }  // 1–100 мкФ
           ],
-          "dimensions": [ { "parameter": "diameter", "value": 8 },
-                          { "parameter": "leadLength", "value": 12 },
-                          { "parameter": "massMax", "value": 1.5 } ]
+          "dimensions": [ { "parameter": "diameter", "value": 18 },    // радиальный цилиндрический набор
+                          { "parameter": "height", "value": 35 },      // высота корпуса
+                          { "parameter": "massMax", "value": 17 } ]
         },
         {
           "label": "25 В",
           "parameters": [
             { "parameter": "Unom", "value": 25 },
-            { "parameter": "Cnom", "min": 47000000, "max": 4700000000 }   // 47–4700 мкФ
+            { "parameter": "Cnom", "min": 22000000, "max": 4700000000 }   // 22–4700 мкФ
           ],
-          "dimensions": [ { "parameter": "diameter", "value": 10 },
-                          { "parameter": "leadLength", "value": 16 },
-                          { "parameter": "massMax", "value": 3 } ]
+          "dimensions": [ { "parameter": "diameter", "value": 16 },
+                          { "parameter": "height", "value": 30 },
+                          { "parameter": "leadPitch", "value": 7.5 },   // шаг выводов
+                          { "parameter": "massMax", "value": 12 } ]
         }
       ]
     },
@@ -668,11 +669,11 @@
     {
       "name": "К10-17Б",
       "system": "gost",
-      "attributes": { "package": "монолитный", "tu": "ОЖ0.464.036ТУ", "yearFrom": 1980 },
+      "attributes": { "package": "монолитный", "tu": "ОЖ0.460.172ТУ" },
       "parameters": [
-        { "parameter": "Cnom", "min": 22, "max": 1000000 },        // 22 пФ – 1 мкФ
-        { "parameter": "TKE", "text": "Н30" },
-        { "parameter": "Unom", "value": 25 }
+        { "parameter": "Cnom", "min": 2.2, "max": 2200000 },        // 2,2 пФ – 2,2 мкФ (по группам ТКЕ)
+        { "parameter": "TKE", "text": "Н50" },
+        { "parameter": "Unom", "value": 50 }
       ],
       "dimensions": [ { "parameter": "massMax", "value": 1 },
                       { "parameter": "length", "value": 6 },

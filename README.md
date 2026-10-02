@@ -62,9 +62,17 @@ mux.Handle("/api/v1/", httpapi.New(app, httpapi.Config{
 
 ## Импорт/экспорт
 
-Файлы наполнения jsonc/yaml/ndjson (примеры — `sample-data/`):
+Файлы наполнения jsonc/yaml/ndjson. Два набора в репозитории:
+
+- `sample-data/` — примеры формы записей (правдоподобные непроверенные
+  значения, план работ 4.5);
+- `data/` — выверенная выборка этапа 6 (транзисторы, диоды, резисторы,
+  конденсаторы; матрица исполнений К50-35, ряд мощностей С2-33Н,
+  направленные аналоги) — источники по каждой записи:
+  `plan/08-data-verification.md`.
 
 ```
+catalogctl import data/transistors.jsonc --db catalog.db
 catalogctl import sample-data/transistors.jsonc --db catalog.db
 catalogctl export --format ndjson --db catalog.db
 catalogctl catalog export|import|list --db catalog.db

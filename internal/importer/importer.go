@@ -249,6 +249,15 @@ func (m *Importer) applyCatalog(ctx context.Context, tree value, cur *catalog.Sn
 	return m.app.Snapshot(ctx)
 }
 
+// pendingRecord — запись в многопроходной очереди применения: последняя
+// ошибка (разрешение аналога) и признак холостого создания без секции
+// аналогов (взаимные ссылки).
+type pendingRecord struct {
+	rec     Record
+	lastErr error
+	created bool
+}
+
 // applyRecords применяет записи: многопроходное разрешение исходящих
 // ссылок-аналогов (прямые ссылки на позднейшие записи файла), исходы
 // считаются по записям. В dry-run записи проверяются без записи в БД;
@@ -275,10 +284,6 @@ func (m *Importer) applyRecords(ctx context.Context, records []Record, snap *cat
 		return pending[kind][designation]
 	}
 
-	type pendingRecord struct {
-		rec     Record
-		lastErr error
-	}
 	queue := make([]*pendingRecord, 0, len(records))
 	for i := range records {
 		queue = append(queue, &pendingRecord{rec: records[i]})
@@ -311,9 +316,12 @@ func (m *Importer) applyRecords(ctx context.Context, records []Record, snap *cat
 	}
 
 	// Проходы повторяются, пока прогресс есть: ссылка на позднейшую запись
-	// файла разрешается после её вставки.
-	for progress := true; progress && len(queue) > 0; {
-		progress = false
+	// файла разрешается после её вставки. Взаимные ссылки (A → B и B → A в
+	// одном файле) блокируют друг друга — цикл разрывает холостое создание
+	// одной из записей без секции аналогов (03 §8: импорт воспроизводит
+	// состояние независимо от порядка записей).
+	for len(queue) > 0 {
+		progress := false
 		var next []*pendingRecord
 		for _, p := range queue {
 			outcome, err := m.app.Services().Devices.Upsert(ctx, p.rec.Input)
@@ -322,18 +330,93 @@ func (m *Importer) applyRecords(ctx context.Context, records []Record, snap *cat
 				next = append(next, p)
 				continue
 			}
-			if err != nil {
+			switch {
+			case err != nil:
 				recordIssue(p.rec, err)
-			} else {
+			case p.created:
+				// Запись создана холостым применением — в этом прогоне она новая.
+				rep.Added++
+			default:
 				recordOutcome(p.rec, outcome)
 			}
 			progress = true
 		}
 		queue = next
+		if progress || len(queue) == 0 {
+			continue
+		}
+		var advanced bool
+		queue, advanced = m.breakAnalogDeadlock(ctx, queue, pendingFn, recordIssue)
+		if !advanced {
+			break
+		}
 	}
 	for _, p := range queue {
+		if p.created {
+			// Компенсация: запись, созданная холостым применением, удаляется —
+			// контракт «запись не применяется вовсе» сохраняется (холостое
+			// создание в отчёт не входило).
+			_, _ = m.app.Services().Devices.Delete(ctx, p.rec.Kind, p.rec.Input.Name)
+		}
 		recordIssue(p.rec, p.lastErr)
 	}
+}
+
+// breakAnalogDeadlock разрывает взаимную блокировку ссылок-аналогов:
+// холостое применение (без секции аналогов) первой подходящей записи —
+// новая, все цели её ссылок создаются этим же прогоном. Полное состояние
+// применит следующий проход; при неудаче вызывающая сторона удаляет
+// холостую запись (компенсация). Возвращает очередь (возможно, без
+// безнадёжной записи) и признак продвижения.
+func (m *Importer) breakAnalogDeadlock(ctx context.Context, queue []*pendingRecord,
+	pendingFn service.PendingDesignations, recordIssue func(Record, error)) ([]*pendingRecord, bool) {
+	for i, p := range queue {
+		if p.created || p.rec.Input.Analogs == nil {
+			continue
+		}
+		if !allAnalogTargetsPending(p.rec, pendingFn) {
+			continue
+		}
+		exists, err := m.deviceExists(ctx, p.rec)
+		if err != nil || exists {
+			continue
+		}
+		stripped := p.rec.Input
+		stripped.Analogs = nil
+		if _, err := m.app.Services().Devices.Upsert(ctx, stripped); err != nil {
+			if isAnalogNotFound(err) {
+				continue
+			}
+			recordIssue(p.rec, err)
+			rest := append(append([]*pendingRecord{}, queue[:i]...), queue[i+1:]...)
+			return rest, true
+		}
+		p.created = true
+		return queue, true
+	}
+	return queue, false
+}
+
+// allAnalogTargetsPending сообщает, разрешатся ли все ссылки записи этим
+// же прогоном (цели присутствуют в файле).
+func allAnalogTargetsPending(rec Record, pendingFn service.PendingDesignations) bool {
+	for _, a := range *rec.Input.Analogs {
+		canonical, err := domain.Canonicalize(a.Designation)
+		if err != nil || !pendingFn(rec.Kind, canonical) {
+			return false
+		}
+	}
+	return true
+}
+
+// deviceExists сообщает, существует ли запись в базе.
+func (m *Importer) deviceExists(ctx context.Context, rec Record) (bool, error) {
+	p, err := m.app.Services().Designations.ParseForSystem(ctx, rec.Input.Name, rec.Input.System, rec.Input.Kind)
+	if err != nil {
+		return false, err
+	}
+	_, found, err := m.app.Services().Devices.Get(ctx, p.Kind, p.Designation)
+	return found, err
 }
 
 // isAnalogNotFound — ошибка разрешения аналога (цель не найдена): единственный

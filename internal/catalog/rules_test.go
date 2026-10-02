@@ -131,8 +131,8 @@ func TestTempPairRule(t *testing.T) {
 	})
 }
 
-// cap_dimensions_form: прямоугольный и цилиндрический наборы, смешение
-// и неполные наборы (03 §10).
+// cap_dimensions_form: прямоугольный, осевой и радиальный
+// цилиндрические наборы, смешение и неполные наборы (03 §10).
 func TestCapDimensionsFormRule(t *testing.T) {
 	e := seedEngine(t)
 	dims := func(vals ...catalog.ParameterValue) []catalog.ParameterValue {
@@ -147,6 +147,10 @@ func TestCapDimensionsFormRule(t *testing.T) {
 		catalog.ParameterValue{Parameter: "diameter", Section: "dimensions", Exact: f(8)},
 		catalog.ParameterValue{Parameter: "leadLength", Section: "dimensions", Exact: f(12)},
 	)
+	radial := dims(
+		catalog.ParameterValue{Parameter: "diameter", Section: "dimensions", Exact: f(18)},
+		catalog.ParameterValue{Parameter: "height", Section: "dimensions", Exact: f(35)},
+	)
 	cases := []struct {
 		name  string
 		vals  []catalog.ParameterValue
@@ -154,13 +158,17 @@ func TestCapDimensionsFormRule(t *testing.T) {
 		extra bool // добавлять massMax (нейтрален для формы)
 	}{
 		{"прямоугольный", rect, "", true},
-		{"цилиндрический", cyl, "", true},
+		{"осевой цилиндрический", cyl, "", true},
+		{"радиальный цилиндрический", radial, "", true},
 		{"смешение", append(slices.Clone(rect), cyl...),
-			"габариты: смешение форм корпуса — прямоугольная (length+width+height) и цилиндрическая (diameter+leadLength)", false},
+			"габариты: смешение форм корпуса — прямоугольная (length+width+height) и цилиндрическая (diameter+leadLength/height)", false},
+		{"радиальный с шириной", append(slices.Clone(radial),
+			catalog.ParameterValue{Parameter: "width", Section: "dimensions", Exact: f(4)}),
+			"габариты: смешение форм корпуса — прямоугольная (length+width+height) и цилиндрическая (diameter+leadLength/height)", false},
 		{"неполный прямоугольный", rect[:2],
 			"габариты: неполный прямоугольный набор корпуса — требуются length, width и height", false},
 		{"неполный цилиндрический", cyl[:1],
-			"габариты: неполный цилиндрический набор корпуса — требуются diameter и leadLength", false},
+			"габариты: неполный цилиндрический набор корпуса — требуются diameter и leadLength (осевые) либо diameter и height (радиальные)", false},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -190,6 +198,16 @@ func TestCapDimensionsFormRule(t *testing.T) {
 			Values: []catalog.ParameterValue{{Parameter: "massMax", Section: "dimensions", Exact: f(0.15)}},
 		}
 		if probs := e.ValidateDevice(&d); len(probs) != 0 {
+			t.Fatalf(" got: %v", messages(probs))
+		}
+	})
+	t.Run("только высота без диаметра", func(t *testing.T) {
+		d := catalog.Device{
+			Kind: domain.KindCapacitor, System: domain.SystemGost, Designation: "К10-17Б",
+			Values: []catalog.ParameterValue{{Parameter: "height", Section: "dimensions", Exact: f(5)}},
+		}
+		probs := e.ValidateDevice(&d)
+		if len(probs) != 1 || probs[0].Message != "габариты: неполный прямоугольный набор корпуса — требуются length, width и height" {
 			t.Fatalf(" got: %v", messages(probs))
 		}
 	})

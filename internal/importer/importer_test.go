@@ -196,6 +196,46 @@ func runImporterSuite(t *testing.T, factory configFactory) {
 		}
 	})
 
+	t.Run("MutualAnalogReferences", func(t *testing.T) {
+		// Взаимные ссылки (A → B и B → A в одном файле, 03 §8: импорт
+		// воспроизводит состояние независимо от порядка записей):
+		// цикл разрывается холостым созданием без секции аналогов.
+		app := openApp(t, factory)
+		file := filepath.Join(t.TempDir(), "mutual.jsonc")
+		write(t, file, `{
+			"diodes": [
+				{ "name": "Д226", "analogs": ["1N4007"] },
+				{ "name": "1N4007", "analogs": ["Д226"] }
+			]
+		}`)
+		rep := importFile(t, app, file, false)
+		if rep.HasIssues() || rep.Added != 2 {
+			t.Fatalf("итог: %+v; проблемы: %v", rep, issueMessages(rep.Issues))
+		}
+		card, found, err := app.Services().Devices.Get(context.Background(), domain.KindDiode, "Д226")
+		if err != nil || !found {
+			t.Fatalf("карточка Д226: %v %v", found, err)
+		}
+		if len(card.Analogs) != 1 || card.Analogs[0].Designation != "1N4007" {
+			t.Fatalf("исходящие Д226: %+v", card.Analogs)
+		}
+		if len(card.Backlinks) != 1 || card.Backlinks[0].Designation != "1N4007" {
+			t.Fatalf("встречные Д226: %+v", card.Backlinks)
+		}
+		card, found, err = app.Services().Devices.Get(context.Background(), domain.KindDiode, "1N4007")
+		if err != nil || !found {
+			t.Fatalf("карточка 1N4007: %v %v", found, err)
+		}
+		if len(card.Analogs) != 1 || card.Analogs[0].Designation != "Д226" {
+			t.Fatalf("исходящие 1N4007: %+v", card.Analogs)
+		}
+		// Повторный импорт — без изменений по обеим записям.
+		rep = importFile(t, app, file, false)
+		if rep.HasIssues() || rep.Skipped != 2 {
+			t.Fatalf("повторный: %+v; проблемы: %v", rep, issueMessages(rep.Issues))
+		}
+	})
+
 	t.Run("AnalogMissingTargetIsIssue", func(t *testing.T) {
 		app := openApp(t, factory)
 		file := filepath.Join(t.TempDir(), "broken.jsonc")

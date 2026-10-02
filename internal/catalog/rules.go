@@ -133,17 +133,21 @@ func (tempPairRule) CheckValues(_ *Engine, _ domain.Kind, vals []ParameterValue)
 }
 
 // capDimensionsFormRule — согласованность формы корпуса в одном контексте
-// (запись в целом либо исполнение): прямоугольная (length+width+height)
-// либо цилиндрическая (diameter+leadLength); смешение и неполный набор —
-// ошибка (привязка — параметры группы dimensional).
+// (запись в целом либо исполнение): прямоугольная (length+width+height),
+// осевая цилиндрическая (diameter+leadLength) либо радиальная
+// цилиндрическая (diameter+height, высота корпуса); смешение форм и
+// неполный набор — ошибка (привязка — параметры группы dimensional).
+// Радиальная форма добавлена этапом 6 по реальным данным К50-35
+// (ОЖ0.464.214 ТУ: D×H и шаг выводов; длина радиальных выводов
+// производителем не нормируется) — plan/08-data-verification.md.
 type capDimensionsFormRule struct{}
 
 func (capDimensionsFormRule) Code() string { return "cap_dimensions_form" }
 func (capDimensionsFormRule) Description() string {
-	return "согласованность формы корпуса: прямоугольная (length+width+height) либо цилиндрическая (diameter+leadLength), смешение — ошибка"
+	return "согласованность формы корпуса: прямоугольная (length+width+height) либо цилиндрическая — осевая (diameter+leadLength) или радиальная (diameter+height), смешение — ошибка"
 }
 
-func (r capDimensionsFormRule) CheckValues(_ *Engine, _ domain.Kind, vals []ParameterValue) []Problem {
+func (capDimensionsFormRule) CheckValues(_ *Engine, _ domain.Kind, vals []ParameterValue) []Problem {
 	has := func(codes ...string) bool {
 		for _, c := range codes {
 			if _, ok := paramAny(vals, c); ok {
@@ -152,24 +156,28 @@ func (r capDimensionsFormRule) CheckValues(_ *Engine, _ domain.Kind, vals []Para
 		}
 		return false
 	}
-	rect := has("length", "width", "height")
-	cyl := has("diameter", "leadLength")
-	switch {
-	case rect && cyl:
-		return []Problem{ruleProblem(
-			"габариты: смешение форм корпуса — прямоугольная (length+width+height) и цилиндрическая (diameter+leadLength)")}
-	case rect:
+	if has("diameter", "leadLength") {
+		if _, ok := paramAny(vals, "diameter"); !ok {
+			return []Problem{ruleProblem(
+				"габариты: неполный цилиндрический набор корпуса — требуются diameter и leadLength (осевые) либо diameter и height (радиальные)")}
+		}
+		if _, ok := paramAny(vals, "leadLength"); !ok {
+			if _, ok := paramAny(vals, "height"); !ok {
+				return []Problem{ruleProblem(
+					"габариты: неполный цилиндрический набор корпуса — требуются diameter и leadLength (осевые) либо diameter и height (радиальные)")}
+			}
+		}
+		if has("length", "width") {
+			return []Problem{ruleProblem(
+				"габариты: смешение форм корпуса — прямоугольная (length+width+height) и цилиндрическая (diameter+leadLength/height)")}
+		}
+		return nil
+	}
+	if has("length", "width", "height") {
 		for _, c := range []string{"length", "width", "height"} {
 			if _, ok := paramAny(vals, c); !ok {
 				return []Problem{ruleProblem(
 					"габариты: неполный прямоугольный набор корпуса — требуются length, width и height")}
-			}
-		}
-	case cyl:
-		for _, c := range []string{"diameter", "leadLength"} {
-			if _, ok := paramAny(vals, c); !ok {
-				return []Problem{ruleProblem(
-					"габариты: неполный цилиндрический набор корпуса — требуются diameter и leadLength")}
 			}
 		}
 	}

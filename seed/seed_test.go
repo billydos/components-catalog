@@ -99,7 +99,7 @@ func TestSeedRulesPin(t *testing.T) {
 	in := seed.Catalog()
 	want := []catalog.RuleDef{
 		{Code: "cap_dimensions_form",
-			Description: "согласованность формы корпуса: прямоугольная (length+width+height) либо цилиндрическая (diameter+leadLength), смешение — ошибка"},
+			Description: "согласованность формы корпуса: прямоугольная (length+width+height) либо цилиндрическая — осевая (diameter+leadLength) или радиальная (diameter+height), смешение — ошибка"},
 		{Code: "cap_variant_matrix",
 			Description: "вариант электролитического конденсатора: обязательны Unom и Cnom, габариты — согласованным набором формы корпуса, уникальность Unom и метки"},
 		{Code: "resistor_variant_power",
