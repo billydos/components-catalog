@@ -154,7 +154,7 @@ func condsFromStorage(conds []storage.Cond) []catalog.ConditionValue {
 // Find ищет запись по точному обозначению; при отсутствии совпадения у
 // полупроводников gost подсказывает равнозначную по материалу запись
 // (Г/1, К/2 — физически равнозначные символы, записи раздельны:
-// plan/01-architecture.md §2.1).
+// docs/plan/01-architecture.md §2.1).
 func (s *DeviceService) Find(ctx context.Context, kind domain.Kind, designation string) (FindResult, error) {
 	p, err := s.app.designations.parse(ctx, designation, "", kind)
 	if err != nil {

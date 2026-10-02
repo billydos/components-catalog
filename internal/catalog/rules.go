@@ -13,7 +13,7 @@ import (
 // мал по построению (риск R7): правило добавляется только тогда, когда оно
 // не выражается данными каталога (условия/типы/enum). Привязка — данными:
 // parameters.validation_rule, attributes.validation_rule,
-// kind_validation_rules (plan/03-data-model.md §10).
+// kind_validation_rules (docs/plan/03-data-model.md §10).
 type Rule interface {
 	Code() string
 	Description() string
@@ -139,7 +139,7 @@ func (tempPairRule) CheckValues(_ *Engine, _ domain.Kind, vals []ParameterValue)
 // неполный набор — ошибка (привязка — параметры группы dimensional).
 // Радиальная форма добавлена этапом 6 по реальным данным К50-35
 // (ОЖ0.464.214 ТУ: D×H и шаг выводов; длина радиальных выводов
-// производителем не нормируется) — plan/08-data-verification.md.
+// производителем не нормируется) — docs/plan/08-data-verification.md.
 type capDimensionsFormRule struct{}
 
 func (capDimensionsFormRule) Code() string { return "cap_dimensions_form" }

@@ -382,7 +382,7 @@ ORDER BY t.designation`,
 }
 
 // LoadBacklinks — встречные ссылки («кто указал запись аналогом»), индекс
-// по analog_device_id (plan/02-database.md §3).
+// по analog_device_id (docs/plan/02-database.md §3).
 func (d *DB) LoadBacklinks(ctx context.Context, deviceID int64) ([]BacklinkRow, error) {
 	rows, err := d.query(ctx, `
 SELECT a.device_id, s.kind_code, s.designation, s.system_code, a.note

@@ -8,7 +8,7 @@ import (
 )
 
 // Format — формат файла наполнения (реестр форматов —
-// plan/04-module-functionality.md §4): jsonc/json и yaml/yml — документы
+// docs/plan/04-module-functionality.md §4): jsonc/json и yaml/yml — документы
 // целиком, ndjson — построчный поток для больших объёмов.
 type Format string
 
@@ -62,7 +62,7 @@ func FormatByFilename(name string) (Format, error) {
 
 // parseTree разбирает документ формата целиком (jsonc/yaml) в дерево
 // значений. Ошибки синтаксиса — *domain.Error invalid_import_file:
-// жёсткая ошибка прогона (plan/04-module-functionality.md §4).
+// жёсткая ошибка прогона (docs/plan/04-module-functionality.md §4).
 func parseTree(data []byte, format Format) (value, error) {
 	switch format {
 	case FormatJSONC:

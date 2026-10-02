@@ -11,7 +11,7 @@ type Code string
 
 // Реестр кодов ошибок — контракт CLI, REST и импорта; коды стабильны,
 // изменение кода — несовместимое изменение. Исходный перечень —
-// plan/01-architecture.md §2.1, расширяется по мере этапов плана.
+// docs/plan/01-architecture.md §2.1, расширяется по мере этапов плана.
 const (
 	CodeAlreadyExists          Code = "already_exists"
 	CodeAttributeNotApplicable Code = "attribute_not_applicable"
@@ -98,8 +98,8 @@ func AsError(err error) (*Error, bool) {
 	return nil, false
 }
 
-// Дословные тексты сообщений — контракт (plan/02-database.md §5,
-// plan/03-data-model.md §2.4); закреплены тестами дословно.
+// Дословные тексты сообщений — контракт (docs/plan/02-database.md §5,
+// docs/plan/03-data-model.md §2.4); закреплены тестами дословно.
 const (
 	msgSchemaVersionMismatch  = "база данных создана другой версией модуля (%d ≠ %d); пересоздайте её: удалите файл/базу и выполните import"
 	msgDatabaseNotInitialized = "база данных не инициализирована или не является базой модуля; выполните init (CLI) или EnsureCreated"

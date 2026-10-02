@@ -12,7 +12,7 @@ import (
 )
 
 // PostgresDSN возвращает DSN локального тестового PostgreSQL либо пропускает
-// тест (без переменной окружения прогон PostgreSQL опционален — plan/05
+// тест (без переменной окружения прогон PostgreSQL опционален — docs/plan/05
 // задача 3.5).
 func PostgresDSN(t *testing.T) string {
 	t.Helper()
@@ -24,7 +24,7 @@ func PostgresDSN(t *testing.T) string {
 }
 
 // catalogTables — таблицы модуля в порядке, обратном зависимостям
-// (план/02-database.md §2).
+// (docs/plan/02-database.md §2).
 var catalogTables = []string{
 	"device_analogs",
 	"device_manufacturers",

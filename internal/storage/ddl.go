@@ -2,7 +2,7 @@ package storage
 
 import "strings"
 
-// SchemaVersion — версия схемы модуля (plan/02-database.md §5): любое
+// SchemaVersion — версия схемы модуля (docs/plan/02-database.md §5): любое
 // изменение DDL ниже — с инкрементом этой константы; несовпадение с
 // schema_meta.schema_version — отказ в работе (schema_version_mismatch),
 // миграций нет (D5).
@@ -14,7 +14,7 @@ const SchemaVersion = 1
 const autoIncToken = "{{AUTOINC}}"
 
 // ddlStatements — полный переносимый DDL (CREATE … IF NOT EXISTS) по
-// plan/02-database.md §2. Порядок учитывает FK (сначала ссылки, потом
+// docs/plan/02-database.md §2. Порядок учитывает FK (сначала ссылки, потом
 // ссылающиеся). Типы — INTEGER/REAL/TEXT; булевы — INTEGER 0/1; «не задано»
 // — NULL; CHECK только структурный (каталог — данные, DDL его не знает).
 var ddlStatements = []string{
@@ -216,7 +216,7 @@ var ddlStatements = []string{
     CHECK (device_id <> analog_device_id)
 )`,
 
-	// Индексы — plan/02-database.md §3.
+	// Индексы — docs/plan/02-database.md §3.
 	`CREATE INDEX IF NOT EXISTS idx_devices_system ON devices(system_code)`,
 
 	`CREATE INDEX IF NOT EXISTS idx_ddf_field_text ON device_designation_fields(field, text_value)`,

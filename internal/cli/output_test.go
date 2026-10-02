@@ -11,7 +11,7 @@ import (
 )
 
 // Префиксы вывода ошибок CLI — дословный контракт
-// (plan/04-module-functionality.md §3).
+// (docs/plan/04-module-functionality.md §3).
 func TestErrorPrefixes(t *testing.T) {
 	if cli.ErrorPrefix != "Ошибка: " {
 		t.Errorf("префикс ожидаемых ошибок изменился: %q", cli.ErrorPrefix)

@@ -1,9 +1,9 @@
-// Package seed — стартовые сиды каталога (plan/03-data-model.md §3–§10):
+// Package seed — стартовые сиды каталога (docs/plan/03-data-model.md §3–§10):
 // единицы, условия, группы параметров, именованные правила, системы
 // обозначений и применимость к классам, реестр семейств series, параметры
 // и атрибуты четырёх классов с применимостью (parameter_kinds/
 // attribute_kinds — D7). Применяются при EnsureCreated на пустую базу
-// (plan/02-database.md §5); состав синхронизирован с реестрами internal/
+// (docs/plan/02-database.md §5); состав синхронизирован с реестрами internal/
 // domain и реестром правил internal/catalog пин-тестами (seed/seed_test.go).
 package seed
 
@@ -63,7 +63,7 @@ func Catalog() catalog.Input {
 	}
 }
 
-// units — канонический справочник единиц (plan/03-data-model.md §3).
+// units — канонический справочник единиц (docs/plan/03-data-model.md §3).
 // Производные единицы отображения (мкФ, МОм, кГц) не хранятся — их
 // форматирует слой вывода.
 func units() []catalog.UnitDef {
@@ -94,7 +94,7 @@ func units() []catalog.UnitDef {
 	}
 }
 
-// conditions — стартовый набор условий измерения (plan/03-data-model.md
+// conditions — стартовый набор условий измерения (docs/plan/03-data-model.md
 // §4): положительные, кроме temp (AllowNegative).
 func conditions() []catalog.ConditionDef {
 	return []catalog.ConditionDef{
@@ -119,7 +119,7 @@ func conditions() []catalog.ConditionDef {
 }
 
 // groups — группы параметров: секции файла наполнения и REST
-// (plan/03-data-model.md §5).
+// (docs/plan/03-data-model.md §5).
 func groups() []catalog.GroupDef {
 	return []catalog.GroupDef{
 		{Code: "electrical", SectionName: "parameters", DisplayName: "Электрические параметры", SortOrder: 10},
@@ -129,7 +129,7 @@ func groups() []catalog.GroupDef {
 }
 
 // kindRules — привязка именованных правил к классам записей
-// (plan/03-data-model.md §7, §10).
+// (docs/plan/03-data-model.md §7, §10).
 func kindRules() []catalog.KindRuleRef {
 	return []catalog.KindRuleRef{
 		{Kind: domain.KindCapacitor, Rule: "cap_variant_matrix"},
@@ -158,8 +158,8 @@ func set(no int, items ...catalog.ConditionSetItem) catalog.ConditionSet {
 func ceiling(v float64) *float64 { return &v }
 
 // parameters — стартовые каталоги параметров четырёх классов
-// (plan/03-data-model.md §6; номенклатура — по терминологии НТД,
-// выверка — plan/07-r1-verification.md §9). Применимость вне разделов
+// (docs/plan/03-data-model.md §6; номенклатура — по терминологии НТД,
+// выверка — docs/plan/07-r1-verification.md §9). Применимость вне разделов
 // §6.2/§6.4/§6.6 — пустая (все классы, D7).
 func parameters() []catalog.ParameterDef {
 	tr := []domain.Kind{domain.KindTransistor}
@@ -407,7 +407,7 @@ func parameters() []catalog.ParameterDef {
 	}
 }
 
-// attributes — стартовый набор атрибутов (plan/03-data-model.md §9).
+// attributes — стартовый набор атрибутов (docs/plan/03-data-model.md §9).
 // Применимость без пометки — все классы (D7).
 func attributes() []catalog.AttributeDef {
 	trDi := []domain.Kind{domain.KindTransistor, domain.KindDiode}

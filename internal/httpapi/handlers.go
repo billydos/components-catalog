@@ -12,7 +12,7 @@ import (
 )
 
 // Хендлеры /api/v1 — тонкие транспорты над сервисным слоем: разбор
-// запроса, вызов сервиса, вывод (plan/04-module-functionality.md §2).
+// запроса, вызов сервиса, вывод (docs/plan/04-module-functionality.md §2).
 
 // handleKinds — GET /api/v1/kinds: классы приборов.
 func (a *API) handleKinds(w *responseWriter, r *http.Request, _ map[string]string) {

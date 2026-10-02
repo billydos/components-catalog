@@ -8,7 +8,7 @@ import (
 )
 
 // Stats — агрегаты для REST /api/v1/stats: количества записей по классам,
-// версия схемы модуля и счётчики ревизий (plan/04-module-functionality.md
+// версия схемы модуля и счётчики ревизий (docs/plan/04-module-functionality.md
 // §2).
 type Stats struct {
 	Counts          map[domain.Kind]int

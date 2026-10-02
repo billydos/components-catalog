@@ -9,7 +9,7 @@ import (
 )
 
 // LoadSnapshot загружает полный снимок каталога одним согласованным чтением
-// из пула чтения (транспорт каталога — plan/01-architecture.md §2.2;
+// из пула чтения (транспорт каталога — docs/plan/01-architecture.md §2.2;
 // реализация catalog.Store). Порядок строк детерминирован (ORDER BY),
 // чтобы снимки одной базы были сравнимы.
 func (d *DB) LoadSnapshot(ctx context.Context) (*catalog.Snapshot, error) {

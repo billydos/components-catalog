@@ -12,7 +12,7 @@ import (
 // сохраняют порядок ключей документа. Комментарии — родной синтаксис yaml;
 // повторяющиеся ключи библиотека отвергает при разборе — так же, как jsonc,
 // поэтому имена ключей в дереве value уникальны. Якоря и алиасы
-// раскрываются в значения (plan/05-work-plan.md задача 4.1).
+// раскрываются в значения (docs/plan/05-work-plan.md задача 4.1).
 func parseYAML(data []byte) (value, error) {
 	file, err := parser.ParseBytes(data, parser.ParseComments)
 	if err != nil {

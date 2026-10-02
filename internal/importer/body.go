@@ -7,7 +7,7 @@ import (
 )
 
 // ReadRecordJSON читает одну запись наполнения из тела REST-запроса
-// (POST/PUT /api/v1/components — plan/04-module-functionality.md §2):
+// (POST/PUT /api/v1/components — docs/plan/04-module-functionality.md §2):
 // строка-обозначение либо объект «name/system + секции». Разбор — общим
 // читателем формата (дубликаты ключей, форма секций, тексты проблем);
 // класс записи определяется автодетектом по обозначению (для system other

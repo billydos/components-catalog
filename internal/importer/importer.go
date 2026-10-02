@@ -12,7 +12,7 @@ import (
 )
 
 // Importer — импорт/экспорт файлов наполнения поверх сервисного слоя
-// приложения (plan/04-module-functionality.md §1.1 ImportService).
+// приложения (docs/plan/04-module-functionality.md §1.1 ImportService).
 type Importer struct {
 	app *service.App
 }
@@ -185,7 +185,7 @@ func (m *Importer) importNDJSON(ctx context.Context, r io.Reader, name string, d
 }
 
 // mergeCatalogTrees объединяет деревья секции catalog (слияние строк
-// NDJSON до валидации метасхемы — plan/04 §4).
+// NDJSON до валидации метасхемы — docs/plan/04 §4).
 func mergeCatalogTrees(a, b value) (value, error) {
 	if a.kind == kindNull {
 		return b, nil

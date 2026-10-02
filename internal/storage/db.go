@@ -6,7 +6,7 @@ import (
 	"fmt"
 )
 
-// Config — конфигурация открытия хранилища (plan/01-architecture.md §2.3):
+// Config — конфигурация открытия хранилища (docs/plan/01-architecture.md §2.3):
 // диалект, DSN/путь и параметры пулов соединений.
 type Config struct {
 	Dialect string // "sqlite" | "postgres"
@@ -26,7 +26,7 @@ type PoolConfig struct {
 
 const defaultBusyTimeoutMs = 5000
 
-// Dialect — диалектозависимая часть хранилища (plan/02-database.md §4):
+// Dialect — диалектозависимая часть хранилища (docs/plan/02-database.md §4):
 // открытие и пулы, определение авто-PK в DDL, получение id после вставки.
 // Всё прочее — переносимый DML на database/sql + sql.Named (@имя).
 type Dialect interface {
@@ -55,7 +55,7 @@ type pools struct {
 	same   bool // reads и writes — один пул (postgres): закрывать один раз
 }
 
-// DB — открытое хранилище. Правило (plan/01-architecture.md §2.3): весь DML —
+// DB — открытое хранилище. Правило (docs/plan/01-architecture.md §2.3): весь DML —
 // только внутри явных транзакций Begin (соединение записи); вне транзакций —
 // только SELECT из пула чтения. Бизнес-правил не содержит.
 type DB struct {
@@ -169,7 +169,7 @@ func (t *Tx) exec(ctx context.Context, q string, args map[string]any) (sql.Resul
 }
 
 // InsertReturningID — вставка с возвратом сгенерированного id (метод
-// диалекта; сигнатура зафиксирована планом — plan/02-database.md §4).
+// диалекта; сигнатура зафиксирована планом — docs/plan/02-database.md §4).
 func (t *Tx) InsertReturningID(ctx context.Context, query string, args map[string]any) (int64, error) {
 	return t.dialect.InsertReturningID(ctx, t.tx, query, named(args))
 }

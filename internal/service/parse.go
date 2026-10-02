@@ -10,7 +10,7 @@ import (
 )
 
 // DesignationService — обозначения: разбор с автодетектом и автодополнение
-// по префиксу (plan/04-module-functionality.md §1.1).
+// по префиксу (docs/plan/04-module-functionality.md §1.1).
 type DesignationService struct {
 	app *App
 }

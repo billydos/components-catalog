@@ -14,9 +14,9 @@ import (
 	"github.com/billydos/components-catalog/internal/service"
 )
 
-// Config — конфигурация REST API (plan/01-architecture.md §3: без глобальных
+// Config — конфигурация REST API (docs/plan/01-architecture.md §3: без глобальных
 // переменных; конфигурацию передаёт сайт). DisableSuggest отключает
-// GET /api/v1/suggest — хендлер не монтируется (plan/04-module-
+// GET /api/v1/suggest — хендлер не монтируется (docs/plan/04-module-
 // functionality.md §2); Metrics — хук метрик сайта.
 type Config struct {
 	Log            *slog.Logger
@@ -24,7 +24,7 @@ type Config struct {
 	Metrics        Metrics
 }
 
-// Metrics — хук метрик REST (plan/04-module-functionality.md §5): счётчики
+// Metrics — хук метрик REST (docs/plan/04-module-functionality.md §5): счётчики
 // и длительности вызовов по операциям; реализация — на стороне сайта,
 // модуль свой экспорт метрик не заводит. errCode — код ошибки домена
 // ("" — успешный запрос).
@@ -72,7 +72,7 @@ type route struct {
 	handler func(a *API, w *responseWriter, r *http.Request, params map[string]string)
 }
 
-// routes — таблица маршрутов /api/v1 (plan/04-module-functionality.md §2);
+// routes — таблица маршрутов /api/v1 (docs/plan/04-module-functionality.md §2);
 // порядок значим: литеральный сегмент «id» точнее параметра {kind}.
 var routes = []route{
 	{method: http.MethodGet, pattern: apiPrefix + "/kinds", op: "kinds", handler: (*API).handleKinds},
@@ -222,7 +222,7 @@ func splitPath(path string) []string {
 
 // matchRoute сопоставляет сегменты пути с шаблоном маршрута; параметры —
 // раскодированные сегменты URL (обозначения с «/» прямым путём не
-// адресуются — plan/04-module-functionality.md §2).
+// адресуются — docs/plan/04-module-functionality.md §2).
 func matchRoute(rt route, segments []string) (map[string]string, bool) {
 	pattern := splitPath(rt.pattern)
 	if len(pattern) != len(segments) {
@@ -279,7 +279,7 @@ const (
 	msgBoolAttrFilter   = "фильтр атрибута «%s»: логические атрибуты не поддерживаются в фильтрах"
 )
 
-// errorBody — модель ошибки REST (plan/04-module-functionality.md §2):
+// errorBody — модель ошибки REST (docs/plan/04-module-functionality.md §2):
 // машиночитаемый код, русский текст и необязательные подробности.
 type errorBody struct {
 	Code    string   `json:"code"`

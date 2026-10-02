@@ -1,7 +1,7 @@
 package domain
 
 // Грамматика PRO ELECTRON (первоисточник — справочник Philips Semiconductors
-// «Pro Electron type numbering», сентябрь 1994, docs/PRO-ELECTRON.pdf;
+// «Pro Electron type numbering», сентябрь 1994, docs/sources/PRO-ELECTRON.pdf;
 // план 03 §2.1, выверка — 07 §2):
 //
 //	<материал><класс><номер>[<версионные буквы>][-<суффикс подклассификации>]

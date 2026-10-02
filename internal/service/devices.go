@@ -12,7 +12,7 @@ import (
 )
 
 // DeviceService — операции над записями устройств
-// (plan/04-module-functionality.md §1.1).
+// (docs/plan/04-module-functionality.md §1.1).
 type DeviceService struct {
 	app *App
 }
@@ -30,7 +30,7 @@ type resolvedAnalog struct {
 type PendingDesignations func(kind domain.Kind, designation string) bool
 
 // Upsert применяет запись наполнения с семантикой секций
-// (plan/02-database.md §6): разбор обозначения → транзакция → слитое
+// (docs/plan/02-database.md §6): разбор обозначения → транзакция → слитое
 // состояние (вход + текущие секции) → валидация движком → каноническое
 // сравнение (совпадение — Skipped без записи в БД и без инкремента
 // ревизий) → применение секций целиком + инкремент data_revision.
@@ -316,7 +316,7 @@ func safeVariants(in *DeviceInput) []VariantInput {
 }
 
 // resolveAnalogs разрешает обозначения аналогов в пределах класса записи
-// (структурная валидация — plan/03-data-model.md §8): канонизация,
+// (структурная валидация — docs/plan/03-data-model.md §8): канонизация,
 // запрет самоссылки и дубликатов, существование цели; note — характер
 // замены именно в этом направлении. pending (dry-run) допускает цель,
 // которая будет создана этим же прогоном импорта позже (прямые ссылки

@@ -1,6 +1,6 @@
 # Ревью архитектуры против плана
 
-Сплошное чтение кода с отчётом — задача 7.3 `plan/05-work-plan.md`.
+Сплошное чтение кода с отчётом — задача 7.3 `docs/plan/05-work-plan.md`.
 Формат отчёта фиксирован этим файлом и обязателен для будущих ревью
 (следующие ревью — новые файлы `qa/architecture-review-<дата>.md` по тому
 же формату).
@@ -36,7 +36,7 @@ writer, catalog_section, format, value, ndjson, body, format_jsonc,
 format_yaml; httpapi: api, handlers, query, wire; cli: run, commands,
 help, output, print), `cmd/catalogctl`, `seed/`, `api/openapi.yaml`,
 `.github/workflows/ci.yml`, тесты выборочно по мере чтения (полностью —
-закрепляющие контракты). Сверка против `plan/01`–`06`, `plan/README.md`
+закрепляющие контракты). Сверка против `docs/plan/01`–`06`, `docs/plan/README.md`
 (D1–D8), AGENTS.md. Прогоны: полные build/vet/gofmt/test,
 `qa/scenarios.sh` (отчёт `qa/reports/2026-10-02-stage7.md`).
 
@@ -70,7 +70,7 @@ help, output, print), `cmd/catalogctl`, `seed/`, `api/openapi.yaml`,
   инкремента ревизий; частичное применение записи исключено (ошибка —
   весь upsert откатывается; importer компенсирует холостые создания).
 - **Именование**: коды ошибок/ключей стабильны; DDL — snake_case по
-  plan/02; идентификаторы Go — MixedCaps, файлы — snake_case.
+  docs/plan/02; идентификаторы Go — MixedCaps, файлы — snake_case.
 - **Единицы**: канонический справочник — данные (`units`); хранение
   каноническое, производные единицы отображения в хранилище отсутствуют
   (вывод канонических — осознанное ограничение v0.1, замечание №6).

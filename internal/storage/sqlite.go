@@ -13,7 +13,7 @@ import (
 // sqliteDialect — диалект SQLite (modernc.org/sqlite): файл или память;
 // пул чтения + одно выделенное соединение записи; на каждом соединении
 // PRAGMA foreign_keys = ON и busy_timeout, для файла — WAL — одновременная
-// работа читателей и одного писателя (plan/02-database.md §4).
+// работа читателей и одного писателя (docs/plan/02-database.md §4).
 type sqliteDialect struct{}
 
 func (sqliteDialect) Name() string { return "sqlite" }

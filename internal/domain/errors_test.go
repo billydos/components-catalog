@@ -54,8 +54,8 @@ func TestCodeFormat(t *testing.T) {
 	}
 }
 
-// Дословные тексты сообщений — контракт (plan/01-architecture.md §2.1,
-// plan/02-database.md §5, plan/03-data-model.md §2.4).
+// Дословные тексты сообщений — контракт (docs/plan/01-architecture.md §2.1,
+// docs/plan/02-database.md §5, docs/plan/03-data-model.md §2.4).
 func TestContractMessages(t *testing.T) {
 	cases := []struct {
 		name string

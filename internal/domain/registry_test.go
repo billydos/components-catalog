@@ -9,7 +9,7 @@ import (
 
 // Реестры классов и систем — код ⇄ будущие сиды (kinds, designation_systems,
 // designation_system_kinds); пин-тест фиксирует состав и применимость
-// (plan/03-data-model.md §1.1–1.2). Этап 2 синхронизирует сиды с этими
+// (docs/plan/03-data-model.md §1.1–1.2). Этап 2 синхронизирует сиды с этими
 // таблицами.
 func TestKindsPin(t *testing.T) {
 	want := []domain.Kind{"transistor", "diode", "resistor", "capacitor"}

@@ -10,7 +10,7 @@ import (
 )
 
 // Секция catalog файла наполнения — расширение каталога (метасхема,
-// plan/04-module-functionality.md §4). Форма подразделов повторяет
+// docs/plan/04-module-functionality.md §4). Форма подразделов повторяет
 // catalog.Input; целостность определений (ссылки, типы, enum) проверяет
 // ApplyCatalog — единственная точка валидации метасхемы; здесь только
 // форма: типы ключей и известность подразделов.
@@ -68,7 +68,7 @@ func ReadCatalogSection(v value) (catalog.Input, []Issue) {
 }
 
 // MergeCatalogInput сливает вход каталога поверх dst (строки catalog
-// NDJSON сливаются до валидации метасхемы — plan/04 §4).
+// NDJSON сливаются до валидации метасхемы — docs/plan/04 §4).
 func MergeCatalogInput(dst *catalog.Input, add catalog.Input) {
 	dst.Kinds = append(dst.Kinds, add.Kinds...)
 	dst.Systems = append(dst.Systems, add.Systems...)

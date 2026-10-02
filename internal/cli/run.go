@@ -12,7 +12,7 @@ import (
 )
 
 // Run выполняет команду catalogctl и возвращает код выхода
-// (plan/04-module-functionality.md §3). Общие опции: --dialect, --db,
+// (docs/plan/04-module-functionality.md §3). Общие опции: --dialect, --db,
 // --dsn, --kind, --system, --dry-run; ожидаемые ошибки выводятся
 // с префиксом «Ошибка: », прочие — «Непредвиденная ошибка: »,
 // код выхода 1.

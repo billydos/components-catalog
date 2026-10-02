@@ -13,7 +13,7 @@ import (
 )
 
 // Разбор параметров поиска GET /api/v1/components
-// (plan/04-module-functionality.md §2): kind, system, q, поля обозначения
+// (docs/plan/04-module-functionality.md §2): kind, system, q, поля обозначения
 // (коды полей разбора — реестр домена), attr.<код>, par.<код>(.min/.max/
 // .exact), sort, limit, offset. Неизвестный ключ — ошибка (опечатки
 // не молчат).

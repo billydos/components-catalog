@@ -50,7 +50,7 @@ type AttrCond struct {
 // ParamCond — фильтр по параметру: нижняя/верхняя граница, точное значение
 // либо текст/enum. Вариантные параметры применяются в пределах одного
 // исполнения (EXISTS по device_variants) — перекрёстные сочетания значений
-// разных исполнений не сопоставляются (plan/04-module-functionality.md §1).
+// разных исполнений не сопоставляются (docs/plan/04-module-functionality.md §1).
 type ParamCond struct {
 	Code              string
 	Min, Max, Exact   float64

@@ -11,7 +11,7 @@ import (
 	"github.com/billydos/components-catalog/internal/domain"
 )
 
-// Ключи schema_meta (plan/02-database.md §2.1).
+// Ключи schema_meta (docs/plan/02-database.md §2.1).
 const (
 	metaSchemaVersion   = "schema_version"
 	metaCatalogRevision = "catalog_revision"
@@ -21,7 +21,7 @@ const (
 
 // EnsureCreated выполняет полный DDL (CREATE … IF NOT EXISTS) и записывает
 // schema_version, catalog_revision и data_revision, если их ещё нет
-// (plan/02-database.md §5). Гонка-безопасна: вставка меты —
+// (docs/plan/02-database.md §5). Гонка-безопасна: вставка меты —
 // INSERT … SELECT … WHERE NOT EXISTS, конфликт PK трактуется как
 // проигранная гонка с перечитыванием версии. Возвращает true, если база
 // создана этим вызовом (мета была вставлена).
@@ -69,7 +69,7 @@ WHERE NOT EXISTS (SELECT 1 FROM schema_meta WHERE key = @key)`,
 }
 
 // isPKConflict сообщает, является ли ошибка конфликтом уникальности
-// (проигранная гонка создания — plan/02-database.md §5.1).
+// (проигранная гонка создания — docs/plan/02-database.md §5.1).
 func isPKConflict(err error) bool {
 	if err == nil {
 		return false
@@ -81,7 +81,7 @@ func isPKConflict(err error) bool {
 }
 
 // CheckSchema читает schema_meta.schema_version и сверяет с версией модуля
-// (plan/02-database.md §5.2): отсутствие таблицы — database_not_initialized
+// (docs/plan/02-database.md §5.2): отсутствие таблицы — database_not_initialized
 // (не инициализирована, чужая или повреждённая база), несовпадение версии —
 // schema_version_mismatch; продолжение работы запрещено.
 func (d *DB) CheckSchema(ctx context.Context) error {
@@ -124,7 +124,7 @@ func isNoTableError(err error) bool {
 }
 
 // Revisions возвращает текущие счётчики catalog_revision и data_revision
-// (для ETag REST — plan/02-database.md §5.5).
+// (для ETag REST — docs/plan/02-database.md §5.5).
 func (d *DB) Revisions(ctx context.Context) (catalog, data int64, err error) {
 	rows, err := d.query(ctx,
 		`SELECT key, value FROM schema_meta WHERE key IN (@a, @b)`,
@@ -160,7 +160,7 @@ func (d *DB) CatalogRevision(ctx context.Context) (int64, error) {
 }
 
 // bumpRevision инкрементирует счётчик ревизий атомарно внутри транзакции
-// записи (plan/02-database.md §5.5); CAST переносим между диалектами
+// записи (docs/plan/02-database.md §5.5); CAST переносим между диалектами
 // (value — TEXT).
 func (t *Tx) bumpRevision(ctx context.Context, key string) error {
 	_, err := t.exec(ctx,

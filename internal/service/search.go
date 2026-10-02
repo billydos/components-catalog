@@ -59,7 +59,7 @@ func (s *CatalogService) Import(ctx context.Context, in catalog.Input) error {
 // параметров (применимость к классу запроса — D7, ошибки валидации
 // запроса), сортировка с финальным (kind, designation), пагинация
 // (limit ≤ 200); вариантные параметрические фильтры применяются в
-// пределах одного исполнения (plan/04-module-functionality.md §1.1).
+// пределах одного исполнения (docs/plan/04-module-functionality.md §1.1).
 func (s *DeviceService) Search(ctx context.Context, q SearchQuery) (SearchPage, error) {
 	snap, err := s.app.cache.Snapshot(ctx)
 	if err != nil {

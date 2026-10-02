@@ -66,7 +66,7 @@ type Services struct {
 
 // Open открывает приложение по конфигурации: открывает хранилище,
 // при EnsureCreated выполняет DDL и применяет сиды каталога на пустую базу
-// (plan/02-database.md §5.3), проверяет версию схемы (несовпадение —
+// (docs/plan/02-database.md §5.3), проверяет версию схемы (несовпадение —
 // громкий отказ, продолжение работы запрещено).
 func Open(ctx context.Context, cfg Config) (*App, error) {
 	if cfg.Log == nil {
@@ -114,7 +114,7 @@ func (a *App) Snapshot(ctx context.Context) (*catalog.Snapshot, error) {
 }
 
 // Revisions возвращает текущие счётчики catalog_revision и data_revision
-// (ETag REST — plan/02-database.md §5.5).
+// (ETag REST — docs/plan/02-database.md §5.5).
 func (a *App) Revisions(ctx context.Context) (catalogRev, dataRev int64, err error) {
 	return a.db.Revisions(ctx)
 }

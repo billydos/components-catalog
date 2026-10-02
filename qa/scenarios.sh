@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # qa/scenarios.sh — сквозные сценарные прогоны CLI и REST на SQLite и
-# PostgreSQL (этап 7.1, plan/05-work-plan.md). SQLite — всегда; PostgreSQL —
+# PostgreSQL (этап 7.1, docs/plan/05-work-plan.md). SQLite — всегда; PostgreSQL —
 # при заданном CATALOG_TEST_POSTGRES_DSN (в CI поднимается сервисом).
 #
 # Прогон: ./qa/scenarios.sh

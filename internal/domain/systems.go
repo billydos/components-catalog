@@ -3,7 +3,7 @@ package domain
 import "slices"
 
 // System — система условных обозначений. Реестр синхронизирован с сидами
-// designation_systems (plan/03-data-model.md §1.2): код ⇄ сиды — пин-тест.
+// designation_systems (docs/plan/03-data-model.md §1.2): код ⇄ сиды — пин-тест.
 type System string
 
 // Реестр систем обозначений: gost покрывает полупроводники (ГОСТ 10862-64 и
@@ -80,7 +80,7 @@ func (s System) Description() string {
 	return systems[s].description
 }
 
-// systemKinds — применимость систем к классам (plan/03-data-model.md §1.1);
+// systemKinds — применимость систем к классам (docs/plan/03-data-model.md §1.1);
 // пин-тест фиксирует матрицу целиком.
 var systemKinds = map[System][]Kind{
 	SystemGost:   {KindTransistor, KindDiode, KindResistor, KindCapacitor},

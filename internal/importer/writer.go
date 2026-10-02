@@ -12,7 +12,7 @@ import (
 	"github.com/billydos/components-catalog/internal/service"
 )
 
-// Экспорт — round-trip формат наполнения (plan/04 §4): тот же вид файла,
+// Экспорт — round-trip формат наполнения (docs/plan/04 §4): тот же вид файла,
 // что читает importer, во всех форматах реестра. Порядок детерминирован:
 // классы — по снимку каталога, записи — по (kind, designation), секции
 // групп — по группам каталога, значения — по sort_order, условия — по коду,
@@ -204,7 +204,7 @@ func attrTreeValue(a service.CardAttribute) value {
 
 // valueTree — объект значения параметра: parameter, value|min|max|text,
 // условия — соседние ключи по коду (порядок ключей — как в файле
-// наполнения, plan/06-examples.md).
+// наполнения, docs/plan/06-examples.md).
 func valueTree(v service.CardValue) value {
 	members := []member{pair("parameter", str(v.Parameter))}
 	if v.Exact != nil {

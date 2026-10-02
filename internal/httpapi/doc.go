@@ -1,5 +1,5 @@
 // Package httpapi — версионируемый REST API /api/v1 на net/http,
 // монтируемый в роутер сайта. Тонкий транспорт над сервисным слоем:
 // аутентификация, авторизация и лимитирование — вне модуля
-// (plan/01-architecture.md §2.6).
+// (docs/plan/01-architecture.md §2.6).
 package httpapi

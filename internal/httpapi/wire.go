@@ -87,7 +87,7 @@ type linkJSON struct {
 	Note        string `json:"note,omitempty"`
 }
 
-// cardJSON — карточка записи (plan/04-module-functionality.md §2).
+// cardJSON — карточка записи (docs/plan/04-module-functionality.md §2).
 type cardJSON struct {
 	ID            int64             `json:"id"`
 	Kind          string            `json:"kind"`
@@ -236,7 +236,7 @@ type statsJSON struct {
 }
 
 // Снимок каталога (GET /catalog): ключи повторяют формат наполнения
-// (snake_case по колонкам каталожных таблиц — plan/04 §4).
+// (snake_case по колонкам каталожных таблиц — docs/plan/04 §4).
 
 type catalogSnapshotJSON struct {
 	Revision       int64               `json:"revision"`

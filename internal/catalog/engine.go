@@ -31,7 +31,7 @@ func (e *Engine) Snapshot() *Snapshot {
 }
 
 // strictSystems — строгие системы обозначений (для инварианта реестра
-// series, plan/03-data-model.md §2.4).
+// series, docs/plan/03-data-model.md §2.4).
 var strictSystems = []domain.System{
 	domain.SystemGost, domain.SystemOst, domain.SystemPro, domain.SystemJedec, domain.SystemJis,
 }
@@ -40,7 +40,7 @@ var strictSystems = []domain.System{
 // система обозначений), атрибуты, значения параметров типа в целом,
 // исполнения и именованные правила. Пустой результат — запись корректна;
 // проблемы накапливаются все за один прогон (частичное применение записей
-// запрещено — plan/01-architecture.md §2.4).
+// запрещено — docs/plan/01-architecture.md §2.4).
 func (e *Engine) ValidateDevice(d *Device) []Problem {
 	var probs []Problem
 	probs = append(probs, e.validateHeader(d)...)
@@ -159,7 +159,7 @@ func (e *Engine) validateAttributes(kind domain.Kind, vals []AttributeValue) []P
 }
 
 // checkAttrValue — форма и семантика значения атрибута по типу
-// (plan/03-data-model.md §9: текст непустой после trim, bool 0/1,
+// (docs/plan/03-data-model.md §9: текст непустой после trim, bool 0/1,
 // enum из списка, число положительно).
 func checkAttrValue(a *AttributeDef, av AttributeValue) []Problem {
 	fail := func(msg string) []Problem {
@@ -273,7 +273,7 @@ func (e *Engine) validateValues(kind domain.Kind, vals []ParameterValue) []Probl
 }
 
 // checkValueShape — форма значения по value_type параметра
-// (plan/03-data-model.md §6): exact → value; at_least → min
+// (docs/plan/03-data-model.md §6): exact → value; at_least → min
 // (необязательная верхняя граница max); at_most → max; range → min и max;
 // text/enum → text. Позитивность (если не allow_negative) и потолок
 // проверяются для каждой числовой части.
@@ -391,7 +391,7 @@ func checkValueShape(p *ParameterDef, v *ParameterValue) []Problem {
 // (allow_negative у условия), соответствие одному из наборов условий
 // параметра (required обязательны, optional допустимы, остальные
 // запрещены; fixed_value — константа, которую можно опустить либо задать
-// равной — plan/02-database.md §2.2). У безусловного параметра условий
+// равной — docs/plan/02-database.md §2.2). У безусловного параметра условий
 // быть не должно.
 func (e *Engine) checkValueConditions(p *ParameterDef, v *ParameterValue) []Problem {
 	var probs []Problem
@@ -511,7 +511,7 @@ func (e *Engine) kindAllowsVariants(kind domain.Kind) bool {
 }
 
 // valueKey — канонический ключ значения для контроля дубликатов
-// «параметр + одинаковые условия» (plan/02-database.md §2.3).
+// «параметр + одинаковые условия» (docs/plan/02-database.md §2.3).
 func valueKey(v *ParameterValue) string {
 	parts := make([]string, 0, len(v.Conditions))
 	for _, c := range v.Conditions {

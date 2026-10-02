@@ -9,7 +9,7 @@ import (
 	"github.com/billydos/components-catalog/internal/domain"
 )
 
-// ValueType — тип значения параметра каталога (plan/03-data-model.md §6):
+// ValueType — тип значения параметра каталога (docs/plan/03-data-model.md §6):
 // exact (точное), at_least (не менее, с необязательной верхней границей),
 // at_most (не более), range (диапазон), text, enum.
 type ValueType string
@@ -42,7 +42,7 @@ func (t ValueType) Numeric() bool {
 	return false
 }
 
-// AttrType — тип значения атрибута (plan/03-data-model.md §9):
+// AttrType — тип значения атрибута (docs/plan/03-data-model.md §9):
 // text | bool | int | number | enum.
 type AttrType string
 
@@ -66,7 +66,7 @@ func (t AttrType) Valid() bool {
 
 // ConditionMode — роль условия в наборе условий параметра: required
 // (обязательно) либо optional (допустимо; остальные условия набора
-// запрещены — plan/02-database.md §2.2).
+// запрещены — docs/plan/02-database.md §2.2).
 type ConditionMode string
 
 // Реестр режимов условий набора.
@@ -94,14 +94,14 @@ type SystemDef struct {
 }
 
 // SystemKindRef — строка таблицы designation_system_kinds: применимость
-// системы обозначений к классу (plan/03-data-model.md §1.1).
+// системы обозначений к классу (docs/plan/03-data-model.md §1.1).
 type SystemKindRef struct {
 	System domain.System
 	Kind   domain.Kind
 }
 
 // TailSemanticPower — значение tail_semantic «мощность, Вт»
-// (series_families, plan/02-database.md §2.2).
+// (series_families, docs/plan/02-database.md §2.2).
 const TailSemanticPower = "power"
 
 // SeriesFamilyDef — строка таблицы series_families: реестр семейств
@@ -143,7 +143,7 @@ type GroupDef struct {
 // ConditionSetItem — элемент набора условий параметра: условие, режим
 // (required/optional) и необязательная константа fixed_value (допустима
 // только при mode = required: значение в файле можно опустить либо задать
-// равным fixed_value — plan/02-database.md §2.2).
+// равным fixed_value — docs/plan/02-database.md §2.2).
 type ConditionSetItem struct {
 	Condition  string
 	Mode       ConditionMode
@@ -231,7 +231,7 @@ func containsKind(kinds []domain.Kind, kind domain.Kind) bool {
 // правила и их привязка к классам). Заполняется транспортом (storage,
 // этап 3) либо применением каталога (ApplyCatalog); после заполнения
 // не мутирует — кэш заменяет снимок целиком по указателю
-// (plan/01-architecture.md §2.2).
+// (docs/plan/01-architecture.md §2.2).
 type Snapshot struct {
 	Revision       int64
 	Kinds          []KindDef

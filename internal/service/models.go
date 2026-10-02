@@ -5,7 +5,7 @@ import (
 	"github.com/billydos/components-catalog/internal/domain"
 )
 
-// Outcome — исход Upsert записи (plan/04-module-functionality.md §1.1).
+// Outcome — исход Upsert записи (docs/plan/04-module-functionality.md §1.1).
 type Outcome string
 
 // Реестр исходов Upsert.
@@ -41,7 +41,7 @@ type AnalogInput struct {
 }
 
 // DeviceInput — запись наполнения для Upsert. Семантика секций
-// (plan/01-architecture.md §2.4): отсутствует (nil) — не менять; задана —
+// (docs/plan/01-architecture.md §2.4): отсутствует (nil) — не менять; задана —
 // заменить целиком; пустой непустой-nil срез/[] — очистить; ошибка в любом
 // значении секции — запись не применяется вовсе. System/Kind необязательны
 // (автодетект; Kind обязателен для other).
@@ -111,7 +111,7 @@ type CardLink struct {
 
 // Card — карточка записи: обозначение, система, поля разбора, атрибуты,
 // значения параметров по группам, исполнения, производители, аналоги
-// (исходящие и встречные — plan/02-database.md §6).
+// (исходящие и встречные — docs/plan/02-database.md §6).
 type Card struct {
 	ID            int64
 	Kind          domain.Kind
@@ -189,7 +189,7 @@ type SortField struct {
 
 // SearchQuery — запрос поиска: класс, система, подстрока обозначения,
 // фильтры полей/атрибутов/параметров, сортировка, пагинация
-// (plan/04-module-functionality.md §1.1).
+// (docs/plan/04-module-functionality.md §1.1).
 type SearchQuery struct {
 	Kind       domain.Kind
 	System     domain.System
@@ -226,7 +226,7 @@ type Suggestion struct {
 	Designation string
 }
 
-// Лимиты пагинации (plan/04-module-functionality.md §1.1: limit ≤ 200);
+// Лимиты пагинации (docs/plan/04-module-functionality.md §1.1: limit ≤ 200);
 // потолки нужны транспорту для валидации параметров запроса.
 const (
 	SearchDefaultLimit  = 50

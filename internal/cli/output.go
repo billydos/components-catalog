@@ -8,7 +8,7 @@ import (
 )
 
 // Префиксы вывода ошибок CLI — дословный контракт
-// (plan/04-module-functionality.md §3); закреплены тестами.
+// (docs/plan/04-module-functionality.md §3); закреплены тестами.
 const (
 	// ErrorPrefix — префикс ожидаемых ошибок (*domain.Error).
 	ErrorPrefix = "Ошибка: "
