@@ -1,6 +1,6 @@
 # AGENTS.md — правила разработки
 
-Проект **components-catalog** — справочник электронных компонентов (советская и мировая элементная база): Go-библиотека + встраиваемый REST API `/api/v1` + CLI `catalogctl`. Хранилища: SQLite и PostgreSQL, равноправные. Источник истины по архитектуре и контрактам — план `docs/plan/`: `README.md` (решения D1–D8), `01-architecture.md`, `02-database.md`, `03-data-model.md`, `04-module-functionality.md`, `06-examples.md`; порядок работ — `05-work-plan.md`. Код не расходится с планом; осознанное изменение решения — отдельный коммит с правкой всех связанных мест плана.
+Проект **components-catalog** — справочник электронных компонентов (советская и мировая элементная база): Go-библиотека + встраиваемый REST API `/api/v1` + CLI `catalogctl`. Хранилища: SQLite и PostgreSQL, равноправные. Источник истины по архитектуре и контрактам — план `docs/plan/`: `README.md` (решения D1–D10), `01-architecture.md`, `02-database.md`, `03-data-model.md`, `04-module-functionality.md`, `06-examples.md`, отчёты выверки `07-r1-verification.md` и `08-data-verification.md`; порядок работ — `05-work-plan.md`, карта документов — таблица в конце `README.md`. Пользовательские справочники: `docs/fill-format.md` (регламент наполнения), `docs/class-keys.md` (ключи по классам), контракт REST — `api/openapi.yaml`; выверенное наполнение — `data/`, история релизов — `CHANGELOG.md`. Код не расходится с планом; осознанное изменение решения — отдельный коммит с правкой всех связанных мест плана.
 
 ## Проверка
 
@@ -10,7 +10,7 @@
 go build ./... && go vet ./... && gofmt -l . && go test ./...
 ```
 
-`gofmt -l .` обязан быть пуст. CI (`.github/workflows/ci.yml`) выполняет то же самое.
+`gofmt -l .` обязан быть пуст. CI (`.github/workflows/ci.yml`) выполняет то же самое, плюс сквозные сценарии `./qa/scenarios.sh` (SQLite всегда, PostgreSQL по `CATALOG_TEST_POSTGRES_DSN`) и нагрузочную прикидку `qa/load_test.go` (`CATALOG_QA_SCALE=10000`). Локальный прогон интеграционных тестов на PostgreSQL — задать `CATALOG_TEST_POSTGRES_DSN` (без переменной нога пропускается).
 
 ## Слои и зависимости
 
@@ -21,8 +21,11 @@ go build ./... && go vet ./... && gofmt -l . && go test ./...
 - `internal/importer` — реестр форматов наполнения (jsonc/yaml/ndjson), семантика секций; тексты ошибок формата — каталог сообщений.
 - `internal/i18n` — бандлы отображаемых строк (en — канонический и обязательный, ru), переговоры локали; потребители — только транспорты (`httpapi`, `cli`) и тесты полноты.
 - `internal/httpapi`, `internal/cli` — тонкие транспорты над `service`: разбор запросов/аргументов и вывод, без бизнес-логики.
+- `internal/testutil` — общий код интеграционных тестов: доступ к локальному PostgreSQL (`CATALOG_TEST_POSTGRES_DSN`) и очистка одноразовой базы; только из `_test.go`.
 
-Направление зависимостей: `domain` ← `catalog`/`storage` ← `service` ← `importer`/`httpapi`/`cli`; `i18n` — отдельно от внутренних слоёв (зависит только от кодов-строк), локали не проникают в `domain`/`catalog`/`storage`/`service`. Не пропускать слои: SQL не поднимается выше `storage`, разбор форматов не выходит из `importer`, бизнес-правила не живут в транспортах.
+Корневые пакеты: `seed` — стартовый каталог (единицы, условия, группы, параметры, атрибуты, правила, реестры `domain`); применяется `service` на пустую базу при открытии, состав закреплён пин-тестами `seed/seed_test.go` против реестров `internal/domain` и `internal/catalog`. `qa` — сквозные сценарии CLI/REST (`scenarios.sh`), нагрузочная прикидка (`load_test.go`), отчёты прогонов — `qa/reports/`.
+
+Направление зависимостей: `domain` ← `catalog`/`storage` ← `service` ← `importer`/`httpapi`/`cli`; `seed` — над `domain`/`catalog`, потребитель — `service`; `i18n` — отдельно от внутренних слоёв (зависит только от кодов-строк), локали не проникают в `domain`/`catalog`/`storage`/`service`. Не пропускать слои: SQL не поднимается выше `storage`, разбор форматов не выходит из `importer`, бизнес-правила не живут в транспортах.
 
 ## Ошибки
 
