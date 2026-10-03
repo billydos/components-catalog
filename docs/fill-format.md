@@ -193,35 +193,87 @@
 
 ## 8. Секция `catalog` (расширение каталога)
 
-Подразделы (все опциональны, применяются upsert'ом по коду до записей):
+Расширяет каталог поверх стартового наполнения: классы, системы
+обозначений, семейства, единицы, категории, условия, группы, параметры,
+атрибуты и правила валидации — данными, без правки кода. Строки
+подразделов применяются upsert'ом по коду до записей файла; файл только
+с секцией `catalog` загружается и отдельно (`catalogctl catalog import`,
+§13). В NDJSON строки `catalog` сливаются до валидации метасхемы и
+обязаны предшествовать записям, использующим вводимые определения (§9).
+
+Подразделы (все опциональны):
 
 | Подраздел | Строки | Ключевые поля |
 |-----------|--------|---------------|
-| `kinds` | классы | `code`, `name` |
-| `designation_systems` | системы | `code`, `name`, `description` |
+| `kinds` | классы | `code` |
+| `designation_systems` | системы обозначений | `code` |
 | `designation_system_kinds` | применимость систем | `system`, `kind` |
-| `series_families` | реестр семейств | `series`, `kind`, `name`, `tail_semantic` ("" \| `power`) |
-| `units` | единицы | `code`, `name`, `symbol` |
+| `series_families` | реестр семейств | `series`, `kind`, `tail_semantic` ("" \| `power`) |
+| `units` | единицы | `code` |
 | `categories` | словарь категорий (поле `category`) | `code` |
-| `conditions` | условия | `code`, `name`, `unit`, `allow_negative` |
-| `parameter_groups` | группы | `code`, `section` (`parameters` / `ratings` / `dimensions`), `name`, `sort_order` |
-| `parameters` | параметры | `code`, `group`, `name`, `unit`, `value_type`, `kinds`, `enum_values`, `condition_sets`, `ceiling`, `allow_negative`, `rule`, `sort_order`, `is_active` |
-| `attributes` | атрибуты | `code`, `name`, `group`, `type`, `unit`, `kinds`, `enum_values`, `rule`, `sort_order`, `is_active` |
-| `validation_rules` | именованные правила | `code`, `description` — только коды реализаций реестра |
+| `conditions` | условия | `code`, `unit`, `allow_negative` |
+| `parameter_groups` | группы | `code`, `section` (`parameters` / `ratings` / `dimensions`), `sort_order` |
+| `parameters` | параметры | `code`, `group`, `unit`, `value_type`, `kinds`, `enum_values`, `condition_sets`, `ceiling`, `allow_negative`, `rule`, `sort_order`, `is_active` |
+| `attributes` | атрибуты | `code`, `group`, `type`, `unit`, `kinds`, `enum_values`, `rule`, `sort_order`, `is_active` |
+| `validation_rules` | именованные правила | `code` — только коды реализаций реестра |
 | `kind_validation_rules` | привязка правил к классам | `kind`, `rule` |
 
+Пример: ввод категории, условия и параметра с альтернативными наборами
+условий, атрибут-перечисление, деактивация — и запись, использующая
+введённое:
+
+```jsonc
+{
+  "catalog": {
+    "categories": [ { "code": "automotive" } ],      // категория поля category (§5.1)
+    "conditions": [ { "code": "Ub", "unit": "V" } ], // новое условие измерения (§4)
+    "parameters": [
+      {                                              // параметр с двумя наборами условий
+        "code": "h21e_ub", "group": "electrical", "value_type": "range",
+        "kinds": ["transistor"],
+        "condition_sets": [
+          { "items": [ { "condition": "Ub", "mode": "required" },
+                       { "condition": "temp", "mode": "optional" } ] },
+          { "items": [ { "condition": "Ik", "mode": "required" } ] }
+        ]
+      },
+      {                                              // деактивация: строка полная, как пишет экспорт
+        "code": "Kpd", "group": "electrical", "value_type": "at_least",
+        "kinds": ["transistor"], "is_active": false
+      }
+    ],
+    "attributes": [                                  // enum-значения — целиком
+      { "code": "coating", "type": "enum", "kinds": ["resistor"],
+        "enum_values": ["лак", "эмаль"] } ]
+  },
+  "transistors": [
+    { "name": "2N2222A", "system": "jedec",
+      "fields": { "category": "automotive" },        // введённая выше категория
+      "parameters": [
+        { "parameter": "h21e_ub", "min": 100, "max": 300, "Ub": 10 } ] }
+  ]
+}
+```
+
 - ключи повторяют колонки каталожных таблиц (snake_case), ссылки — коды;
-  `kinds` пуст/отсутствует — применимость ко всем классам;
+  текстовых ключей `name`/`symbol`/`description` формат не содержит (D9) —
+  отображаемые названия — бандлы `internal/i18n`;
+- `kinds` пуст/отсутствует — применимость ко всем классам;
 - `group` у `parameters` — код группы из `parameter_groups`, у
   `attributes` — необязательный код группировки (отдельного справочника
   групп атрибутов нет, стартовое наполнение его не задаёт);
+- наборы условий — `[ { "items": [ { "condition", "mode",
+  "fixed_value"? } ] } ]`: `mode` — `required` (обязательно) либо
+  `optional` (допустимо; прочие условия вне набора запрещены);
+  `fixed_value` — только при `required` (константа, которую в записи можно
+  опустить); номер набора — по порядку;
 - enum-значения, наборы условий и применимость замещаются целиком;
 - удалений нет — только деактивация `"is_active": false`;
 - целостность (ссылки, типы, наборы условий, инвариант реестра series)
   проверяется метасхемой: непустой список проблем — отказ целиком,
   записи файла читаются по прежнему каталогу;
-- расширение каталога — данными, без правки кода; новое именованное правило
-  требует реализации в коде (реестр мал по построению).
+- расширение каталога — данными, без правки кода; новое именованное
+  правило требует реализации в коде (реестр мал по построению).
 
 ## 9. NDJSON
 
