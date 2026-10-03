@@ -24,6 +24,14 @@ type msgArg struct {
 // подставляется локализованный текст вложенного MsgID.
 func Arg(id string, args ...any) msgArg { return msgArg{id: id, args: args} }
 
+// messageFormats — реестр форматов сообщений по языкам: en — канонический
+// (полнота обязательна для всех MsgID реестра), прочие языки — полные
+// локали. Расширение — новым кодом здесь и бандлом.
+var messageFormats = map[Language]map[string]string{
+	En: messageFormatsEn,
+	Ru: messageFormatsRu,
+}
+
 // renderArgs разворачивает аргументы-сообщения рекурсивно.
 func renderArgs(l Language, args []any) []any {
 	out := make([]any, len(args))
@@ -50,13 +58,14 @@ func Canonical(id string, args ...any) string {
 	return fmt.Sprintf(f, renderArgs(En, args)...)
 }
 
-// Message — текст сообщения по локали: ru → en (fallback) → MsgID.
+// Message — текст сообщения по локали: запрошенная локаль → en (fallback)
+// → MsgID.
 func Message(l Language, id string, args ...any) string {
 	if !l.IsValid() {
 		l = En
 	}
 	if l != En {
-		if f, ok := messageFormatsRu[id]; ok && f != "" {
+		if f, ok := messageFormats[l][id]; ok && f != "" {
 			if len(args) == 0 {
 				return f
 			}
@@ -68,14 +77,7 @@ func Message(l Language, id string, args ...any) string {
 
 // HasMessage — наличие формата у MsgID в языке (для тестов полноты).
 func HasMessage(l Language, id string) bool {
-	var m map[string]string
-	switch l {
-	case En:
-		m = messageFormatsEn
-	case Ru:
-		m = messageFormatsRu
-	}
-	f, ok := m[id]
+	f, ok := messageFormats[l][id]
 	return ok && f != ""
 }
 
@@ -88,11 +90,17 @@ func MessageIDs() []string {
 	return out
 }
 
-// DecimalSeparator — разделитель дробной части по локали (en — точка,
-// ru — запятая; для отображения чисел, этап 8.4).
+// decimalSeparators — разделители дробной части, отличные от канонической
+// точки; язык без записи — точка.
+var decimalSeparators = map[Language]string{
+	Ru: ",",
+}
+
+// DecimalSeparator — разделитель дробной части по локали (для отображения
+// чисел, этап 8.4); язык без записи — каноническая точка.
 func DecimalSeparator(l Language) string {
-	if l == Ru {
-		return ","
+	if d, ok := decimalSeparators[l]; ok {
+		return d
 	}
 	return "."
 }

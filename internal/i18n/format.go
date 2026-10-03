@@ -8,45 +8,106 @@ package i18n
 
 import "math"
 
-// unitBase — базовая величина канонической единицы: экспонента кода
-// (pF = 1e-12 F) и символы базы по локалям (F/Ф, Ω/Ом, Гц/Hz …).
-type unitBase struct {
-	exp    int
-	enBase string
-	ruBase string
-}
-
-// unitBases — только единицы с осмысленными приставками; прочие (dB, pct,
-// degC и производные температур, mcd, g) выводятся как есть символом
+// unitExps — базовые величины канонических единиц: экспонента кода
+// (pF = 1e-12 F). Только единицы с осмысленными приставками; прочие (dB,
+// pct, degC и производные температур, mcd, g) выводятся как есть символом
 // локали.
-var unitBases = map[string]unitBase{
-	"V":   {0, "V", "В"},
-	"mV":  {-3, "V", "В"},
-	"mA":  {-3, "A", "А"},
-	"uA":  {-6, "A", "А"},
-	"A":   {0, "A", "А"},
-	"MHz": {6, "Hz", "Гц"},
-	"W":   {0, "W", "Вт"},
-	"mW":  {-3, "W", "Вт"},
-	"ohm": {0, "Ω", "Ом"},
-	"pF":  {-12, "F", "Ф"},
-	"ps":  {-12, "s", "с"},
-	"ns":  {-9, "s", "с"},
-	"us":  {-6, "s", "с"},
-	"mm":  {-3, "m", "м"},
-	"nm":  {-9, "m", "м"},
+var unitExps = map[string]int{
+	"V":   0,
+	"mV":  -3,
+	"mA":  -3,
+	"uA":  -6,
+	"A":   0,
+	"MHz": 6,
+	"W":   0,
+	"mW":  -3,
+	"ohm": 0,
+	"pF":  -12,
+	"ps":  -12,
+	"ns":  -9,
+	"us":  -6,
+	"mm":  -3,
+	"nm":  -9,
 }
 
-// prefixes — десятичные приставки по экспонентам, кратным трём.
-var prefixes = map[int]struct{ en, ru string }{
-	-12: {"p", "п"},
-	-9:  {"n", "н"},
-	-6:  {"µ", "мк"},
-	-3:  {"m", "м"},
-	0:   {"", ""},
-	3:   {"k", "к"},
-	6:   {"M", "М"},
-	9:   {"G", "Г"},
+// unitScript — отображение производных единиц языка: базы канонических
+// единиц и десятичные приставки (F/Ф, Ω/Ом, Гц/Hz…; п/н/мк…), кратные
+// трём экспонентам.
+type unitScript struct {
+	bases    map[string]string
+	prefixes map[int]string
+}
+
+// unitScripts — наборы отображения по языкам; язык без собственного
+// набора — канонический en.
+var unitScripts = map[Language]unitScript{
+	En: {
+		bases: map[string]string{
+			"V":   "V",
+			"mV":  "V",
+			"mA":  "A",
+			"uA":  "A",
+			"A":   "A",
+			"MHz": "Hz",
+			"W":   "W",
+			"mW":  "W",
+			"ohm": "Ω",
+			"pF":  "F",
+			"ps":  "s",
+			"ns":  "s",
+			"us":  "s",
+			"mm":  "m",
+			"nm":  "m",
+		},
+		prefixes: map[int]string{
+			-12: "p",
+			-9:  "n",
+			-6:  "µ",
+			-3:  "m",
+			0:   "",
+			3:   "k",
+			6:   "M",
+			9:   "G",
+		},
+	},
+	Ru: {
+		bases: map[string]string{
+			"V":   "В",
+			"mV":  "В",
+			"mA":  "А",
+			"uA":  "А",
+			"A":   "А",
+			"MHz": "Гц",
+			"W":   "Вт",
+			"mW":  "Вт",
+			"ohm": "Ом",
+			"pF":  "Ф",
+			"ps":  "с",
+			"ns":  "с",
+			"us":  "с",
+			"mm":  "м",
+			"nm":  "м",
+		},
+		prefixes: map[int]string{
+			-12: "п",
+			-9:  "н",
+			-6:  "мк",
+			-3:  "м",
+			0:   "",
+			3:   "к",
+			6:   "М",
+			9:   "Г",
+		},
+	},
+}
+
+// scriptFor — набор отображения языка; язык без собственного набора —
+// канонический en.
+func scriptFor(l Language) unitScript {
+	if s, ok := unitScripts[l]; ok {
+		return s
+	}
+	return unitScripts[En]
 }
 
 // FormatValue — значение с единицей по локали: удобная производная
@@ -57,7 +118,7 @@ func FormatValue(l Language, unit string, v float64) string {
 	if unit == "" {
 		return num
 	}
-	b, ok := unitBases[unit]
+	b, ok := unitExps[unit]
 	if !ok {
 		return num + " " + UnitSymbol(l, unit)
 	}
@@ -66,7 +127,7 @@ func FormatValue(l Language, unit string, v float64) string {
 	if v == 0 || math.IsInf(v, 0) || math.IsNaN(v) {
 		return num + " " + UnitSymbol(l, unit)
 	}
-	exp := math.Floor(math.Log10(math.Abs(v))) + float64(b.exp)
+	exp := math.Floor(math.Log10(math.Abs(v))) + float64(b)
 	k := 3 * math.Floor(exp/3)
 	if k < -12 {
 		k = -12
@@ -74,12 +135,9 @@ func FormatValue(l Language, unit string, v float64) string {
 	if k > 9 {
 		k = 9
 	}
-	mantissa := v * math.Pow(10, float64(b.exp)-k)
+	mantissa := v * math.Pow(10, float64(b)-k)
 	// Подавление шума двоичного представления (2.2e6 пФ → ровно 2.2).
 	mantissa = math.Round(mantissa*1e6) / 1e6
-	p := prefixes[int(k)]
-	if l == Ru {
-		return FormatNumber(l, mantissa) + " " + p.ru + b.ruBase
-	}
-	return FormatNumber(l, mantissa) + " " + p.en + b.enBase
+	s := scriptFor(l)
+	return FormatNumber(l, mantissa) + " " + s.prefixes[int(k)] + s.bases[unit]
 }
