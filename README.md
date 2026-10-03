@@ -8,10 +8,12 @@ PostgreSQL (равноправные, pure Go). Четыре класса при
 PRO ELECTRON, JEDEC, JIS, серии и `other`.
 
 Документация: `docs/fill-format.md` — регламент наполнения (формат файлов,
-типичные ошибки, процедура); `CHANGELOG.md` — история релизов;
-`qa/README.md` — сквозные прогоны и нагрузочная прикидка;
-`qa/architecture-review.md` — ревью архитектуры против плана. Архитектура
-и контракты — `docs/plan/` (`README.md` — решения D1–D8, `01`–`08` — разделы).
+типичные ошибки, процедура); `docs/class-keys.md` — справочник ключей по
+классам приборов; `api/openapi.yaml` — контракт REST (OpenAPI 3.1);
+`CHANGELOG.md` — история релизов; `qa/README.md` — сквозные прогоны и
+нагрузочная прикидка; `qa/architecture-review.md` — ревью архитектуры
+против плана. Архитектура и контракты — `docs/plan/` (`README.md` —
+решения D1–D10, `01`–`08` — разделы плана и отчёты выверки).
 
 ## Сборка и проверка
 
@@ -30,19 +32,25 @@ catalogctl init --db catalog.db
 catalogctl import data/transistors.jsonc --db catalog.db
 for f in data/*.jsonc; do catalogctl import "$f" --db catalog.db; done
 catalogctl list --kind transistor --q КТ3 --db catalog.db
+catalogctl list --material si --subclass bjt --db catalog.db
 catalogctl info КТ315Б --db catalog.db
 catalogctl find 2Т315Б --db catalog.db        # подсказка: КТ315Б
 catalogctl export --format ndjson --db catalog.db
 ```
 
 Формат файлов наполнения (jsonc/yaml/ndjson), семантика секций, единицы
-и типичные ошибки — `docs/fill-format.md`. Примеры записей по классам и
-системам обозначений — `docs/plan/06-examples.md`; выверенное наполнение в
-репозитории — `data/` (транзисторы, диоды, резисторы, конденсаторы;
-матрица исполнений К50-35, ряд мощностей С2-33Н, направленные аналоги) —
-источники по каждой записи: `docs/plan/08-data-verification.md`. NDJSON-поток
-для больших объёмов воспроизводится экспортом:
-`catalogctl export --format ndjson`.
+и типичные ошибки — `docs/fill-format.md`; сводные ключи по классам —
+`docs/class-keys.md`. Классификация записей (материал, подкласс,
+подстройка, категория) — словарные коды стабильных значений: системы,
+кодирующие их обозначением, получают поля разбором, прочие — секцией
+`fields`; фильтры по ним сквозные между системами (код либо
+локализованное название, канонизация — на краю). Примеры записей по
+классам и системам обозначений — `docs/plan/06-examples.md`; выверенное
+наполнение в репозитории — `data/` (транзисторы, диоды, резисторы,
+конденсаторы; матрица исполнений К50-35, ряд мощностей С2-33Н,
+направленные аналоги) — источники по каждой записи:
+`docs/plan/08-data-verification.md`. NDJSON-поток для больших объёмов
+воспроизводится экспортом: `catalogctl export --format ndjson`.
 
 ## Встраивание (Go API)
 
@@ -78,8 +86,11 @@ mux.Handle("/api/v1/", httpapi.New(app, httpapi.Config{
 ```
 
 Маршруты: `GET /kinds`, `GET /catalog` (ETag по `catalog_revision`),
-`GET /components` — поиск с фильтрами `attr.<код>`, `par.<код>.min/.max/.exact`,
-`sort`, `limit ≤ 200`, `offset` (ETag по `data_revision`),
+`GET /components` — поиск с подстрокой, словарными фильтрами
+`material`/`subclass`/`adjustment`/`category` (код либо локализованное
+название), фильтрами полей разбора обозначения, `attr.<код>`,
+`par.<код>.min/.max/.exact`, `sort`, `limit ≤ 200`, `offset`
+(ETag по `data_revision`),
 `GET|PUT|DELETE /components/{kind}/{designation}`, `POST /components`,
 `GET /components/id/{id}`, `GET /suggest`, `GET /stats`. Полный контракт —
 `api/openapi.yaml` (OpenAPI 3.1; совпадение с реализацией закреплено
