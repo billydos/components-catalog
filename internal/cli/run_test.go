@@ -272,7 +272,7 @@ func TestImportDryRunReportAndNoChanges(t *testing.T) {
 		t.Fatalf("dry-run: код %d, %q", code, stderr)
 	}
 	if !strings.HasPrefix(stdout, "dry run (no database write): ") ||
-		!strings.Contains(stdout, "added: 16") {
+		!strings.Contains(stdout, "added: 25") {
 		t.Fatalf("итог dry-run: %q", stdout)
 	}
 	_, _, code = run(t, "count", "--db", db)
