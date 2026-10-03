@@ -64,33 +64,49 @@ func fieldDisplayValue(lang i18n.Language, f domain.Field) string {
 	return f.Text
 }
 
-// printCard выводит карточку записи: заголовок, поля обозначения,
-// атрибуты, значения по группам, исполнения, производители, аналоги.
+// printCard выводит карточку записи сгруппированными секциями: заголовочный
+// блок (обозначение, система, поля обозначения — значения с отступом), далее
+// самостоятельные секции (атрибуты, группы параметров, исполнения,
+// производители, аналоги, встречные ссылки), разделённые пустой строкой.
 func printCard(w io.Writer, lang i18n.Language, c *service.Card, snap *catalog.Snapshot) {
-	fmt.Fprintf(w, "%s — %s; %s %s (%s); id %d\n",
-		c.Designation, i18n.KindName(lang, string(c.Kind)),
-		systemWord(lang), i18n.SystemName(lang, string(c.System)), string(c.System), c.ID)
-	if len(c.Fields) > 0 {
-		parts := make([]string, 0, len(c.Fields))
-		for _, f := range c.Fields {
-			parts = append(parts, fieldDisplayName(lang, f.Name)+": "+fieldDisplayValue(lang, f))
-		}
-		fmt.Fprintln(w, i18n.Message(lang, "cli_h_designation_fields", joinParts(parts)))
+	fmt.Fprintf(w, "%s — %s; id %d\n",
+		c.Designation, i18n.KindName(lang, string(c.Kind)), c.ID)
+	fmt.Fprintln(w, i18n.Message(lang, "cli_system_line",
+		i18n.SystemName(lang, string(c.System)), string(c.System)))
+	for _, f := range c.Fields {
+		fmt.Fprintln(w, i18n.Message(lang, "cli_field_line",
+			fieldDisplayName(lang, f.Name), fieldDisplayValue(lang, f)))
 	}
-	for _, a := range c.Attributes {
-		value := ""
-		switch {
-		case a.Text != nil:
-			value = *a.Text
-		case a.Num != nil:
-			value = i18n.FormatNumber(lang, *a.Num)
-		case a.Bool != nil:
-			value = strconv.FormatBool(*a.Bool)
+
+	// Заголовочный блок — первая секция: разделитель нужен уже перед
+	// следующей за ним.
+	sep := true
+	// section — пустая строка между секциями карточки.
+	section := func() {
+		if sep {
+			fmt.Fprintln(w)
 		}
-		fmt.Fprintln(w, i18n.Message(lang, "cli_attr_line",
-			i18n.AttributeName(lang, a.Code), a.Code, value))
+		sep = true
+	}
+	if len(c.Attributes) > 0 {
+		section()
+		fmt.Fprintln(w, i18n.Message(lang, "cli_h_attrs"))
+		for _, a := range c.Attributes {
+			value := ""
+			switch {
+			case a.Text != nil:
+				value = *a.Text
+			case a.Num != nil:
+				value = i18n.FormatNumber(lang, *a.Num)
+			case a.Bool != nil:
+				value = strconv.FormatBool(*a.Bool)
+			}
+			fmt.Fprintln(w, i18n.Message(lang, "cli_attr_line",
+				i18n.AttributeName(lang, a.Code), a.Code, value))
+		}
 	}
 	for _, g := range c.Groups {
+		section()
 		fmt.Fprintf(w, "%s:\n", i18n.GroupName(lang, g.Code))
 		for _, v := range g.Values {
 			fmt.Fprintf(w, "  %s%s\n", i18n.ParameterName(lang, v.Parameter),
@@ -98,6 +114,7 @@ func printCard(w io.Writer, lang i18n.Language, c *service.Card, snap *catalog.S
 		}
 	}
 	for _, v := range c.Variants {
+		section()
 		label := v.Label
 		if label == "" {
 			label = i18n.Message(lang, "cli_no_label")
@@ -112,9 +129,11 @@ func printCard(w io.Writer, lang i18n.Language, c *service.Card, snap *catalog.S
 		}
 	}
 	if len(c.Manufacturers) > 0 {
+		section()
 		fmt.Fprintln(w, i18n.Message(lang, "cli_manufacturers", joinParts(c.Manufacturers)))
 	}
 	if len(c.Analogs) > 0 {
+		section()
 		parts := make([]string, 0, len(c.Analogs))
 		for _, a := range c.Analogs {
 			if a.Note != "" {
@@ -126,6 +145,7 @@ func printCard(w io.Writer, lang i18n.Language, c *service.Card, snap *catalog.S
 		fmt.Fprintln(w, i18n.Message(lang, "cli_analogs", joinParts(parts)))
 	}
 	if len(c.Backlinks) > 0 {
+		section()
 		parts := make([]string, 0, len(c.Backlinks))
 		for _, b := range c.Backlinks {
 			if b.Note != "" {
@@ -136,11 +156,6 @@ func printCard(w io.Writer, lang i18n.Language, c *service.Card, snap *catalog.S
 		}
 		fmt.Fprintln(w, i18n.Message(lang, "cli_backlinks", joinParts(parts)))
 	}
-}
-
-// systemWord — слово «система»/«system» заголовка карточки.
-func systemWord(lang i18n.Language) string {
-	return i18n.Message(lang, "cli_system_word")
 }
 
 func joinParts(parts []string) string {
