@@ -6,6 +6,7 @@ import (
 
 	"github.com/billydos/components-catalog/internal/catalog"
 	"github.com/billydos/components-catalog/internal/domain"
+	"github.com/billydos/components-catalog/internal/i18n"
 	"github.com/billydos/components-catalog/seed"
 )
 
@@ -34,9 +35,6 @@ func TestSeedKindsAndSystemsPin(t *testing.T) {
 	gotKinds := make([]domain.Kind, 0, len(in.Kinds))
 	for _, k := range in.Kinds {
 		gotKinds = append(gotKinds, k.Code)
-		if k.Name != k.Code.Name() {
-			t.Errorf("класс %s: название сидов %q ≠ реестра %q", string(k.Code), k.Name, k.Code.Name())
-		}
 	}
 	if !slices.Equal(gotKinds, wantKinds) {
 		t.Fatalf("классы сидов: %v", gotKinds)
@@ -46,9 +44,6 @@ func TestSeedKindsAndSystemsPin(t *testing.T) {
 	gotSystems := make([]domain.System, 0, len(in.Systems))
 	for _, s := range in.Systems {
 		gotSystems = append(gotSystems, s.Code)
-		if s.Name != s.Code.Name() || s.Description != s.Code.Description() {
-			t.Errorf("система %s: сиды расходятся с реестром", string(s.Code))
-		}
 	}
 	if !slices.Equal(gotSystems, wantSystems) {
 		t.Fatalf("системы сидов: %v", gotSystems)
@@ -81,7 +76,7 @@ func TestSeedSeriesFamiliesPin(t *testing.T) {
 	}
 	for i := range want {
 		got := in.SeriesFamilies[i]
-		if got.Series != want[i].Series || got.Kind != want[i].Kind || got.Name != want[i].Name {
+		if got.Series != want[i].Series || got.Kind != want[i].Kind {
 			t.Errorf("семейство #%d: %+v ≠ %+v", i, got, want[i])
 		}
 		tail := ""
@@ -94,20 +89,16 @@ func TestSeedSeriesFamiliesPin(t *testing.T) {
 	}
 }
 
-// Строки validation_rules — дословный пин описаний реестра кода (03 §10).
+// Строки validation_rules — пин кодов реестра правил (описания — бандлы
+// internal/i18n: rule.<код>, D9).
 func TestSeedRulesPin(t *testing.T) {
 	in := seed.Catalog()
 	want := []catalog.RuleDef{
-		{Code: "cap_dimensions_form",
-			Description: "согласованность формы корпуса: прямоугольная (length+width+height) либо цилиндрическая — осевая (diameter+leadLength) или радиальная (diameter+height), смешение — ошибка"},
-		{Code: "cap_variant_matrix",
-			Description: "вариант электролитического конденсатора: обязательны Unom и Cnom, габариты — согласованным набором формы корпуса, уникальность Unom и метки"},
-		{Code: "resistor_variant_power",
-			Description: "вариант резистора: обязателен Pnom, уникальность Pnom и метки"},
-		{Code: "temp_pair",
-			Description: "согласованность температурной пары: TempMin < TempMax и opTempMin < opTempMax (если заданы оба)"},
-		{Code: "year_range",
-			Description: "годы выпуска: yearFrom < yearTo; диапазон 1949–2100"},
+		{Code: "cap_dimensions_form"},
+		{Code: "cap_variant_matrix"},
+		{Code: "resistor_variant_power"},
+		{Code: "temp_pair"},
+		{Code: "year_range"},
 	}
 	if !slices.Equal(in.Rules, want) {
 		t.Fatalf("правила сидов:\n got:  %v\n want: %v", in.Rules, want)
@@ -202,7 +193,7 @@ func TestSeedSpotChecks(t *testing.T) {
 			t.Errorf("группа %s: секция %q", g.Code, g.SectionName)
 		}
 	}
-	// Атрибуты: типы и привязки правил.
+	// Attributes: типы и привязки правил.
 	attr := func(code string) *catalog.AttributeDef {
 		t.Helper()
 		a, ok := snap.Attribute(code)
@@ -228,5 +219,73 @@ func TestSeedSpotChecks(t *testing.T) {
 	}
 	if a := attr("category"); len(a.Kinds) != 0 {
 		t.Errorf("category: применимость должна быть «все классы», задано %v", a.Kinds)
+	}
+}
+
+// Полнота бандлов i18n (D9): каждый код сидов (классы, системы+описания,
+// семейства, единицы имя+символ, условия, группы, параметры, атрибуты,
+// правила) имеет строки в en (канонический) и ru; расширение каталога
+// кодом — вместе с записями в бандлах в том же изменении.
+func TestSeedI18nCompleteness(t *testing.T) {
+	snap, probs := catalog.ApplyCatalog(nil, seed.Catalog())
+	if len(probs) != 0 {
+		t.Fatalf("проблемы применения сидов: %v", probs)
+	}
+	require := func(lang i18n.Language, key string) {
+		t.Helper()
+		if !i18n.HasString(lang, key) {
+			t.Errorf("бандл %s: отсутствует ключ %q", string(lang), key)
+		}
+	}
+	for _, k := range snap.Kinds {
+		require(i18n.En, "kind."+string(k.Code))
+		require(i18n.Ru, "kind."+string(k.Code))
+	}
+	for _, s := range snap.Systems {
+		require(i18n.En, "system."+string(s.Code))
+		require(i18n.En, "system."+string(s.Code)+".description")
+		require(i18n.Ru, "system."+string(s.Code))
+		require(i18n.Ru, "system."+string(s.Code)+".description")
+	}
+	for _, f := range snap.SeriesFamilies {
+		require(i18n.En, "family."+f.Series)
+		require(i18n.Ru, "family."+f.Series)
+	}
+	for _, u := range snap.Units {
+		require(i18n.En, "unit."+u.Code+".name")
+		require(i18n.En, "unit."+u.Code+".symbol")
+		require(i18n.Ru, "unit."+u.Code+".name")
+		require(i18n.Ru, "unit."+u.Code+".symbol")
+	}
+	for _, c := range snap.Conditions {
+		require(i18n.En, "condition."+c.Code)
+		require(i18n.Ru, "condition."+c.Code)
+	}
+	for _, g := range snap.Groups {
+		require(i18n.En, "group."+g.Code)
+		require(i18n.Ru, "group."+g.Code)
+	}
+	for _, p := range snap.Parameters {
+		require(i18n.En, "param."+p.Code)
+		require(i18n.Ru, "param."+p.Code)
+	}
+	for _, a := range snap.Attributes {
+		require(i18n.En, "attr."+a.Code)
+		require(i18n.Ru, "attr."+a.Code)
+	}
+	for _, r := range snap.Rules {
+		require(i18n.En, "rule."+r.Code)
+		require(i18n.Ru, "rule."+r.Code)
+	}
+}
+
+// Коды единиц сидов — латиница, locale-neutral (D9).
+func TestSeedUnitCodesLatin(t *testing.T) {
+	for _, u := range seed.Catalog().Units {
+		for _, r := range u.Code {
+			if r < '!' || r > '~' {
+				t.Errorf("код единицы %q содержит не-ASCII символ %q", u.Code, string(r))
+			}
+		}
 	}
 }

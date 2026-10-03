@@ -89,7 +89,7 @@ cli_suite() {
   check "find: подсказка равнозначного по материалу, код выхода 1" \
     $([ $rc -eq 1 ] && contains "$out" "равнозначная по материалу: КТ315Б"; echo $?)
 
-  out="$("$CTL" parse КТ315Б 2>&1)"
+  out="$("$CTL" parse --lang ru КТ315Б 2>&1)"
   check "parse: автодетект без базы" $(ok_if contains "$out" "транзистор" && contains "$out" "gost"; echo $?)
 
   out="$("$CTL" parse 2N2222 2>&1)"

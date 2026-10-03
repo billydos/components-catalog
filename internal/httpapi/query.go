@@ -1,7 +1,6 @@
 package httpapi
 
 import (
-	"fmt"
 	"net/http"
 	"sort"
 	"strconv"
@@ -25,8 +24,7 @@ func queryLimit(values []string, max int) (int, bool, error) {
 	}
 	n, err := strconv.Atoi(values[0])
 	if err != nil || n < 1 || n > max {
-		return 0, true, domain.NewError(domain.CodeValidationFailed,
-			fmt.Sprintf(msgLimitRange, max))
+		return 0, true, domain.NewErrorf(domain.CodeValidationFailed, domain.MsgApiLimitRange, max)
 	}
 	return n, true, nil
 }
@@ -49,7 +47,7 @@ func parseSearchQuery(r *http.Request, snap *catalog.Snapshot) (service.SearchQu
 	if vs := values["offset"]; len(vs) > 0 {
 		n, err := strconv.Atoi(vs[0])
 		if err != nil || n < 0 {
-			return q, domain.NewError(domain.CodeValidationFailed, msgOffsetNonNeg)
+			return q, domain.NewErrorf(domain.CodeValidationFailed, domain.MsgApiOffsetNonNeg)
 		}
 		q.Offset = n
 	}
@@ -79,8 +77,7 @@ func parseSearchQuery(r *http.Request, snap *catalog.Snapshot) (service.SearchQu
 		case known:
 			f, err := strconv.ParseFloat(v, 64)
 			if err != nil {
-				return q, domain.NewError(domain.CodeValidationFailed,
-					fmt.Sprintf(msgNumberParam, name))
+				return q, domain.NewErrorf(domain.CodeValidationFailed, domain.MsgApiNumberParam, name)
 			}
 			q.Fields = append(q.Fields, service.FieldFilter{
 				Field: name, Num: f, HasNum: true, Op: service.OpEq,
@@ -98,8 +95,8 @@ func parseSearchQuery(r *http.Request, snap *catalog.Snapshot) (service.SearchQu
 			}
 			q.Parameters = append(q.Parameters, f)
 		default:
-			return q, domain.NewError(domain.CodeValidationFailed,
-				fmt.Sprintf(msgUnknownParam, name))
+			return q, domain.NewErrorf(domain.CodeValidationFailed,
+				domain.MsgApiQueryParamUnknown, name)
 		}
 	}
 	return q, nil
@@ -134,8 +131,7 @@ func parseSort(spec string) ([]service.SortField, error) {
 			numeric, _ := domain.NumericDesignationField(key)
 			out = append(out, service.SortField{Key: key, Numeric: numeric, Desc: desc})
 		default:
-			return nil, domain.NewError(domain.CodeValidationFailed,
-				fmt.Sprintf(msgSortKey, key))
+			return nil, domain.NewErrorf(domain.CodeValidationFailed, domain.MsgApiSortKey, key)
 		}
 	}
 	return out, nil
@@ -148,8 +144,7 @@ func parseSort(spec string) ([]service.SortField, error) {
 func parseAttrFilter(snap *catalog.Snapshot, code, value string) (service.AttributeFilter, error) {
 	f := service.AttributeFilter{Attribute: code}
 	if def, ok := snap.Attribute(code); ok && def.Type == catalog.AttrBool {
-		return f, domain.NewError(domain.CodeValidationFailed,
-			fmt.Sprintf(msgBoolAttrFilter, code))
+		return f, domain.NewErrorf(domain.CodeValidationFailed, domain.MsgApiBoolAttrFilter, code)
 	}
 	if n, err := strconv.ParseFloat(value, 64); err == nil {
 		f.Num, f.HasNum = n, true
@@ -168,8 +163,8 @@ func parseParamFilter(name, value string) (service.ParameterFilter, error) {
 		case "min", "max", "exact":
 			n, err := strconv.ParseFloat(value, 64)
 			if err != nil {
-				return f, domain.NewError(domain.CodeValidationFailed,
-					fmt.Sprintf(msgNumberParam, "par."+name))
+				return f, domain.NewErrorf(domain.CodeValidationFailed,
+					domain.MsgApiNumberParam, "par."+name)
 			}
 			f.Parameter = code
 			switch op {
@@ -187,8 +182,8 @@ func parseParamFilter(name, value string) (service.ParameterFilter, error) {
 			return f, nil
 		default:
 			// Не операция фильтра — код параметра с точкой (невалиден).
-			return f, domain.NewError(domain.CodeValidationFailed,
-				fmt.Sprintf(msgUnknownParam, "par."+name))
+			return f, domain.NewErrorf(domain.CodeValidationFailed,
+				domain.MsgApiQueryParamUnknown, "par."+name)
 		}
 	}
 	f.Text = value

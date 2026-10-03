@@ -54,10 +54,10 @@ func TestReadDocumentRecordForms(t *testing.T) {
 		t.Fatalf("записей: %d, ожидалось 2", len(doc.Records))
 	}
 	if doc.Records[0].Input.Name != "МП39" || doc.Records[0].Kind != domain.KindTransistor {
-		t.Fatalf("строка-запись: %+v", doc.Records[0].Input)
+		t.Fatalf("string-запись: %+v", doc.Records[0].Input)
 	}
 	if doc.Records[1].Input.System != domain.SystemGost {
-		t.Fatalf("система записи: %q", doc.Records[1].Input.System)
+		t.Fatalf("system записи: %q", doc.Records[1].Input.System)
 	}
 }
 
@@ -184,10 +184,10 @@ func TestReadDocumentVariantsAndAnalogs(t *testing.T) {
 	}
 	analogs := *dio.Analogs
 	if analogs[0].Designation != "1N4007" || analogs[0].Note != "" {
-		t.Fatalf("аналог-строка: %+v", analogs[0])
+		t.Fatalf("аналог-string: %+v", analogs[0])
 	}
 	if analogs[1].Designation != "UF4007" || analogs[1].Note != "быстрый" {
-		t.Fatalf("аналог-объект: %+v", analogs[1])
+		t.Fatalf("аналог-object: %+v", analogs[1])
 	}
 }
 
@@ -204,18 +204,18 @@ func TestReadDocumentIssuesVerbatimTexts(t *testing.T) {
 	}`)
 	doc, issues := ReadDocument(root, snap)
 	if len(doc.Records) != 0 || doc.Rejected != 5 {
-		t.Fatalf("записи: %d, отвергнуто: %d (ожидалось 0/5)", len(doc.Records), doc.Rejected)
+		t.Fatalf("записи: %d, rejected: %d (ожидалось 0/5)", len(doc.Records), doc.Rejected)
 	}
 	if len(issues) != 6 {
 		t.Fatalf("проблем: %d, ожидалось 6: %v", len(issues), issueMessages(issues))
 	}
 	want := []string{
-		"неизвестный ключ корня «widgets» (допустимы: catalog, transistors, diodes, resistors, capacitors)",
-		"запись №1: обязательный ключ \"name\" — строка с обозначением",
-		"запись «КТ315Б»: неизвестная система обозначений «star» (допустимы: gost, ost, pro, jedec, jis, series, other)",
-		"запись «КТ315Б»: неизвестное поле «voltparams» (допустимы: name, system, attributes, manufacturers, variants, analogs и секции групп: parameters, ratings, dimensions)",
-		"запись «КТ315Б»: секция «parameters», значение №1: ключ \"min\" должен быть числом",
-		"запись №5: запись должна быть строкой (обозначение) или объектом, получено: число",
+		"unknown root key «widgets» (allowed: catalog, transistors, diodes, resistors, capacitors)",
+		"record no. 1: mandatory key \"name\" — a string with the designation",
+		"record «КТ315Б»: unknown designation system «star» (allowed: gost, ost, pro, jedec, jis, series, other)",
+		"record «КТ315Б»: unknown field «voltparams» (allowed: name, system, attributes, manufacturers, variants, analogs and group sections: parameters, ratings, dimensions)",
+		"record «КТ315Б»: section «parameters», value no. 1: key \"min\" must be a number",
+		"record no. 5: a record must be a string (designation) or an object, got: number",
 	}
 	got := issueMessages(issues)
 	// порядок проблем: корневая — при обходе ключей корня, записи — по порядку.
@@ -243,20 +243,20 @@ func TestReadRecordLineWrapperRules(t *testing.T) {
 
 	rec, ok, issues := ReadRecordLine(snap, mustParseLine(t, `{"transistors": {"name": "МП39"}}`), 3)
 	if !ok || len(issues) != 0 {
-		t.Fatalf("строка-обёртка: ok=%v issues=%v", ok, issueMessages(issues))
+		t.Fatalf("string-обёртка: ok=%v issues=%v", ok, issueMessages(issues))
 	}
 	if rec.Line != 3 || rec.Kind != domain.KindTransistor || rec.Input.Name != "МП39" {
 		t.Fatalf("запись: %+v", rec)
 	}
 
 	_, ok, issues = ReadRecordLine(snap, mustParseLine(t, `{"transistors": {"name": "A"}, "diodes": {"name": "B"}}`), 4)
-	if ok || len(issues) != 1 || issues[0].String() != "строка 4: строка-обёртка должна содержать ровно один ключ — класс либо catalog" {
+	if ok || len(issues) != 1 || issues[0].String() != "line 4: the wrapper line must contain exactly one key — a kind or catalog" {
 		t.Fatalf("два ключа: ok=%v issues=%v", ok, issueMessages(issues))
 	}
 
 	_, ok, issues = ReadRecordLine(snap, mustParseLine(t, `42`), 5)
-	if ok || len(issues) != 1 || issues[0].String() != "строка 5: строка должна быть объектом-обёрткой {\"<класс>\": <запись>} либо {\"catalog\": …}" {
-		t.Fatalf("не объект: ok=%v issues=%v", ok, issueMessages(issues))
+	if ok || len(issues) != 1 || issues[0].String() != "line 5: the line must be a wrapper object {\"<kind>\": <record>} or {\"catalog\": …}" {
+		t.Fatalf("не object: ok=%v issues=%v", ok, issueMessages(issues))
 	}
 }
 
@@ -272,13 +272,13 @@ func mustParseLine(t *testing.T, text string) value {
 func TestReadCatalogSectionMapping(t *testing.T) {
 	v, err := parseJSONC([]byte(`{
 		"catalog": {
-			"units": [ { "code": "кВ", "name": "киловольт", "symbol": "кВ" } ],
-			"conditions": [ { "code": "Ub", "name": "напряжение базы", "unit": "В", "allow_negative": true } ],
-			"parameter_groups": [ { "code": "env", "section": "environment", "name": "Условия" } ],
+			"units": [ { "code": "kV" } ],
+			"conditions": [ { "code": "Ub", "unit": "V", "allow_negative": true } ],
+			"parameter_groups": [ { "code": "env", "section": "environment" } ],
 			"parameters": [ {
-				"code": "vib", "group": "env", "name": "вибрация", "value_type": "text"
+				"code": "vib", "group": "env", "value_type": "text"
 			} ],
-			"attributes": [ { "code": "coating", "name": "покрытие", "type": "enum", "enum_values": ["лак", "эмаль"] } ],
+			"attributes": [ { "code": "coating", "type": "enum", "enum_values": ["лак", "эмаль"] } ],
 			"kind_validation_rules": [ { "kind": "capacitor", "rule": "cap_variant_matrix" } ]
 		}
 	}`))
@@ -290,7 +290,7 @@ func TestReadCatalogSectionMapping(t *testing.T) {
 	if len(issues) != 0 {
 		t.Fatalf("проблемы не ожидались: %v", issueMessages(issues))
 	}
-	if len(in.Units) != 1 || in.Units[0].Code != "кВ" {
+	if len(in.Units) != 1 || in.Units[0].Code != "kV" {
 		t.Fatalf("units: %+v", in.Units)
 	}
 	if len(in.Conditions) != 1 || !in.Conditions[0].AllowNegative {
@@ -312,7 +312,7 @@ func TestReadCatalogSectionMapping(t *testing.T) {
 
 func TestReadCatalogSectionConditionSets(t *testing.T) {
 	v, err := parseJSONC([]byte(`{ "catalog": { "parameters": [ {
-		"code": "Ck", "group": "electrical", "name": "ёмкость коллектора",
+		"code": "Ck", "group": "electrical",
 		"value_type": "at_most",
 		"condition_sets": [ { "items": [
 			{ "condition": "Ukb", "mode": "required" },
@@ -346,14 +346,14 @@ func TestReadCatalogSectionUnknownSubsection(t *testing.T) {
 	if len(issues) != 1 {
 		t.Fatalf("проблем: %d", len(issues))
 	}
-	want := "каталог: неизвестный подраздел каталога «paraneters» (допустимы: kinds, designation_systems, designation_system_kinds, series_families, units, conditions, parameter_groups, parameters, attributes, validation_rules, kind_validation_rules)"
+	want := "catalog: unknown catalog subsection «paraneters» (allowed: kinds, designation_systems, designation_system_kinds, series_families, units, conditions, parameter_groups, parameters, attributes, validation_rules, kind_validation_rules)"
 	if issues[0].String() != want {
 		t.Fatalf("текст: %q", issues[0].String())
 	}
 }
 
 func TestReadCatalogSectionUnknownField(t *testing.T) {
-	v, err := parseJSONC([]byte(`{ "catalog": { "units": [ { "code": "кВ", "name": "киловольт", "simbol": "кВ" } ] } }`))
+	v, err := parseJSONC([]byte(`{ "catalog": { "units": [ { "code": "kV", "simbol": "кВ" } ] } }`))
 	if err != nil {
 		t.Fatalf("разбор: %v", err)
 	}
@@ -362,7 +362,7 @@ func TestReadCatalogSectionUnknownField(t *testing.T) {
 	if len(issues) != 1 {
 		t.Fatalf("проблем: %d", len(issues))
 	}
-	want := "каталог: раздел units, «кВ»: неизвестное поле «simbol» (допустимы: code, name, symbol)"
+	want := "catalog: section units, «kV»: unknown field «simbol» (allowed: code)"
 	if issues[0].String() != want {
 		t.Fatalf("текст: %q", issues[0].String())
 	}

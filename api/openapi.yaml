@@ -10,9 +10,18 @@ info:
     (защищённые маршруты — на усмотрение сайта). Транспорт: JSON, UTF-8.
 
     Ошибки — модель `{"code", "message", "details"}`: `code` —
-    машиночитаемый латиницей snake_case, `message` — русский текст.
-    Статусы: 400 (неверный запрос), 404 (не найдено), 409 (конфликт),
-    422 (семантика записи), 500 (внутренняя ошибка).
+    машиночитаемый латиницей snake_case, `message` — текст сообщения
+    из каталога модуля по локали запроса (en — канонический, ru — бандл;
+    Accept-Language). Статусы: 400 (неверный запрос),
+    404 (не найдено), 409 (конфликт), 422 (семантика записи),
+    500 (внутренняя ошибка).
+
+    Локализация (D9): база модуля языконезависима — кодовые поля ответов
+    (kind, system, unit, parameter, attribute, section) всегда канонические.
+    Отображаемые поля (`name`, `kind_name`, `system_name`, описания, имена
+    и символы единиц в /catalog) заполняются по локали запроса из бандлов
+    модуля; локаль — заголовок Accept-Language (q-значения, базовый подтег),
+    по умолчанию и при неподдерживаемом языке — en (поддерживаются en, ru).
 
     Семантика секций тела записи (attributes, секции групп, manufacturers,
     variants, analogs): отсутствует/null — не менять (для POST — не задано),
@@ -32,9 +41,11 @@ paths:
       tags: [catalog]
       operationId: kinds
       summary: Классы приборов
+      parameters:
+        - $ref: "#/components/parameters/AcceptLanguage"
       responses:
         "200":
-          description: Классы приборов.
+          description: Классы приборов (name — по локали запроса).
           content:
             application/json:
               schema: {$ref: "#/components/schemas/KindsResponse"}
@@ -48,8 +59,12 @@ paths:
       description: |
         Параметры, атрибуты, условия, единицы, группы, системы обозначений
         и семейства — для построения форм и фильтров. Ключи полей повторяют
-        формат наполнения (snake_case по колонкам каталожных таблиц).
+        формат наполнения (snake_case по колонкам каталожных таблиц);
+        отображаемые строки (name, описания, имена и символы единиц) —
+        по локали запроса (D9).
         ETag — по catalog_revision: снимок кэшируется до смены каталога.
+      parameters:
+        - $ref: "#/components/parameters/AcceptLanguage"
       responses:
         "200":
           description: Снимок каталога.
@@ -194,6 +209,7 @@ paths:
       parameters:
         - {$ref: "#/components/parameters/Kind"}
         - {$ref: "#/components/parameters/Designation"}
+        - $ref: "#/components/parameters/AcceptLanguage"
       responses:
         "200":
           description: Карточка записи.
@@ -220,6 +236,7 @@ paths:
       parameters:
         - {$ref: "#/components/parameters/Kind"}
         - {$ref: "#/components/parameters/Designation"}
+        - $ref: "#/components/parameters/AcceptLanguage"
       requestBody:
         required: true
         content:
@@ -246,6 +263,7 @@ paths:
       parameters:
         - {$ref: "#/components/parameters/Kind"}
         - {$ref: "#/components/parameters/Designation"}
+        - $ref: "#/components/parameters/AcceptLanguage"
       responses:
         "204":
           description: Запись удалена.
@@ -290,6 +308,12 @@ components:
       required: true
       description: URL-кодированное обозначение.
       schema: {type: string}
+    AcceptLanguage:
+      name: Accept-Language
+      in: header
+      required: false
+      description: "Локаль отображаемых строк ответа (D9): q-значения, базовый подтег; поддерживаются en, ru; по умолчанию en."
+      schema: {type: string, examples: ["ru", "en-US,en;q=0.8"]}
   responses:
     BadRequest:
       description: Неверный запрос (параметры/путь/синтаксис тела).

@@ -1,7 +1,6 @@
 package domain
 
 import (
-	"fmt"
 	"strings"
 )
 
@@ -45,10 +44,10 @@ func parseResistorGost(s *scanner, _ Kind) (ParsedDesignation, error) {
 		family = "С"
 		s.i = 1
 	default:
-		return ParsedDesignation{}, s.fail("семейство постоянных либо переменных резисторов (С либо СП)")
+		return ParsedDesignation{}, s.fail(MsgExpectResFamilyCS)
 	}
 
-	group, err := readGroupDigit(s, "группа по материалу 1–6", 1, 6)
+	group, err := readGroupDigit(s, MsgExpectResMaterialGroup6, 1, 6)
 	if err != nil {
 		return ParsedDesignation{}, err
 	}
@@ -70,9 +69,7 @@ func parseResistorGost(s *scanner, _ Kind) (ParsedDesignation, error) {
 	if s.peekIs(s.i, '-') {
 		if next, has := s.peekAt(s.i + 1); has && (isDigitRune(next) || next == '.') {
 			base := string(s.src[:s.i])
-			return ParsedDesignation{}, NewError(CodePowerSuffix, fmt.Sprintf(
-				"обозначение «%s»: числовой хвост после букв — суффикс мощности, элемент полного обозначения; используйте обозначение «%s» и секцию variants",
-				canonical, base))
+			return ParsedDesignation{}, NewErrorf(CodePowerSuffix, MsgPowerSuffix, canonical, base)
 		}
 	}
 	if !s.atEnd() {
@@ -110,10 +107,10 @@ func parseResistorOst(s *scanner, _ Kind) (ParsedDesignation, error) {
 		// Варисторы и терморезисторы — иные классы приборов.
 		return ParsedDesignation{}, KindNotSupported()
 	default:
-		return ParsedDesignation{}, s.fail("семейство резисторов (Р, РП либо НР)")
+		return ParsedDesignation{}, s.fail(MsgExpectResFamilyR)
 	}
 
-	group, err := readGroupDigit(s, "группа по материалу 1–2", 1, 2)
+	group, err := readGroupDigit(s, MsgExpectResMaterialGroup2, 1, 2)
 	if err != nil {
 		return ParsedDesignation{}, err
 	}
@@ -141,7 +138,7 @@ func parseResistorOst(s *scanner, _ Kind) (ParsedDesignation, error) {
 }
 
 // readGroupDigit читает цифру группы в диапазоне [lo, hi].
-func readGroupDigit(s *scanner, expected string, lo, hi int) (int, error) {
+func readGroupDigit(s *scanner, expected MsgID, lo, hi int) (int, error) {
 	r, has := s.peek()
 	if !has || !isDigitRune(r) {
 		return 0, s.fail(expected)
@@ -157,7 +154,7 @@ func readGroupDigit(s *scanner, expected string, lo, hi int) (int, error) {
 // readHyphen читает разделительный дефис.
 func readHyphen(s *scanner) error {
 	if !s.peekIs(s.i, '-') {
-		return s.fail("дефис")
+		return s.fail(MsgExpectHyphen)
 	}
 	s.i++
 	return nil
@@ -168,10 +165,10 @@ func readDevNumber(s *scanner, max int) (int, error) {
 	start := s.i
 	run, n := s.digits()
 	if n == 0 {
-		return 0, s.fail("номер разработки")
+		return 0, s.fail(MsgExpectDevNumber)
 	}
 	if n > max || run[0] == '0' {
-		return 0, s.failToken(start, fmt.Sprintf("номер разработки без ведущего нуля (до %d цифр)", max), run)
+		return 0, NewErrorf(CodeInvalidDesignation, MsgDevNumberZeros, s.text(), start+1, max, run)
 	}
 	return mustAtoi(run), nil
 }

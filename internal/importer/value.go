@@ -1,5 +1,7 @@
 package importer
 
+import "github.com/billydos/components-catalog/internal/domain"
+
 // Упорядоченное дерево значений — общее промежуточное представление всех
 // форматов реестра (jsonc/json, yaml/yml, ndjson): объект хранит элементы
 // в порядке появления в файле (порядок ключей значим для семантики секций
@@ -71,21 +73,22 @@ func nullValue() value { return value{kind: kindNull} }
 // pair — сокращение для элемента объекта.
 func pair(name string, v value) member { return member{name: name, value: v} }
 
-// describeKind — человекочитаемое имя типа для сообщений об ошибках.
-func describeKind(v value) string {
+// describeKindArg — аргумент-сообщение с человекочитаемым именем типа
+// (локализуется каталогом сообщений).
+func describeKindArg(v value) any {
 	switch v.kind {
 	case kindNull:
 		return "null"
 	case kindBool:
-		return "логическое значение"
+		return domain.MsgArg(domain.MsgImportValueKindBool)
 	case kindNumber:
-		return "число"
+		return domain.MsgArg(domain.MsgImportValueKindNumber)
 	case kindString:
-		return "строка"
+		return domain.MsgArg(domain.MsgImportValueKindString)
 	case kindArray:
-		return "массив"
+		return domain.MsgArg(domain.MsgImportValueKindArray)
 	case kindObject:
-		return "объект"
+		return domain.MsgArg(domain.MsgImportValueKindObject)
 	}
-	return "неизвестный тип"
+	return domain.MsgArg(domain.MsgImportValueKindOther)
 }

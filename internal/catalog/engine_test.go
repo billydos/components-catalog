@@ -95,13 +95,13 @@ func TestValidateHeader(t *testing.T) {
 		dev  catalog.Device
 		want string
 	}{
-		{"класс не задан", catalog.Device{}, "класс прибора не задан"},
+		{"класс не задан", catalog.Device{}, "device kind is not set"},
 		{"неизвестный класс", catalog.Device{Kind: "thyristor"},
-			"неизвестный класс приборов «thyristor»"},
-		{"неизвестная система", catalog.Device{Kind: domain.KindDiode, System: "din"},
-			"неизвестная система обозначений «din»"},
-		{"система неприменима", catalog.Device{Kind: domain.KindCapacitor, System: domain.SystemOst},
-			"система обозначений «ost» неприменима к классу capacitor"},
+			"unknown device kind «thyristor»"},
+		{"неизвестная system", catalog.Device{Kind: domain.KindDiode, System: "din"},
+			"unknown designation system «din»"},
+		{"system неприменима", catalog.Device{Kind: domain.KindCapacitor, System: domain.SystemOst},
+			"designation system «ost» is not applicable to kind capacitor"},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -137,10 +137,10 @@ func TestUnknownAndNotApplicable(t *testing.T) {
 		t.Fatalf("коды проблем:\n got:  %v\n want: %v", codes(probs), want)
 	}
 	wantMsgs := []string{
-		"неизвестный атрибут «nosuch»",
-		"атрибут «polarized» неприменим к классу transistor",
-		"неизвестный параметр «nosuch»",
-		"параметр «Dop» неприменим к классу transistor",
+		"unknown attribute «nosuch»",
+		"attribute «polarized» is not applicable to kind transistor",
+		"unknown parameter «nosuch»",
+		"parameter «Dop» is not applicable to kind transistor",
 	}
 	if !slices.Equal(messages(probs), wantMsgs) {
 		t.Fatalf("тексты проблем:\n got:  %v\n want: %v", messages(probs), wantMsgs)
@@ -166,7 +166,7 @@ func TestDeactivatedParameter(t *testing.T) {
 		Values: []catalog.ParameterValue{{Parameter: "Kpd", Min: f(60), Conditions: []catalog.ConditionValue{{Condition: "freq", Value: 400}}}},
 	}
 	got := catalog.NewEngine(snap2).ValidateDevice(&d)
-	if len(got) != 1 || got[0].Message != "параметр «Kpd» деактивирован" {
+	if len(got) != 1 || got[0].Message != "parameter «Kpd» is deactivated" {
 		t.Fatalf(" got: %v", messages(got))
 	}
 }
@@ -182,36 +182,36 @@ func TestValueShapes(t *testing.T) {
 	}{
 		{"exact без value", domain.KindCapacitor,
 			catalog.ParameterValue{Parameter: "Unom", Section: "parameters", Min: f(25)},
-			"параметр «Unom»: тип значения exact — обязателен ключ value"},
+			"parameter «Unom»: value type exact requires key value"},
 		{"exact с min", domain.KindTransistor,
 			catalog.ParameterValue{Parameter: "UkeoMax", Section: "ratings", Exact: f(20), Min: f(1)},
-			"параметр «UkeoMax»: тип значения exact не допускает ключ min"},
+			"parameter «UkeoMax»: value type exact does not allow key min"},
 		{"at_least без min", domain.KindTransistor,
 			catalog.ParameterValue{Parameter: "FGran", Section: "parameters", Max: f(100)},
-			"параметр «FGran»: тип значения at_least — обязателен ключ min"},
+			"parameter «FGran»: value type at_least requires key min"},
 		{"at_least с text", domain.KindTransistor,
 			catalog.ParameterValue{Parameter: "FGran", Section: "parameters", Min: f(100), Text: s("много")},
-			"параметр «FGran»: тип значения at_least не допускает ключ text"},
+			"parameter «FGran»: value type at_least does not allow key text"},
 		{"at_most без max", domain.KindDiode,
 			catalog.ParameterValue{Parameter: "Upr", Section: "parameters", Min: f(1)},
-			"параметр «Upr»: тип значения at_most — обязателен ключ max"},
+			"parameter «Upr»: value type at_most requires key max"},
 		{"at_most с min", domain.KindTransistor,
 			catalog.ParameterValue{Parameter: "KShum", Section: "parameters", Min: f(1), Max: f(2), Conditions: []catalog.ConditionValue{{Condition: "freq", Value: 10}}},
-			"параметр «KShum»: тип значения at_most не допускает ключ min"},
+			"parameter «KShum»: value type at_most does not allow key min"},
 		{"range неполный", domain.KindTransistor,
 			catalog.ParameterValue{Parameter: "h21e", Section: "parameters", Min: f(50), Conditions: []catalog.ConditionValue{{Condition: "Uke", Value: 10}, {Condition: "Ik", Value: 1}}},
-			"параметр «h21e»: тип значения range — обязательны ключи min и max"},
+			"parameter «h21e»: value type range requires keys min and max"},
 		{"range min>max", domain.KindTransistor,
 			catalog.ParameterValue{Parameter: "h21e", Section: "parameters", Min: f(350), Max: f(50), Conditions: []catalog.ConditionValue{{Condition: "Uke", Value: 10}, {Condition: "Ik", Value: 1}}},
-			"параметр «h21e»: min превышает max"},
+			"parameter «h21e»: min exceeds max"},
 		{"range равные границы", domain.KindCapacitor,
 			catalog.ParameterValue{Parameter: "Cnom", Section: "parameters", Min: f(100000), Max: f(100000)}, ""},
 		{"enum без text", domain.KindCapacitor,
 			catalog.ParameterValue{Parameter: "TKE", Section: "parameters", Exact: f(1)},
-			"параметр «TKE»: тип значения enum не допускает ключ value"},
+			"parameter «TKE»: value type enum does not allow key value"},
 		{"enum вне списка", domain.KindCapacitor,
 			catalog.ParameterValue{Parameter: "TKE", Section: "parameters", Text: s("Н80")},
-			"параметр «TKE»: значение «Н80» не входит в допустимые (П100, П120, П60, П33, МП0, М33, М47, М75, М150, М220, М330, М470, М750, М700, М1500, М1300, М2200, Н10, Н20, Н30, Н50, Н70, Н90)"},
+			"parameter «TKE»: value «Н80» is not among the allowed ones (П100, П120, П60, П33, МП0, М33, М47, М75, М150, М220, М330, М470, М750, М700, М1500, М1300, М2200, Н10, Н20, Н30, Н50, Н70, Н90)"},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -239,18 +239,18 @@ func TestPositivityAndCeiling(t *testing.T) {
 	}{
 		{"отрицательное значение", domain.KindTransistor,
 			catalog.ParameterValue{Parameter: "UkeoMax", Section: "ratings", Exact: f(-20)},
-			"параметр «UkeoMax»: значение ключа value должно быть положительным"},
+			"parameter «UkeoMax»: value of key value must be positive"},
 		{"отрицательный min", domain.KindResistor,
 			catalog.ParameterValue{Parameter: "Rnom", Section: "parameters", Min: f(-1), Max: f(10)},
-			"параметр «Rnom»: значение ключа min должно быть положительным"},
+			"parameter «Rnom»: value of key min must be positive"},
 		{"нулевое значение", domain.KindDiode,
 			catalog.ParameterValue{Parameter: "Pmax", Section: "ratings", Exact: f(0)},
-			"параметр «Pmax»: значение ключа value должно быть положительным"},
+			"parameter «Pmax»: value of key value must be positive"},
 		{"отрицательная температура разрешена", domain.KindTransistor,
 			catalog.ParameterValue{Parameter: "TempMin", Section: "ratings", Exact: f(-60)}, ""},
 		{"потолок превышен", domain.KindTransistor,
 			catalog.ParameterValue{Parameter: "Kpd", Section: "parameters", Min: f(101), Conditions: []catalog.ConditionValue{{Condition: "freq", Value: 400}}},
-			"параметр «Kpd»: значение ключа min превышает потолок 100"},
+			"parameter «Kpd»: value of key min exceeds the ceiling 100"},
 		{"потолок достигнут", domain.KindTransistor,
 			catalog.ParameterValue{Parameter: "Kpd", Section: "parameters", Min: f(100), Conditions: []catalog.ConditionValue{{Condition: "freq", Value: 400}}},
 			""},
@@ -297,13 +297,13 @@ func TestConditionSets(t *testing.T) {
 			catalog.ConditionValue{Condition: "Uke", Value: 10}, catalog.ConditionValue{Condition: "Ie", Value: 1})
 		d.Values[0].Min, d.Values[0].Max = f(50), f(350)
 		hasProblem(t, e.ValidateDevice(d),
-			"параметр «h21e»: комбинация условий не соответствует ни одному набору условий параметра")
+			"parameter «h21e»: the combination of conditions does not match any condition set of the parameter")
 	})
 	t.Run("постороннее условие", func(t *testing.T) {
 		probs := e.ValidateDevice(valP("Ikbo",
 			catalog.ConditionValue{Condition: "Ukb", Value: 10}, catalog.ConditionValue{Condition: "freq", Value: 1}))
 		if len(probs) != 1 || probs[0].Message !=
-			"параметр «Ikbo»: комбинация условий не соответствует ни одному набору условий параметра" {
+			"parameter «Ikbo»: the combination of conditions does not match any condition set of the parameter" {
 			t.Fatalf(" got: %v", messages(probs))
 		}
 	})
@@ -313,7 +313,7 @@ func TestConditionSets(t *testing.T) {
 		if !slices.Contains(codes(probs), domain.CodeUnknownCondition) {
 			t.Fatalf(" got: %v", messages(probs))
 		}
-		hasProblem(t, probs, "параметр «Ikbo»: неизвестное условие «no_such»")
+		hasProblem(t, probs, "parameter «Ikbo»: unknown condition «no_such»")
 	})
 	t.Run("fixed_value опущено", func(t *testing.T) {
 		d := valP("Esr")
@@ -333,7 +333,7 @@ func TestConditionSets(t *testing.T) {
 		d := valP("Esr", catalog.ConditionValue{Condition: "freq", Value: 1})
 		d.Kind = domain.KindCapacitor
 		probs := e.ValidateDevice(d)
-		if len(probs) != 1 || probs[0].Message != "параметр «Esr»: условие «freq» зафиксировано значением 0.1" {
+		if len(probs) != 1 || probs[0].Message != "parameter «Esr»: condition «freq» is fixed to value 0.1" {
 			t.Fatalf(" got: %v", messages(probs))
 		}
 	})
@@ -372,14 +372,14 @@ func TestConditionSets(t *testing.T) {
 			},
 		}
 		probs := e.ValidateDevice(&d)
-		if len(probs) != 1 || probs[0].Message != "параметр «Lambda»: безусловный параметр — условия недопустимы" {
+		if len(probs) != 1 || probs[0].Message != "parameter «Lambda»: unconditional parameter — conditions are not allowed" {
 			t.Fatalf(" got: %v", messages(probs))
 		}
 	})
 	t.Run("позитивность условия", func(t *testing.T) {
 		probs := e.ValidateDevice(valP("Ikbo",
 			catalog.ConditionValue{Condition: "Ukb", Value: -10}))
-		if len(probs) != 1 || probs[0].Message != "параметр «Ikbo»: условие «Ukb» — значение должно быть положительным" {
+		if len(probs) != 1 || probs[0].Message != "parameter «Ikbo»: condition «Ukb» — value must be positive" {
 			t.Fatalf(" got: %v", messages(probs))
 		}
 	})
@@ -398,7 +398,7 @@ func TestConditionSets(t *testing.T) {
 			},
 		}
 		probs := e.ValidateDevice(&d)
-		if len(probs) != 1 || probs[0].Message != "параметр «Ikbo»: дубликат значения с теми же условиями" {
+		if len(probs) != 1 || probs[0].Message != "parameter «Ikbo»: duplicate value with the same conditions" {
 			t.Fatalf(" got: %v", messages(probs))
 		}
 	})
@@ -429,7 +429,7 @@ func TestSectionMismatch(t *testing.T) {
 	}
 	probs := e.ValidateDevice(&d)
 	if len(probs) != 1 || probs[0].Message !=
-		"параметр «h21e» задан в секции «ratings», относится к секции «parameters»" {
+		"parameter «h21e» is set in section «ratings» but belongs to section «parameters»" {
 		t.Fatalf(" got: %v", messages(probs))
 	}
 }
@@ -444,19 +444,19 @@ func TestAttributeValueTypes(t *testing.T) {
 	}{
 		{"текст", catalog.AttributeValue{Attribute: "category", Text: s("выпрямительный")}, ""},
 		{"пустой текст", catalog.AttributeValue{Attribute: "category", Text: s("  ")},
-			"атрибут «category»: текст не может быть пустым"},
+			"attribute «category»: text cannot be empty"},
 		{"не текст", catalog.AttributeValue{Attribute: "category", Num: f(1)},
-			"атрибут «category»: ожидается текстовое значение"},
+			"attribute «category»: a text value is expected"},
 		{"bool", catalog.AttributeValue{Attribute: "esdSensitive", Bool: b(true)}, ""},
 		{"не bool", catalog.AttributeValue{Attribute: "esdSensitive", Text: s("да")},
-			"атрибут «esdSensitive»: ожидается логическое значение"},
+			"attribute «esdSensitive»: a boolean value is expected"},
 		{"int", catalog.AttributeValue{Attribute: "yearFrom", Num: f(1967)}, ""},
 		{"не int", catalog.AttributeValue{Attribute: "yearFrom", Num: f(1967.5)},
-			"атрибут «yearFrom»: значение должно быть целым числом"},
+			"attribute «yearFrom»: value must be an integer"},
 		{"int без значения", catalog.AttributeValue{Attribute: "yearFrom"},
-			"атрибут «yearFrom»: ожидается целое число"},
+			"attribute «yearFrom»: an integer is expected"},
 		{"enum вне списка", catalog.AttributeValue{Attribute: "functionalChar", Text: s("Г")},
-			"атрибут «functionalChar»: значение «Г» не входит в допустимые (А, Б, В)"},
+			"attribute «functionalChar»: value «Г» is not among the allowed ones (А, Б, В)"},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -478,7 +478,7 @@ func TestAttributeValueTypes(t *testing.T) {
 }
 
 // Записи системы series: семейство известно и обозначение не разбирается
-// строгими системами (инвариант реестра, 03 §2.4).
+// строгими systemми (инвариант реестра, 03 §2.4).
 func TestSeriesRecords(t *testing.T) {
 	e := seedEngine(t)
 	t.Run("МЛТ-0.5", func(t *testing.T) {
@@ -490,7 +490,7 @@ func TestSeriesRecords(t *testing.T) {
 	t.Run("неизвестное семейство", func(t *testing.T) {
 		d := catalog.Device{Kind: domain.KindResistor, System: domain.SystemSeries, Designation: "ФУУ-1"}
 		probs := e.ValidateDevice(&d)
-		if len(probs) == 0 || probs[0].Message != "обозначение «ФУУ-1»: неизвестное семейство (система series, класс resistor)" {
+		if len(probs) == 0 || probs[0].Message != "designation «ФУУ-1»: unknown family (system series, kind resistor)" {
 			t.Fatalf(" got: %v", messages(probs))
 		}
 	})
@@ -498,7 +498,7 @@ func TestSeriesRecords(t *testing.T) {
 		d := catalog.Device{Kind: domain.KindTransistor, System: domain.SystemSeries, Designation: "КТ315Б"}
 		var found bool
 		for _, m := range messages(e.ValidateDevice(&d)) {
-			if strings.Contains(m, "разбирается строгой системой «gost» и не может принадлежать системе series") {
+			if strings.Contains(m, "is parsed by strict system «gost» and cannot belong to system series") {
 				found = true
 			}
 		}

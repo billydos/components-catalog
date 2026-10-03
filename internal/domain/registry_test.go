@@ -16,18 +16,9 @@ func TestKindsPin(t *testing.T) {
 	if !slices.Equal(domain.Kinds(), want) {
 		t.Errorf("реестр классов изменился: %v", domain.Kinds())
 	}
-	names := map[domain.Kind]string{
-		domain.KindTransistor: "транзисторы",
-		domain.KindDiode:      "диоды",
-		domain.KindResistor:   "резисторы",
-		domain.KindCapacitor:  "конденсаторы",
-	}
-	for k, name := range names {
+	for _, k := range want {
 		if !k.IsValid() {
 			t.Errorf("класс %s не валиден", k)
-		}
-		if k.Name() != name {
-			t.Errorf("класс %s: название %q", k, k.Name())
 		}
 	}
 	if domain.Kind("thyristor").IsValid() {
@@ -42,17 +33,11 @@ func TestSystemsPin(t *testing.T) {
 	}
 	for _, s := range want {
 		if !s.IsValid() {
-			t.Errorf("система %s не валидна", s)
-		}
-		if s.Name() == "" {
-			t.Errorf("система %s без названия", s)
-		}
-		if s.Description() == "" {
-			t.Errorf("система %s без описания", s)
+			t.Errorf("system %s не валидна", s)
 		}
 	}
 	if domain.System("din").IsValid() {
-		t.Error("посторонняя система ошибочно валидна")
+		t.Error("посторонняя system ошибочно валидна")
 	}
 }
 

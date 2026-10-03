@@ -37,56 +37,73 @@ func dataFile(t *testing.T, name string) string {
 
 func TestNoArgsPrintsUsage(t *testing.T) {
 	stdout, stderr, code := run(t)
-	if code != 1 || stdout != "" || !strings.Contains(stderr, "Команды:") {
+	if code != 1 || stdout != "" || !strings.Contains(stderr, "Commands:") {
 		t.Fatalf("код %d, stdout %q, stderr %q", code, stdout, stderr)
 	}
 }
 
 func TestUnknownCommand(t *testing.T) {
 	_, stderr, code := run(t, "frobnicate")
-	if code != 1 || !strings.HasPrefix(stderr, "Ошибка: ") {
+	if code != 1 || !strings.HasPrefix(stderr, "Error: ") {
 		t.Fatalf("код %d, stderr %q", code, stderr)
 	}
-	if stderr != "Ошибка: неизвестная команда «frobnicate»; справка: catalogctl help\n" {
+	if stderr != "Error: unknown command «frobnicate»; help: catalogctl help\n" {
 		t.Fatalf("текст: %q", stderr)
 	}
 }
 
 func TestHelp(t *testing.T) {
 	stdout, _, code := run(t, "help")
-	if code != 0 || !strings.Contains(stdout, "catalog import <файл>") {
+	if code != 0 || !strings.Contains(stdout, "catalog import <file>") {
 		t.Fatalf("справка: код %d", code)
 	}
 	stdout, _, code = run(t, "help", "import")
-	if code != 0 || !strings.Contains(stdout, "формат: catalogctl import") {
+	if code != 0 || !strings.Contains(stdout, "usage: catalogctl import") {
 		t.Fatalf("справка import: код %d, %q", code, stdout)
 	}
 	_, errOut, code := run(t, "help", "frobnicate")
-	if code != 1 || !strings.HasPrefix(errOut, "Ошибка: ") {
+	if code != 1 || !strings.HasPrefix(errOut, "Error: ") {
 		t.Fatalf("справка об ошибке: код %d, %q", code, errOut)
 	}
 }
 
 func TestParseWithoutDatabase(t *testing.T) {
+	// Локаль по умолчанию — en (канонический язык, D9).
 	stdout, _, code := run(t, "parse", "КТ315Б")
 	if code != 0 {
 		t.Fatalf("код %d", code)
 	}
-	want := "КТ315Б: транзисторы (transistor), система ГОСТ (gost)\n" +
-		"  материал: кремний\n  подкласс: Т\n  сборка: прибор\n" +
-		"  номер разработки: 315\n  буквы: Б\n"
+	want := "КТ315Б: transistor (transistor), system GOST (gost)\n" +
+		"  material: кремний\n  subclass: Т\n  assembly: device\n" +
+		"  development number: 315\n  letters: Б\n"
 	if stdout != want {
 		t.Fatalf("вывод:\n got:  %q\n want: %q", stdout, want)
 	}
+	// --lang ru — отображаемые строки ru-бандла.
+	stdout, _, code = run(t, "parse", "КТ315Б", "--lang", "ru")
+	if code != 0 {
+		t.Fatalf("код %d", code)
+	}
+	want = "КТ315Б: транзисторы (transistor), система ГОСТ (gost)\n" +
+		"  материал: кремний\n  подкласс: Т\n  сборка: прибор\n" +
+		"  номер разработки: 315\n  буквы: Б\n"
+	if stdout != want {
+		t.Fatalf("вывод (ru):\n got:  %q\n want: %q", stdout, want)
+	}
 	_, errOut, code := run(t, "parse", "XX42")
-	if code != 1 || !strings.HasPrefix(errOut, "Ошибка: ") {
+	if code != 1 || !strings.HasPrefix(errOut, "Error: ") {
 		t.Fatalf("разбор ошибки: код %d, %q", code, errOut)
+	}
+	// Неверное значение --lang — ошибка валидации.
+	_, errOut, code = run(t, "parse", "КТ315Б", "--lang", "de")
+	if code != 1 || !strings.HasPrefix(errOut, "Error: flag «--lang» accepts en or ru") {
+		t.Fatalf("--lang de: код %d, %q", code, errOut)
 	}
 }
 
 func TestUnknownFlag(t *testing.T) {
 	_, stderr, code := run(t, "list", "--bogus")
-	if code != 1 || !strings.HasPrefix(stderr, "Ошибка: неизвестный флаг «--bogus»") {
+	if code != 1 || !strings.HasPrefix(stderr, "Error: unknown flag «--bogus»") {
 		t.Fatalf("код %d, stderr %q", code, stderr)
 	}
 }
@@ -95,7 +112,7 @@ func TestFullCycle(t *testing.T) {
 	db := testDB(t)
 
 	stdout, stderr, code := run(t, "init", "--db", db)
-	if code != 0 || stderr != "" || !strings.Contains(stdout, "база инициализирована") {
+	if code != 0 || stderr != "" || !strings.Contains(stdout, "database initialized:") {
 		t.Fatalf("init: код %d, stdout %q, stderr %q", code, stdout, stderr)
 	}
 
@@ -103,14 +120,14 @@ func TestFullCycle(t *testing.T) {
 	if code != 0 || stderr != "" {
 		t.Fatalf("import: код %d, stderr %q", code, stderr)
 	}
-	want := dataFile(t, "transistors.jsonc") + ": записей: 23, добавлено: 23, обновлено: 0, без изменений: 0\n"
+	want := dataFile(t, "transistors.jsonc") + ": records: 23, added: 23, updated: 0, unchanged: 0\n"
 	if stdout != want {
 		t.Fatalf("итог импорта:\n got:  %q\n want: %q", stdout, want)
 	}
 
 	// Идемпотентность повторного импорта.
 	stdout, _, code = run(t, "import", dataFile(t, "transistors.jsonc"), "--db", db)
-	if code != 0 || !strings.Contains(stdout, "без изменений: 23") {
+	if code != 0 || !strings.Contains(stdout, "unchanged: 23") {
 		t.Fatalf("повторный import: код %d, %q", code, stdout)
 	}
 
@@ -148,24 +165,24 @@ func TestFullCycle(t *testing.T) {
 		t.Fatalf("list --material кремний: германиевая запись попала в выборку: %q", stdout)
 	}
 	stdout, stderr, code = run(t, "info", "КТ315Б", "--db", db)
-	if code != 0 || stderr != "" || !strings.Contains(stdout, "КТ315Б — транзисторы") ||
-		!strings.Contains(stdout, "Аналоги: 2N3904") {
+	if code != 0 || stderr != "" || !strings.Contains(stdout, "КТ315Б — transistor") ||
+		!strings.Contains(stdout, "Analogs: 2N3904") {
 		t.Fatalf("info: код %d, %q, %q", code, stdout, stderr)
 	}
 
 	stdout, stderr, code = run(t, "find", "КТ315Б", "--db", db)
-	if code != 0 || stderr != "" || !strings.Contains(stdout, "КТ315Б — транзисторы") {
+	if code != 0 || stderr != "" || !strings.Contains(stdout, "КТ315Б — transistor") {
 		t.Fatalf("find: код %d, %q, %q", code, stdout, stderr)
 	}
 
 	// find по отсутствующей записи с равнозначной подсказкой (материал).
 	stdout, _, code = run(t, "find", "2Т315Б", "--db", db)
-	if code != 1 || !strings.Contains(stdout, "равнозначная по материалу: КТ315Б") {
+	if code != 1 || !strings.Contains(stdout, "equivalent by material: КТ315Б") {
 		t.Fatalf("find 2Т315Б: код %d, %q", code, stdout)
 	}
 
 	stdout, stderr, code = run(t, "delete", "КТ315Б", "--dry-run", "--db", db)
-	if code != 0 || stdout != "КТ315Б: будет удалена\n" || stderr != "" {
+	if code != 0 || stdout != "КТ315Б: will be deleted\n" || stderr != "" {
 		t.Fatalf("delete --dry-run: код %d, %q, %q", code, stdout, stderr)
 	}
 	stdout, _, code = run(t, "count", "--db", db)
@@ -174,7 +191,7 @@ func TestFullCycle(t *testing.T) {
 	}
 
 	stdout, stderr, code = run(t, "delete", "КТ315Б", "--db", db)
-	if code != 0 || stdout != "КТ315Б: удалено\n" || stderr != "" {
+	if code != 0 || stdout != "КТ315Б: deleted\n" || stderr != "" {
 		t.Fatalf("delete: код %d, %q, %q", code, stdout, stderr)
 	}
 	stdout, _, code = run(t, "count", "--db", db)
@@ -183,7 +200,7 @@ func TestFullCycle(t *testing.T) {
 	}
 
 	_, stderr, code = run(t, "info", "КТ315Б", "--db", db)
-	if code != 1 || stderr != "Ошибка: запись «КТ315Б» не найдена\n" {
+	if code != 1 || stderr != "Error: record «КТ315Б» not found\n" {
 		t.Fatalf("info отсутствующей: код %d, %q", code, stderr)
 	}
 }
@@ -205,10 +222,10 @@ func TestImportIssuesReportedToStderr(t *testing.T) {
 	if code != 1 {
 		t.Fatalf("код: %d (ожидался 1 при проблемах)", code)
 	}
-	if !strings.Contains(stdout, "записей: 2, добавлено: 1") {
+	if !strings.Contains(stdout, "records: 2, added: 1") {
 		t.Fatalf("итог: %q", stdout)
 	}
-	want := "Проблема: запись «МП39»: параметр «UkeoMax»: значение ключа value должно быть положительным\n"
+	want := "Problem: record «МП39»: parameter «UkeoMax»: value of key value must be positive\n"
 	if stderr != want {
 		t.Fatalf("stderr:\n got:  %q\n want: %q", stderr, want)
 	}
@@ -221,8 +238,8 @@ func TestImportDryRunReportAndNoChanges(t *testing.T) {
 	if code != 0 || stderr != "" {
 		t.Fatalf("dry-run: код %d, %q", code, stderr)
 	}
-	if !strings.HasPrefix(stdout, "контрольный прогон (без записи в базу): ") ||
-		!strings.Contains(stdout, "добавлено: 16") {
+	if !strings.HasPrefix(stdout, "dry run (no database write): ") ||
+		!strings.Contains(stdout, "added: 16") {
 		t.Fatalf("итог dry-run: %q", stdout)
 	}
 	_, _, code = run(t, "count", "--db", db)
@@ -247,7 +264,7 @@ func TestExportRoundTripAllFormats(t *testing.T) {
 			t.Fatalf("запись: %v", err)
 		}
 		out, stderr, code := run(t, "import", file, "--db", db)
-		if code != 0 || stderr != "" || !strings.Contains(out, "без изменений: 9") {
+		if code != 0 || stderr != "" || !strings.Contains(out, "unchanged: 9") {
 			t.Fatalf("round-trip %s: код %d, %q, %q", format, code, out, stderr)
 		}
 	}
@@ -268,20 +285,20 @@ func TestCatalogCommands(t *testing.T) {
 
 	db2 := testDB(t)
 	stdout, stderr, code = run(t, "catalog", "import", catFile, "--db", db2)
-	if code != 0 || stderr != "" || !strings.Contains(stdout, "каталог расширен") {
+	if code != 0 || stderr != "" || !strings.Contains(stdout, "catalog extended") {
 		t.Fatalf("catalog import: код %d, %q, %q", code, stdout, stderr)
 	}
 
 	// catalog import отвергает файл с записями классов.
 	_, stderr, code = run(t, "catalog", "import", dataFile(t, "diodes.jsonc"), "--db", db2)
-	if code != 1 || !strings.Contains(stderr, "Ошибка: ") ||
-		!strings.Contains(stderr, "файл содержит записи классов; catalog import применяется к файлам только с секцией catalog") {
+	if code != 1 || !strings.Contains(stderr, "Error: ") ||
+		!strings.Contains(stderr, "the file contains kind records; catalog import applies to files with the catalog section only") {
 		t.Fatalf("catalog import записей: код %d, %q", code, stderr)
 	}
 
 	stdout, stderr, code = run(t, "catalog", "list", "--db", db2)
-	if code != 0 || stderr != "" || !strings.Contains(stdout, "Параметры:") ||
-		!strings.Contains(stdout, "h21e —") || !strings.Contains(stdout, "Атрибуты:") {
+	if code != 0 || stderr != "" || !strings.Contains(stdout, "Parameters:") ||
+		!strings.Contains(stdout, "h21e —") || !strings.Contains(stdout, "Attributes:") {
 		t.Fatalf("catalog list: код %d, %q", code, stdout)
 	}
 }
@@ -292,22 +309,22 @@ func TestAddRequiresKindForOther(t *testing.T) {
 	// Обозначение вне строгих систем: обязателен --kind (и --system other —
 	// автодетекта для other нет).
 	_, stderr, code := run(t, "add", "MJE340", "--db", db)
-	if code != 1 || !strings.HasPrefix(stderr, "Ошибка: ") {
+	if code != 1 || !strings.HasPrefix(stderr, "Error: ") {
 		t.Fatalf("add без --kind (other): код %d, %q", code, stderr)
 	}
 	_, stderr, code = run(t, "add", "MJE340", "--kind", "transistor", "--db", db)
-	if code != 1 || !strings.HasPrefix(stderr, "Ошибка: ") {
+	if code != 1 || !strings.HasPrefix(stderr, "Error: ") {
 		t.Fatalf("add без --system other: код %d, %q", code, stderr)
 	}
 	stdout, stderr, code := run(t, "add", "MJE340", "--kind", "transistor", "--system", "other", "--db", db)
-	if code != 0 || stderr != "" || stdout != "MJE340: добавлено\n" {
+	if code != 0 || stderr != "" || stdout != "MJE340: added\n" {
 		t.Fatalf("add с --kind/--system: код %d, %q, %q", code, stdout, stderr)
 	}
 }
 
 func TestLimitFlagValidation(t *testing.T) {
 	_, stderr, code := run(t, "list", "--limit", "много")
-	if code != 1 || !strings.HasPrefix(stderr, "Ошибка: флаг «--limit» требует неотрицательное число") {
+	if code != 1 || !strings.HasPrefix(stderr, "Error: flag «--limit» requires a non-negative number") {
 		t.Fatalf("код %d, %q", code, stderr)
 	}
 }

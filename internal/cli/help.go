@@ -6,10 +6,18 @@ import (
 	"sort"
 
 	"github.com/billydos/components-catalog/internal/domain"
+	"github.com/billydos/components-catalog/internal/i18n"
 )
 
-// usageText — общая справка (catalogctl без аргументов и catalogctl help).
-const usageText = `catalogctl — консольная утилита справочника электронных компонентов
+// usageText — общая справка (catalogctl без аргументов и catalogctl help)
+// по локали вывода (--lang; строки каталога сообщений cli_usage).
+func usageText(lang i18n.Language) string {
+	return i18n.Message(lang, "cli_usage")
+}
+
+// Тексты справки (эталон переносов строк; канонический en — cli_usage
+// бандла, ru — cli_usage ru-бандла).
+const usageTextRu = `catalogctl — консольная утилита справочника электронных компонентов
 
 Команды:
   init                              создать и инициализировать базу (сиди каталога)
@@ -36,6 +44,7 @@ const usageText = `catalogctl — консольная утилита справ
   --dsn <строка>                    строка подключения (приоритетнее --db)
   --kind <код>                      класс приборов (transistor|diode|resistor|capacitor)
   --system <код>                    система обозначений (gost|ost|pro|jedec|jis|series|other)
+  --lang en|ru                      язык отображаемых строк (по умолчанию en)
   --dry-run                         контрольный прогон без записи в базу
   --format jsonc|yaml|ndjson        формат экспорта (по умолчанию jsonc)
 
@@ -43,19 +52,62 @@ const usageText = `catalogctl — консольная утилита справ
 «Непредвиденная ошибка: »; код выхода при ошибках — 1.
 `
 
-// runHelp — справка по командам (help [команда]).
+const usageTextEn = `catalogctl — console utility of the electronic components catalog
+
+Commands:
+  init                              create and initialize the database (catalog seeds)
+  parse <designation>…              parse designations (kind and system autodetect)
+  add <designation>…                add designation records (--kind for ambiguous ones)
+  import <file> [--dry-run]         import a fill file (jsonc/yaml/ndjson;
+                                    «-» — stdin, jsonc format)
+  list [filters]                    list records (--kind --system --material --subclass
+                                    --junctions --group --series --number --letters
+                                    --q --limit --offset)
+  info <designation>                record card
+  find <designation>                exact search; suggestion of equivalent by material (gost)
+  delete <designation>… [--dry-run] deletion (cascade)
+  count [--kind]                    number of records
+  export [--kind] [--format]        export records (round-trip; jsonc|yaml|ndjson)
+  catalog export [--format]         export the catalog
+  catalog import <file> [--dry-run] extend the catalog (catalog section)
+  catalog list                      catalog reference (kinds, systems, groups, parameters)
+  help [command]                    this help
+
+Common options:
+  --dialect sqlite|postgres         storage dialect (sqlite by default)
+  --db <path>                       sqlite database file (catalog.db by default)
+  --dsn <string>                    connection string (takes precedence over --db)
+  --kind <code>                     device kind (transistor|diode|resistor|capacitor)
+  --system <code>                   designation system (gost|ost|pro|jedec|jis|series|other)
+  --lang en|ru                      display language (en by default)
+  --dry-run                         dry run without writing to the database
+  --format jsonc|yaml|ndjson        export format (jsonc by default)
+
+Expected errors are printed with the «Error: » prefix, others —
+«Unexpected error: »; exit code on errors — 1.
+`
+
+// runHelp — справка по командам (help [команда] [--lang en|ru]).
 func runHelp(args []string, stdout, stderr io.Writer) int {
+	lang := i18n.En
+	for i := 0; i < len(args)-1; i++ {
+		if args[i] == "--lang" {
+			if l, ok := i18n.ParseLanguage(args[i+1]); ok {
+				lang = l
+			}
+		}
+	}
 	if len(args) == 0 {
-		fmt.Fprint(stdout, usageText)
+		fmt.Fprint(stdout, usageText(lang))
 		return 0
 	}
 	cmd, ok := commands[args[0]]
 	if !ok {
-		PrintError(stderr, domain.NewError(domain.CodeValidationFailed,
-			fmt.Sprintf("неизвестная команда «%s»; справка: catalogctl help", args[0])))
+		PrintError(stderr, i18n.En, domain.NewErrorf(domain.CodeValidationFailed,
+			domain.MsgCliUnknownCommand, args[0]))
 		return 1
 	}
-	fmt.Fprintf(stdout, "формат: catalogctl %s\n", cmd.usage)
+	fmt.Fprintf(stdout, "%s catalogctl %s\n", i18n.Message(lang, "cli_usage_word"), cmd.usage)
 	return 0
 }
 

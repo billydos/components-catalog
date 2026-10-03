@@ -214,6 +214,82 @@ func TestKinds(t *testing.T) {
 	}
 }
 
+// Локализация отображаемых полей (D9): Accept-Language выбирает локаль
+// (по умолчанию и для неподдерживаемых языков — en); кодовые поля
+// канонические всегда.
+func TestAcceptLanguage(t *testing.T) {
+	_, srv := newTestAPI(t, Config{})
+
+	get := func(header string) kindsResponseJSON {
+		t.Helper()
+		req, _ := http.NewRequest(http.MethodGet, srv.URL+apiPrefix+"/kinds", nil)
+		if header != "" {
+			req.Header.Set("Accept-Language", header)
+		}
+		resp, err := srv.Client().Do(req)
+		if err != nil {
+			t.Fatal(err)
+		}
+		data, _ := io.ReadAll(resp.Body)
+		resp.Body.Close()
+		if resp.StatusCode != http.StatusOK {
+			t.Fatalf("статус: %d", resp.StatusCode)
+		}
+		return decode[kindsResponseJSON](t, string(data))
+	}
+
+	byCode := func(resp kindsResponseJSON, code string) string {
+		t.Helper()
+		for _, k := range resp.Kinds {
+			if k.Code == code {
+				return k.Name
+			}
+		}
+		t.Fatalf("класс %s отсутствует", code)
+		return ""
+	}
+
+	if name := byCode(get(""), "transistor"); name != "transistor" {
+		t.Errorf("без заголовка (en по умолчанию): %q", name)
+	}
+	if name := byCode(get("ru"), "transistor"); name != "транзисторы" {
+		t.Errorf("ru: %q", name)
+	}
+	if name := byCode(get("ru-RU,ru;q=0.9,en;q=0.8"), "resistor"); name != "резисторы" {
+		t.Errorf("ru-RU…: %q", name)
+	}
+	if name := byCode(get("fr-CA,fr;q=0.9,ru;q=0.3"), "capacitor"); name != "конденсаторы" {
+		t.Errorf("fr…,ru;q=0.3: %q", name)
+	}
+	if name := byCode(get("fr-CH"), "diode"); name != "diode" {
+		t.Errorf("неподдерживаемый язык → en: %q", name)
+	}
+
+	// Каталог: символы единиц локализуются, коды — канонические.
+	req, _ := http.NewRequest(http.MethodGet, srv.URL+apiPrefix+"/catalog", nil)
+	req.Header.Set("Accept-Language", "ru")
+	resp, err := srv.Client().Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	data, _ := io.ReadAll(resp.Body)
+	resp.Body.Close()
+	snap := decode[catalogSnapshotJSON](t, string(data))
+	var ohm unitDefJSON
+	found := false
+	for _, u := range snap.Units {
+		if u.Code == "ohm" {
+			ohm, found = u, true
+		}
+	}
+	if !found {
+		t.Fatal("единица ohm отсутствует в снимке")
+	}
+	if ohm.Symbol != "Ом" || ohm.Name != "ом" {
+		t.Errorf("ohm (ru): имя %q, символ %q", ohm.Name, ohm.Symbol)
+	}
+}
+
 func TestCatalogAndETag(t *testing.T) {
 	_, srv := newTestAPI(t, Config{})
 	req, _ := http.NewRequest(http.MethodGet, srv.URL+apiPrefix+"/catalog", nil)
@@ -263,7 +339,7 @@ func TestStats(t *testing.T) {
 		t.Fatalf("статус: %d", status)
 	}
 	st := decode[statsJSON](t, body)
-	if st.SchemaVersion != 1 || st.Total != 4 || st.Kinds["transistor"] != 2 || st.Kinds["capacitor"] != 1 {
+	if st.SchemaVersion != 2 || st.Total != 4 || st.Kinds["transistor"] != 2 || st.Kinds["capacitor"] != 1 {
 		t.Fatalf("статистика: %+v", st)
 	}
 	if st.CatalogRevision == 0 || st.DataRevision == 0 {
@@ -281,13 +357,13 @@ func TestSearch(t *testing.T) {
 	}{
 		{"все", "", []string{"К50-35", "МЛТ-0.5", "BC547B", "КТ315Б"}, true},
 		{"класс", "kind=transistor", []string{"BC547B", "КТ315Б"}, false},
-		{"система", "system=pro", []string{"BC547B"}, false},
-		{"подстрока", "q=315", []string{"КТ315Б"}, false},
+		{"system", "system=pro", []string{"BC547B"}, false},
+		{"подstring", "q=315", []string{"КТ315Б"}, false},
 		{"поле обозначения", "material=%D0%BA%D1%80%D0%B5%D0%BC%D0%BD%D0%B8%D0%B9", []string{"BC547B", "КТ315Б"}, false},
 		{"параметр", "par.h21e.min=150", []string{"BC547B"}, false},
 		{"точный параметр", "par.Pnom.exact=0.5", []string{"МЛТ-0.5"}, false},
 		{"атрибут", "attr.structure=npn", []string{"BC547B", "КТ315Б"}, false},
-		{"атрибут число", "attr.yearFrom=1967", []string{"КТ315Б"}, false},
+		{"атрибут number", "attr.yearFrom=1967", []string{"КТ315Б"}, false},
 		{"сортировка", "kind=transistor&sort=-designation", []string{"КТ315Б", "BC547B"}, false},
 		{"пагинация", "sort=designation&limit=2&offset=2", []string{"КТ315Б", "МЛТ-0.5"}, false},
 	}
@@ -373,27 +449,27 @@ func TestSearchErrors(t *testing.T) {
 		code    string
 		message string
 	}{
-		{"kind=bogus", "validation_failed", "неизвестный класс приборов «bogus»"},
-		{"system=bogus", "validation_failed", "неизвестная система обозначений «bogus»"},
-		{"par.bogus.min=1", "unknown_parameter", "неизвестный параметр «bogus»"},
-		{"attr.bogus=npn", "unknown_attribute", "неизвестный атрибут «bogus»"},
+		{"kind=bogus", "validation_failed", "unknown device kind «bogus»"},
+		{"system=bogus", "validation_failed", "unknown designation system «bogus»"},
+		{"par.bogus.min=1", "unknown_parameter", "unknown parameter «bogus»"},
+		{"attr.bogus=npn", "unknown_attribute", "unknown attribute «bogus»"},
 		{"kind=resistor&par.h21e.min=1", "parameter_not_applicable",
-			"параметр «h21e» неприменим к классу resistor"},
+			"parameter «h21e» is not applicable to kind resistor"},
 		{"kind=resistor&attr.structure=npn", "attribute_not_applicable",
-			"атрибут «structure» неприменим к классу resistor"},
+			"attribute «structure» is not applicable to kind resistor"},
 		{"attr.polarized=true", "validation_failed",
-			"фильтр атрибута «polarized»: логические атрибуты не поддерживаются в фильтрах"},
-		{"attr.structure=1967", "validation_failed", "фильтр атрибута «structure»: ожидается текстовое значение"},
-		{"par.h21e.avg=5", "validation_failed", "неизвестный параметр запроса «par.h21e.avg»"},
-		{"limit=0", "validation_failed", "параметр limit: ожидается целое от 1 до 200"},
-		{"limit=201", "validation_failed", "параметр limit: ожидается целое от 1 до 200"},
-		{"limit=abc", "validation_failed", "параметр limit: ожидается целое от 1 до 200"},
-		{"offset=-1", "validation_failed", "параметр offset: ожидается целое неотрицательное число"},
-		{"sort=bogus", "validation_failed", "параметр sort: неизвестный ключ сортировки «bogus»"},
-		{"bogus=1", "validation_failed", "неизвестный параметр запроса «bogus»"},
-		{"junctions=abc", "validation_failed", "параметр «junctions»: ожидается число"},
-		{"par.h21e.min=abc", "validation_failed", "параметр «par.h21e.min»: ожидается число"},
-		{"par.h21e.text=1", "validation_failed", "фильтр параметра «h21e»: ожидается число"},
+			"attribute filter «polarized»: boolean attributes are not supported in filters"},
+		{"attr.structure=1967", "validation_failed", "attribute filter «structure»: a text value is expected"},
+		{"par.h21e.avg=5", "validation_failed", "unknown query parameter «par.h21e.avg»"},
+		{"limit=0", "validation_failed", "parameter limit: an integer from 1 to 200 is expected"},
+		{"limit=201", "validation_failed", "parameter limit: an integer from 1 to 200 is expected"},
+		{"limit=abc", "validation_failed", "parameter limit: an integer from 1 to 200 is expected"},
+		{"offset=-1", "validation_failed", "parameter offset: a non-negative integer is expected"},
+		{"sort=bogus", "validation_failed", "parameter sort: unknown sort key «bogus»"},
+		{"bogus=1", "validation_failed", "unknown query parameter «bogus»"},
+		{"junctions=abc", "validation_failed", "parameter «junctions»: a number is expected"},
+		{"par.h21e.min=abc", "validation_failed", "parameter «par.h21e.min»: a number is expected"},
+		{"par.h21e.text=1", "validation_failed", "parameter filter «h21e»: a number is expected"},
 	}
 	for _, tc := range cases {
 		t.Run(tc.query, func(t *testing.T) {
@@ -461,11 +537,11 @@ func TestCard(t *testing.T) {
 func TestCardNotFoundAndBadKind(t *testing.T) {
 	_, srv := newTestAPI(t, Config{})
 	status, _, eb := do(t, srv, http.MethodGet, apiPrefix+"/components/transistor/"+esc("КТ999А"), "")
-	wantError(t, status, eb, http.StatusNotFound, "not_found", "запись «КТ999А» не найдена")
+	wantError(t, status, eb, http.StatusNotFound, "not_found", "record «КТ999А» not found")
 
 	status, _, eb = do(t, srv, http.MethodGet, apiPrefix+"/components/bogus/"+esc("КТ315Б"), "")
 	wantError(t, status, eb, http.StatusBadRequest, "validation_failed",
-		"неизвестный класс приборов «bogus»")
+		"unknown device kind «bogus»")
 }
 
 func TestCardByID(t *testing.T) {
@@ -482,11 +558,11 @@ func TestCardByID(t *testing.T) {
 
 	status, _, eb := do(t, srv, http.MethodGet, apiPrefix+"/components/id/abc", "")
 	wantError(t, status, eb, http.StatusBadRequest, "validation_failed",
-		"параметр пути id: ожидается целое число")
+		"path parameter id: an integer is expected")
 
 	status, _, eb = do(t, srv, http.MethodGet, apiPrefix+"/components/id/999999", "")
 	wantError(t, status, eb, http.StatusNotFound, "not_found",
-		"запись с идентификатором 999999 не найдена")
+		"record with identifier 999999 not found")
 }
 
 func TestSuggest(t *testing.T) {
@@ -501,17 +577,17 @@ func TestSuggest(t *testing.T) {
 	}
 
 	status, _, eb := do(t, srv, http.MethodGet, apiPrefix+"/suggest", "")
-	wantError(t, status, eb, http.StatusBadRequest, "validation_failed", "не задан параметр q")
+	wantError(t, status, eb, http.StatusBadRequest, "validation_failed", "query parameter q is not set")
 
 	status, _, eb = do(t, srv, http.MethodGet, apiPrefix+"/suggest?q=%D0%9A&limit=51", "")
 	wantError(t, status, eb, http.StatusBadRequest, "validation_failed",
-		"параметр limit: ожидается целое от 1 до 50")
+		"parameter limit: an integer from 1 to 50 is expected")
 }
 
 func TestSuggestDisabled(t *testing.T) {
 	_, srv := newTestAPI(t, Config{DisableSuggest: true})
 	status, _, eb := do(t, srv, http.MethodGet, apiPrefix+"/suggest?q="+esc("КТ3"), "")
-	wantError(t, status, eb, http.StatusNotFound, "not_found", "неизвестный маршрут запроса")
+	wantError(t, status, eb, http.StatusNotFound, "not_found", "unknown request route")
 }
 
 func TestCreate(t *testing.T) {
@@ -529,12 +605,12 @@ func TestCreate(t *testing.T) {
 
 	// Повтор — 409 already_exists.
 	status, _, eb := do(t, srv, http.MethodPost, apiPrefix+"/components", `{"name":"ГТ109Г"}`)
-	wantError(t, status, eb, http.StatusConflict, "already_exists", "запись «ГТ109Г» уже существует")
+	wantError(t, status, eb, http.StatusConflict, "already_exists", "record «ГТ109Г» already exists")
 
 	// Строка-обозначение как тело.
 	status, body, _ = do(t, srv, http.MethodPost, apiPrefix+"/components", `"2Т312А"`)
 	if status != http.StatusCreated {
-		t.Fatalf("строка-обозначение: %d, тело %s", status, body)
+		t.Fatalf("string-обозначение: %d, тело %s", status, body)
 	}
 
 	// Синтаксис: битый JSON — 400 invalid_import_file (текст — от hujson,
@@ -547,13 +623,13 @@ func TestCreate(t *testing.T) {
 	status, _, eb = do(t, srv, http.MethodPost, apiPrefix+"/components",
 		`{"name":"ГТ402Г","name":"ГТ402Г"}`)
 	wantError(t, status, eb, http.StatusBadRequest, "invalid_import_file",
-		"файл не является корректным JSONC: повторяющийся ключ «name» (строка 1)")
+		"the file is not valid JSONC: duplicate key «name» (line 1)")
 
 	// Форма записи: неизвестная секция — 400 (код читателя формата).
 	status, _, eb = do(t, srv, http.MethodPost, apiPrefix+"/components",
 		`{"name":"ГТ402Г","bogus":[]}`)
 	wantError(t, status, eb, http.StatusBadRequest, "invalid_import_file",
-		"неизвестное поле «bogus» (допустимы: name, system, attributes, manufacturers, variants, analogs и секции групп: parameters, ratings, dimensions)")
+		"unknown field «bogus» (allowed: name, system, attributes, manufacturers, variants, analogs and group sections: parameters, ratings, dimensions)")
 
 	// Невалидное обозначение — 422 invalid_designation.
 	status, _, eb = do(t, srv, http.MethodPost, apiPrefix+"/components", `{"name":"@@@"}`)
@@ -610,7 +686,7 @@ func TestPut(t *testing.T) {
 	status, _, eb := do(t, srv, http.MethodPut,
 		apiPrefix+"/components/transistor/"+esc("КТ315Б"), `{"name":"КТ315В"}`)
 	wantError(t, status, eb, http.StatusUnprocessableEntity, "designation_mismatch",
-		"обозначение тела запроса не совпадает с обозначением в пути")
+		"the designation in the request body does not match the designation in the path")
 
 	// PUT создаёт (класс в пути переопределяет автодетект — способ записи
 	// для системы other).
@@ -642,7 +718,7 @@ func TestDelete(t *testing.T) {
 	}
 	status, _, eb := do(t, srv, http.MethodDelete,
 		apiPrefix+"/components/transistor/"+esc("КТ315Б"), "")
-	wantError(t, status, eb, http.StatusNotFound, "not_found", "запись «КТ315Б» не найдена")
+	wantError(t, status, eb, http.StatusNotFound, "not_found", "record «КТ315Б» not found")
 
 	// Встречная ссылка исчезла у цели аналога (каскад).
 	_, body, _ = do(t, srv, http.MethodGet, apiPrefix+"/components/transistor/BC547B", "")
@@ -668,12 +744,12 @@ func TestRouteErrors(t *testing.T) {
 	}
 	var eb errorBody
 	if err := json.Unmarshal(data, &eb); err != nil || eb.Code != "method_not_allowed" ||
-		eb.Message != "метод не допускается для этого маршрута" {
+		eb.Message != "method not allowed for this route" {
 		t.Fatalf("ошибка 405: %q → %+v (%v)", data, eb, err)
 	}
 
 	status, _, eb := do(t, srv, http.MethodGet, apiPrefix+"/bogus", "")
-	wantError(t, status, eb, http.StatusNotFound, "not_found", "неизвестный маршрут запроса")
+	wantError(t, status, eb, http.StatusNotFound, "not_found", "unknown request route")
 }
 
 func TestInternalError(t *testing.T) {
@@ -681,8 +757,8 @@ func TestInternalError(t *testing.T) {
 	app.Close() //nolint:errcheck — проверка деградации транспорта
 	status, _, eb := do(t, srv, http.MethodGet, apiPrefix+"/kinds", "")
 	if status != http.StatusInternalServerError || eb.Code != "internal_error" ||
-		eb.Message != "внутренняя ошибка обработки запроса" {
-		t.Fatalf("внутренняя ошибка: %d %+v", status, eb)
+		eb.Message != "internal request processing error" {
+		t.Fatalf("internal error: %d %+v", status, eb)
 	}
 }
 

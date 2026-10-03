@@ -3,12 +3,16 @@ package httpapi
 import (
 	"github.com/billydos/components-catalog/internal/catalog"
 	"github.com/billydos/components-catalog/internal/domain"
+	"github.com/billydos/components-catalog/internal/i18n"
 	"github.com/billydos/components-catalog/internal/service"
 )
 
 // Модели провода (wire): JSON-представление ответов /api/v1. Ключи —
 // snake_case, как в формате наполнения (коды и колонки каталога);
-// контракт закреплён api/openapi.yaml и тестами.
+// контракт закреплён api/openapi.yaml и тестами. Отображаемые поля
+// (name, kind_name, system_name, unit name/symbol, description) —
+// локализуемые строки бандлов internal/i18n по локали запроса (D9);
+// кодовые поля всегда канонические.
 
 // fieldJSON — поле разбора обозначения: текстовое либо числовое.
 type fieldJSON struct {
@@ -104,13 +108,13 @@ type cardJSON struct {
 	Backlinks     []linkJSON        `json:"backlinks"`
 }
 
-func cardToJSON(c *service.Card) cardJSON {
+func cardToJSON(lang i18n.Language, c *service.Card) cardJSON {
 	out := cardJSON{
 		ID:            c.ID,
 		Kind:          string(c.Kind),
-		KindName:      c.KindName,
+		KindName:      i18n.KindName(lang, string(c.Kind)),
 		System:        string(c.System),
-		SystemName:    c.SystemName,
+		SystemName:    i18n.SystemName(lang, string(c.System)),
 		Designation:   c.Designation,
 		Fields:        fieldsToJSON(c.Fields),
 		Attributes:    make([]cardAttrJSON, 0, len(c.Attributes)),
@@ -122,12 +126,13 @@ func cardToJSON(c *service.Card) cardJSON {
 	}
 	for _, a := range c.Attributes {
 		out.Attributes = append(out.Attributes, cardAttrJSON{
-			Code: a.Code, Name: a.DisplayName, Text: a.Text, Num: a.Num, Bool: a.Bool,
+			Code: a.Code, Name: i18n.AttributeName(lang, a.Code),
+			Text: a.Text, Num: a.Num, Bool: a.Bool,
 		})
 	}
-	out.Groups = append(out.Groups, groupsToJSON(c.Groups)...)
+	out.Groups = append(out.Groups, groupsToJSON(lang, c.Groups)...)
 	for _, v := range c.Variants {
-		out.Variants = append(out.Variants, cardVariantJSON{Label: v.Label, Groups: groupsToJSON(v.Groups)})
+		out.Variants = append(out.Variants, cardVariantJSON{Label: v.Label, Groups: groupsToJSON(lang, v.Groups)})
 	}
 	out.Manufacturers = append(out.Manufacturers, c.Manufacturers...)
 	for _, l := range c.Analogs {
@@ -139,16 +144,17 @@ func cardToJSON(c *service.Card) cardJSON {
 	return out
 }
 
-func groupsToJSON(groups []service.CardGroup) []cardGroupJSON {
+func groupsToJSON(lang i18n.Language, groups []service.CardGroup) []cardGroupJSON {
 	out := make([]cardGroupJSON, 0, len(groups))
 	for _, g := range groups {
 		gj := cardGroupJSON{
-			Code: g.Code, Section: g.Section, Name: g.DisplayName,
+			Code: g.Code, Section: g.Section, Name: i18n.GroupName(lang, g.Code),
 			Values: make([]cardValueJSON, 0, len(g.Values)),
 		}
 		for _, v := range g.Values {
 			vj := cardValueJSON{
-				Parameter: v.Parameter, Name: v.DisplayName, Unit: v.Unit,
+				Parameter: v.Parameter, Name: i18n.ParameterName(lang, v.Parameter),
+				Unit:  v.Unit,
 				Exact: v.Exact, Min: v.Min, Max: v.Max, Text: v.Text,
 			}
 			for _, c := range v.Conditions {
@@ -341,17 +347,21 @@ type kindRuleRefJSON struct {
 	Rule string `json:"rule"`
 }
 
-func catalogToJSON(s *catalog.Snapshot) catalogSnapshotJSON {
+func catalogToJSON(lang i18n.Language, s *catalog.Snapshot) catalogSnapshotJSON {
 	out := catalogSnapshotJSON{
 		Revision: s.Revision,
 		Kinds:    make([]kindDefJSON, 0, len(s.Kinds)),
 	}
 	for _, k := range s.Kinds {
-		out.Kinds = append(out.Kinds, kindDefJSON{Code: string(k.Code), Name: k.Name})
+		out.Kinds = append(out.Kinds, kindDefJSON{
+			Code: string(k.Code), Name: i18n.KindName(lang, string(k.Code)),
+		})
 	}
 	for _, sys := range s.Systems {
 		out.Systems = append(out.Systems, systemDefJSON{
-			Code: string(sys.Code), Name: sys.Name, Description: sys.Description,
+			Code:        string(sys.Code),
+			Name:        i18n.SystemName(lang, string(sys.Code)),
+			Description: i18n.SystemDescription(lang, string(sys.Code)),
 		})
 	}
 	for _, ref := range s.SystemKinds {
@@ -361,25 +371,34 @@ func catalogToJSON(s *catalog.Snapshot) catalogSnapshotJSON {
 	}
 	for _, f := range s.SeriesFamilies {
 		out.SeriesFamilies = append(out.SeriesFamilies, seriesFamilyJSON{
-			Series: f.Series, Kind: string(f.Kind), Name: f.Name, TailSemantic: f.TailSemantic,
+			Series: f.Series, Kind: string(f.Kind),
+			Name:         i18n.FamilyName(lang, f.Series),
+			TailSemantic: f.TailSemantic,
 		})
 	}
 	for _, u := range s.Units {
-		out.Units = append(out.Units, unitDefJSON{Code: u.Code, Name: u.Name, Symbol: u.Symbol})
+		out.Units = append(out.Units, unitDefJSON{
+			Code:   u.Code,
+			Name:   i18n.UnitName(lang, u.Code),
+			Symbol: i18n.UnitSymbol(lang, u.Code),
+		})
 	}
 	for _, c := range s.Conditions {
 		out.Conditions = append(out.Conditions, conditionDefJSON{
-			Code: c.Code, Name: c.Name, Unit: c.Unit, AllowNegative: c.AllowNegative,
+			Code: c.Code, Name: i18n.ConditionName(lang, c.Code),
+			Unit: c.Unit, AllowNegative: c.AllowNegative,
 		})
 	}
 	for _, g := range s.Groups {
 		out.Groups = append(out.Groups, groupDefJSON{
-			Code: g.Code, Section: g.SectionName, Name: g.DisplayName, SortOrder: g.SortOrder,
+			Code: g.Code, Section: g.SectionName,
+			Name:      i18n.GroupName(lang, g.Code),
+			SortOrder: g.SortOrder,
 		})
 	}
 	for _, p := range s.Parameters {
 		pj := parameterDefJSON{
-			Code: p.Code, Group: p.Group, Name: p.DisplayName, Unit: p.Unit,
+			Code: p.Code, Group: p.Group, Name: i18n.ParameterName(lang, p.Code), Unit: p.Unit,
 			ValueType: string(p.ValueType), Ceiling: p.Ceiling, AllowNegative: p.AllowNegative,
 			ValidationRule: p.ValidationRule, SortOrder: p.SortOrder, IsActive: p.Active,
 			Kinds:      kindsToJSON(p.Kinds),
@@ -399,7 +418,7 @@ func catalogToJSON(s *catalog.Snapshot) catalogSnapshotJSON {
 	}
 	for _, at := range s.Attributes {
 		aj := attributeDefJSON{
-			Code: at.Code, Name: at.DisplayName, Group: at.GroupName, Type: string(at.Type),
+			Code: at.Code, Name: i18n.AttributeName(lang, at.Code), Group: at.GroupName, Type: string(at.Type),
 			Unit: at.Unit, ValidationRule: at.ValidationRule, SortOrder: at.SortOrder,
 			IsActive: at.Active, Kinds: kindsToJSON(at.Kinds),
 			EnumValues: make([]string, 0, len(at.EnumValues)),
@@ -408,7 +427,9 @@ func catalogToJSON(s *catalog.Snapshot) catalogSnapshotJSON {
 		out.Attributes = append(out.Attributes, aj)
 	}
 	for _, rl := range s.Rules {
-		out.Rules = append(out.Rules, ruleDefJSON{Code: rl.Code, Description: rl.Description})
+		out.Rules = append(out.Rules, ruleDefJSON{
+			Code: rl.Code, Description: i18n.RuleDescription(lang, rl.Code),
+		})
 	}
 	for _, kr := range s.KindRules {
 		out.KindRules = append(out.KindRules, kindRuleRefJSON{Kind: string(kr.Kind), Rule: kr.Rule})

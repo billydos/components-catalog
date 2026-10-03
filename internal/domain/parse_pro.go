@@ -54,7 +54,7 @@ func parsePro(s *scanner, _ Kind) (ParsedDesignation, error) {
 	// Первая буква — материал.
 	mat, has := s.peek()
 	if !has || (mat != 'A' && mat != 'B' && mat != 'C' && mat != 'R') {
-		return ParsedDesignation{}, s.fail("буква материала (A, B, C, R)")
+		return ParsedDesignation{}, s.fail(MsgExpectProMaterial)
 	}
 	s.i++
 	material, hasMaterial := ProMaterialByLetter(mat)
@@ -62,13 +62,13 @@ func parsePro(s *scanner, _ Kind) (ParsedDesignation, error) {
 	// Вторая буква — класс прибора.
 	class, has := s.peek()
 	if !has || !isLatinUpper(class) {
-		return ParsedDesignation{}, s.fail("буква класса прибора")
+		return ParsedDesignation{}, s.fail(MsgExpectProClassLetter)
 	}
 	s.i++
 	kind, classKnown := proClassKinds[class]
 	classUnsupported := !classKnown && runeIn(class, proUnsupportedClasses)
 	if !classKnown && !classUnsupported {
-		return ParsedDesignation{}, s.failAt(s.i-1, "буква класса прибора (A–Z по таблице классов)")
+		return ParsedDesignation{}, s.failAt(s.i-1, MsgExpectProClassTable)
 	}
 
 	// Номер: бытовая (100–999/9999) либо промышленная (буква + 10–99/999)
@@ -78,7 +78,7 @@ func parsePro(s *scanner, _ Kind) (ParsedDesignation, error) {
 		start := s.i
 		run, n := s.digits()
 		if n < 3 || n > 4 || run[0] == '0' {
-			return ParsedDesignation{}, s.failToken(start, "номер регистрации 100–999 (до 9999)", run)
+			return ParsedDesignation{}, s.failToken(start, MsgExpectProNumber, run)
 		}
 		devNumber = mustAtoi(run)
 	} else if r, has := s.peek(); has && isLatinUpper(r) {
@@ -87,14 +87,14 @@ func parsePro(s *scanner, _ Kind) (ParsedDesignation, error) {
 		start := s.i
 		run, n := s.digits()
 		if n == 0 {
-			return ParsedDesignation{}, s.fail("номер промышленной регистрации 10–99 (до 999)")
+			return ParsedDesignation{}, s.fail(MsgExpectProConsumerNumber)
 		}
 		if n < 2 || n > 3 || run[0] == '0' {
-			return ParsedDesignation{}, s.failToken(start, "номер промышленной регистрации 10–99 (до 999)", run)
+			return ParsedDesignation{}, s.failToken(start, MsgExpectProConsumerNumber, run)
 		}
 		devNumber = mustAtoi(run)
 	} else {
-		return ParsedDesignation{}, s.fail("номер регистрации (100–999 либо буква и 10–99)")
+		return ParsedDesignation{}, s.fail(MsgExpectProAnyNumber)
 	}
 
 	// Версионные буквы (одна-две, без фиксированного значения).
@@ -113,7 +113,7 @@ func parsePro(s *scanner, _ Kind) (ParsedDesignation, error) {
 	if s.peekIs(s.i, '-') {
 		s.i++
 		if s.readAlnumRun(12) == 0 {
-			return ParsedDesignation{}, s.fail("суффикс подклассификации (буквы и цифры)")
+			return ParsedDesignation{}, s.fail(MsgExpectProSuffix)
 		}
 	} else if r, has := s.peek(); has && isDigitRune(r) {
 		s.readAlnumRun(12)

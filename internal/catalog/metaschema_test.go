@@ -52,80 +52,77 @@ func TestMetaschemaViolations(t *testing.T) {
 	}{
 		{"несуществующая единица", catalog.Input{Parameters: []catalog.ParameterDef{
 			p(func(r *catalog.ParameterDef) { r.Unit = "кОм" }),
-		}}, "каталог: параметр «Kpd»: единица «кОм» не существует"},
+		}}, "catalog: parameter «Kpd»: unit «кОм» does not exist"},
 		{"несуществующая группа", catalog.Input{Parameters: []catalog.ParameterDef{
 			p(func(r *catalog.ParameterDef) { r.Group = "no_such_group" }),
-		}}, "каталог: параметр «Kpd»: группа «no_such_group» не существует"},
+		}}, "catalog: parameter «Kpd»: group «no_such_group» does not exist"},
 		{"enum без значений", catalog.Input{Parameters: []catalog.ParameterDef{
 			p(func(r *catalog.ParameterDef) { r.ValueType = catalog.ValueEnum; r.Unit = ""; r.EnumValues = nil }),
-		}}, "каталог: параметр «Kpd»: тип enum требует непустой список значений"},
+		}}, "catalog: parameter «Kpd»: type enum requires a non-empty list of values"},
 		{"единица у enum", catalog.Input{Parameters: []catalog.ParameterDef{
 			p(func(r *catalog.ParameterDef) {
 				r.ValueType = catalog.ValueEnum
 				r.EnumValues = []string{"x"}
 			}),
-		}}, "каталог: параметр «Kpd» типа enum не должен иметь единицу измерения"},
+		}}, "catalog: parameter «Kpd» of type enum must not have a unit"},
 		{"enum-значения у численного типа", catalog.Input{Parameters: []catalog.ParameterDef{
 			p(func(r *catalog.ParameterDef) { r.EnumValues = []string{"x"} }),
-		}}, "каталог: параметр «Kpd»: enum-значения допустимы только для типа enum"},
+		}}, "catalog: parameter «Kpd»: enum values are allowed only for type enum"},
 		{"неположительный потолок", catalog.Input{Parameters: []catalog.ParameterDef{
 			p(func(r *catalog.ParameterDef) { r.Ceiling = f(0) }),
-		}}, "каталог: параметр «Kpd»: потолок должен быть положительным"},
+		}}, "catalog: parameter «Kpd»: ceiling must be positive"},
 		{"отрицательный порядок", catalog.Input{Parameters: []catalog.ParameterDef{
 			p(func(r *catalog.ParameterDef) { r.SortOrder = -1 }),
-		}}, "каталог: параметр «Kpd»: порядок сортировки должен быть неотрицательным"},
+		}}, "catalog: parameter «Kpd»: sort order must be non-negative"},
 		{"неизвестный класс применимости", catalog.Input{Parameters: []catalog.ParameterDef{
 			p(func(r *catalog.ParameterDef) { r.Kinds = []domain.Kind{"thyristor"} }),
-		}}, "каталог: параметр «Kpd»: класс применимости «thyristor» не существует"},
+		}}, "catalog: parameter «Kpd»: applicability kind «thyristor» does not exist"},
 		{"правило атрибутов у параметра", catalog.Input{Parameters: []catalog.ParameterDef{
 			p(func(r *catalog.ParameterDef) { r.ValidationRule = "year_range" }),
-		}}, "каталог: параметр «Kpd»: правило «year_range» не применяется к параметрам"},
+		}}, "catalog: parameter «Kpd»: rule «year_range» does not apply to parameters"},
 		{"пустой набор условий", catalog.Input{Parameters: []catalog.ParameterDef{
 			p(func(r *catalog.ParameterDef) { r.ConditionSets = []catalog.ConditionSet{{No: 1}} }),
-		}}, "каталог: параметр «Kpd»: набор условий 1 пуст"},
+		}}, "catalog: parameter «Kpd»: condition set 1 is empty"},
 		{"несуществующее условие набора", catalog.Input{Parameters: []catalog.ParameterDef{
 			p(func(r *catalog.ParameterDef) {
 				r.ConditionSets = []catalog.ConditionSet{{No: 1, Items: []catalog.ConditionSetItem{{Condition: "no_such", Mode: catalog.ModeRequired}}}}
 			}),
-		}}, "каталог: параметр «Kpd»: набор условий 1: условие «no_such» не существует"},
+		}}, "catalog: parameter «Kpd»: condition set 1: condition «no_such» does not exist"},
 		{"fixed_value у optional", catalog.Input{Parameters: []catalog.ParameterDef{
 			p(func(r *catalog.ParameterDef) {
 				r.ConditionSets = []catalog.ConditionSet{{No: 1, Items: []catalog.ConditionSetItem{{Condition: "freq", Mode: catalog.ModeOptional, FixedValue: f(1)}}}}
 			}),
-		}}, "каталог: параметр «Kpd»: набор условий 1, условие «freq»: fixed_value допустим только у обязательного условия"},
+		}}, "catalog: parameter «Kpd»: condition set 1, condition «freq»: fixed_value is allowed only for a required condition"},
 		{"дубликат кода параметра", catalog.Input{Parameters: []catalog.ParameterDef{
 			p(func(*catalog.ParameterDef) {}), p(func(*catalog.ParameterDef) {}),
-		}}, "каталог: раздел parameters: дубликат кода «Kpd»"},
+		}}, "catalog: section parameters: duplicate code «Kpd»"},
 		{"неизвестное правило входа", catalog.Input{Rules: []catalog.RuleDef{
-			{Code: "no_such_rule", Description: "x"},
-		}}, "каталог: раздел validation_rules: неизвестное правило «no_such_rule»"},
-		{"описание правила разошлось", catalog.Input{Rules: []catalog.RuleDef{
-			{Code: "temp_pair", Description: "другая семантика"},
-		}}, "каталог: правило «temp_pair»: описание расходится с реализацией (реестр: «согласованность температурной пары: TempMin < TempMax и opTempMin < opTempMax (если заданы оба)»)"},
+			{Code: "no_such_rule"},
+		}}, "catalog: section validation_rules: unknown rule «no_such_rule»"},
 		{"несуществующая единица условия", catalog.Input{Conditions: []catalog.ConditionDef{
-			{Code: "Unew", Name: "новое", Unit: "мкВ"},
-		}}, "каталог: условие «Unew»: единица «мкВ» не существует"},
+			{Code: "Unew", Unit: "мкВ"},
+		}}, "catalog: condition «Unew»: unit «мкВ» does not exist"},
 		{"конфликт имени секции", catalog.Input{Groups: []catalog.GroupDef{
-			{Code: "extra", SectionName: "ratings", DisplayName: "Ещё одна", SortOrder: 40},
-		}}, "каталог: группа «extra»: имя секции «ratings» уже используется группой «limiting»"},
+			{Code: "extra", SectionName: "ratings", SortOrder: 40},
+		}}, "catalog: group «extra»: section name «ratings» is already used by group «limiting»"},
 		{"неизвестный класс семейства", catalog.Input{SeriesFamilies: []catalog.SeriesFamilyDef{
-			{Series: "XX", Kind: "thyristor", Name: "тест"},
-		}}, "каталог: семейство «XX»: класс «thyristor» не существует"},
+			{Series: "XX", Kind: "thyristor"},
+		}}, "catalog: family «XX»: kind «thyristor» does not exist"},
 		{"неизвестная семантика хвоста", catalog.Input{SeriesFamilies: []catalog.SeriesFamilyDef{
-			{Series: "XX", Kind: domain.KindResistor, Name: "тест", TailSemantic: "voltage"},
-		}}, "каталог: семейство «XX» (класс resistor): неизвестная семантика хвоста «voltage»"},
+			{Series: "XX", Kind: domain.KindResistor, TailSemantic: "voltage"},
+		}}, "catalog: family «XX» (kind resistor): unknown tail semantic «voltage»"},
 		{"семейство разбирается строгой системой", catalog.Input{SeriesFamilies: []catalog.SeriesFamilyDef{
-			{Series: "ГТ308", Kind: domain.KindTransistor, Name: "коллизия"},
-		}}, "каталог: семейство «ГТ308»: код разбирается строгой системой «gost» — нарушен инвариант реестра series"},
-		{"несуществующая система применимости", catalog.Input{SystemKinds: []catalog.SystemKindRef{
+			{Series: "ГТ308", Kind: domain.KindTransistor},
+		}}, "catalog: family «ГТ308»: the code is parsed by strict system «gost» — series registry invariant violated"},
+		{"несуществующая system применимости", catalog.Input{SystemKinds: []catalog.SystemKindRef{
 			{System: "din", Kind: domain.KindResistor},
-		}}, "каталог: применимость систем: система «din» не существует"},
+		}}, "catalog: system applicability: system «din» does not exist"},
 		{"несуществующий класс привязки правила", catalog.Input{KindRules: []catalog.KindRuleRef{
 			{Kind: "thyristor", Rule: "cap_variant_matrix"},
-		}}, "каталог: правило класса записей: класс «thyristor» не существует"},
+		}}, "catalog: device-kind rule: kind «thyristor» does not exist"},
 		{"правило параметров у класса", catalog.Input{KindRules: []catalog.KindRuleRef{
 			{Kind: domain.KindDiode, Rule: "temp_pair"},
-		}}, "каталог: правило класса записей (diode): правило «temp_pair» не применяется к записям класса"},
+		}}, "catalog: device-kind rule (diode): rule «temp_pair» does not apply to device records"},
 	}
 	base := seedSnapshot(t)
 	for _, tc := range cases {
@@ -140,15 +137,15 @@ func TestMetaschemaViolations(t *testing.T) {
 // мини-каталог с классом, но без строк правил.
 func TestMetaschemaKindRuleWithoutRow(t *testing.T) {
 	in := catalog.Input{
-		Kinds:     []catalog.KindDef{{Code: domain.KindDiode, Name: "диоды"}},
+		Kinds:     []catalog.KindDef{{Code: domain.KindDiode}},
 		KindRules: []catalog.KindRuleRef{{Kind: domain.KindDiode, Rule: "cap_variant_matrix"}},
 	}
 	_, probs := catalog.ApplyCatalog(nil, in)
 	hasProblem(t, probs,
-		"каталог: правило класса записей (diode): строка правила «cap_variant_matrix» отсутствует в разделе validation_rules")
+		"catalog: device-kind rule (diode): rule row «cap_variant_matrix» is missing from section validation_rules")
 }
 
-// Атрибуты: нарушения метасхемы по типам значений и привязкам правил.
+// Attributes: нарушения метасхемы по типам значений и привязкам правил.
 func TestMetaschemaAttributeViolations(t *testing.T) {
 	base, ok := seedSnapshot(t).Attribute("category")
 	if !ok {
@@ -159,21 +156,21 @@ func TestMetaschemaAttributeViolations(t *testing.T) {
 		in   catalog.Input
 		want string
 	}{
-		{"неизвестный тип атрибута", catalog.Input{Attributes: []catalog.AttributeDef{
+		{"unknown type атрибута", catalog.Input{Attributes: []catalog.AttributeDef{
 			withAttrType(base, "string"),
-		}}, "каталог: атрибут «category»: неизвестный тип значения «string»"},
+		}}, "catalog: attribute «category»: unknown value type «string»"},
 		{"несуществующая единица атрибута", catalog.Input{Attributes: []catalog.AttributeDef{
 			withAttrUnit(yearFrom(t), "мкВ"),
-		}}, "каталог: атрибут «yearFrom»: единица «мкВ» не существует"},
+		}}, "catalog: attribute «yearFrom»: unit «мкВ» does not exist"},
 		{"enum атрибута без значений", catalog.Input{Attributes: []catalog.AttributeDef{
 			withAttrType(base, catalog.AttrEnum),
-		}}, "каталог: атрибут «category»: тип enum требует непустой список значений"},
+		}}, "catalog: attribute «category»: type enum requires a non-empty list of values"},
 		{"правило параметров у атрибута", catalog.Input{Attributes: []catalog.AttributeDef{
 			withAttrRule(base, "temp_pair"),
-		}}, "каталог: атрибут «category»: правило «temp_pair» не применяется к атрибутам"},
+		}}, "catalog: attribute «category»: rule «temp_pair» does not apply to attributes"},
 		{"неизвестный класс применимости атрибута", catalog.Input{Attributes: []catalog.AttributeDef{
 			withAttrKinds(base, domain.Kind("thyristor")),
-		}}, "каталог: атрибут «category»: класс применимости «thyristor» не существует"},
+		}}, "catalog: attribute «category»: applicability kind «thyristor» does not exist"},
 	}
 	snap := seedSnapshot(t)
 	for _, tc := range cases {
@@ -298,14 +295,14 @@ func TestApplyCatalogUpsert(t *testing.T) {
 func TestCatalogExtensionEndToEnd(t *testing.T) {
 	snap := seedSnapshot(t)
 	extension := catalog.Input{
-		Units: []catalog.UnitDef{{Code: "В/мкс", Name: "вольт на микросекунду", Symbol: "В/мкс"}},
+		Units: []catalog.UnitDef{{Code: "V_per_us"}},
 		Conditions: []catalog.ConditionDef{
-			{Code: "Ugs", Name: "напряжение затвор-исток", Unit: "В"},
-			{Code: "Rg_ext", Name: "сопротивление в цепи затвора", Unit: "Ом"},
+			{Code: "Ugs", Unit: "V"},
+			{Code: "Rg_ext", Unit: "ohm"},
 		},
 		Parameters: []catalog.ParameterDef{
-			{Code: "UgsThr", Group: "electrical", DisplayName: "пороговое напряжение затвор-исток",
-				Unit: "В", ValueType: catalog.ValueRange, SortOrder: 460, Active: true,
+			{Code: "UgsThr", Group: "electrical",
+				Unit: "V", ValueType: catalog.ValueRange, SortOrder: 460, Active: true,
 				Kinds: []domain.Kind{domain.KindTransistor},
 				ConditionSets: []catalog.ConditionSet{
 					{No: 1, Items: []catalog.ConditionSetItem{
@@ -313,7 +310,7 @@ func TestCatalogExtensionEndToEnd(t *testing.T) {
 						{Condition: "Rg_ext", Mode: catalog.ModeOptional},
 					}},
 				}},
-			{Code: "dUdt", Group: "electrical", DisplayName: "скорость нарастания", Unit: "В/мкс",
+			{Code: "dUdt", Group: "electrical", Unit: "V_per_us",
 				ValueType: catalog.ValueAtMost, SortOrder: 470, Active: true},
 		},
 	}

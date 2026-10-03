@@ -1,7 +1,6 @@
 package domain
 
 import (
-	"fmt"
 	"slices"
 	"strconv"
 	"strings"
@@ -28,9 +27,9 @@ import (
 type SeriesFamily struct {
 	Series string // код семейства (канонический, верхний регистр)
 	Kind   Kind   // класс, который задаёт семейство при автодетекте
-	Name   string // расшифровка
 
 	// Power — tail_semantic = power: хвост-число есть мощность, Вт.
+	// Расшифровка семейства — бандлы internal/i18n: family.<семейство> (D9).
 	Power bool
 
 	// Examples — контрольные обозначения семейства: проверка инварианта
@@ -45,85 +44,85 @@ type SeriesFamily struct {
 // безопасны (двузначные номера PRO ELECTRON не принимает).
 var seriesFamilies = []SeriesFamily{
 	// Транзисторы: досистемные семейства и мировые дом-номера.
-	{Series: "П", Kind: KindTransistor, Name: "германиевые транзисторы до ГОСТ 10862-64",
+	{Series: "П", Kind: KindTransistor,
 		Examples: []string{"П13", "П214", "П402А"}},
-	{Series: "МП", Kind: KindTransistor, Name: "германиевые транзисторы до ГОСТ 10862-64",
+	{Series: "МП", Kind: KindTransistor,
 		Examples: []string{"МП39", "МП41А", "МП42Б"}},
-	{Series: "OC", Kind: KindTransistor, Name: "старая система Mullard–Philips",
+	{Series: "OC", Kind: KindTransistor,
 		Examples: []string{"OC44", "OC71"}},
-	{Series: "TIP", Kind: KindTransistor, Name: "дом-номер Texas Instruments",
+	{Series: "TIP", Kind: KindTransistor,
 		Examples: []string{"TIP120", "TIP121"}},
-	{Series: "MPSA", Kind: KindTransistor, Name: "дом-номер Motorola",
+	{Series: "MPSA", Kind: KindTransistor,
 		Examples: []string{"MPSA42", "MPSA92"}},
 
 	// Диоды: досистемные семейства.
-	{Series: "Д", Kind: KindDiode, Name: "диоды до ГОСТ 10862-64",
+	{Series: "Д", Kind: KindDiode,
 		Examples: []string{"Д2Б", "Д7А", "Д7Ж", "Д104", "Д226", "Д242", "Д808", "Д814А"}},
-	{Series: "ДГ", Kind: KindDiode, Name: "точечные германиевые диоды",
+	{Series: "ДГ", Kind: KindDiode,
 		Examples: []string{"ДГ-Ц8"}},
 
 	// Резисторы: советские досистемные семейства.
-	{Series: "ВС", Kind: KindResistor, Name: "высокостабильные углеродистые", Power: true,
+	{Series: "ВС", Kind: KindResistor, Power: true,
 		Examples: []string{"ВС-0.125", "ВС-0.25", "ВС-0.5", "ВС-1", "ВС-2"}},
-	{Series: "ВК", Kind: KindResistor, Name: "досистемное семейство", Power: true,
+	{Series: "ВК", Kind: KindResistor, Power: true,
 		Examples: []string{"ВК-2"}},
-	{Series: "КИМ", Kind: KindResistor, Name: "композиционные изолированные малогабаритные", Power: true,
+	{Series: "КИМ", Kind: KindResistor, Power: true,
 		Examples: []string{"КИМ-0.05", "КИМ-0.125"}},
-	{Series: "МГТ", Kind: KindResistor, Name: "металлоплёночные герметизированные", Power: true,
+	{Series: "МГТ", Kind: KindResistor, Power: true,
 		Examples: []string{"МГТ-0.5", "МГТ-1"}},
-	{Series: "МЛТ", Kind: KindResistor, Name: "металлоплёночные лакированные теплостойкие", Power: true,
+	{Series: "МЛТ", Kind: KindResistor, Power: true,
 		Examples: []string{"МЛТ-0.125", "МЛТ-0.5", "МЛТ-1", "МЛТ-2"}},
-	{Series: "МТ", Kind: KindResistor, Name: "металлоплёночные теплостойкие", Power: true,
+	{Series: "МТ", Kind: KindResistor, Power: true,
 		Examples: []string{"МТ-0.5", "МТ-1"}},
-	{Series: "ОМЛТ", Kind: KindResistor, Name: "огнестойкие металлоплёночные", Power: true,
+	{Series: "ОМЛТ", Kind: KindResistor, Power: true,
 		Examples: []string{"ОМЛТ-0.5", "ОМЛТ-1"}},
-	{Series: "ПЭ", Kind: KindResistor, Name: "проволочные эмалированные", Power: true,
+	{Series: "ПЭ", Kind: KindResistor, Power: true,
 		Examples: []string{"ПЭ-10", "ПЭ-25"}},
-	{Series: "ПЭВ", Kind: KindResistor, Name: "проволочные эмалированные влагостойкие", Power: true,
+	{Series: "ПЭВ", Kind: KindResistor, Power: true,
 		Examples: []string{"ПЭВ-5", "ПЭВ-10", "ПЭВ-25"}},
-	{Series: "СПО", Kind: KindResistor, Name: "сопротивления переменные объёмные", Power: true,
+	{Series: "СПО", Kind: KindResistor, Power: true,
 		Examples: []string{"СПО-0.5", "СПО-1"}},
-	{Series: "УЛИ", Kind: KindResistor, Name: "углеродистые лакированные измерительные", Power: true,
+	{Series: "УЛИ", Kind: KindResistor, Power: true,
 		Examples: []string{"УЛИ-0.5", "УЛИ-1"}},
 
 	// Резисторы: мил-ряды и фирменные семейства.
-	{Series: "RC", Kind: KindResistor, Name: "углеродистые композиционные (MIL-R-11/39008)",
+	{Series: "RC", Kind: KindResistor,
 		Examples: []string{"RC05", "RC20"}},
-	{Series: "RB", Kind: KindResistor, Name: "проволочные прецизионные (MIL-R-93/39005)",
+	{Series: "RB", Kind: KindResistor,
 		Examples: []string{"RB52"}},
-	{Series: "RL", Kind: KindResistor, Name: "металлоплёночные (MIL-R-22684/39017)",
+	{Series: "RL", Kind: KindResistor,
 		Examples: []string{"RL07", "RL20"}},
-	{Series: "RN", Kind: KindResistor, Name: "металлоплёночные прецизионные (MIL-R-10509/55182)",
+	{Series: "RN", Kind: KindResistor,
 		Examples: []string{"RN55", "RN65"}},
-	{Series: "RW", Kind: KindResistor, Name: "проволочные мощные (MIL-R-26)",
+	{Series: "RW", Kind: KindResistor,
 		Examples: []string{"RW67", "RW74"}},
-	{Series: "M55342", Kind: KindResistor, Name: "чип (MIL-PRF-55342)",
+	{Series: "M55342", Kind: KindResistor,
 		Examples: []string{"M55342K06B"}},
-	{Series: "KNP", Kind: KindResistor, Name: "фирменное семейство (цементные)",
+	{Series: "KNP", Kind: KindResistor,
 		Examples: []string{"KNP-100"}},
-	{Series: "CFR", Kind: KindResistor, Name: "фирменное семейство (углеродистые)",
+	{Series: "CFR", Kind: KindResistor,
 		Examples: []string{"CFR-25"}},
 
 	// Конденсаторы: старые системы вне единой.
-	{Series: "БМ", Kind: KindCapacitor, Name: "бумажные малогабаритные",
+	{Series: "БМ", Kind: KindCapacitor,
 		Examples: []string{"БМ-2"}},
-	{Series: "КБГИ", Kind: KindCapacitor, Name: "бумажные герметизированные изолированные"},
-	{Series: "КД", Kind: KindCapacitor, Name: "керамические дисковые"},
-	{Series: "КЛС", Kind: KindCapacitor, Name: "керамические литые секционные"},
-	{Series: "КМ", Kind: KindCapacitor, Name: "керамические монолитные",
+	{Series: "КБГИ", Kind: KindCapacitor},
+	{Series: "КД", Kind: KindCapacitor},
+	{Series: "КЛС", Kind: KindCapacitor},
+	{Series: "КМ", Kind: KindCapacitor,
 		Examples: []string{"КМ-4", "КМ-5", "КМ-6"}},
-	{Series: "КПК", Kind: KindCapacitor, Name: "подстроечные керамические"},
-	{Series: "КСО", Kind: KindCapacitor, Name: "слюдяные спрессованные",
+	{Series: "КПК", Kind: KindCapacitor},
+	{Series: "КСО", Kind: KindCapacitor,
 		Examples: []string{"КСО-1", "КСО-2", "КСО-5"}},
-	{Series: "КЭГ", Kind: KindCapacitor, Name: "электролитические герметизированные"},
-	{Series: "МБГЧ", Kind: KindCapacitor, Name: "металлобумажные герметизированные частотные",
+	{Series: "КЭГ", Kind: KindCapacitor},
+	{Series: "МБГЧ", Kind: KindCapacitor,
 		Examples: []string{"МБГЧ-1", "МБГЧ-2"}},
-	{Series: "МБГО", Kind: KindCapacitor, Name: "металлобумажные герметизированные"},
-	{Series: "МБМ", Kind: KindCapacitor, Name: "металлобумажные малогабаритные",
+	{Series: "МБГО", Kind: KindCapacitor},
+	{Series: "МБМ", Kind: KindCapacitor,
 		Examples: []string{"МБМ"}},
-	{Series: "СГМ", Kind: KindCapacitor, Name: "слюдяные герметизированные малогабаритные"},
-	{Series: "ЭМ", Kind: KindCapacitor, Name: "электролитические"},
-	{Series: "ЭТО", Kind: KindCapacitor, Name: "электролитические танталовые объёмно-пористые",
+	{Series: "СГМ", Kind: KindCapacitor},
+	{Series: "ЭМ", Kind: KindCapacitor},
+	{Series: "ЭТО", Kind: KindCapacitor,
 		Examples: []string{"ЭТО-1", "ЭТО-2"}},
 }
 
@@ -247,7 +246,7 @@ func parseSeriesFamily(canonical string, family *SeriesFamily, kindHint Kind) (P
 // число (МЛТ-0.5, ПЭВ-10); десятичная запятая нормализована канонизацией.
 func parseSeriesPowerTail(s *scanner) (float64, error) {
 	if !s.peekIs(s.i, '-') {
-		return 0, s.fail("хвост мощности через дефис (например, -0.5)")
+		return 0, s.fail(MsgExpectPowerTailHyphen)
 	}
 	s.i++
 	start := s.i
@@ -256,19 +255,19 @@ func parseSeriesPowerTail(s *scanner) (float64, error) {
 		s.i++
 		frac, _ := s.digits()
 		if frac == "" {
-			return 0, s.failAt(s.i, "цифры дробной части мощности")
+			return 0, s.failAt(s.i, MsgExpectPowerFraction)
 		}
 		run += "." + frac
 	}
 	if run == "" {
-		return 0, s.fail("положительное число номинальной мощности")
+		return 0, s.fail(MsgExpectPowerPositive)
 	}
 	if !s.atEnd() {
 		return 0, s.eofErr()
 	}
 	v, err := strconv.ParseFloat(run, 64)
 	if err != nil || v <= 0 {
-		return 0, s.failToken(start, "положительное число номинальной мощности", run)
+		return 0, s.failToken(start, MsgExpectPowerPositive, run)
 	}
 	return v, nil
 }
@@ -301,16 +300,16 @@ func parseSeriesWeakTail(s *scanner) (*int, string, error) {
 	s.digits()
 	digits := string(s.src[start:s.i])
 	if len(digits) > 5 {
-		return nil, "", s.failToken(start, "число в хвосте семейства (до 5 цифр)", digits)
+		return nil, "", s.failToken(start, MsgExpectSeriesTailDigits, digits)
 	}
 	letters2 := readLetters(3)
 
 	if !s.atEnd() {
-		return nil, "", s.fail("хвост семейства (число и буквы)")
+		return nil, "", s.fail(MsgExpectSeriesTail)
 	}
 	if digits == "" && letters == "" && letters2 == "" && s.i > tailStart {
 		// Хвост из одного дефиса без содержимого.
-		return nil, "", s.fail("хвост семейства (число и буквы)")
+		return nil, "", s.fail(MsgExpectSeriesTail)
 	}
 	var number *int
 	if digits != "" {
@@ -338,7 +337,6 @@ func seriesUnknownFamily(canonical string, kindHint Kind) *Error {
 	for end < len(run) && (isCyrillicUpper(run[end]) || isLatinUpper(run[end])) {
 		end++
 	}
-	return NewError(CodeInvalidDesignation, fmt.Sprintf(
-		"обозначение «%s»: неизвестное семейство «%s»; поддерживаемые семейства (%s): %s",
-		canonical, string(run[:end]), scope, strings.Join(codes, ", ")))
+	return NewErrorf(CodeInvalidDesignation, MsgFamilyUnknown,
+		canonical, string(run[:end]), scope, strings.Join(codes, ", "))
 }

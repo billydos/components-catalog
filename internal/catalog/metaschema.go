@@ -1,8 +1,6 @@
 package catalog
 
 import (
-	"fmt"
-
 	"github.com/billydos/components-catalog/internal/domain"
 )
 
@@ -23,8 +21,8 @@ func ApplyCatalog(base *Snapshot, in Input) (*Snapshot, []Problem) {
 }
 
 // metaProblem — проблема метасхемы: ошибка импорта каталога.
-func metaProblem(format string, a ...any) Problem {
-	return Problem{Code: domain.CodeInvalidImportFile, Message: fmt.Sprintf(format, a...)}
+func metaProblem(id domain.MsgID, a ...any) Problem {
+	return Problemf(domain.CodeInvalidImportFile, id, a...)
 }
 
 // validateInputSelf — внутренняя согласованность входа: непустые и
@@ -53,7 +51,7 @@ func validateInputSelf(in Input) []Problem {
 			continue
 		}
 		if _, ok := RuleByCode(r.Code); !ok {
-			probs = append(probs, metaProblem("каталог: раздел validation_rules: неизвестное правило «%s»", r.Code))
+			probs = append(probs, metaProblem(domain.MsgMetaRuleUnknownSection, r.Code))
 		}
 	}
 	for i := range in.Parameters {
@@ -62,18 +60,17 @@ func validateInputSelf(in Input) []Problem {
 			continue
 		}
 		if !p.ValueType.Valid() {
-			probs = append(probs, metaProblem("каталог: параметр «%s»: неизвестный тип значения «%s»", p.Code, string(p.ValueType)))
+			probs = append(probs, metaProblem(domain.MsgMetaParamValueType, p.Code, string(p.ValueType)))
 		}
 		if p.ValidationRule != "" {
 			if _, ok := RuleByCode(p.ValidationRule); !ok {
-				probs = append(probs, metaProblem("каталог: параметр «%s»: правило «%s» неизвестно", p.Code, p.ValidationRule))
+				probs = append(probs, metaProblem(domain.MsgMetaParamRuleUnknown, p.Code, p.ValidationRule))
 			}
 		}
 		for j := range p.ConditionSets {
 			for _, it := range p.ConditionSets[j].Items {
 				if !it.Mode.Valid() {
-					probs = append(probs, metaProblem(
-						"каталог: параметр «%s»: набор условий %d: неизвестный режим условия «%s»",
+					probs = append(probs, metaProblem(domain.MsgMetaCondModeUnknown,
 						p.Code, p.ConditionSets[j].No, string(it.Mode)))
 				}
 			}
@@ -85,11 +82,11 @@ func validateInputSelf(in Input) []Problem {
 			continue
 		}
 		if !a.Type.Valid() {
-			probs = append(probs, metaProblem("каталог: атрибут «%s»: неизвестный тип значения «%s»", a.Code, string(a.Type)))
+			probs = append(probs, metaProblem(domain.MsgMetaAttrValueType, a.Code, string(a.Type)))
 		}
 		if a.ValidationRule != "" {
 			if _, ok := RuleByCode(a.ValidationRule); !ok {
-				probs = append(probs, metaProblem("каталог: атрибут «%s»: правило «%s» неизвестно", a.Code, a.ValidationRule))
+				probs = append(probs, metaProblem(domain.MsgMetaAttrRuleUnknown, a.Code, a.ValidationRule))
 			}
 		}
 	}
@@ -99,8 +96,7 @@ func validateInputSelf(in Input) []Problem {
 			continue
 		}
 		if f.TailSemantic != "" && f.TailSemantic != TailSemanticPower {
-			probs = append(probs, metaProblem(
-				"каталог: семейство «%s» (класс %s): неизвестная семантика хвоста «%s»",
+			probs = append(probs, metaProblem(domain.MsgMetaTailSemantic,
 				f.Series, string(f.Kind), f.TailSemantic))
 		}
 	}
@@ -113,11 +109,11 @@ func checkCodes[T any](section string, rows []T, code func(T) string) []Problem 
 	for _, r := range rows {
 		c := code(r)
 		if c == "" {
-			probs = append(probs, metaProblem("каталог: раздел %s: не задан код", section))
+			probs = append(probs, metaProblem(domain.MsgMetaSectionNoCode, section))
 			continue
 		}
 		if seen[c] {
-			probs = append(probs, metaProblem("каталог: раздел %s: дубликат кода «%s»", section, c))
+			probs = append(probs, metaProblem(domain.MsgMetaSectionDupCode, section, c))
 		}
 		seen[c] = true
 	}
@@ -318,91 +314,74 @@ func validateMetaschema(out *Snapshot) []Problem {
 	for i := range out.Kinds {
 		r := &out.Kinds[i]
 		if r.Code == "" {
-			probs = append(probs, metaProblem("каталог: раздел kinds: не задан код"))
-		} else if r.Name == "" {
-			probs = append(probs, metaProblem("каталог: класс «%s»: не задано название", string(r.Code)))
+			probs = append(probs, metaProblem(domain.MsgMetaSectionNoCode, "kinds"))
 		}
 	}
 	for i := range out.Systems {
 		r := &out.Systems[i]
 		if r.Code == "" {
-			probs = append(probs, metaProblem("каталог: раздел designation_systems: не задан код"))
-		} else if r.Name == "" {
-			probs = append(probs, metaProblem("каталог: система «%s»: не задано название", string(r.Code)))
+			probs = append(probs, metaProblem(domain.MsgMetaSectionNoCode, "designation_systems"))
 		}
 	}
 	for i := range out.SystemKinds {
 		r := &out.SystemKinds[i]
 		if _, ok := out.System(r.System); !ok {
-			probs = append(probs, metaProblem(
-				"каталог: применимость систем: система «%s» не существует", string(r.System)))
+			probs = append(probs, metaProblem(domain.MsgMetaSystemRefMissing, string(r.System)))
 		}
 		if _, ok := out.Kind(r.Kind); !ok {
-			probs = append(probs, metaProblem(
-				"каталог: применимость систем: класс «%s» не существует", string(r.Kind)))
+			probs = append(probs, metaProblem(domain.MsgMetaSystemKindMissing, string(r.Kind)))
 		}
 	}
 	for i := range out.SeriesFamilies {
 		f := &out.SeriesFamilies[i]
 		if f.Series == "" {
-			probs = append(probs, metaProblem("каталог: раздел series_families: не задано семейство"))
+			probs = append(probs, metaProblem(domain.MsgMetaFamilyNoCode))
 			continue
 		}
 		if _, ok := out.Kind(f.Kind); !ok {
-			probs = append(probs, metaProblem(
-				"каталог: семейство «%s»: класс «%s» не существует", f.Series, string(f.Kind)))
+			probs = append(probs, metaProblem(domain.MsgMetaFamilyKindMissing, f.Series, string(f.Kind)))
 		}
 		if f.TailSemantic != "" && f.TailSemantic != TailSemanticPower {
-			probs = append(probs, metaProblem(
-				"каталог: семейство «%s» (класс %s): неизвестная семантика хвоста «%s»",
+			probs = append(probs, metaProblem(domain.MsgMetaTailSemantic,
 				f.Series, string(f.Kind), f.TailSemantic))
 		}
 		if sys, strict := seriesParsedStrictly(f.Series); strict {
-			probs = append(probs, metaProblem(
-				"каталог: семейство «%s»: код разбирается строгой системой «%s» — нарушен инвариант реестра series",
-				f.Series, string(sys)))
+			probs = append(probs, metaProblem(domain.MsgMetaFamilyStrictInvariant, f.Series, string(sys)))
 		}
 	}
 	for i := range out.Units {
 		r := &out.Units[i]
 		if r.Code == "" {
-			probs = append(probs, metaProblem("каталог: раздел units: не задан код"))
-		} else if r.Name == "" || r.Symbol == "" {
-			probs = append(probs, metaProblem("каталог: единица «%s»: не заданы название и символ", r.Code))
+			probs = append(probs, metaProblem(domain.MsgMetaSectionNoCode, "units"))
 		}
 	}
 	for i := range out.Conditions {
 		r := &out.Conditions[i]
 		if r.Code == "" {
-			probs = append(probs, metaProblem("каталог: раздел conditions: не задан код"))
+			probs = append(probs, metaProblem(domain.MsgMetaSectionNoCode, "conditions"))
 			continue
-		}
-		if r.Name == "" {
-			probs = append(probs, metaProblem("каталог: условие «%s»: не задано название", r.Code))
 		}
 		if r.Unit != "" {
 			if _, ok := out.Unit(r.Unit); !ok {
-				probs = append(probs, metaProblem("каталог: условие «%s»: единица «%s» не существует", r.Code, r.Unit))
+				probs = append(probs, metaProblem(domain.MsgMetaCondUnitMissing, r.Code, r.Unit))
 			}
 		}
 	}
 	for i := range out.Groups {
 		r := &out.Groups[i]
 		if r.Code == "" {
-			probs = append(probs, metaProblem("каталог: раздел parameter_groups: не задан код"))
+			probs = append(probs, metaProblem(domain.MsgMetaSectionNoCode, "parameter_groups"))
 			continue
 		}
-		if r.SectionName == "" || r.DisplayName == "" {
-			probs = append(probs, metaProblem(
-				"каталог: группа «%s»: не заданы имя секции и отображаемое название", r.Code))
+		if r.SectionName == "" {
+			probs = append(probs, metaProblem(domain.MsgMetaGroupNoSection, r.Code))
 		}
 		if r.SortOrder < 0 {
-			probs = append(probs, metaProblem("каталог: группа «%s»: порядок сортировки должен быть неотрицательным", r.Code))
+			probs = append(probs, metaProblem(domain.MsgMetaGroupSortNegative, r.Code))
 		}
 		for j := 0; j < i; j++ {
 			if out.Groups[j].SectionName == r.SectionName {
-				probs = append(probs, metaProblem(
-					"каталог: группа «%s»: имя секции «%s» уже используется группой «%s»",
+				probs = append(probs, metaProblem(domain.MsgMetaGroupSectionDup,
 					r.Code, r.SectionName, out.Groups[j].Code))
 				break
 			}
@@ -411,119 +390,90 @@ func validateMetaschema(out *Snapshot) []Problem {
 	for i := range out.Rules {
 		r := &out.Rules[i]
 		if r.Code == "" {
-			probs = append(probs, metaProblem("каталог: раздел validation_rules: не задан код"))
+			probs = append(probs, metaProblem(domain.MsgMetaSectionNoCode, "validation_rules"))
 			continue
 		}
-		reg, ok := RuleByCode(r.Code)
-		if !ok {
-			probs = append(probs, metaProblem("каталог: правило «%s» неизвестно", r.Code))
-		} else if reg.Description() != r.Description {
-			probs = append(probs, metaProblem(
-				"каталог: правило «%s»: описание расходится с реализацией (реестр: «%s»)",
-				r.Code, reg.Description()))
+		if _, ok := RuleByCode(r.Code); !ok {
+			probs = append(probs, metaProblem(domain.MsgMetaRuleUnknown, r.Code))
 		}
 	}
 	for i := range out.KindRules {
 		r := &out.KindRules[i]
 		if _, ok := out.Kind(r.Kind); !ok {
-			probs = append(probs, metaProblem(
-				"каталог: правило класса записей: класс «%s» не существует", string(r.Kind)))
+			probs = append(probs, metaProblem(domain.MsgMetaKindRuleKindMissing, string(r.Kind)))
 		}
 		reg, known := RuleByCode(r.Rule)
 		if !known {
-			probs = append(probs, metaProblem(
-				"каталог: правило класса записей (%s): правило «%s» не существует", string(r.Kind), r.Rule))
+			probs = append(probs, metaProblem(domain.MsgMetaKindRuleUnknown, string(r.Kind), r.Rule))
 			continue
 		}
 		if _, ok := indexOfRuleRow(out.Rules, r.Rule); !ok {
-			probs = append(probs, metaProblem(
-				"каталог: правило класса записей (%s): строка правила «%s» отсутствует в разделе validation_rules",
-				string(r.Kind), r.Rule))
+			probs = append(probs, metaProblem(domain.MsgMetaKindRuleRowMissing, string(r.Kind), r.Rule))
 		}
 		if _, is := reg.(DeviceRule); !is {
-			probs = append(probs, metaProblem(
-				"каталог: правило класса записей (%s): правило «%s» не применяется к записям класса",
-				string(r.Kind), r.Rule))
+			probs = append(probs, metaProblem(domain.MsgMetaKindRuleNotDevice, string(r.Kind), r.Rule))
 		}
 	}
 	for i := range out.Parameters {
 		p := &out.Parameters[i]
 		if p.Code == "" {
-			probs = append(probs, metaProblem("каталог: раздел parameters: не задан код"))
+			probs = append(probs, metaProblem(domain.MsgMetaSectionNoCode, "parameters"))
 			continue
 		}
-		if p.DisplayName == "" {
-			probs = append(probs, metaProblem("каталог: параметр «%s»: не задано название", p.Code))
-		}
 		if _, ok := out.Group(p.Group); !ok {
-			probs = append(probs, metaProblem("каталог: параметр «%s»: группа «%s» не существует", p.Code, p.Group))
+			probs = append(probs, metaProblem(domain.MsgMetaParamGroupMissing, p.Code, p.Group))
 		}
 		if p.Unit != "" {
 			if _, ok := out.Unit(p.Unit); !ok {
-				probs = append(probs, metaProblem(
-					"каталог: параметр «%s»: единица «%s» не существует", p.Code, p.Unit))
+				probs = append(probs, metaProblem(domain.MsgMetaParamUnitMissing, p.Code, p.Unit))
 			}
 		}
 		if !p.ValueType.Valid() {
-			probs = append(probs, metaProblem(
-				"каталог: параметр «%s»: неизвестный тип значения «%s»", p.Code, string(p.ValueType)))
+			probs = append(probs, metaProblem(domain.MsgMetaParamValueType, p.Code, string(p.ValueType)))
 		} else {
 			if (p.ValueType == ValueText || p.ValueType == ValueEnum) && p.Unit != "" {
-				probs = append(probs, metaProblem(
-					"каталог: параметр «%s» типа %s не должен иметь единицу измерения", p.Code, string(p.ValueType)))
+				probs = append(probs, metaProblem(domain.MsgMetaParamUnitForbidden, p.Code, string(p.ValueType)))
 			}
 			if p.ValueType == ValueEnum && len(p.EnumValues) == 0 {
-				probs = append(probs, metaProblem(
-					"каталог: параметр «%s»: тип enum требует непустой список значений", p.Code))
+				probs = append(probs, metaProblem(domain.MsgMetaParamEnumRequired, p.Code))
 			}
 			if p.ValueType != ValueEnum && len(p.EnumValues) > 0 {
-				probs = append(probs, metaProblem(
-					"каталог: параметр «%s»: enum-значения допустимы только для типа enum", p.Code))
+				probs = append(probs, metaProblem(domain.MsgMetaParamEnumOnly, p.Code))
 			}
 		}
 		if p.Ceiling != nil && *p.Ceiling <= 0 {
-			probs = append(probs, metaProblem("каталог: параметр «%s»: потолок должен быть положительным", p.Code))
+			probs = append(probs, metaProblem(domain.MsgMetaParamCeiling, p.Code))
 		}
 		if p.SortOrder < 0 {
-			probs = append(probs, metaProblem(
-				"каталог: параметр «%s»: порядок сортировки должен быть неотрицательным", p.Code))
+			probs = append(probs, metaProblem(domain.MsgMetaParamSortNegative, p.Code))
 		}
 		for _, k := range p.Kinds {
 			if _, ok := out.Kind(k); !ok {
-				probs = append(probs, metaProblem(
-					"каталог: параметр «%s»: класс применимости «%s» не существует", p.Code, string(k)))
+				probs = append(probs, metaProblem(domain.MsgMetaParamKindMissing, p.Code, string(k)))
 			}
 		}
 		if p.ValidationRule != "" {
 			if _, ok := indexOfRuleRow(out.Rules, p.ValidationRule); !ok {
-				probs = append(probs, metaProblem(
-					"каталог: параметр «%s»: строка правила «%s» отсутствует в разделе validation_rules",
-					p.Code, p.ValidationRule))
+				probs = append(probs, metaProblem(domain.MsgMetaParamRuleRowMissing, p.Code, p.ValidationRule))
 			}
 			if reg, ok := RuleByCode(p.ValidationRule); ok {
 				if _, is := reg.(ParameterRule); !is {
-					probs = append(probs, metaProblem(
-						"каталог: параметр «%s»: правило «%s» не применяется к параметрам", p.Code, p.ValidationRule))
+					probs = append(probs, metaProblem(domain.MsgMetaParamRuleWrongLevel, p.Code, p.ValidationRule))
 				}
 			}
 		}
 		for j := range p.ConditionSets {
 			set := &p.ConditionSets[j]
 			if len(set.Items) == 0 {
-				probs = append(probs, metaProblem(
-					"каталог: параметр «%s»: набор условий %d пуст", p.Code, set.No))
+				probs = append(probs, metaProblem(domain.MsgMetaCondSetEmpty, p.Code, set.No))
 				continue
 			}
 			for _, it := range set.Items {
 				if _, ok := out.Condition(it.Condition); !ok {
-					probs = append(probs, metaProblem(
-						"каталог: параметр «%s»: набор условий %d: условие «%s» не существует",
-						p.Code, set.No, it.Condition))
+					probs = append(probs, metaProblem(domain.MsgMetaCondMissing, p.Code, set.No, it.Condition))
 				}
 				if it.FixedValue != nil && it.Mode != ModeRequired {
-					probs = append(probs, metaProblem(
-						"каталог: параметр «%s»: набор условий %d, условие «%s»: fixed_value допустим только у обязательного условия",
-						p.Code, set.No, it.Condition))
+					probs = append(probs, metaProblem(domain.MsgMetaCondFixedOptional, p.Code, set.No, it.Condition))
 				}
 			}
 		}
@@ -531,55 +481,42 @@ func validateMetaschema(out *Snapshot) []Problem {
 	for i := range out.Attributes {
 		a := &out.Attributes[i]
 		if a.Code == "" {
-			probs = append(probs, metaProblem("каталог: раздел attributes: не задан код"))
+			probs = append(probs, metaProblem(domain.MsgMetaSectionNoCode, "attributes"))
 			continue
-		}
-		if a.DisplayName == "" {
-			probs = append(probs, metaProblem("каталог: атрибут «%s»: не задано название", a.Code))
 		}
 		if a.Unit != "" {
 			if _, ok := out.Unit(a.Unit); !ok {
-				probs = append(probs, metaProblem(
-					"каталог: атрибут «%s»: единица «%s» не существует", a.Code, a.Unit))
+				probs = append(probs, metaProblem(domain.MsgMetaAttrUnitMissing, a.Code, a.Unit))
 			}
 		}
 		if !a.Type.Valid() {
-			probs = append(probs, metaProblem(
-				"каталог: атрибут «%s»: неизвестный тип значения «%s»", a.Code, string(a.Type)))
+			probs = append(probs, metaProblem(domain.MsgMetaAttrValueType, a.Code, string(a.Type)))
 		} else {
 			if (a.Type == AttrText || a.Type == AttrEnum) && a.Unit != "" {
-				probs = append(probs, metaProblem(
-					"каталог: атрибут «%s» типа %s не должен иметь единицу измерения", a.Code, string(a.Type)))
+				probs = append(probs, metaProblem(domain.MsgMetaAttrUnitForbidden, a.Code, string(a.Type)))
 			}
 			if a.Type == AttrEnum && len(a.EnumValues) == 0 {
-				probs = append(probs, metaProblem(
-					"каталог: атрибут «%s»: тип enum требует непустой список значений", a.Code))
+				probs = append(probs, metaProblem(domain.MsgMetaAttrEnumRequired, a.Code))
 			}
 			if a.Type != AttrEnum && len(a.EnumValues) > 0 {
-				probs = append(probs, metaProblem(
-					"каталог: атрибут «%s»: enum-значения допустимы только для типа enum", a.Code))
+				probs = append(probs, metaProblem(domain.MsgMetaAttrEnumOnly, a.Code))
 			}
 		}
 		if a.SortOrder < 0 {
-			probs = append(probs, metaProblem(
-				"каталог: атрибут «%s»: порядок сортировки должен быть неотрицательным", a.Code))
+			probs = append(probs, metaProblem(domain.MsgMetaAttrSortNegative, a.Code))
 		}
 		for _, k := range a.Kinds {
 			if _, ok := out.Kind(k); !ok {
-				probs = append(probs, metaProblem(
-					"каталог: атрибут «%s»: класс применимости «%s» не существует", a.Code, string(k)))
+				probs = append(probs, metaProblem(domain.MsgMetaAttrKindMissing, a.Code, string(k)))
 			}
 		}
 		if a.ValidationRule != "" {
 			if _, ok := indexOfRuleRow(out.Rules, a.ValidationRule); !ok {
-				probs = append(probs, metaProblem(
-					"каталог: атрибут «%s»: строка правила «%s» отсутствует в разделе validation_rules",
-					a.Code, a.ValidationRule))
+				probs = append(probs, metaProblem(domain.MsgMetaAttrRuleRowMissing, a.Code, a.ValidationRule))
 			}
 			if reg, ok := RuleByCode(a.ValidationRule); ok {
 				if _, is := reg.(AttributeRule); !is {
-					probs = append(probs, metaProblem(
-						"каталог: атрибут «%s»: правило «%s» не применяется к атрибутам", a.Code, a.ValidationRule))
+					probs = append(probs, metaProblem(domain.MsgMetaAttrRuleWrongLevel, a.Code, a.ValidationRule))
 				}
 			}
 		}

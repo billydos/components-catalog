@@ -69,7 +69,7 @@ func nullableFloat(v sql.NullFloat64) *float64 {
 }
 
 func (d *DB) loadKinds(ctx context.Context) ([]catalog.KindDef, error) {
-	rows, err := d.query(ctx, `SELECT code, name FROM kinds ORDER BY code`, nil)
+	rows, err := d.query(ctx, `SELECT code FROM kinds ORDER BY code`, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -77,7 +77,7 @@ func (d *DB) loadKinds(ctx context.Context) ([]catalog.KindDef, error) {
 	var out []catalog.KindDef
 	for rows.Next() {
 		var r catalog.KindDef
-		if err := rows.Scan(&r.Code, &r.Name); err != nil {
+		if err := rows.Scan(&r.Code); err != nil {
 			return nil, err
 		}
 		out = append(out, r)
@@ -87,7 +87,7 @@ func (d *DB) loadKinds(ctx context.Context) ([]catalog.KindDef, error) {
 
 func (d *DB) loadSystems(ctx context.Context) ([]catalog.SystemDef, error) {
 	rows, err := d.query(ctx,
-		`SELECT code, name, description FROM designation_systems ORDER BY code`, nil)
+		`SELECT code FROM designation_systems ORDER BY code`, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -95,11 +95,9 @@ func (d *DB) loadSystems(ctx context.Context) ([]catalog.SystemDef, error) {
 	var out []catalog.SystemDef
 	for rows.Next() {
 		var r catalog.SystemDef
-		var desc sql.NullString
-		if err := rows.Scan(&r.Code, &r.Name, &desc); err != nil {
+		if err := rows.Scan(&r.Code); err != nil {
 			return nil, err
 		}
-		r.Description = nullableStr(desc)
 		out = append(out, r)
 	}
 	return out, rows.Err()
@@ -126,7 +124,7 @@ ORDER BY system_code, kind_code`, nil)
 
 func (d *DB) loadSeriesFamilies(ctx context.Context) ([]catalog.SeriesFamilyDef, error) {
 	rows, err := d.query(ctx, `
-SELECT series, kind_code, name, tail_semantic FROM series_families
+SELECT series, kind_code, tail_semantic FROM series_families
 ORDER BY series, kind_code`, nil)
 	if err != nil {
 		return nil, err
@@ -135,11 +133,10 @@ ORDER BY series, kind_code`, nil)
 	var out []catalog.SeriesFamilyDef
 	for rows.Next() {
 		var r catalog.SeriesFamilyDef
-		var name, tail sql.NullString
-		if err := rows.Scan(&r.Series, &r.Kind, &name, &tail); err != nil {
+		var tail sql.NullString
+		if err := rows.Scan(&r.Series, &r.Kind, &tail); err != nil {
 			return nil, err
 		}
-		r.Name = nullableStr(name)
 		r.TailSemantic = nullableStr(tail)
 		out = append(out, r)
 	}
@@ -147,7 +144,7 @@ ORDER BY series, kind_code`, nil)
 }
 
 func (d *DB) loadUnits(ctx context.Context) ([]catalog.UnitDef, error) {
-	rows, err := d.query(ctx, `SELECT code, name, symbol FROM units ORDER BY code`, nil)
+	rows, err := d.query(ctx, `SELECT code FROM units ORDER BY code`, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -155,7 +152,7 @@ func (d *DB) loadUnits(ctx context.Context) ([]catalog.UnitDef, error) {
 	var out []catalog.UnitDef
 	for rows.Next() {
 		var r catalog.UnitDef
-		if err := rows.Scan(&r.Code, &r.Name, &r.Symbol); err != nil {
+		if err := rows.Scan(&r.Code); err != nil {
 			return nil, err
 		}
 		out = append(out, r)
@@ -165,7 +162,7 @@ func (d *DB) loadUnits(ctx context.Context) ([]catalog.UnitDef, error) {
 
 func (d *DB) loadConditions(ctx context.Context) ([]catalog.ConditionDef, error) {
 	rows, err := d.query(ctx, `
-SELECT code, name, unit_code, allow_negative FROM conditions ORDER BY code`, nil)
+SELECT code, unit_code, allow_negative FROM conditions ORDER BY code`, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -175,7 +172,7 @@ SELECT code, name, unit_code, allow_negative FROM conditions ORDER BY code`, nil
 		var r catalog.ConditionDef
 		var unit sql.NullString
 		var allow int
-		if err := rows.Scan(&r.Code, &r.Name, &unit, &allow); err != nil {
+		if err := rows.Scan(&r.Code, &unit, &allow); err != nil {
 			return nil, err
 		}
 		r.Unit = nullableStr(unit)
@@ -187,7 +184,7 @@ SELECT code, name, unit_code, allow_negative FROM conditions ORDER BY code`, nil
 
 func (d *DB) loadGroups(ctx context.Context) ([]catalog.GroupDef, error) {
 	rows, err := d.query(ctx, `
-SELECT code, section_name, display_name, sort_order FROM parameter_groups
+SELECT code, section_name, sort_order FROM parameter_groups
 ORDER BY sort_order, code`, nil)
 	if err != nil {
 		return nil, err
@@ -196,7 +193,7 @@ ORDER BY sort_order, code`, nil)
 	var out []catalog.GroupDef
 	for rows.Next() {
 		var r catalog.GroupDef
-		if err := rows.Scan(&r.Code, &r.SectionName, &r.DisplayName, &r.SortOrder); err != nil {
+		if err := rows.Scan(&r.Code, &r.SectionName, &r.SortOrder); err != nil {
 			return nil, err
 		}
 		out = append(out, r)
@@ -206,7 +203,7 @@ ORDER BY sort_order, code`, nil)
 
 func (d *DB) loadRules(ctx context.Context) ([]catalog.RuleDef, error) {
 	rows, err := d.query(ctx,
-		`SELECT code, description FROM validation_rules ORDER BY code`, nil)
+		`SELECT code FROM validation_rules ORDER BY code`, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -214,7 +211,7 @@ func (d *DB) loadRules(ctx context.Context) ([]catalog.RuleDef, error) {
 	var out []catalog.RuleDef
 	for rows.Next() {
 		var r catalog.RuleDef
-		if err := rows.Scan(&r.Code, &r.Description); err != nil {
+		if err := rows.Scan(&r.Code); err != nil {
 			return nil, err
 		}
 		out = append(out, r)
@@ -243,7 +240,7 @@ ORDER BY kind_code, validation_rule`, nil)
 
 func (d *DB) loadParameters(ctx context.Context) ([]catalog.ParameterDef, error) {
 	rows, err := d.query(ctx, `
-SELECT code, group_code, display_name, unit_code, value_type,
+SELECT code, group_code, unit_code, value_type,
        value_ceiling, allow_negative, validation_rule, sort_order, is_active
 FROM parameters ORDER BY code`, nil)
 	if err != nil {
@@ -256,7 +253,7 @@ FROM parameters ORDER BY code`, nil)
 		var unit, rule sql.NullString
 		var ceiling sql.NullFloat64
 		var allow, active int
-		if err := rows.Scan(&r.Code, &r.Group, &r.DisplayName, &unit, &r.ValueType,
+		if err := rows.Scan(&r.Code, &r.Group, &unit, &r.ValueType,
 			&ceiling, &allow, &rule, &r.SortOrder, &active); err != nil {
 			return nil, err
 		}
@@ -386,7 +383,7 @@ ORDER BY parameter_code, set_no, condition_code`, nil)
 
 func (d *DB) loadAttributes(ctx context.Context) ([]catalog.AttributeDef, error) {
 	rows, err := d.query(ctx, `
-SELECT code, display_name, "group", value_type, unit_code,
+SELECT code, "group", value_type, unit_code,
        validation_rule, sort_order, is_active
 FROM attributes ORDER BY code`, nil)
 	if err != nil {
@@ -398,7 +395,7 @@ FROM attributes ORDER BY code`, nil)
 		var r catalog.AttributeDef
 		var group, unit, rule sql.NullString
 		var active int
-		if err := rows.Scan(&r.Code, &r.DisplayName, &group, &r.Type, &unit,
+		if err := rows.Scan(&r.Code, &group, &r.Type, &unit,
 			&rule, &r.SortOrder, &active); err != nil {
 			return nil, err
 		}

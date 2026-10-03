@@ -38,13 +38,13 @@ func TestParseCapacitorGostValid(t *testing.T) {
 
 func TestParseCapacitorGostMessages(t *testing.T) {
 	cases := []struct{ input, want string }{
-		{"К55-1", "обозначение «К55-1»: неизвестная группа конденсаторов «55» (префикс К)"},
-		{"К100-1", "обозначение «К100-1»: позиция 2: ожидалось: двузначная группа по таблице групп конденсаторов, получено «100»"},
-		{"КТ9-9", "обозначение «КТ9-9»: позиция 3: ожидалось: группа по таблице подкласса, получено «9»"},
-		{"КН3-8", "обозначение «КН3-8»: позиция 3: ожидалось: группа по таблице подкласса, получено «3»"},
-		{"К10", "обозначение «К10»: позиция 4: ожидалось: дефис, получено конец обозначения"},
-		{"К10-017", "обозначение «К10-017»: позиция 5: ожидалось: номер разработки без ведущего нуля (до 3 цифр), получено «017»"},
-		{"К10-17БМ", "обозначение «К10-17БМ»: позиция 8: ожидался конец обозначения, получено «М»"},
+		{"К55-1", "designation «К55-1»: unknown capacitor group «55» (prefix К)"},
+		{"К100-1", "designation «К100-1»: position 2: expected: two-digit group per the capacitor group table, got «100»"},
+		{"КТ9-9", "designation «КТ9-9»: position 3: expected: группа по таблице подкласса, got «9»"},
+		{"КН3-8", "designation «КН3-8»: position 3: expected: группа по таблице подкласса, got «3»"},
+		{"К10", "designation «К10»: position 4: expected: hyphen, got end of designation"},
+		{"К10-017", "designation «К10-017»: position 5: expected: development number without a leading zero (up to 3 digits), got «017»"},
+		{"К10-17БМ", "designation «К10-17БМ»: position 8: expected end of designation, got «М»"},
 	}
 	for _, tc := range cases {
 		_, err := parseCapacitorGost(newScanner(tc.input), "")

@@ -2,7 +2,6 @@ package domain
 
 import (
 	"errors"
-	"fmt"
 	"slices"
 )
 
@@ -70,22 +69,28 @@ func KnownCodes() []Code {
 	return codes
 }
 
-// Error — ожидаемая ошибка модуля: машиночитаемый код и дословный русский
-// текст сообщения. Тексты — контракт, закреплённый тестами дословно.
+// Error — ожидаемая ошибка модуля: машиночитаемый код, стабильный
+// идентификатор сообщения каталога и аргументы рендера (этап 8.3, D9).
+// Message — канонический en-рендер (для журналов и тестов); тексты —
+// контракт: en-формат закреплён каноническим, ru — бандл internal/i18n;
+// переформулировка формата — несовместимое изменение. Локализованный
+// рендер по MsgID+Args выполняют транспорты.
 type Error struct {
 	Code    Code
+	MsgID   MsgID
+	Args    []any
 	Message string
 }
 
-// Error возвращает дословный текст сообщения (без кода: код transport
+// Error возвращает канонический текст сообщения (без кода: код transport
 // передаёт отдельно).
 func (e *Error) Error() string {
 	return e.Message
 }
 
-// NewError создаёт ожидаемую ошибку по коду и тексту сообщения.
-func NewError(code Code, message string) *Error {
-	return &Error{Code: code, Message: message}
+// NewErrorf создаёт ожидаемую ошибку по коду и сообщению каталога.
+func NewErrorf(code Code, id MsgID, args ...any) *Error {
+	return &Error{Code: code, MsgID: id, Args: args, Message: Msgf(id, args...)}
 }
 
 // AsError извлекает *Error из цепочки ошибок; классификация
@@ -98,39 +103,31 @@ func AsError(err error) (*Error, bool) {
 	return nil, false
 }
 
-// Дословные тексты сообщений — контракт (docs/plan/02-database.md §5,
-// docs/plan/03-data-model.md §2.4); закреплены тестами дословно.
-const (
-	msgSchemaVersionMismatch  = "база данных создана другой версией модуля (%d ≠ %d); пересоздайте её: удалите файл/базу и выполните import"
-	msgDatabaseNotInitialized = "база данных не инициализирована или не является базой модуля; выполните init (CLI) или EnsureCreated"
-	msgKindNotSupported       = "обозначение принадлежит классу, не поддерживаемому модулем"
-	msgKindAmbiguous          = "класс прибора не определяется по обозначению однозначно; укажите класс явно"
-)
+// Конструкторы фиксированных ошибок хранения и автодетекта; тексты —
+// каталог internal/i18n (en — канонический, ru — бандл), контракт
+// (docs/plan/02-database.md §5, docs/plan/03-data-model.md §2.4).
 
 // SchemaVersionMismatch — версия схемы базы (dbVersion) не совпадает
 // с версией модуля (moduleVersion); продолжение работы запрещено.
 func SchemaVersionMismatch(dbVersion, moduleVersion int) *Error {
-	return &Error{
-		Code:    CodeSchemaVersionMismatch,
-		Message: fmt.Sprintf(msgSchemaVersionMismatch, dbVersion, moduleVersion),
-	}
+	return NewErrorf(CodeSchemaVersionMismatch, MsgSchemaVersionMismatch, dbVersion, moduleVersion)
 }
 
 // DatabaseNotInitialized — в базе нет таблицы schema_meta: база не
 // инициализирована, принадлежит другой программе или повреждена.
 func DatabaseNotInitialized() *Error {
-	return &Error{Code: CodeDatabaseNotInitialized, Message: msgDatabaseNotInitialized}
+	return NewErrorf(CodeDatabaseNotInitialized, MsgDatabaseNotInitialized)
 }
 
 // KindNotSupported — обозначение принадлежит классу приборов,
 // не поддерживаемому модулем.
 func KindNotSupported() *Error {
-	return &Error{Code: CodeKindNotSupported, Message: msgKindNotSupported}
+	return NewErrorf(CodeKindNotSupported, MsgKindNotSupported)
 }
 
 // KindAmbiguous — класс не определяется по обозначению однозначно
 // (фотоприборы: фотодиоды и фототранзисторы) — требуется явное указание
 // класса (ключ kind / --kind), которое переопределяет автодетект.
 func KindAmbiguous() *Error {
-	return &Error{Code: CodeKindAmbiguous, Message: msgKindAmbiguous}
+	return NewErrorf(CodeKindAmbiguous, MsgKindAmbiguous)
 }

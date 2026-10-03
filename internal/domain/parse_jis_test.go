@@ -40,25 +40,25 @@ func TestParseJisValid(t *testing.T) {
 			t.Errorf("«%s»:\n got:  %s\n want: %s", tc.input, got, tc.fields)
 		}
 		if p.System != SystemJis || p.Designation != tc.designated {
-			t.Errorf("«%s»: система/ключ %s/%s", tc.input, p.System, p.Designation)
+			t.Errorf("«%s»: system/ключ %s/%s", tc.input, p.System, p.Designation)
 		}
 	}
 }
 
 func TestParseJisMessages(t *testing.T) {
 	cases := []struct{ input, want string }{
-		{"2X1015", "обозначение «2X1015»: позиция 2: ожидалось: признак регистрации S, получено «X»"},
-		{"4S1015", "обозначение «4S1015»: позиция 1: ожидалось: цифра числа p-n-переходов (1–3), получено «4»"},
-		{"2SI1015", "обозначение «2SI1015»: позиция 3: ожидалось: буква класса прибора (A, B, C, D, E, F, G, H, J, K, M, Q, R, S, T, V, Z), получено «I»"},
-		{"2S1015", "обозначение «2S1015»: позиция 3: ожидалось: буква класса прибора (обязательна для 2S и 3S), получено «1»"},
-		{"2SC1", "обозначение «2SC1»: позиция 4: ожидалось: номер регистрации (2–4 цифры, без ведущего нуля), получено «1»"},
-		{"2SC015", "обозначение «2SC015»: позиция 4: ожидалось: номер регистрации (2–4 цифры, без ведущего нуля), получено «015»"},
-		{"2SC1815-", "обозначение «2SC1815-»: позиция 9: ожидалось: суффикс после дефиса (буквы и цифры), получено конец обозначения"},
-		{"Q1234", "обозначение «Q1234»: позиция 1: ожидалось: цифра числа переходов и S либо буква транзисторного класса (сокращённая форма), получено «Q»"},
-		{"C015", "обозначение «C015»: позиция 2: ожидалось: номер регистрации сокращённой формы (3–4 цифры), получено «015»"},
-		{"C12345", "обозначение «C12345»: позиция 2: ожидалось: номер регистрации сокращённой формы (3–4 цифры), получено «12345»"},
-		{"2SC18X1", "обозначение «2SC18X1»: позиция 7: ожидался конец обозначения, получено «1»"},
-		{"C1815GR", "обозначение «C1815GR»: позиция 6: ожидался конец обозначения, получено «G»"},
+		{"2X1015", "designation «2X1015»: position 2: expected: registration letter S, got «X»"},
+		{"4S1015", "designation «4S1015»: position 1: expected: digit of the p-n junction count (1–3), got «4»"},
+		{"2SI1015", "designation «2SI1015»: position 3: expected: device class letter (A, B, C, D, E, F, G, H, J, K, M, Q, R, S, T, V, Z), got «I»"},
+		{"2S1015", "designation «2S1015»: position 3: expected: device class letter (mandatory for 2S and 3S), got «1»"},
+		{"2SC1", "designation «2SC1»: position 4: expected: registration number (2–4 digits, no leading zero), got «1»"},
+		{"2SC015", "designation «2SC015»: position 4: expected: registration number (2–4 digits, no leading zero), got «015»"},
+		{"2SC1815-", "designation «2SC1815-»: position 9: expected: suffix after the hyphen (letters and digits), got end of designation"},
+		{"Q1234", "designation «Q1234»: position 1: expected: junction count digit and S, or transistor class letter (short form), got «Q»"},
+		{"C015", "designation «C015»: position 2: expected: short-form registration number (3–4 digits), got «015»"},
+		{"C12345", "designation «C12345»: position 2: expected: short-form registration number (3–4 digits), got «12345»"},
+		{"2SC18X1", "designation «2SC18X1»: position 7: expected end of designation, got «1»"},
+		{"C1815GR", "designation «C1815GR»: position 6: expected end of designation, got «G»"},
 	}
 	for _, tc := range cases {
 		_, err := parseJis(newScanner(tc.input), "")

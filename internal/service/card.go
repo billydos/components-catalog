@@ -49,13 +49,6 @@ func (s *DeviceService) buildCard(ctx context.Context, snap *catalog.Snapshot, d
 		Fields:        fields,
 		Manufacturers: manufacturers,
 	}
-	if k, ok := snap.Kind(dev.Kind); ok {
-		card.KindName = k.Name
-	}
-	if sys, ok := snap.System(dev.System); ok {
-		card.SystemName = sys.Name
-	}
-
 	// Атрибуты — в порядке каталога.
 	byAttr := make(map[string]storage.AttrRow, len(attrRows))
 	for _, a := range attrRows {
@@ -67,8 +60,7 @@ func (s *DeviceService) buildCard(ctx context.Context, snap *catalog.Snapshot, d
 			continue
 		}
 		card.Attributes = append(card.Attributes, CardAttribute{
-			Code: def.Code, DisplayName: def.DisplayName,
-			Text: row.Text, Num: row.Num, Bool: row.Bool,
+			Code: def.Code, Text: row.Text, Num: row.Num, Bool: row.Bool,
 		})
 	}
 
@@ -111,21 +103,20 @@ func cardGroups(snap *catalog.Snapshot, values []storage.ValueRow, variantID *in
 				continue
 			}
 			vals = append(vals, CardValue{
-				Parameter:   vr.Value.Parameter,
-				DisplayName: def.DisplayName,
-				Unit:        def.Unit,
-				Exact:       vr.Value.Exact,
-				Min:         vr.Value.Min,
-				Max:         vr.Value.Max,
-				Text:        vr.Value.Text,
-				Conditions:  condsFromStorage(vr.Value.Conditions),
+				Parameter:  vr.Value.Parameter,
+				Unit:       def.Unit,
+				Exact:      vr.Value.Exact,
+				Min:        vr.Value.Min,
+				Max:        vr.Value.Max,
+				Text:       vr.Value.Text,
+				Conditions: condsFromStorage(vr.Value.Conditions),
 			})
 		}
 		if len(vals) == 0 {
 			continue
 		}
 		groups = append(groups, CardGroup{
-			Code: g.Code, Section: g.SectionName, DisplayName: g.DisplayName, Values: vals,
+			Code: g.Code, Section: g.SectionName, Values: vals,
 		})
 	}
 	return groups

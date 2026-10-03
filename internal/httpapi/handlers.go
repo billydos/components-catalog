@@ -7,6 +7,7 @@ import (
 	"strconv"
 
 	"github.com/billydos/components-catalog/internal/domain"
+	"github.com/billydos/components-catalog/internal/i18n"
 	"github.com/billydos/components-catalog/internal/importer"
 	"github.com/billydos/components-catalog/internal/service"
 )
@@ -18,12 +19,15 @@ import (
 func (a *API) handleKinds(w *responseWriter, r *http.Request, _ map[string]string) {
 	snap, err := a.app.Snapshot(r.Context())
 	if err != nil {
-		a.writeDomainErr(w, err, true)
+		a.writeDomainErr(w, r, err, true)
 		return
 	}
+	lang := requestLang(r)
 	resp := kindsResponseJSON{Kinds: make([]kindDefJSON, 0, len(snap.Kinds))}
 	for _, k := range snap.Kinds {
-		resp.Kinds = append(resp.Kinds, kindDefJSON{Code: string(k.Code), Name: k.Name})
+		resp.Kinds = append(resp.Kinds, kindDefJSON{
+			Code: string(k.Code), Name: i18n.KindName(lang, string(k.Code)),
+		})
 	}
 	writeJSON(w, http.StatusOK, resp)
 }
@@ -33,7 +37,7 @@ func (a *API) handleKinds(w *responseWriter, r *http.Request, _ map[string]strin
 func (a *API) handleCatalog(w *responseWriter, r *http.Request, _ map[string]string) {
 	snap, err := a.app.Snapshot(r.Context())
 	if err != nil {
-		a.writeDomainErr(w, err, true)
+		a.writeDomainErr(w, r, err, true)
 		return
 	}
 	etag := fmt.Sprintf(`"catalog-%d"`, snap.Revision)
@@ -42,7 +46,7 @@ func (a *API) handleCatalog(w *responseWriter, r *http.Request, _ map[string]str
 		w.WriteHeader(http.StatusNotModified)
 		return
 	}
-	writeJSON(w, http.StatusOK, catalogToJSON(snap))
+	writeJSON(w, http.StatusOK, catalogToJSON(requestLang(r), snap))
 }
 
 // handleStats — GET /api/v1/stats: количества по классам, версия схемы,
@@ -50,7 +54,7 @@ func (a *API) handleCatalog(w *responseWriter, r *http.Request, _ map[string]str
 func (a *API) handleStats(w *responseWriter, r *http.Request, _ map[string]string) {
 	st, err := a.app.Stats(r.Context())
 	if err != nil {
-		a.writeDomainErr(w, err, true)
+		a.writeDomainErr(w, r, err, true)
 		return
 	}
 	kinds := make(map[string]int, len(st.Counts))
@@ -72,12 +76,12 @@ func (a *API) handleStats(w *responseWriter, r *http.Request, _ map[string]strin
 func (a *API) handleSearch(w *responseWriter, r *http.Request, _ map[string]string) {
 	snap, err := a.app.Snapshot(r.Context())
 	if err != nil {
-		a.writeDomainErr(w, err, true)
+		a.writeDomainErr(w, r, err, true)
 		return
 	}
 	q, err := parseSearchQuery(r, snap)
 	if err != nil {
-		a.writeDomainErr(w, err, true)
+		a.writeDomainErr(w, r, err, true)
 		return
 	}
 	_, dataRev, err := a.app.Revisions(r.Context())
@@ -93,7 +97,7 @@ func (a *API) handleSearch(w *responseWriter, r *http.Request, _ map[string]stri
 	}
 	page, err := a.app.Services().Devices.Search(r.Context(), q)
 	if err != nil {
-		a.writeDomainErr(w, err, true)
+		a.writeDomainErr(w, r, err, true)
 		return
 	}
 	writeJSON(w, http.StatusOK, searchPageToJSON(page))
@@ -104,20 +108,20 @@ func (a *API) handleSearch(w *responseWriter, r *http.Request, _ map[string]stri
 func (a *API) handleGet(w *responseWriter, r *http.Request, params map[string]string) {
 	kind := domain.Kind(params["kind"])
 	if err := checkKind(r, a.app, kind); err != nil {
-		a.writeDomainErr(w, err, true)
+		a.writeDomainErr(w, r, err, true)
 		return
 	}
 	card, found, err := a.app.Services().Devices.Get(r.Context(), kind, params["designation"])
 	if err != nil {
-		a.writeDomainErr(w, err, true)
+		a.writeDomainErr(w, r, err, true)
 		return
 	}
 	if !found {
-		a.writeError(w, http.StatusNotFound, domain.CodeNotFound,
-			fmt.Sprintf(msgNotFoundCard, params["designation"]))
+		a.writeError(w, r, http.StatusNotFound, domain.CodeNotFound,
+			domain.MsgApiCardNotFound, params["designation"])
 		return
 	}
-	writeJSON(w, http.StatusOK, cardToJSON(card))
+	writeJSON(w, http.StatusOK, cardToJSON(requestLang(r), card))
 }
 
 // handleGetByID — GET /api/v1/components/id/{id}: карточка по стабильному
@@ -125,20 +129,20 @@ func (a *API) handleGet(w *responseWriter, r *http.Request, params map[string]st
 func (a *API) handleGetByID(w *responseWriter, r *http.Request, params map[string]string) {
 	id, err := strconv.ParseInt(params["id"], 10, 64)
 	if err != nil {
-		a.writeError(w, http.StatusBadRequest, domain.CodeValidationFailed, msgBadID)
+		a.writeError(w, r, http.StatusBadRequest, domain.CodeValidationFailed, domain.MsgApiBadID)
 		return
 	}
 	card, found, err := a.app.Services().Devices.GetByID(r.Context(), id)
 	if err != nil {
-		a.writeDomainErr(w, err, true)
+		a.writeDomainErr(w, r, err, true)
 		return
 	}
 	if !found {
-		a.writeError(w, http.StatusNotFound, domain.CodeNotFound,
-			fmt.Sprintf(msgNotFoundByID, params["id"]))
+		a.writeError(w, r, http.StatusNotFound, domain.CodeNotFound,
+			domain.MsgApiIdNotFound, params["id"])
 		return
 	}
-	writeJSON(w, http.StatusOK, cardToJSON(card))
+	writeJSON(w, http.StatusOK, cardToJSON(requestLang(r), card))
 }
 
 // handleSuggest — GET /api/v1/suggest: автодополнение по префиксу
@@ -146,13 +150,13 @@ func (a *API) handleGetByID(w *responseWriter, r *http.Request, params map[strin
 func (a *API) handleSuggest(w *responseWriter, r *http.Request, _ map[string]string) {
 	q := r.URL.Query().Get("q")
 	if q == "" {
-		a.writeError(w, http.StatusBadRequest, domain.CodeValidationFailed, msgNoQ)
+		a.writeError(w, r, http.StatusBadRequest, domain.CodeValidationFailed, domain.MsgApiQMissing)
 		return
 	}
 	kind := domain.Kind(r.URL.Query().Get("kind"))
 	limit, exists, err := queryLimit(r.URL.Query()["limit"], service.SuggestLimitMax)
 	if err != nil {
-		a.writeDomainErr(w, err, true)
+		a.writeDomainErr(w, r, err, true)
 		return
 	}
 	if !exists {
@@ -160,7 +164,7 @@ func (a *API) handleSuggest(w *responseWriter, r *http.Request, _ map[string]str
 	}
 	suggests, err := a.app.Services().Designations.Suggest(r.Context(), q, kind, limit)
 	if err != nil {
-		a.writeDomainErr(w, err, true)
+		a.writeDomainErr(w, r, err, true)
 		return
 	}
 	resp := suggestResponseJSON{Items: make([]suggestionJSON, 0, len(suggests))}
@@ -179,31 +183,31 @@ func (a *API) handleSuggest(w *responseWriter, r *http.Request, _ map[string]str
 func (a *API) handleCreate(w *responseWriter, r *http.Request, _ map[string]string) {
 	in, err := a.readRecordBody(w, r)
 	if err != nil {
-		a.writeDomainErr(w, err, false)
+		a.writeDomainErr(w, r, err, false)
 		return
 	}
 	p, err := a.app.Services().Designations.ParseForSystem(r.Context(), in.Name, in.System, in.Kind)
 	if err != nil {
-		a.writeDomainErr(w, err, false)
+		a.writeDomainErr(w, r, err, false)
 		return
 	}
 	if _, found, gerr := a.app.Services().Devices.Get(r.Context(), p.Kind, p.Designation); gerr != nil {
 		a.writeErr(w, gerr)
 		return
 	} else if found {
-		a.writeError(w, http.StatusConflict, domain.CodeAlreadyExists,
-			fmt.Sprintf(msgAlreadyExists, p.Designation))
+		a.writeError(w, r, http.StatusConflict, domain.CodeAlreadyExists,
+			domain.MsgApiAlreadyExists, p.Designation)
 		return
 	}
 	outcome, err := a.app.Services().Devices.Upsert(r.Context(), in)
 	if err != nil {
-		a.writeDomainErr(w, err, false)
+		a.writeDomainErr(w, r, err, false)
 		return
 	}
 	if outcome == service.OutcomeSkipped {
 		// Гонка создания между проверкой и применением: запись уже есть.
-		a.writeError(w, http.StatusConflict, domain.CodeAlreadyExists,
-			fmt.Sprintf(msgAlreadyExists, p.Designation))
+		a.writeError(w, r, http.StatusConflict, domain.CodeAlreadyExists,
+			domain.MsgApiAlreadyExists, p.Designation)
 		return
 	}
 	card, found, err := a.app.Services().Devices.Get(r.Context(), p.Kind, p.Designation)
@@ -211,7 +215,7 @@ func (a *API) handleCreate(w *responseWriter, r *http.Request, _ map[string]stri
 		a.writeErr(w, err)
 		return
 	}
-	writeJSON(w, http.StatusCreated, upsertResponseJSON{Outcome: string(outcome), Card: cardToJSON(card)})
+	writeJSON(w, http.StatusCreated, upsertResponseJSON{Outcome: string(outcome), Card: cardToJSON(requestLang(r), card)})
 }
 
 // handlePut — PUT /api/v1/components/{kind}/{designation}: upsert
@@ -220,32 +224,32 @@ func (a *API) handleCreate(w *responseWriter, r *http.Request, _ map[string]stri
 func (a *API) handlePut(w *responseWriter, r *http.Request, params map[string]string) {
 	kind := domain.Kind(params["kind"])
 	if err := checkKind(r, a.app, kind); err != nil {
-		a.writeDomainErr(w, err, true)
+		a.writeDomainErr(w, r, err, true)
 		return
 	}
 	in, err := a.readRecordBody(w, r)
 	if err != nil {
-		a.writeDomainErr(w, err, false)
+		a.writeDomainErr(w, r, err, false)
 		return
 	}
 	pathDesignation, err := domain.Canonicalize(params["designation"])
 	if err != nil {
-		a.writeDomainErr(w, err, true)
+		a.writeDomainErr(w, r, err, true)
 		return
 	}
 	bodyDesignation, err := domain.Canonicalize(in.Name)
 	if err != nil {
-		a.writeDomainErr(w, err, false)
+		a.writeDomainErr(w, r, err, false)
 		return
 	}
 	if bodyDesignation != pathDesignation {
-		a.writeError(w, http.StatusUnprocessableEntity, domain.CodeDesignationMismatch, msgMismatch)
+		a.writeError(w, r, http.StatusUnprocessableEntity, domain.CodeDesignationMismatch, domain.MsgApiDesignationMismatch)
 		return
 	}
 	in.Kind = kind
 	outcome, err := a.app.Services().Devices.Upsert(r.Context(), in)
 	if err != nil {
-		a.writeDomainErr(w, err, false)
+		a.writeDomainErr(w, r, err, false)
 		return
 	}
 	card, found, err := a.app.Services().Devices.Get(r.Context(), kind, pathDesignation)
@@ -253,7 +257,7 @@ func (a *API) handlePut(w *responseWriter, r *http.Request, params map[string]st
 		a.writeErr(w, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, upsertResponseJSON{Outcome: string(outcome), Card: cardToJSON(card)})
+	writeJSON(w, http.StatusOK, upsertResponseJSON{Outcome: string(outcome), Card: cardToJSON(requestLang(r), card)})
 }
 
 // handleDelete — DELETE /api/v1/components/{kind}/{designation}:
@@ -261,17 +265,17 @@ func (a *API) handlePut(w *responseWriter, r *http.Request, params map[string]st
 func (a *API) handleDelete(w *responseWriter, r *http.Request, params map[string]string) {
 	kind := domain.Kind(params["kind"])
 	if err := checkKind(r, a.app, kind); err != nil {
-		a.writeDomainErr(w, err, true)
+		a.writeDomainErr(w, r, err, true)
 		return
 	}
 	deleted, err := a.app.Services().Devices.Delete(r.Context(), kind, params["designation"])
 	if err != nil {
-		a.writeDomainErr(w, err, true)
+		a.writeDomainErr(w, r, err, true)
 		return
 	}
 	if !deleted {
-		a.writeError(w, http.StatusNotFound, domain.CodeNotFound,
-			fmt.Sprintf(msgNotFoundCard, params["designation"]))
+		a.writeError(w, r, http.StatusNotFound, domain.CodeNotFound,
+			domain.MsgApiCardNotFound, params["designation"])
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)
@@ -282,13 +286,19 @@ func (a *API) handleDelete(w *responseWriter, r *http.Request, params map[string
 func (a *API) readRecordBody(w *responseWriter, r *http.Request) (service.DeviceInput, error) {
 	data, err := io.ReadAll(http.MaxBytesReader(w, r.Body, maxBodyBytes))
 	if err != nil {
-		return service.DeviceInput{}, domain.NewError(domain.CodeInvalidImportFile, msgBodyTooLarge)
+		return service.DeviceInput{}, domain.NewErrorf(domain.CodeInvalidImportFile, domain.MsgApiBodyTooLarge)
 	}
 	snap, err := a.app.Snapshot(r.Context())
 	if err != nil {
 		return service.DeviceInput{}, err
 	}
 	return importer.ReadRecordJSON(data, snap)
+}
+
+// requestLang — локаль отображаемых строк ответа: Accept-Language
+// (q-значения, базовый подтег), по умолчанию en (D9).
+func requestLang(r *http.Request) i18n.Language {
+	return i18n.Negotiate(r.Header.Get("Accept-Language"))
 }
 
 // checkKind — класс пути существует в каталоге (текст ошибки — общий
@@ -299,8 +309,8 @@ func checkKind(r *http.Request, app *service.App, kind domain.Kind) error {
 		return err
 	}
 	if _, ok := snap.Kind(kind); !ok {
-		return domain.NewError(domain.CodeValidationFailed,
-			fmt.Sprintf("неизвестный класс приборов «%s»", string(kind)))
+		return domain.NewErrorf(domain.CodeValidationFailed,
+			domain.MsgKindUnknown, string(kind))
 	}
 	return nil
 }

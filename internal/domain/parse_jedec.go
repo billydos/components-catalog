@@ -19,17 +19,17 @@ func parseJedec(s *scanner, _ Kind) (ParsedDesignation, error) {
 	// Число p-n-переходов.
 	junc, has := s.peek()
 	if !has || !isDigitRune(junc) {
-		return ParsedDesignation{}, s.fail("цифра числа p-n-переходов (1–4)")
+		return ParsedDesignation{}, s.fail(MsgExpectJedecJunctions)
 	}
 	s.i++
 	if junc < '1' || junc > '4' {
-		return ParsedDesignation{}, s.failAt(s.i-1, "цифра числа p-n-переходов (1–4)")
+		return ParsedDesignation{}, s.failAt(s.i-1, MsgExpectJedecJunctions)
 	}
 
 	// Признак системы: N — корпусированное изделие, C — кристалл.
 	mark, has := s.peek()
 	if !has || (mark != 'N' && mark != 'C') {
-		return ParsedDesignation{}, s.fail("признак регистрации JEDEC (N либо C)")
+		return ParsedDesignation{}, s.fail(MsgExpectJedecLetter)
 	}
 	s.i++
 
@@ -37,10 +37,10 @@ func parseJedec(s *scanner, _ Kind) (ParsedDesignation, error) {
 	start := s.i
 	run, n := s.digits()
 	if n == 0 {
-		return ParsedDesignation{}, s.fail("номер регистрации EIA")
+		return ParsedDesignation{}, s.fail(MsgExpectJedecNumber)
 	}
 	if n > 4 || run[0] == '0' {
-		return ParsedDesignation{}, s.failToken(start, "номер регистрации EIA без ведущего нуля (до четырёх цифр)", run)
+		return ParsedDesignation{}, s.failToken(start, MsgExpectJedecNumberNoZero, run)
 	}
 	devNumber := mustAtoi(run)
 

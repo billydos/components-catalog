@@ -1,7 +1,6 @@
 package importer
 
 import (
-	"fmt"
 	"strconv"
 	"strings"
 
@@ -13,29 +12,34 @@ import (
 // Issue — проблема прогона импорта (Issues-модель —
 // docs/plan/04-module-functionality.md §4): корневые проблемы и проблемы
 // записей накапливаются за один прогон; жёсткой ошибкой (возвращаемой
-// как error) остаётся только синтаксис формата. Message — дословный
-// текст проблемы; String добавляет позицию. Тексты — контракт CLI.
+// как error) остаётся только синтаксис формата. Сообщение — MsgID
+// каталога + аргументы (этап 8.3); Message — канонический en-рендер,
+// локализованный рендер и сборка позиции — слой вывода CLI. Тексты —
+// контракт CLI.
 type Issue struct {
 	Record  string // обозначение записи («» — проблема корневого уровня)
 	Line    int    // номер строки NDJSON (0 — не определён)
-	Label   string // позиция записи в файле («запись №3»), если имя не прочитано
+	No      int    // порядковый номер записи в секции документа (0 — не задан)
 	Code    domain.Code
+	MsgID   domain.MsgID
+	Args    []any
 	Message string
 }
 
-// String — строка для вывода: позиция и текст.
+// String — каноническая строка для вывода: позиция и текст.
 func (i Issue) String() string {
+	msg := i.Message
 	switch {
 	case i.Record != "" && i.Line > 0:
-		return fmt.Sprintf("запись «%s» (строка %d): %s", i.Record, i.Line, i.Message)
+		return domain.Msgf(domain.MsgImportIssueRecordLine, i.Record, i.Line, msg)
 	case i.Record != "":
-		return fmt.Sprintf("запись «%s»: %s", i.Record, i.Message)
+		return domain.Msgf(domain.MsgImportIssueRecord, i.Record, msg)
 	case i.Line > 0:
-		return fmt.Sprintf("строка %d: %s", i.Line, i.Message)
-	case i.Label != "":
-		return i.Label + ": " + i.Message
+		return domain.Msgf(domain.MsgImportIssueLine, i.Line, msg)
+	case i.No > 0:
+		return domain.Msgf(domain.MsgImportIssueNo, i.No, msg)
 	}
-	return i.Message
+	return msg
 }
 
 // Record — запись наполнения из файла: класс (по ключу секции корня либо
@@ -43,8 +47,8 @@ func (i Issue) String() string {
 type Record struct {
 	Kind  domain.Kind
 	Input service.DeviceInput
-	Line  int    // номер строки NDJSON (0 — не определён)
-	Label string // позиция записи в файле для сообщений («запись №3»)
+	Line  int // номер строки NDJSON (0 — не определён)
+	No    int // порядковый номер записи в секции документа (0 — не задан)
 }
 
 // Document — разобранный документ наполнения (jsonc/yaml): записи
@@ -117,7 +121,7 @@ func ReadDocument(root value, snap *catalog.Snapshot) (doc *Document, issues []I
 	r := &reader{snap: snap}
 	doc = &Document{}
 	if root.kind != kindObject {
-		r.rootFail("корневой элемент должен быть объектом с ключами-классами и/или \"catalog\"")
+		r.rootFail(domain.MsgImportRootNotObject)
 		return doc, r.issues
 	}
 	for _, m := range root.members {
@@ -126,21 +130,19 @@ func ReadDocument(root value, snap *catalog.Snapshot) (doc *Document, issues []I
 		}
 		kind, ok := kindBySection(snap, m.name)
 		if !ok {
-			r.rootFail(fmt.Sprintf(
-				"неизвестный ключ корня «%s» (допустимы: %s)", m.name, rootKeys(snap)))
+			r.rootFail(domain.MsgImportRootUnknownKey, m.name, rootKeys(snap))
 			continue
 		}
 		if m.value.kind == kindNull {
 			continue
 		}
 		if m.value.kind != kindArray {
-			r.rootFail(fmt.Sprintf("секция «%s» должна быть массивом записей", m.name))
+			r.rootFail(domain.MsgImportRootSectionArray, m.name)
 			continue
 		}
 		for i, item := range m.value.items {
-			label := fmt.Sprintf("запись №%d", i+1)
-			if in, ok := r.record(kind, item, 0, label); ok {
-				doc.Records = append(doc.Records, Record{Kind: kind, Input: in, Label: label})
+			if in, ok := r.record(kind, item, 0, i+1); ok {
+				doc.Records = append(doc.Records, Record{Kind: kind, Input: in, No: i + 1})
 			} else {
 				doc.Rejected++
 			}
@@ -150,49 +152,62 @@ func ReadDocument(root value, snap *catalog.Snapshot) (doc *Document, issues []I
 }
 
 // rootFail — проблема корневого уровня.
-func (r *reader) rootFail(msg string) {
-	r.issues = append(r.issues, Issue{Code: domain.CodeInvalidImportFile, Message: msg})
+func (r *reader) rootFail(id domain.MsgID, args ...any) {
+	r.issues = append(r.issues, issuef(0, id, args...))
 }
 
-// recFail — проблема записи: label позиционирует запись, name — обозначение.
-func (r *reader) recFail(rec *Record, msg string) {
-	r.issues = append(r.issues, Issue{
-		Record: rec.Input.Name, Line: rec.Line, Label: rec.Label,
-		Code: domain.CodeInvalidImportFile, Message: msg,
-	})
+// rootFailAt — проблема корневого уровня со строкой NDJSON.
+func (r *reader) rootFailAt(line int, id domain.MsgID, args ...any) {
+	r.issues = append(r.issues, issuef(line, id, args...))
+}
+
+// recFail — проблема записи: обозначение (если прочитано) и позиция.
+func (r *reader) recFail(rec *Record, id domain.MsgID, args ...any) {
+	iss := issuef(rec.Line, id, args...)
+	iss.Record = rec.Input.Name
+	iss.No = rec.No
+	r.issues = append(r.issues, iss)
+}
+
+// issuef — проблема без позиционирования записи.
+func issuef(line int, id domain.MsgID, args ...any) Issue {
+	return Issue{
+		Line: line, Code: domain.CodeInvalidImportFile,
+		MsgID: id, Args: args, Message: domain.Msgf(id, args...),
+	}
 }
 
 // record читает одну запись класса kind: строка-обозначение либо объект
 // «name» + секции. Возвращает false, если запись отвергнута (проблемы
 // уже накоплены).
-func (r *reader) record(kind domain.Kind, v value, line int, label string) (service.DeviceInput, bool) {
-	rec := &Record{Kind: kind, Line: line, Label: label}
+func (r *reader) record(kind domain.Kind, v value, line, no int) (service.DeviceInput, bool) {
+	rec := &Record{Kind: kind, Line: line, No: no}
 	if v.kind == kindString {
 		rec.Input = service.DeviceInput{Name: strings.TrimSpace(v.str), Kind: kind}
 		if rec.Input.Name == "" {
-			r.recFail(rec, "пустое обозначение записи")
+			r.recFail(rec, domain.MsgImportRecordEmptyName)
 			return service.DeviceInput{}, false
 		}
 		return rec.Input, true
 	}
 	if v.kind != kindObject {
-		r.recFail(rec, "запись должна быть строкой (обозначение) или объектом, получено: "+describeKind(v))
+		r.recFail(rec, domain.MsgImportRecordBadValue, describeKindArg(v))
 		return service.DeviceInput{}, false
 	}
 	rec.Input = service.DeviceInput{Kind: kind}
 
 	nameVal, hasName := v.has("name")
 	if !hasName || nameVal.kind == kindNull {
-		r.recFail(rec, "обязательный ключ \"name\" — строка с обозначением")
+		r.recFail(rec, domain.MsgImportRecordNameRequired)
 		return service.DeviceInput{}, false
 	}
 	if nameVal.kind != kindString {
-		r.recFail(rec, "\"name\" должно быть строкой с обозначением")
+		r.recFail(rec, domain.MsgImportRecordNameString)
 		return service.DeviceInput{}, false
 	}
 	rec.Input.Name = strings.TrimSpace(nameVal.str)
 	if rec.Input.Name == "" {
-		r.recFail(rec, "пустое обозначение записи")
+		r.recFail(rec, domain.MsgImportRecordEmptyName)
 		return service.DeviceInput{}, false
 	}
 
@@ -209,21 +224,18 @@ func (r *reader) record(kind domain.Kind, v value, line int, label string) (serv
 		if _, ok := r.snap.GroupBySection(m.name); ok {
 			continue
 		}
-		r.recFail(rec, fmt.Sprintf(
-			"неизвестное поле «%s» (допустимы: name, system, attributes, manufacturers, variants, analogs и секции групп: %s)",
-			m.name, sectionKeys(r.snap)))
+		r.recFail(rec, domain.MsgImportRecordUnknownField, m.name, sectionKeys(r.snap))
 		return service.DeviceInput{}, false
 	}
 
 	if sysVal, ok := v.has("system"); ok && sysVal.kind != kindNull {
 		if sysVal.kind != kindString {
-			r.recFail(rec, "\"system\" должно быть строкой — код системы обозначений")
+			r.recFail(rec, domain.MsgImportRecordSystemString)
 			return service.DeviceInput{}, false
 		}
 		sys := domain.System(strings.TrimSpace(sysVal.str))
 		if _, known := r.snap.System(sys); !known {
-			r.recFail(rec, fmt.Sprintf(
-				"неизвестная система обозначений «%s» (допустимы: %s)", string(sys), systemCodes(r.snap)))
+			r.recFail(rec, domain.MsgImportRecordSystemUnknown, string(sys), systemCodes(r.snap))
 			return service.DeviceInput{}, false
 		}
 		rec.Input.System = sys
@@ -248,7 +260,7 @@ func (r *reader) record(kind domain.Kind, v value, line int, label string) (serv
 			continue // null — секцию не менять
 		}
 		if m.value.kind != kindArray {
-			r.recFail(rec, fmt.Sprintf("секция «%s» должна быть массивом объектов", m.name))
+			r.recFail(rec, domain.MsgImportSectionArray, m.name)
 			return service.DeviceInput{}, false
 		}
 		vals := make([]catalog.ParameterValue, 0, len(m.value.items))
@@ -271,13 +283,13 @@ func (r *reader) record(kind domain.Kind, v value, line int, label string) (serv
 
 	if mfrVal, ok := v.has("manufacturers"); ok && mfrVal.kind != kindNull {
 		if mfrVal.kind != kindArray {
-			r.recFail(rec, "\"manufacturers\" должно быть массивом строк")
+			r.recFail(rec, domain.MsgImportManufacturersArray)
 			return service.DeviceInput{}, false
 		}
 		names := make([]string, 0, len(mfrVal.items))
 		for i, item := range mfrVal.items {
 			if item.kind != kindString {
-				r.recFail(rec, fmt.Sprintf("производитель №%d: ожидалась непустая строка", i+1))
+				r.recFail(rec, domain.MsgImportManufacturerItem, i+1)
 				return service.DeviceInput{}, false
 			}
 			names = append(names, strings.TrimSpace(item.str))
@@ -287,7 +299,7 @@ func (r *reader) record(kind domain.Kind, v value, line int, label string) (serv
 
 	if varVal, ok := v.has("variants"); ok && varVal.kind != kindNull {
 		if varVal.kind != kindArray {
-			r.recFail(rec, "\"variants\" должно быть массивом объектов исполнений")
+			r.recFail(rec, domain.MsgImportVariantsArray)
 			return service.DeviceInput{}, false
 		}
 		variants := make([]service.VariantInput, 0, len(varVal.items))
@@ -303,7 +315,7 @@ func (r *reader) record(kind domain.Kind, v value, line int, label string) (serv
 
 	if anaVal, ok := v.has("analogs"); ok && anaVal.kind != kindNull {
 		if anaVal.kind != kindArray {
-			r.recFail(rec, "\"analogs\" должно быть массивом (строки либо объекты {name, note})")
+			r.recFail(rec, domain.MsgImportAnalogsArray)
 			return service.DeviceInput{}, false
 		}
 		analogs := make([]service.AnalogInput, 0, len(anaVal.items))
@@ -322,7 +334,7 @@ func (r *reader) record(kind domain.Kind, v value, line int, label string) (serv
 // attributes читает секцию attributes: объект «код атрибута → значение».
 func (r *reader) attributes(rec *Record, v value) ([]catalog.AttributeValue, bool) {
 	if v.kind != kindObject {
-		r.recFail(rec, "\"attributes\" должно быть объектом «код атрибута: значение»")
+		r.recFail(rec, domain.MsgImportAttributesObject)
 		return nil, false
 	}
 	attrs := make([]catalog.AttributeValue, 0, len(v.members))
@@ -336,7 +348,7 @@ func (r *reader) attributes(rec *Record, v value) ([]catalog.AttributeValue, boo
 		case kindNumber:
 			f, err := strconv.ParseFloat(m.value.num, 64)
 			if err != nil {
-				r.recFail(rec, fmt.Sprintf("атрибут «%s»: значение должно быть числом", m.name))
+				r.recFail(rec, domain.MsgImportAttrNumber, m.name)
 				return nil, false
 			}
 			attrs = append(attrs, catalog.AttributeValue{Attribute: m.name, Num: &f})
@@ -344,8 +356,7 @@ func (r *reader) attributes(rec *Record, v value) ([]catalog.AttributeValue, boo
 			b := m.value.boolean
 			attrs = append(attrs, catalog.AttributeValue{Attribute: m.name, Bool: &b})
 		default:
-			r.recFail(rec, fmt.Sprintf(
-				"атрибут «%s»: ожидается строка, число, логическое значение или null", m.name))
+			r.recFail(rec, domain.MsgImportAttrBadValue, m.name)
 			return nil, false
 		}
 	}
@@ -355,10 +366,10 @@ func (r *reader) attributes(rec *Record, v value) ([]catalog.AttributeValue, boo
 // parameterValue читает объект значения секции группы: {"parameter": код,
 // value|min/max|text, условия — соседние ключи по коду}. Коды параметров
 // и условий проверяет движок каталога; читатель — только форму ключей.
-func (r *reader) parameterValue(rec *Record, section string, index int, v value) (catalog.ParameterValue, bool) {
-	where := fmt.Sprintf("секция «%s», значение №%d", section, index+1)
+func (r *reader) parameterValue(rec *Record, section any, index int, v value) (catalog.ParameterValue, bool) {
+	where := domain.MsgArg(domain.MsgImportWhereSection, section, index+1)
 	if v.kind != kindObject {
-		r.recFail(rec, fmt.Sprintf("%s: должно быть объектом", where))
+		r.recFail(rec, domain.MsgImportValueObject, where)
 		return catalog.ParameterValue{}, false
 	}
 	pv := catalog.ParameterValue{}
@@ -366,7 +377,7 @@ func (r *reader) parameterValue(rec *Record, section string, index int, v value)
 	for _, m := range v.members {
 		if m.name == "parameter" {
 			if m.value.kind != kindString {
-				r.recFail(rec, fmt.Sprintf("%s: ключ \"parameter\" должен быть строкой — код параметра", where))
+				r.recFail(rec, domain.MsgImportValueParameterString, where)
 				return catalog.ParameterValue{}, false
 			}
 			pv.Parameter = strings.TrimSpace(m.value.str)
@@ -390,9 +401,9 @@ func (r *reader) parameterValue(rec *Record, section string, index int, v value)
 				continue
 			}
 			if m.name == "text" {
-				r.recFail(rec, fmt.Sprintf("%s: ключ \"text\" должен быть строкой", where))
+				r.recFail(rec, domain.MsgImportValueTextString, where)
 			} else {
-				r.recFail(rec, fmt.Sprintf("%s: ключ \"%s\" должен быть числом", where, m.name))
+				r.recFail(rec, domain.MsgImportValueKeyNumber, where, m.name)
 			}
 			return catalog.ParameterValue{}, false
 		}
@@ -400,15 +411,13 @@ func (r *reader) parameterValue(rec *Record, section string, index int, v value)
 		// и комбинацию условий проверяет движок.
 		f, ok := r.numberKey(rec, where, m)
 		if !ok {
-			r.recFail(rec, fmt.Sprintf(
-				"%s: ключ «%s» — неизвестное поле (допустимы: parameter, value, min, max, text и коды условий измерения)",
-				where, m.name))
+			r.recFail(rec, domain.MsgImportValueUnknownKey, where, m.name)
 			return catalog.ParameterValue{}, false
 		}
 		pv.Conditions = append(pv.Conditions, catalog.ConditionValue{Condition: m.name, Value: f})
 	}
 	if pv.Parameter == "" {
-		r.recFail(rec, fmt.Sprintf("%s: обязательный ключ \"parameter\" — код параметра", where))
+		r.recFail(rec, domain.MsgImportValueParameterRequired, where)
 		return catalog.ParameterValue{}, false
 	}
 	return pv, true
@@ -416,13 +425,13 @@ func (r *reader) parameterValue(rec *Record, section string, index int, v value)
 
 // numberKey — числовое значение ключа (целые и дробные, текст числа из
 // формата без преобразований точности).
-func (r *reader) numberKey(rec *Record, where string, m member) (float64, bool) {
+func (r *reader) numberKey(rec *Record, where any, m member) (float64, bool) {
 	if m.value.kind != kindNumber {
 		return 0, false
 	}
 	f, err := strconv.ParseFloat(m.value.num, 64)
 	if err != nil {
-		r.recFail(rec, fmt.Sprintf("%s: ключ \"%s\" должен быть числом", where, m.name))
+		r.recFail(rec, domain.MsgImportValueKeyNumber, where, m.name)
 		return 0, false
 	}
 	return f, true
@@ -430,25 +439,23 @@ func (r *reader) numberKey(rec *Record, where string, m member) (float64, bool) 
 
 // variant читает исполнение: метка + секции групп (те же, что у записи).
 func (r *reader) variant(rec *Record, index int, v value) (service.VariantInput, bool) {
-	where := fmt.Sprintf("исполнение №%d", index+1)
+	where := domain.MsgArg(domain.MsgImportWhereVariant, index+1)
 	if v.kind != kindObject {
-		r.recFail(rec, fmt.Sprintf("%s: должно быть объектом", where))
+		r.recFail(rec, domain.MsgImportValueObject, where)
 		return service.VariantInput{}, false
 	}
 	vi := service.VariantInput{}
 	for _, m := range v.members {
 		if m.name == "label" {
 			if m.value.kind != kindString {
-				r.recFail(rec, fmt.Sprintf("%s: \"label\" должно быть строкой", where))
+				r.recFail(rec, domain.MsgImportVariantLabelString, where)
 				return service.VariantInput{}, false
 			}
 			vi.Label = strings.TrimSpace(m.value.str)
 			continue
 		}
 		if _, ok := r.snap.GroupBySection(m.name); !ok {
-			r.recFail(rec, fmt.Sprintf(
-				"%s: неизвестное поле «%s» (допустимы: label и секции групп: %s)",
-				where, m.name, sectionKeys(r.snap)))
+			r.recFail(rec, domain.MsgImportVariantUnknownField, where, m.name, sectionKeys(r.snap))
 			return service.VariantInput{}, false
 		}
 	}
@@ -460,12 +467,12 @@ func (r *reader) variant(rec *Record, index int, v value) (service.VariantInput,
 			continue
 		}
 		if m.value.kind != kindArray {
-			r.recFail(rec, fmt.Sprintf("%s: секция «%s» должна быть массивом объектов", where, m.name))
+			r.recFail(rec, domain.MsgImportVariantSectionArray, where, m.name)
 			return service.VariantInput{}, false
 		}
 		vals := make([]catalog.ParameterValue, 0, len(m.value.items))
 		for i, item := range m.value.items {
-			pv, ok := r.parameterValue(rec, where+", значение №"+itoa(i+1), i, item)
+			pv, ok := r.parameterValue(rec, domain.MsgArg(domain.MsgImportWhereValue, where, i+1), i, item)
 			if !ok {
 				return service.VariantInput{}, false
 			}
@@ -479,7 +486,7 @@ func (r *reader) variant(rec *Record, index int, v value) (service.VariantInput,
 // analog читает ссылку-аналог: строка-обозначение либо объект
 // {name, note}.
 func (r *reader) analog(rec *Record, index int, v value) (service.AnalogInput, bool) {
-	where := fmt.Sprintf("аналог №%d", index+1)
+	where := domain.MsgArg(domain.MsgImportWhereAnalog, index+1)
 	switch v.kind {
 	case kindString:
 		return service.AnalogInput{Designation: strings.TrimSpace(v.str)}, true
@@ -487,7 +494,7 @@ func (r *reader) analog(rec *Record, index int, v value) (service.AnalogInput, b
 		a := service.AnalogInput{}
 		nameVal, hasName := v.has("name")
 		if !hasName || nameVal.kind != kindString {
-			r.recFail(rec, fmt.Sprintf("%s: обязательный ключ \"name\" — обозначение аналога", where))
+			r.recFail(rec, domain.MsgImportAnalogNameRequired, where)
 			return service.AnalogInput{}, false
 		}
 		a.Designation = strings.TrimSpace(nameVal.str)
@@ -497,18 +504,18 @@ func (r *reader) analog(rec *Record, index int, v value) (service.AnalogInput, b
 			}
 			if m.name == "note" {
 				if m.value.kind != kindString {
-					r.recFail(rec, fmt.Sprintf("%s: \"note\" должно быть строкой", where))
+					r.recFail(rec, domain.MsgImportAnalogNoteString, where)
 					return service.AnalogInput{}, false
 				}
 				a.Note = strings.TrimSpace(m.value.str)
 				continue
 			}
-			r.recFail(rec, fmt.Sprintf("%s: неизвестное поле «%s» (допустимы: name, note)", where, m.name))
+			r.recFail(rec, domain.MsgImportAnalogUnknownField, where, m.name)
 			return service.AnalogInput{}, false
 		}
 		return a, true
 	}
-	r.recFail(rec, fmt.Sprintf("%s: ожидалась строка либо объект с ключом \"name\"", where))
+	r.recFail(rec, domain.MsgImportAnalogItem, where)
 	return service.AnalogInput{}, false
 }
 
@@ -517,34 +524,27 @@ func (r *reader) analog(rec *Record, index int, v value) (service.AnalogInput, b
 func ReadRecordLine(snap *catalog.Snapshot, v value, line int) (Record, bool, []Issue) {
 	r := &reader{snap: snap}
 	if v.kind != kindObject {
-		r.rootFailAt(line, "строка должна быть объектом-обёрткой {\"<класс>\": <запись>} либо {\"catalog\": …}")
+		r.rootFailAt(line, domain.MsgImportNdjsonLineObject)
 		return Record{}, false, r.issues
 	}
 	if len(v.members) != 1 {
-		r.rootFailAt(line, "строка-обёртка должна содержать ровно один ключ — класс либо catalog")
+		r.rootFailAt(line, domain.MsgImportNdjsonWrapperSingle)
 		return Record{}, false, r.issues
 	}
 	m := v.members[0]
 	if m.name == "catalog" {
-		r.rootFailAt(line, "блок catalog должен предшествовать записям")
+		r.rootFailAt(line, domain.MsgImportNdjsonCatalogOrder)
 		return Record{}, false, r.issues
 	}
 	kind, ok := kindBySection(snap, m.name)
 	if !ok {
-		r.rootFailAt(line, fmt.Sprintf(
-			"неизвестный ключ-класс «%s» (допустимы: catalog и %s)",
-			m.name, strings.TrimPrefix(rootKeys(snap), "catalog, ")))
+		r.rootFailAt(line, domain.MsgImportNdjsonClassKey,
+			m.name, strings.TrimPrefix(rootKeys(snap), "catalog, "))
 		return Record{}, false, r.issues
 	}
-	label := fmt.Sprintf("строка %d", line)
-	in, ok := r.record(kind, m.value, line, label)
+	in, ok := r.record(kind, m.value, line, 0)
 	if !ok {
 		return Record{}, false, r.issues
 	}
-	return Record{Kind: kind, Input: in, Line: line, Label: label}, true, r.issues
-}
-
-// rootFailAt — корневая проблема с номером строки NDJSON.
-func (r *reader) rootFailAt(line int, msg string) {
-	r.issues = append(r.issues, Issue{Line: line, Code: domain.CodeInvalidImportFile, Message: msg})
+	return Record{Kind: kind, Input: in, Line: line}, true, r.issues
 }

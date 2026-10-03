@@ -19,7 +19,7 @@ import (
 // файлы дают полный список проблем за прогон; round-trip значений и
 // условий во всех форматах. Идемпотентность импорта выверенного
 // наполнения data/ (все классы, обе СУБД) — verified_test.go; NDJSON
-// покрывается round-trip экспортом (строка-обёртка на запись).
+// покрывается round-trip экспортом (string-обёртка на запись).
 
 type configFactory func(t *testing.T) service.Config
 
@@ -108,8 +108,8 @@ func runImporterSuite(t *testing.T, factory configFactory) {
 			t.Fatalf("проблем: %d, ожидалось 2: %v", len(rep.Issues), issueMessages(rep.Issues))
 		}
 		want := []string{
-			"запись «МП39»: параметр «h21e»: тип значения range — обязательны ключи min и max",
-			"запись «МП39»: параметр «UkeoMax»: значение ключа value должно быть положительным",
+			"record «МП39»: parameter «h21e»: value type range requires keys min and max",
+			"record «МП39»: parameter «UkeoMax»: value of key value must be positive",
 		}
 		got := issueMessages(rep.Issues)
 		for _, w := range want {
@@ -188,7 +188,7 @@ func runImporterSuite(t *testing.T, factory configFactory) {
 		if len(card.Analogs) != 1 || card.Analogs[0].Designation != "Д226" {
 			t.Fatalf("исходящие 1N4007: %+v", card.Analogs)
 		}
-		// Повторный импорт — без изменений по обеим записям.
+		// Повторный импорт — unchanged по обеим записям.
 		rep = importFile(t, app, file, false)
 		if rep.HasIssues() || rep.Skipped != 2 {
 			t.Fatalf("повторный: %+v; проблемы: %v", rep, issueMessages(rep.Issues))
@@ -205,7 +205,7 @@ func runImporterSuite(t *testing.T, factory configFactory) {
 		if !rep.HasIssues() || rep.Rejected != 1 {
 			t.Fatalf("итог: %+v", rep)
 		}
-		want := "запись «МП39»: аналог «BC999ZZ» не найден в классе transistor"
+		want := "record «МП39»: analog «BC999ZZ» not found in kind transistor"
 		if rep.Issues[0].String() != want {
 			t.Fatalf("текст: %q, ожидался %q", rep.Issues[0].String(), want)
 		}
@@ -215,8 +215,8 @@ func runImporterSuite(t *testing.T, factory configFactory) {
 		app := openApp(t, factory)
 		good := filepath.Join(t.TempDir(), "good.ndjson")
 		write(t, good,
-			`{"catalog": {"parameter_groups": [ { "code": "env", "section": "environment", "name": "Условия эксплуатации" } ]}}`+"\n"+
-				`{"catalog": {"parameters": [ { "code": "vibration", "group": "env", "name": "вибрация", "value_type": "text" } ]}}`+"\n"+
+			`{"catalog": {"parameter_groups": [ { "code": "env", "section": "environment" } ]}}`+"\n"+
+				`{"catalog": {"parameters": [ { "code": "vibration", "group": "env", "value_type": "text" } ]}}`+"\n"+
 				`{"transistors": { "name": "КТ315Б", "environment": [ { "parameter": "vibration", "text": "до 10 g" } ] }}`+"\n")
 		rep := importFile(t, app, good, false)
 		if rep.HasIssues() || rep.CatalogApplied != true || rep.Added != 1 {
@@ -230,9 +230,9 @@ func runImporterSuite(t *testing.T, factory configFactory) {
 		bad := filepath.Join(t.TempDir(), "bad.ndjson")
 		write(t, bad,
 			`{"transistors": {"name": "МП39"}}`+"\n"+
-				`{"catalog": {"units": [{"code": "кВ", "name": "киловольт", "symbol": "кВ"}]}}`+"\n")
+				`{"catalog": {"units": [{"code": "kV"}]}}`+"\n")
 		rep = importFile(t, app, bad, false)
-		if len(rep.Issues) != 1 || rep.Issues[0].String() != "строка 2: блок catalog должен предшествовать записям" {
+		if len(rep.Issues) != 1 || rep.Issues[0].String() != "line 2: the catalog block must precede records" {
 			t.Fatalf("итог: %+v; %v", rep, issueMessages(rep.Issues))
 		}
 	})
@@ -242,7 +242,7 @@ func runImporterSuite(t *testing.T, factory configFactory) {
 		file := filepath.Join(t.TempDir(), "catrec.jsonc")
 		write(t, file, `{
 			"catalog": {
-				"attributes": [ { "code": "coating", "name": "покрытие", "type": "enum", "enum_values": ["лак", "эмаль"] } ]
+				"attributes": [ { "code": "coating", "type": "enum", "enum_values": ["лак", "эмаль"] } ]
 			},
 			"diodes": [
 				{ "name": "Д226", "attributes": { "coating": "лак" } }
@@ -274,7 +274,7 @@ func runImporterSuite(t *testing.T, factory configFactory) {
 		if !ok || de.Code != domain.CodeInvalidImportFile {
 			t.Fatalf("ожидалась invalid_import_file, получено %v", err)
 		}
-		if de.Message != "файл содержит записи классов; catalog import применяется к файлам только с секцией catalog" {
+		if de.Message != "the file contains kind records; catalog import applies to files with the catalog section only" {
 			t.Fatalf("текст: %q", de.Message)
 		}
 	})

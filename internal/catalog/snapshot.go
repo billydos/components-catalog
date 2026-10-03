@@ -80,17 +80,16 @@ func (m ConditionMode) Valid() bool {
 	return m == ModeRequired || m == ModeOptional
 }
 
-// KindDef — строка таблицы kinds: класс приборов.
+// KindDef — строка таблицы kinds: класс приборов. Отображаемое название —
+// бандлы internal/i18n: kind.<код> (D9).
 type KindDef struct {
 	Code domain.Kind
-	Name string
 }
 
 // SystemDef — строка таблицы designation_systems: система обозначений.
+// Отображаемые имя и пояснение — бандлы internal/i18n (D9).
 type SystemDef struct {
-	Code        domain.System
-	Name        string
-	Description string
+	Code domain.System
 }
 
 // SystemKindRef — строка таблицы designation_system_kinds: применимость
@@ -106,37 +105,36 @@ const TailSemanticPower = "power"
 
 // SeriesFamilyDef — строка таблицы series_families: реестр семейств
 // системы series. TailSemantic — "" (общий слабый разбор хвоста) либо
-// "power" (хвост-число есть номинальная мощность, Вт).
+// "power" (хвост-число есть номинальная мощность, Вт). Расшифровка —
+// бандлы internal/i18n: family.<семейство> (D9).
 type SeriesFamilyDef struct {
 	Series       string
 	Kind         domain.Kind
-	Name         string
 	TailSemantic string
 }
 
-// UnitDef — строка таблицы units: каноническая единица измерения.
+// UnitDef — строка таблицы units: каноническая единица измерения (код —
+// латиница). Название и символ — бандлы internal/i18n (D9).
 type UnitDef struct {
-	Code   string
-	Name   string
-	Symbol string
+	Code string
 }
 
 // ConditionDef — строка таблицы conditions: условие измерения/контекста
 // значения. Unit "" — безразмерное условие; AllowNegative разрешает
 // неположительные значения (temp), по умолчанию условия положительны.
+// Отображаемое название — бандлы internal/i18n (D9).
 type ConditionDef struct {
 	Code          string
-	Name          string
 	Unit          string
 	AllowNegative bool
 }
 
 // GroupDef — строка таблицы parameter_groups: группа параметров с именем
-// секции файла наполнения и REST (SectionName).
+// секции файла наполнения и REST (SectionName — ключ формата, ASCII).
+// Отображаемое название группы — бандлы internal/i18n (D9).
 type GroupDef struct {
 	Code        string
 	SectionName string
-	DisplayName string
 	SortOrder   int
 }
 
@@ -160,10 +158,10 @@ type ConditionSet struct {
 // ParameterDef — строка таблицы parameters вместе с применимостью к классам
 // (parameter_kinds), enum-значениями и наборами условий. Kinds пуст —
 // параметр применим ко всем классам, включая добавленные в будущем (D7).
+// DisplayName параметра — бандлы internal/i18n: param.<код> (D9).
 type ParameterDef struct {
 	Code           string
 	Group          string
-	DisplayName    string
 	Unit           string
 	ValueType      ValueType
 	Ceiling        *float64
@@ -183,9 +181,9 @@ func (p *ParameterDef) AppliesTo(kind domain.Kind) bool {
 
 // AttributeDef — строка таблицы attributes вместе с применимостью к классам
 // (attribute_kinds) и enum-значениями. Kinds пуст — все классы (D7).
+// DisplayName атрибута — бандлы internal/i18n: attr.<код> (D9).
 type AttributeDef struct {
 	Code           string
-	DisplayName    string
 	GroupName      string
 	Type           AttrType
 	Unit           string
@@ -202,10 +200,10 @@ func (a *AttributeDef) AppliesTo(kind domain.Kind) bool {
 }
 
 // RuleDef — строка таблицы validation_rules: именованный код-валидатор;
-// реализации — в реестре этого пакета, привязка — данными.
+// реализации — в реестре этого пакета, привязка — данными. Строка — якорь
+// FK; описание правила — бандлы internal/i18n: rule.<код> (D9).
 type RuleDef struct {
-	Code        string
-	Description string
+	Code string
 }
 
 // KindRuleRef — строка таблицы kind_validation_rules: правило, проверяемое

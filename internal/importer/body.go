@@ -19,10 +19,10 @@ func ReadRecordJSON(data []byte, snap *catalog.Snapshot) (service.DeviceInput, e
 		return service.DeviceInput{}, err
 	}
 	r := &reader{snap: snap}
-	in, ok := r.record("", v, 0, "тело запроса")
+	in, ok := r.record("", v, 0, 0)
 	if !ok {
 		issue := r.issues[0]
-		return service.DeviceInput{}, domain.NewError(issue.Code, issue.Message)
+		return service.DeviceInput{}, domain.NewErrorf(issue.Code, issue.MsgID, issue.Args...)
 	}
 	return in, nil
 }

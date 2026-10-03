@@ -75,15 +75,23 @@ type Variant struct {
 	Values []ParameterValue
 }
 
-// Problem — выявленное нарушение: машиночитаемый код и дословный русский
-// текст сообщения. Коды и тексты — контракт CLI/REST (как у domain.Error);
-// проблемы накапливаются за один прогон.
+// Problem — выявленное нарушение: машиночитаемый код и сообщение каталога
+// (MsgID + аргументы рендера, этап 8.3). Message — канонический en-рендер;
+// локализованный рендер — транспорты (как у domain.Error). Коды и тексты —
+// контракт CLI/REST; проблемы накапливаются за один прогон.
 type Problem struct {
 	Code    domain.Code
+	MsgID   domain.MsgID
+	Args    []any
 	Message string
+}
+
+// Problemf строит проблему по коду и сообщению каталога.
+func Problemf(code domain.Code, id domain.MsgID, args ...any) Problem {
+	return Problem{Code: code, MsgID: id, Args: args, Message: domain.Msgf(id, args...)}
 }
 
 // Err преобразует проблему в ошибку домена.
 func (p Problem) Err() *domain.Error {
-	return domain.NewError(p.Code, p.Message)
+	return domain.NewErrorf(p.Code, p.MsgID, p.Args...)
 }

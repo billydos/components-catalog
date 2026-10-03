@@ -6,7 +6,7 @@ import (
 )
 
 // Инвариант реестра series (03 §2.4): обозначения семейств не разбираются
-// строгими системами; автодетект приводит их к series с классом семейства.
+// строгими systemми; автодетект приводит их к series с классом семейства.
 func TestSeriesRegistryInvariant(t *testing.T) {
 	strict := map[string]func(*scanner, Kind) (ParsedDesignation, error){
 		"gost (полупроводники)": parseGostSemiconductor,
@@ -156,27 +156,27 @@ func TestParseSeriesMessages(t *testing.T) {
 		want  string
 	}{
 		{"МЛТ", KindResistor,
-			"обозначение «МЛТ»: позиция 4: ожидалось: хвост мощности через дефис (например, -0.5), получено конец обозначения"},
+			"designation «МЛТ»: position 4: expected: power tail after the hyphen (e.g. -0.5), got end of designation"},
 		{"МЛТ-А", KindResistor,
-			"обозначение «МЛТ-А»: позиция 5: ожидалось: положительное число номинальной мощности, получено «А»"},
+			"designation «МЛТ-А»: position 5: expected: positive nominal power number, got «А»"},
 		{"КМ4А5", KindCapacitor,
-			"обозначение «КМ4А5»: позиция 5: ожидалось: хвост семейства (число и буквы), получено «5»"},
+			"designation «КМ4А5»: position 5: expected: family tail (digits and letters), got «5»"},
 		// Конфликт класса — designation_mismatch (симметрично строгим
-		// системам), а не «неизвестное семейство».
+		// systemм), а не «неизвестное семейство».
 		{"МЛТ-0.5", KindCapacitor,
-			"обозначение «МЛТ-0.5» принадлежит классу resistor, указан класс capacitor"},
+			"designation «МЛТ-0.5» belongs to kind resistor, kind capacitor was given"},
 		{"КМ-4А5", KindCapacitor,
-			"обозначение «КМ-4А5»: позиция 6: ожидалось: хвост семейства (число и буквы), получено «5»"},
+			"designation «КМ-4А5»: position 6: expected: family tail (digits and letters), got «5»"},
 		{"Д99999999999999999999", KindDiode,
-			"обозначение «Д99999999999999999999»: позиция 2: ожидалось: число в хвосте семейства (до 5 цифр), получено «99999999999999999999»"},
+			"designation «Д99999999999999999999»: position 2: expected: number in the family tail (up to 5 digits), got «99999999999999999999»"},
 		{"МЛТ-0", KindResistor,
-			"обозначение «МЛТ-0»: позиция 5: ожидалось: положительное число номинальной мощности, получено «0»"},
+			"designation «МЛТ-0»: position 5: expected: positive nominal power number, got «0»"},
 		{"МЛТ-1А", KindResistor,
-			"обозначение «МЛТ-1А»: позиция 6: ожидался конец обозначения, получено «А»"},
+			"designation «МЛТ-1А»: position 6: expected end of designation, got «А»"},
 		{"МЛТ-0.", KindResistor,
-			"обозначение «МЛТ-0.»: позиция 7: ожидалось: цифры дробной части мощности, получено конец обозначения"},
+			"designation «МЛТ-0.»: position 7: expected: digits of the fractional part of the power, got end of designation"},
 		{"КСО-", KindCapacitor,
-			"обозначение «КСО-»: позиция 5: ожидалось: хвост семейства (число и буквы), получено конец обозначения"},
+			"designation «КСО-»: position 5: expected: family tail (digits and letters), got end of designation"},
 	}
 	for _, tc := range cases {
 		_, err := parseSeries(mustCanonical(t, tc.input), tc.kind)

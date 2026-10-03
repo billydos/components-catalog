@@ -67,7 +67,7 @@ func TestVerifiedPostgres(t *testing.T)     { runVerifiedSuite(t, postgresConfig
 
 func runVerifiedSuite(t *testing.T, factory configFactory) {
 	// Минимальный состав выборки этапа 6.3: транзисторы ≈20 записей
-	// (не менее), записи каждого из остальных классов (не менее 8).
+	// (не менее), записи каждого из остальных классов (at least 8).
 	minRecords := map[domain.Kind]int{
 		domain.KindTransistor: 20, domain.KindDiode: 8,
 		domain.KindResistor: 8, domain.KindCapacitor: 8,
@@ -90,7 +90,7 @@ func runVerifiedSuite(t *testing.T, factory configFactory) {
 			t.Fatalf("data/%s: проблемы: %v", name, issueMessages(rep.Issues))
 		}
 		if rep.Records != len(doc.Records) || rep.Added != len(doc.Records) {
-			t.Fatalf("data/%s: записей %d, добавлено %d (в файле %d)",
+			t.Fatalf("data/%s: записей %d, added %d (в файле %d)",
 				name, rep.Records, rep.Added, len(doc.Records))
 		}
 		// Повторный импорт — Skipped по всем записям без записи в БД.
@@ -126,7 +126,7 @@ func runVerifiedSuite(t *testing.T, factory configFactory) {
 						t.Errorf("%s: «%s»: класс разбора %s, секция %s", name, in.Name, p.Kind, kind)
 					}
 					if in.System != "" && p.System != in.System {
-						t.Errorf("%s: «%s»: система разбора %s, в записи %s", name, in.Name, p.System, in.System)
+						t.Errorf("%s: «%s»: system разбора %s, в записи %s", name, in.Name, p.System, in.System)
 					}
 				}
 			}

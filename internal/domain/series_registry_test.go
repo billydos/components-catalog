@@ -7,7 +7,7 @@ import "testing"
 // домена, разбирается той же грамматикой хвоста.
 func TestParseSeriesWithRegistry(t *testing.T) {
 	registry := []SeriesFamily{
-		{Series: "ФГТ", Kind: KindTransistor, Name: "тестовое семейство"},
+		{Series: "ФГТ", Kind: KindTransistor},
 		{Series: "МП", Kind: KindTransistor},
 	}
 	p, err := ParseSeriesWithRegistry("ФГТ-5", registry, "")

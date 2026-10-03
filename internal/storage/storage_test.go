@@ -32,7 +32,7 @@ func TestCheckSchemaNotInitialized(t *testing.T) {
 	if de.Code != domain.CodeDatabaseNotInitialized {
 		t.Fatalf("код: %s", de.Code)
 	}
-	want := "база данных не инициализирована или не является базой модуля; выполните init (CLI) или EnsureCreated"
+	want := "database is not initialized or is not a module database; run init (CLI) or EnsureCreated"
 	if de.Message != want {
 		t.Fatalf("текст: %q, ожидался %q", de.Message, want)
 	}

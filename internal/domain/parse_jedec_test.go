@@ -30,19 +30,19 @@ func TestParseJedecValid(t *testing.T) {
 			t.Errorf("«%s»:\n got:  %s\n want: %s", tc.input, got, tc.fields)
 		}
 		if p.System != SystemJedec || p.Designation != tc.input {
-			t.Errorf("«%s»: система/ключ %s/%s", tc.input, p.System, p.Designation)
+			t.Errorf("«%s»: system/ключ %s/%s", tc.input, p.System, p.Designation)
 		}
 	}
 }
 
 func TestParseJedecMessages(t *testing.T) {
 	cases := []struct{ input, want string }{
-		{"2X4148", "обозначение «2X4148»: позиция 2: ожидалось: признак регистрации JEDEC (N либо C), получено «X»"},
-		{"5N4148", "обозначение «5N4148»: позиция 1: ожидалось: цифра числа p-n-переходов (1–4), получено «5»"},
-		{"0N4148", "обозначение «0N4148»: позиция 1: ожидалось: цифра числа p-n-переходов (1–4), получено «0»"},
-		{"1N", "обозначение «1N»: позиция 3: ожидалось: номер регистрации EIA, получено конец обозначения"},
-		{"1N0448", "обозначение «1N0448»: позиция 3: ожидалось: номер регистрации EIA без ведущего нуля (до четырёх цифр), получено «0448»"},
-		{"2N3055ABCD", "обозначение «2N3055ABCD»: позиция 10: ожидался конец обозначения, получено «D»"},
+		{"2X4148", "designation «2X4148»: position 2: expected: JEDEC registration letter (N or C), got «X»"},
+		{"5N4148", "designation «5N4148»: position 1: expected: digit of the p-n junction count (1–4), got «5»"},
+		{"0N4148", "designation «0N4148»: position 1: expected: digit of the p-n junction count (1–4), got «0»"},
+		{"1N", "designation «1N»: position 3: expected: EIA registration number, got end of designation"},
+		{"1N0448", "designation «1N0448»: position 3: expected: EIA registration number without a leading zero (up to four digits), got «0448»"},
+		{"2N3055ABCD", "designation «2N3055ABCD»: position 10: expected end of designation, got «D»"},
 	}
 	for _, tc := range cases {
 		_, err := parseJedec(newScanner(tc.input), "")

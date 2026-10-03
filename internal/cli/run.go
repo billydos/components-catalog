@@ -8,39 +8,41 @@ import (
 	"strings"
 
 	"github.com/billydos/components-catalog/internal/domain"
+	"github.com/billydos/components-catalog/internal/i18n"
 	"github.com/billydos/components-catalog/internal/service"
 )
 
 // Run выполняет команду catalogctl и возвращает код выхода
 // (docs/plan/04-module-functionality.md §3). Общие опции: --dialect, --db,
-// --dsn, --kind, --system, --dry-run; ожидаемые ошибки выводятся
-// с префиксом «Ошибка: », прочие — «Непредвиденная ошибка: »,
-// код выхода 1.
+// --dsn, --kind, --system, --dry-run, --lang en|ru (локаль вывода — D9,
+// по умолчанию en); ожидаемые ошибки выводятся с префиксом «Ошибка: »,
+// прочие — «Непредвиденная ошибка: », код выхода 1.
 func Run(args []string, stdout, stderr io.Writer) int {
 	if len(args) == 0 {
-		fmt.Fprint(stderr, usageText)
+		fmt.Fprint(stderr, usageText(i18n.En))
 		return 1
 	}
 	name := args[0]
 	if name == "help" || name == "--help" || name == "-h" {
 		return runHelp(args[1:], stdout, stderr)
 	}
+	earlyLang := langFromArgs(args)
 	cmd, ok := commands[name]
 	if !ok {
-		PrintError(stderr, domain.NewError(domain.CodeValidationFailed,
-			fmt.Sprintf("неизвестная команда «%s»; справка: catalogctl help", name)))
+		PrintError(stderr, earlyLang, domain.NewErrorf(domain.CodeValidationFailed,
+			domain.MsgCliUnknownCommand, name))
 		return 1
 	}
 	opts, pos, err := parseArgs(name, cmd.flags, args[1:])
 	if err != nil {
-		PrintError(stderr, err)
+		PrintError(stderr, earlyLang, err)
 		return 1
 	}
 	tooFew := len(pos) < cmd.minArgs
 	tooMany := cmd.maxArgs >= 0 && len(pos) > cmd.maxArgs
 	if tooFew || tooMany {
-		PrintError(stderr, domain.NewError(domain.CodeValidationFailed,
-			"неверное число аргументов команды "+name+"; формат: "+cmd.usage))
+		PrintError(stderr, earlyLang, domain.NewErrorf(domain.CodeValidationFailed,
+			domain.MsgCliArgCount, name, cmd.usage))
 		return 1
 	}
 	ctx := context.Background()
@@ -71,6 +73,7 @@ type options struct {
 	kind    string
 	system  string
 	format  string
+	lang    string
 	dryRun  bool
 	q       string
 	limit   int
@@ -79,12 +82,21 @@ type options struct {
 	nums    map[string]float64
 }
 
+// langOf — локаль вывода отображаемых строк (--lang; по умолчанию en — D9).
+func (o *options) langOf() i18n.Language {
+	if l, ok := i18n.ParseLanguage(o.lang); ok {
+		return l
+	}
+	return i18n.En
+}
+
 // Базовые флаги подключения и подбора.
 var (
 	dbFlags = []flagSpec{
 		{name: "dialect", hasValue: true},
 		{name: "db", hasValue: true},
 		{name: "dsn", hasValue: true},
+		{name: "lang", hasValue: true},
 	}
 	kindFlag   = flagSpec{name: "kind", hasValue: true}
 	systemFlag = flagSpec{name: "system", hasValue: true}
@@ -150,14 +162,14 @@ func parseArgs(cmd string, specs []flagSpec, args []string) (*options, []string,
 		}
 		spec, known := byName[name]
 		if !known {
-			return nil, nil, domain.NewError(domain.CodeValidationFailed,
-				fmt.Sprintf("неизвестный флаг «--%s» (команда %s; справка: catalogctl help %s)", name, cmd, cmd))
+			return nil, nil, domain.NewErrorf(domain.CodeValidationFailed,
+				domain.MsgCliUnknownFlag, name, cmd, cmd)
 		}
 		if spec.hasValue {
 			if !hasValue {
 				if i+1 >= len(args) {
-					return nil, nil, domain.NewError(domain.CodeValidationFailed,
-						fmt.Sprintf("флаг «--%s» требует значение", name))
+					return nil, nil, domain.NewErrorf(domain.CodeValidationFailed,
+						domain.MsgCliFlagValueRequired, name)
 				}
 				i++
 				value = args[i]
@@ -168,8 +180,8 @@ func parseArgs(cmd string, specs []flagSpec, args []string) (*options, []string,
 			continue
 		}
 		if hasValue {
-			return nil, nil, domain.NewError(domain.CodeValidationFailed,
-				fmt.Sprintf("флаг «--%s» не принимает значение", name))
+			return nil, nil, domain.NewErrorf(domain.CodeValidationFailed,
+				domain.MsgCliFlagNoValue, name)
 		}
 		if err := opts.set(cmd, name, "true"); err != nil {
 			return nil, nil, err
@@ -193,6 +205,12 @@ func (o *options) set(cmd, name, value string) error {
 		o.system = value
 	case "format":
 		o.format = value
+	case "lang":
+		if _, ok := i18n.ParseLanguage(value); !ok {
+			return domain.NewErrorf(domain.CodeValidationFailed,
+				domain.MsgCliLangInvalid, value)
+		}
+		o.lang = value
 	case "dry-run":
 		o.dryRun = value == "true"
 	case "q":
@@ -200,8 +218,8 @@ func (o *options) set(cmd, name, value string) error {
 	case "limit", "offset":
 		n, err := strconv.Atoi(value)
 		if err != nil || n < 0 || (name == "limit" && n == 0) {
-			return domain.NewError(domain.CodeValidationFailed,
-				fmt.Sprintf("флаг «--%s» требует неотрицательное число, получено «%s»", name, value))
+			return domain.NewErrorf(domain.CodeValidationFailed,
+				domain.MsgCliFlagNonNegative, name, value)
 		}
 		if name == "limit" {
 			o.limit = n
@@ -213,13 +231,13 @@ func (o *options) set(cmd, name, value string) error {
 	case "junctions", "group", "number":
 		f, err := strconv.ParseFloat(value, 64)
 		if err != nil {
-			return domain.NewError(domain.CodeValidationFailed,
-				fmt.Sprintf("флаг «--%s» требует число, получено «%s»", name, value))
+			return domain.NewErrorf(domain.CodeValidationFailed,
+				domain.MsgCliFlagNumber, name, value)
 		}
 		o.nums[name] = f
 	default:
-		return domain.NewError(domain.CodeValidationFailed,
-			fmt.Sprintf("неизвестный флаг «--%s» (команда %s)", name, cmd))
+		return domain.NewErrorf(domain.CodeValidationFailed,
+			domain.MsgCliUnknownFlagSet, name, cmd)
 	}
 	return nil
 }
@@ -250,8 +268,8 @@ func (o *options) hasDB() bool { return o.db != "" || o.dsn != "" || o.dialect !
 func openApp(ctx context.Context, o *options, ensure bool) (*service.App, error) {
 	dialect, dsn := o.dsnOf()
 	if dialect != "sqlite" && dialect != "postgres" {
-		return nil, domain.NewError(domain.CodeValidationFailed,
-			fmt.Sprintf("неизвестный диалект «%s» (допустимы: sqlite, postgres)", dialect))
+		return nil, domain.NewErrorf(domain.CodeValidationFailed,
+			domain.MsgCliDialectUnknown, dialect)
 	}
 	return service.Open(ctx, service.Config{
 		Dialect: dialect, DSN: dsn, EnsureCreated: ensure,
@@ -261,8 +279,26 @@ func openApp(ctx context.Context, o *options, ensure bool) (*service.App, error)
 // kindFlagOf — значение --kind (пустое — не задано).
 func (o *options) kindFlagOf() domain.Kind { return domain.Kind(o.kind) }
 
+// langFromArgs — локаль ранних ошибок разбора аргументов: значение флага
+// --lang, если задано до ошибки (по умолчанию en — D9).
+func langFromArgs(args []string) i18n.Language {
+	for i := 0; i < len(args)-1; i++ {
+		if args[i] == "--lang" {
+			if l, ok := i18n.ParseLanguage(args[i+1]); ok {
+				return l
+			}
+		}
+		if strings.HasPrefix(args[i], "--lang=") {
+			if l, ok := i18n.ParseLanguage(strings.TrimPrefix(args[i], "--lang=")); ok {
+				return l
+			}
+		}
+	}
+	return i18n.En
+}
+
 // fail — печать ошибки с контрактным префиксом; возвращает код 1.
-func fail(stderr io.Writer, err error) int {
-	PrintError(stderr, err)
+func fail(stderr io.Writer, lang i18n.Language, err error) int {
+	PrintError(stderr, lang, err)
 	return 1
 }

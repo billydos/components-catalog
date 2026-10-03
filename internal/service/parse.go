@@ -2,7 +2,6 @@ package service
 
 import (
 	"context"
-	"fmt"
 	"strings"
 
 	"github.com/billydos/components-catalog/internal/catalog"
@@ -70,7 +69,6 @@ func seriesRegistry(snap *catalog.Snapshot) []domain.SeriesFamily {
 		out = append(out, domain.SeriesFamily{
 			Series: f.Series,
 			Kind:   f.Kind,
-			Name:   f.Name,
 			Power:  f.TailSemantic == catalog.TailSemanticPower,
 		})
 	}
@@ -97,8 +95,7 @@ func (s *DesignationService) Suggest(ctx context.Context, prefix string, kind do
 			return nil, err
 		}
 		if _, ok := snap.Kind(kind); !ok {
-			return nil, domain.NewError(domain.CodeValidationFailed,
-				fmt.Sprintf("неизвестный класс приборов «%s»", string(kind)))
+			return nil, domain.NewErrorf(domain.CodeValidationFailed, domain.MsgKindUnknown, string(kind))
 		}
 		k = string(kind)
 	}

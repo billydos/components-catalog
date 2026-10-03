@@ -42,8 +42,8 @@ func TestPinGroupSections(t *testing.T) {
 }
 
 // forEachRecord обходит записи документа наполнения в любом формате
-// реестра: jsonc/yaml — секции классов с массивами записей, ndjson —
-// строка-обёртка на запись (writer.go). Секция catalog пропускается.
+// реестра: jsonc/yaml — секции классов с arrayами записей, ndjson —
+// string-обёртка на запись (writer.go). Секция catalog пропускается.
 func forEachRecord(t *testing.T, label string, data []byte, format Format, fn func(kind string, rec value)) {
 	t.Helper()
 	if format == FormatNDJSON {
@@ -51,14 +51,14 @@ func forEachRecord(t *testing.T, label string, data []byte, format Format, fn fu
 		for {
 			line, number, ok, err := sc.next()
 			if err != nil {
-				t.Fatalf("%s: строка %d: %v", label, number, err)
+				t.Fatalf("%s: line %d: %v", label, number, err)
 			}
 			if !ok {
 				return
 			}
 			v, err := parseLineJSON(line, number)
 			if err != nil {
-				t.Fatalf("%s: строка %d: %v", label, number, err)
+				t.Fatalf("%s: line %d: %v", label, number, err)
 			}
 			for _, m := range v.members {
 				if m.name == "catalog" {
@@ -127,7 +127,7 @@ func checkRecordKeys(t *testing.T, file string, snap *catalog.Snapshot,
 		return
 	}
 	if rec.kind != kindObject {
-		t.Errorf("%s: запись не объект и не строка", file)
+		t.Errorf("%s: запись не object и не string", file)
 		return
 	}
 	for _, m := range rec.members {
@@ -136,7 +136,7 @@ func checkRecordKeys(t *testing.T, file string, snap *catalog.Snapshot,
 		}
 		t.Errorf("%s: неизвестный ключ записи «%s»", file, m.name)
 	}
-	// Значения секций: ключи объектов значений — parameter/value/min/max/
+	// Значения секций: ключи objectов значений — parameter/value/min/max/
 	// text и коды условий каталога.
 	for _, m := range rec.members {
 		if !sections[m.name] || m.value.kind != kindArray {
@@ -219,18 +219,18 @@ func TestPinVerbatimFormatErrors(t *testing.T) {
 	if !ok || de.Code != domain.CodeInvalidImportFile {
 		t.Fatalf("ожидалась invalid_import_file, получено %v", err)
 	}
-	want := "файл «data.csv»: не удалось определить формат по расширению «.csv» " +
-		"(допустимы: .jsonc/.json, .yaml/.yml, .ndjson — либо задайте --format)"
+	want := "file «data.csv»: cannot determine the format from extension «.csv» " +
+		"(allowed: .jsonc/.json, .yaml/.yml, .ndjson — or set --format)"
 	if de.Message != want {
 		t.Fatalf("текст: %q, ожидался %q", de.Message, want)
 	}
-	// NDJSON-строка с синтаксической ошибкой — номер строки в тексте.
+	// NDJSON-string с синтаксической ошибкой — номер строки в тексте.
 	_, err = parseLineJSON([]byte(`{"transistors": `), 9)
 	de, ok = domain.AsError(err)
 	if !ok || de.Code != domain.CodeInvalidImportFile {
 		t.Fatalf("ожидалась invalid_import_file, получено %v", err)
 	}
-	if !strings.HasPrefix(de.Message, "строка 9: ") {
+	if !strings.HasPrefix(de.Message, "line 9: ") {
 		t.Fatalf("текст без номера строки: %q", de.Message)
 	}
 }

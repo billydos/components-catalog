@@ -3,8 +3,7 @@ package importer
 import (
 	"bytes"
 	"encoding/json"
-	"errors"
-	"fmt"
+	"github.com/billydos/components-catalog/internal/domain"
 
 	"github.com/tailscale/hujson"
 )
@@ -37,7 +36,7 @@ func decodeJSONDocument(data []byte) (value, error) {
 		return value{}, err
 	}
 	if err := decoder.Decode(new(json.RawMessage)); err == nil {
-		return value{}, errors.New("после корневого значения идут лишние данные")
+		return value{}, domain.NewErrorf(domain.CodeInvalidImportFile, domain.MsgImportUnexpectedToken, "trailing data")
 	}
 	return v, nil
 }
@@ -76,11 +75,12 @@ func decodeJSONFrom(decoder *json.Decoder, source []byte) (value, error) {
 				}
 				name, ok := nameToken.(string)
 				if !ok {
-					return value{}, errors.New("неверный ключ объекта")
+					return value{}, domain.NewErrorf(domain.CodeInvalidImportFile,
+						domain.MsgImportUnexpectedToken, nameToken)
 				}
 				if names[name] {
-					return value{}, fmt.Errorf("повторяющийся ключ «%s» (строка %d)",
-						name, lineOfOffset(source, decoder.InputOffset()))
+					return value{}, domain.NewErrorf(domain.CodeInvalidImportFile,
+						domain.MsgImportDuplicateKey, name, lineOfOffset(source, decoder.InputOffset()))
 				}
 				names[name] = true
 				item, err := decodeJSONFrom(decoder, source)
@@ -108,7 +108,7 @@ func decodeJSONFrom(decoder *json.Decoder, source []byte) (value, error) {
 			return array, nil
 		}
 	}
-	return value{}, fmt.Errorf("неожидаемый токен %v", token)
+	return value{}, domain.NewErrorf(domain.CodeInvalidImportFile, domain.MsgImportUnexpectedToken, token)
 }
 
 // lineOfOffset — номер строки (с 1) байтового смещения в

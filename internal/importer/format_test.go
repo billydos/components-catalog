@@ -22,7 +22,7 @@ func TestParseJSONCCommentsAndTrailingCommas(t *testing.T) {
 		t.Fatalf("jsonc с комментариями: %v", err)
 	}
 	if v.kind != kindObject {
-		t.Fatalf("корень должен быть объектом: %v", v.kind)
+		t.Fatalf("корень должен быть objectом: %v", v.kind)
 	}
 	section, ok := v.has("transistors")
 	if !ok || section.kind != kindArray || len(section.items) != 1 {
@@ -43,7 +43,7 @@ func TestParseJSONCDuplicateKeyIsHardError(t *testing.T) {
 	if de.Code != domain.CodeInvalidImportFile {
 		t.Fatalf("код: %s, ожидался invalid_import_file", de.Code)
 	}
-	want := "файл не является корректным JSONC: повторяющийся ключ «name» (строка 3)"
+	want := "the file is not valid JSONC: duplicate key «name» (line 3)"
 	if de.Message != want {
 		t.Fatalf("текст: %q, ожидался %q", de.Message, want)
 	}
@@ -55,7 +55,7 @@ func TestParseJSONCSyntaxError(t *testing.T) {
 	if !ok || de.Code != domain.CodeInvalidImportFile {
 		t.Fatalf("ожидалась ошибка invalid_import_file, получено %v", err)
 	}
-	if !strings.Contains(de.Message, "файл не является корректным JSONC") {
+	if !strings.Contains(de.Message, "the file is not valid JSONC") {
 		t.Fatalf("текст без указания формата: %q", de.Message)
 	}
 }
@@ -73,7 +73,7 @@ func TestParseJSONCNumberPrecision(t *testing.T) {
 	}
 	minv, _ := v.has("min")
 	if minv.num != "10000000000" {
-		t.Fatalf("число сохранено неточно: %q", minv.num)
+		t.Fatalf("number сохранено неточно: %q", minv.num)
 	}
 	maxv, _ := v.has("max")
 	if maxv.num != "0.125" {
@@ -98,7 +98,7 @@ func TestParseYAMLAnchorsAndAliases(t *testing.T) {
 }
 
 func TestParseYAMLMergeKeyRejected(t *testing.T) {
-	// merge-ключ «<<» отвергается как ключ объекта — сознательно:
+	// merge-ключ «<<» отвергается как ключ objectа — сознательно:
 	// семантика слияния не входит в формат наполнения.
 	if _, err := parseYAML([]byte("base: &b\n  a: 1\nrec:\n  <<: *b\n  name: X\n")); err == nil {
 		t.Fatal("merge-ключ должен отвергаться")
@@ -130,7 +130,7 @@ func TestParseYAMLKeyOrderAndScalars(t *testing.T) {
 	}
 	year, _ := v.has("year")
 	if year.kind != kindNumber || year.num != "1967" {
-		t.Fatalf("число: %+v", year)
+		t.Fatalf("number: %+v", year)
 	}
 	okv, _ := v.has("ok")
 	if okv.kind != kindBool || !okv.boolean {
@@ -159,7 +159,7 @@ func TestParseYAMLSyntaxError(t *testing.T) {
 	if !ok || de.Code != domain.CodeInvalidImportFile {
 		t.Fatalf("ожидалась ошибка invalid_import_file, получено %v", err)
 	}
-	if !strings.Contains(de.Message, "файл не является корректным YAML") {
+	if !strings.Contains(de.Message, "the file is not valid YAML") {
 		t.Fatalf("текст без указания формата: %q", de.Message)
 	}
 }
@@ -170,7 +170,7 @@ func TestParseLineJSONDuplicateKeyWithLineNumber(t *testing.T) {
 	if !ok || de.Code != domain.CodeInvalidImportFile {
 		t.Fatalf("ожидалась ошибка invalid_import_file, получено %v", err)
 	}
-	want := "строка 7: повторяющийся ключ «name» (строка 1)"
+	want := "line 7: duplicate key «name» (line 1)"
 	if de.Message != want {
 		t.Fatalf("текст: %q, ожидался %q", de.Message, want)
 	}

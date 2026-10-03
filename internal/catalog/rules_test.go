@@ -21,9 +21,6 @@ func TestRuleRegistry(t *testing.T) {
 	got := make([]string, 0, len(rules))
 	for _, r := range rules {
 		got = append(got, r.Code())
-		if r.Description() == "" {
-			t.Errorf("правило %s без описания", r.Code())
-		}
 	}
 	if !slices.Equal(got, want) {
 		t.Fatalf("реестр правил:\n got:  %v\n want: %v", got, want)
@@ -48,15 +45,15 @@ func TestYearRangeRule(t *testing.T) {
 			{Attribute: "yearFrom", Num: f(1967)}, {Attribute: "yearTo", Num: f(1992)}}, ""},
 		{"только год начала", []catalog.AttributeValue{{Attribute: "yearFrom", Num: f(1967)}}, ""},
 		{"раньше 1949", []catalog.AttributeValue{{Attribute: "yearFrom", Num: f(1930)}},
-			"атрибут «yearFrom»: год вне диапазона 1949–2100"},
+			"attribute «yearFrom»: year outside the range 1949–2100"},
 		{"позже 2100", []catalog.AttributeValue{{Attribute: "yearTo", Num: f(2200)}},
-			"атрибут «yearTo»: год вне диапазона 1949–2100"},
+			"attribute «yearTo»: year outside the range 1949–2100"},
 		{"начало позже окончания", []catalog.AttributeValue{
 			{Attribute: "yearFrom", Num: f(1992)}, {Attribute: "yearTo", Num: f(1967)}},
-			"атрибуты «yearFrom» и «yearTo»: год начала должен быть меньше года окончания"},
+			"attributes «yearFrom» and «yearTo»: the first year must be less than the last year"},
 		{"равные годы", []catalog.AttributeValue{
 			{Attribute: "yearFrom", Num: f(1980)}, {Attribute: "yearTo", Num: f(1980)}},
-			"атрибуты «yearFrom» и «yearTo»: год начала должен быть меньше года окончания"},
+			"attributes «yearFrom» and «yearTo»: the first year must be less than the last year"},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -103,7 +100,7 @@ func TestTempPairRule(t *testing.T) {
 			},
 		}
 		probs := e.ValidateDevice(&d)
-		if len(probs) != 1 || probs[0].Message != "параметр «TempMin» должен быть меньше параметра «TempMax»" {
+		if len(probs) != 1 || probs[0].Message != "parameter «TempMin» must be less than parameter «TempMax»" {
 			t.Fatalf(" got: %v", messages(probs))
 		}
 	})
@@ -125,7 +122,7 @@ func TestTempPairRule(t *testing.T) {
 			},
 		}
 		probs := e.ValidateDevice(&d)
-		if len(probs) != 1 || probs[0].Message != "параметр «opTempMin» должен быть меньше параметра «opTempMax»" {
+		if len(probs) != 1 || probs[0].Message != "parameter «opTempMin» must be less than parameter «opTempMax»" {
 			t.Fatalf(" got: %v", messages(probs))
 		}
 	})
@@ -161,14 +158,14 @@ func TestCapDimensionsFormRule(t *testing.T) {
 		{"осевой цилиндрический", cyl, "", true},
 		{"радиальный цилиндрический", radial, "", true},
 		{"смешение", append(slices.Clone(rect), cyl...),
-			"габариты: смешение форм корпуса — прямоугольная (length+width+height) и цилиндрическая (diameter+leadLength/height)", false},
+			"dimensions: mixed case forms — rectangular (length+width+height) and cylindrical (diameter+leadLength/height)", false},
 		{"радиальный с шириной", append(slices.Clone(radial),
 			catalog.ParameterValue{Parameter: "width", Section: "dimensions", Exact: f(4)}),
-			"габариты: смешение форм корпуса — прямоугольная (length+width+height) и цилиндрическая (diameter+leadLength/height)", false},
+			"dimensions: mixed case forms — rectangular (length+width+height) and cylindrical (diameter+leadLength/height)", false},
 		{"неполный прямоугольный", rect[:2],
-			"габариты: неполный прямоугольный набор корпуса — требуются length, width и height", false},
+			"dimensions: incomplete rectangular case set — length, width and height are required", false},
 		{"неполный цилиндрический", cyl[:1],
-			"габариты: неполный цилиндрический набор корпуса — требуются diameter и leadLength (осевые) либо diameter и height (радиальные)", false},
+			"dimensions: incomplete cylindrical case set — diameter and leadLength (axial) or diameter and height (radial) are required", false},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -207,7 +204,7 @@ func TestCapDimensionsFormRule(t *testing.T) {
 			Values: []catalog.ParameterValue{{Parameter: "height", Section: "dimensions", Exact: f(5)}},
 		}
 		probs := e.ValidateDevice(&d)
-		if len(probs) != 1 || probs[0].Message != "габариты: неполный прямоугольный набор корпуса — требуются length, width и height" {
+		if len(probs) != 1 || probs[0].Message != "dimensions: incomplete rectangular case set — length, width and height are required" {
 			t.Fatalf(" got: %v", messages(probs))
 		}
 	})
@@ -247,7 +244,7 @@ func TestResistorVariants(t *testing.T) {
 			{Parameter: "Umax", Section: "ratings", Exact: f(350)},
 		}}}
 		probs := e.ValidateDevice(&d)
-		if len(probs) != 1 || probs[0].Message != "вариант «0.5 Вт»: отсутствует обязательный параметр Pnom" {
+		if len(probs) != 1 || probs[0].Message != "variant «0.5 Вт»: mandatory parameter Pnom is missing" {
 			t.Fatalf(" got: %v", messages(probs))
 		}
 	})
@@ -257,7 +254,7 @@ func TestResistorVariants(t *testing.T) {
 			{Parameter: "Pnom", Section: "ratings", Exact: f(1)},
 		}})
 		probs := e.ValidateDevice(&d)
-		if len(probs) != 1 || probs[0].Message != "вариант «повтор»: Pnom повторяется (уже задан вариантом «1 Вт»)" {
+		if len(probs) != 1 || probs[0].Message != "variant «повтор»: Pnom repeats (already set by variant «1 Вт»)" {
 			t.Fatalf(" got: %v", messages(probs))
 		}
 	})
@@ -267,15 +264,15 @@ func TestResistorVariants(t *testing.T) {
 			{Parameter: "Pnom", Section: "ratings", Exact: f(2)},
 		}})
 		probs := e.ValidateDevice(&d)
-		if len(probs) != 1 || probs[0].Message != "вариант «1 Вт»: метка повторяется" {
+		if len(probs) != 1 || probs[0].Message != "variant «1 Вт»: label repeats" {
 			t.Fatalf(" got: %v", messages(probs))
 		}
 	})
-	t.Run("вариант без метки в сообщении", func(t *testing.T) {
+	t.Run("вариант no label в сообщении", func(t *testing.T) {
 		d := base
 		d.Variants = []catalog.Variant{{Values: nil}}
 		probs := e.ValidateDevice(&d)
-		if len(probs) != 1 || probs[0].Message != "вариант №1: отсутствует обязательный параметр Pnom" {
+		if len(probs) != 1 || probs[0].Message != "variant №1: mandatory parameter Pnom is missing" {
 			t.Fatalf(" got: %v", messages(probs))
 		}
 	})
@@ -287,7 +284,7 @@ func TestResistorVariants(t *testing.T) {
 			}}},
 		}
 		probs := e.ValidateDevice(&d)
-		hasProblem(t, probs, "класс transistor не поддерживает исполнения (варианты)")
+		hasProblem(t, probs, "kind transistor does not support variants")
 	})
 }
 
@@ -333,7 +330,7 @@ func TestCapacitorVariants(t *testing.T) {
 			{Parameter: "Unom", Section: "parameters", Exact: f(160)},
 		}}}
 		probs := e.ValidateDevice(&d)
-		if len(probs) != 1 || probs[0].Message != "вариант «160 В»: отсутствует обязательный параметр Cnom" {
+		if len(probs) != 1 || probs[0].Message != "variant «160 В»: mandatory parameter Cnom is missing" {
 			t.Fatalf(" got: %v", messages(probs))
 		}
 	})
@@ -344,7 +341,7 @@ func TestCapacitorVariants(t *testing.T) {
 			{Parameter: "Cnom", Section: "parameters", Min: f(1), Max: f(2)},
 		}})
 		probs := e.ValidateDevice(&d)
-		if len(probs) != 1 || probs[0].Message != "вариант «160 В »: Unom повторяется (уже задан вариантом «160 В»)" {
+		if len(probs) != 1 || probs[0].Message != "variant «160 В »: Unom repeats (already set by variant «160 В»)" {
 			t.Fatalf(" got: %v", messages(probs))
 		}
 	})
@@ -356,7 +353,7 @@ func TestCapacitorVariants(t *testing.T) {
 			{Parameter: "length", Section: "dimensions", Exact: f(10)},
 		}}}
 		probs := e.ValidateDevice(&d)
-		hasProblem(t, probs, "габариты: неполный прямоугольный набор корпуса — требуются length, width и height")
+		hasProblem(t, probs, "dimensions: incomplete rectangular case set — length, width and height are required")
 	})
 	t.Run("уровень типа без вариантов", func(t *testing.T) {
 		d := catalog.Device{

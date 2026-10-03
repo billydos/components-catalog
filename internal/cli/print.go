@@ -1,8 +1,9 @@
 package cli
 
-// Вывод карточки и разбора обозначения — слой вывода; производные
-// единицы отображения (мкФ, МОм, кГц) здесь не переводятся: вывод
-// канонических единиц хранилища.
+// Вывод карточки и разбора обозначения — слой вывода. Отображаемые
+// названия классов/систем/групп/параметров/атрибутов и символы единиц —
+// бандлы internal/i18n по локали команды (--lang, D9); значения
+// форматируются с инженерными приставками (i18n.FormatValue, этап 8.4).
 
 import (
 	"fmt"
@@ -11,75 +12,59 @@ import (
 
 	"github.com/billydos/components-catalog/internal/catalog"
 	"github.com/billydos/components-catalog/internal/domain"
+	"github.com/billydos/components-catalog/internal/i18n"
 	"github.com/billydos/components-catalog/internal/service"
 )
 
-// fieldDisplayNames — названия полей разбора для вывода.
-var fieldDisplayNames = map[string]string{
-	"material":     "материал",
-	"subclass":     "подкласс",
-	"junctions":    "переходы",
-	"assembly":     "сборка",
-	"feature":      "признак",
-	"group":        "группа",
-	"dev_number":   "номер разработки",
-	"letters":      "буквы",
-	"modification": "модификатор",
-	"chip":         "вариант кристалла",
-	"prefix":       "префикс",
-	"series":       "семейство",
-	"power":        "мощность",
-	"family":       "семейство (буква)",
-}
-
-func fieldDisplayName(name string) string {
-	if display, ok := fieldDisplayNames[name]; ok {
-		return display
-	}
-	return name
+// fieldDisplayName — отображаемое имя поля разбора по локали.
+func fieldDisplayName(lang i18n.Language, name string) string {
+	return i18n.DesignationField(lang, name)
 }
 
 // printParsed выводит результат разбора обозначения.
-func printParsed(w io.Writer, p domain.ParsedDesignation) {
+func printParsed(w io.Writer, lang i18n.Language, p domain.ParsedDesignation) {
 	kindName, systemName := string(p.Kind), string(p.System)
 	if k := p.Kind; k.IsValid() {
-		kindName = k.Name()
+		kindName = i18n.KindName(lang, string(k))
 	}
 	if s := p.System; s.IsValid() {
-		systemName = s.Name()
+		systemName = i18n.SystemName(lang, string(s))
 	}
-	fmt.Fprintf(w, "%s: %s (%s), система %s (%s)\n", p.Designation, kindName, string(p.Kind), systemName, string(p.System))
+	fmt.Fprintln(w, i18n.Message(lang, "cli_parse_head",
+		p.Designation, kindName, string(p.Kind), systemName, string(p.System)))
 	for _, f := range p.Fields {
-		fmt.Fprintf(w, "  %s: %s\n", fieldDisplayName(f.Name), fieldDisplayValue(f))
+		fmt.Fprintln(w, i18n.Message(lang, "cli_field_line",
+			fieldDisplayName(lang, f.Name), fieldDisplayValue(lang, f)))
 	}
 }
 
 // fieldDisplayValue — значение поля разбора: assembly — качественное
-// (сборка/прибор), прочие числа — компактной записью.
-func fieldDisplayValue(f domain.Field) string {
+// (сборка/прибор), прочие числа — компактной записью локали.
+func fieldDisplayValue(lang i18n.Language, f domain.Field) string {
 	if f.Name == "assembly" {
 		if f.IsNum && f.Num != 0 {
-			return "сборка"
+			return i18n.Message(lang, "cli_assembly_value")
 		}
-		return "прибор"
+		return i18n.Message(lang, "cli_device_value")
 	}
 	if f.IsNum {
-		return trimFloatDisplay(f.Num)
+		return i18n.FormatNumber(lang, f.Num)
 	}
 	return f.Text
 }
 
 // printCard выводит карточку записи: заголовок, поля обозначения,
 // атрибуты, значения по группам, исполнения, производители, аналоги.
-func printCard(w io.Writer, c *service.Card, snap *catalog.Snapshot) {
-	fmt.Fprintf(w, "%s — %s; система %s (%s); id %d\n",
-		c.Designation, kindTitle(c), systemTitle(c), string(c.System), c.ID)
+func printCard(w io.Writer, lang i18n.Language, c *service.Card, snap *catalog.Snapshot) {
+	fmt.Fprintf(w, "%s — %s; %s %s (%s); id %d\n",
+		c.Designation, i18n.KindName(lang, string(c.Kind)),
+		systemWord(lang), i18n.SystemName(lang, string(c.System)), string(c.System), c.ID)
 	if len(c.Fields) > 0 {
 		parts := make([]string, 0, len(c.Fields))
 		for _, f := range c.Fields {
-			parts = append(parts, fieldDisplayName(f.Name)+": "+fieldDisplayValue(f))
+			parts = append(parts, fieldDisplayName(lang, f.Name)+": "+fieldDisplayValue(lang, f))
 		}
-		fmt.Fprintf(w, "Поля обозначения: %s\n", joinParts(parts))
+		fmt.Fprintln(w, i18n.Message(lang, "cli_h_designation_fields", joinParts(parts)))
 	}
 	for _, a := range c.Attributes {
 		value := ""
@@ -87,35 +72,36 @@ func printCard(w io.Writer, c *service.Card, snap *catalog.Snapshot) {
 		case a.Text != nil:
 			value = *a.Text
 		case a.Num != nil:
-			value = trimFloatDisplay(*a.Num)
+			value = i18n.FormatNumber(lang, *a.Num)
 		case a.Bool != nil:
 			value = strconv.FormatBool(*a.Bool)
 		}
-		fmt.Fprintf(w, "Атрибут %s (%s): %s\n", a.DisplayName, a.Code, value)
+		fmt.Fprintln(w, i18n.Message(lang, "cli_attr_line",
+			i18n.AttributeName(lang, a.Code), a.Code, value))
 	}
 	for _, g := range c.Groups {
-		fmt.Fprintf(w, "%s:\n", g.DisplayName)
+		fmt.Fprintf(w, "%s:\n", i18n.GroupName(lang, g.Code))
 		for _, v := range g.Values {
-			fmt.Fprintf(w, "  %s%s%s\n", v.DisplayName, unitSuffix(v.Unit),
-				valueWithConditions(v, snap))
+			fmt.Fprintf(w, "  %s%s\n", i18n.ParameterName(lang, v.Parameter),
+				valueWithConditions(lang, v, snap))
 		}
 	}
 	for _, v := range c.Variants {
 		label := v.Label
 		if label == "" {
-			label = "без метки"
+			label = i18n.Message(lang, "cli_no_label")
 		}
-		fmt.Fprintf(w, "Исполнение «%s»:\n", label)
+		fmt.Fprintln(w, i18n.Message(lang, "cli_variant_head", label))
 		for _, g := range v.Groups {
-			fmt.Fprintf(w, "  %s:\n", g.DisplayName)
+			fmt.Fprintf(w, "  %s:\n", i18n.GroupName(lang, g.Code))
 			for _, val := range g.Values {
-				fmt.Fprintf(w, "    %s%s%s\n", val.DisplayName, unitSuffix(val.Unit),
-					valueWithConditions(val, snap))
+				fmt.Fprintf(w, "    %s%s\n", i18n.ParameterName(lang, val.Parameter),
+					valueWithConditions(lang, val, snap))
 			}
 		}
 	}
 	if len(c.Manufacturers) > 0 {
-		fmt.Fprintf(w, "Производители: %s\n", joinParts(c.Manufacturers))
+		fmt.Fprintln(w, i18n.Message(lang, "cli_manufacturers", joinParts(c.Manufacturers)))
 	}
 	if len(c.Analogs) > 0 {
 		parts := make([]string, 0, len(c.Analogs))
@@ -126,7 +112,7 @@ func printCard(w io.Writer, c *service.Card, snap *catalog.Snapshot) {
 			}
 			parts = append(parts, a.Designation)
 		}
-		fmt.Fprintf(w, "Аналоги: %s\n", joinParts(parts))
+		fmt.Fprintln(w, i18n.Message(lang, "cli_analogs", joinParts(parts)))
 	}
 	if len(c.Backlinks) > 0 {
 		parts := make([]string, 0, len(c.Backlinks))
@@ -137,22 +123,13 @@ func printCard(w io.Writer, c *service.Card, snap *catalog.Snapshot) {
 			}
 			parts = append(parts, b.Designation)
 		}
-		fmt.Fprintf(w, "Встречные ссылки: %s\n", joinParts(parts))
+		fmt.Fprintln(w, i18n.Message(lang, "cli_backlinks", joinParts(parts)))
 	}
 }
 
-func kindTitle(c *service.Card) string {
-	if c.KindName != "" {
-		return c.KindName
-	}
-	return string(c.Kind)
-}
-
-func systemTitle(c *service.Card) string {
-	if c.SystemName != "" {
-		return c.SystemName
-	}
-	return string(c.System)
+// systemWord — слово «система»/«system» заголовка карточки.
+func systemWord(lang i18n.Language) string {
+	return i18n.Message(lang, "cli_system_word")
 }
 
 func joinParts(parts []string) string {
@@ -166,27 +143,21 @@ func joinParts(parts []string) string {
 	return out
 }
 
-func unitSuffix(unit string) string {
-	if unit == "" {
-		return ""
-	}
-	return ", " + unit
-}
-
-// valueWithConditions — значение параметра с условиями измерения:
+// valueWithConditions — значение параметра с единицей и условиями:
 // точное — число, диапазон — «мин–макс», «не менее», «не более»;
-// условия — в скобках с единицами из каталога.
-func valueWithConditions(v service.CardValue, snap *catalog.Snapshot) string {
+// условия — в скобках, всё — по локали (этап 8.4 — инженерные
+// приставки).
+func valueWithConditions(lang i18n.Language, v service.CardValue, snap *catalog.Snapshot) string {
 	value := ""
 	switch {
 	case v.Exact != nil:
-		value = trimFloatDisplay(*v.Exact)
+		value = i18n.FormatValue(lang, v.Unit, *v.Exact)
 	case v.Min != nil && v.Max != nil:
-		value = trimFloatDisplay(*v.Min) + "–" + trimFloatDisplay(*v.Max)
+		value = i18n.FormatValue(lang, v.Unit, *v.Min) + "–" + i18n.FormatValue(lang, v.Unit, *v.Max)
 	case v.Min != nil:
-		value = "не менее " + trimFloatDisplay(*v.Min)
+		value = i18n.Message(lang, "cli_at_least", i18n.FormatValue(lang, v.Unit, *v.Min))
 	case v.Max != nil:
-		value = "не более " + trimFloatDisplay(*v.Max)
+		value = i18n.Message(lang, "cli_at_most", i18n.FormatValue(lang, v.Unit, *v.Max))
 	case v.Text != nil:
 		value = *v.Text
 	}
@@ -197,14 +168,9 @@ func valueWithConditions(v service.CardValue, snap *catalog.Snapshot) string {
 	for _, c := range v.Conditions {
 		unit := ""
 		if def, ok := snap.Condition(c.Condition); ok && def.Unit != "" {
-			unit = " " + def.Unit
+			unit = " " + i18n.UnitSymbol(lang, def.Unit)
 		}
-		conds = append(conds, fmt.Sprintf("%s=%s%s", c.Condition, trimFloatDisplay(c.Value), unit))
+		conds = append(conds, fmt.Sprintf("%s=%s%s", c.Condition, i18n.FormatNumber(lang, c.Value), unit))
 	}
-	return ": " + value + " (при " + joinParts(conds) + ")"
-}
-
-// trimFloatDisplay — компактная запись числа (целое — без точки).
-func trimFloatDisplay(f float64) string {
-	return strconv.FormatFloat(f, 'f', -1, 64)
+	return ": " + value + i18n.Message(lang, "cli_cond_at", joinParts(conds))
 }

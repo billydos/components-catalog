@@ -84,7 +84,7 @@ func isGostGroupLetter(r rune) bool {
 // gostReadSubclass читает элемент 2: двухбуквенные формы (УП; О с буквой
 // функции; М с буквой состава модуля) имеют приоритет над однобуквенными.
 func gostReadSubclass(s *scanner) (subclass string, modern, opto bool, class gostSubclass, err error) {
-	const expectedSubclass = "буква подкласса (Т, П, Д, С, В, А, И, Г, Л, Ф, Ц, Н, У, Е, Р, Ж, Э, Х, М, УП либо О с буквой функции)"
+	const expectedSubclass = MsgExpectGostSubclass
 	r, ok := s.peek()
 	if !ok {
 		return "", false, false, gostSubclass{}, s.fail(expectedSubclass)
@@ -94,7 +94,7 @@ func gostReadSubclass(s *scanner) (subclass string, modern, opto bool, class gos
 		fn, has := s.peekAt(s.i + 1)
 		if !has || !strings.ContainsRune(gostOptoFunctions, fn) {
 			return "", false, false, gostSubclass{}, s.failAt(s.i+1,
-				"буква функции оптоэлектронного прибора (И, Ф, Д, Т, Р, У, К, Л, М, П)")
+				MsgExpectGostOptoFunction)
 		}
 		s.i += 2
 		return "О" + string(fn), true, true, gostSubclass{state: gostSubclassUnsupported}, nil
@@ -123,12 +123,12 @@ func gostReadSubclass(s *scanner) (subclass string, modern, opto bool, class gos
 func checkGostDevNumber(s *scanner, digits string, allowLeadingZero bool, pos int) (int, error) {
 	v := mustAtoi(digits)
 	if !allowLeadingZero && len(digits) > 1 && digits[0] == '0' {
-		return 0, s.failToken(pos, "номер разработки 1–99 или 101–999 без ведущего нуля", digits)
+		return 0, s.failToken(pos, MsgExpectGostDevNumberFull, digits)
 	}
 	if (v >= 1 && v <= 99) || (v >= 101 && v <= 999) {
 		return v, nil
 	}
-	return 0, s.failToken(pos, "номер разработки 1–99 или 101–999", digits)
+	return 0, s.failToken(pos, MsgExpectGostDevNumber, digits)
 }
 
 // parseGostSemiconductor разбирает полупроводниковые обозначения gost;
@@ -141,7 +141,7 @@ func parseGostSemiconductor(s *scanner, kindHint Kind) (ParsedDesignation, error
 	mat, _ := s.peek()
 	material, ok := GostMaterialBySymbol(mat)
 	if !ok {
-		return ParsedDesignation{}, s.fail("символ материала (Г, К, А, И, Д, П либо цифра 1–6)")
+		return ParsedDesignation{}, s.fail(MsgExpectGostMaterial)
 	}
 	s.i++
 	matIsDigit := isDigitRune(mat)
@@ -184,7 +184,7 @@ func parseGostSemiconductor(s *scanner, kindHint Kind) (ParsedDesignation, error
 	case opto:
 		// Элемент 3 — буква функции (уже прочитана), номер следует напрямую.
 		if n == 0 {
-			return ParsedDesignation{}, s.fail("номер разработки")
+			return ParsedDesignation{}, s.fail(MsgExpectDevNumber)
 		}
 		devNumber, err = checkGostDevNumber(s, run, true, digitStart)
 		if err != nil {
@@ -192,10 +192,10 @@ func parseGostSemiconductor(s *scanner, kindHint Kind) (ParsedDesignation, error
 		}
 	case featureRequired:
 		if n < 2 {
-			return ParsedDesignation{}, s.fail("цифра признака (1–9) и номер разработки")
+			return ParsedDesignation{}, s.fail(MsgExpectGostFeatureAndDev)
 		}
 		if run[0] == '0' {
-			return ParsedDesignation{}, s.failToken(digitStart, "цифра признака 1–9", run[:1])
+			return ParsedDesignation{}, s.failToken(digitStart, MsgExpectGostFeatureDigit, run[:1])
 		}
 		feature = int(run[0] - '0')
 		hasFeature = true
@@ -209,18 +209,17 @@ func parseGostSemiconductor(s *scanner, kindHint Kind) (ParsedDesignation, error
 		// признак и номер (КТ3102).
 		switch n {
 		case 0:
-			return ParsedDesignation{}, s.fail("номер разработки")
+			return ParsedDesignation{}, s.fail(MsgExpectDevNumber)
 		case 1:
-			return ParsedDesignation{}, s.failToken(digitStart,
-				"номер разработки 101–999 либо цифра признака и номер 1–99", run)
+			return ParsedDesignation{}, s.failToken(digitStart, MsgExpectGostDevOneDigit, run)
 		case 2:
 			if run[0] == '0' {
-				return ParsedDesignation{}, s.failToken(digitStart, "цифра признака 1–9", run[:1])
+				return ParsedDesignation{}, s.failToken(digitStart, MsgExpectGostFeatureDigit, run[:1])
 			}
 			feature = int(run[0] - '0')
 			hasFeature = true
 			if run[1] == '0' {
-				return ParsedDesignation{}, s.failToken(digitStart+1, "номер разработки 1–9", run[1:])
+				return ParsedDesignation{}, s.failToken(digitStart+1, MsgExpectGostDevOne, run[1:])
 			}
 			devNumber = int(run[1] - '0')
 		case 3:
@@ -230,7 +229,7 @@ func parseGostSemiconductor(s *scanner, kindHint Kind) (ParsedDesignation, error
 			}
 		case 4:
 			if run[0] == '0' {
-				return ParsedDesignation{}, s.failToken(digitStart, "цифра признака 1–9", run[:1])
+				return ParsedDesignation{}, s.failToken(digitStart, MsgExpectGostFeatureDigit, run[:1])
 			}
 			feature = int(run[0] - '0')
 			hasFeature = true
@@ -239,7 +238,7 @@ func parseGostSemiconductor(s *scanner, kindHint Kind) (ParsedDesignation, error
 				return ParsedDesignation{}, err
 			}
 		default:
-			return ParsedDesignation{}, s.failToken(digitStart, "признак и номер разработки (не более четырёх цифр)", run)
+			return ParsedDesignation{}, s.failToken(digitStart, MsgExpectGostFeatureDevRun, run)
 		}
 	}
 
@@ -263,7 +262,7 @@ func parseGostSemiconductor(s *scanner, kindHint Kind) (ParsedDesignation, error
 	if r, has := s.peek(); has && isDigitRune(r) {
 		switch r {
 		case '0':
-			return ParsedDesignation{}, s.fail("цифра модернизации 1–8 либо 9 (поверхностный монтаж)")
+			return ParsedDesignation{}, s.fail(MsgExpectGostModification)
 		case '9':
 			chip = 9
 		default:
@@ -274,7 +273,7 @@ func parseGostSemiconductor(s *scanner, kindHint Kind) (ParsedDesignation, error
 	if s.peekIs(s.i, '-') {
 		next, has := s.peekAt(s.i + 1)
 		if !has || next < '1' || next > '6' {
-			return ParsedDesignation{}, s.failAt(s.i+1, "цифра бескорпусного исполнения 1–6")
+			return ParsedDesignation{}, s.failAt(s.i+1, MsgExpectGostChip)
 		}
 		s.i += 2
 	}
@@ -293,7 +292,7 @@ func parseGostSemiconductor(s *scanner, kindHint Kind) (ParsedDesignation, error
 			count++
 		}
 		if count == 0 {
-			return ParsedDesignation{}, s.fail("код предприятия-изготовителя (буквы)")
+			return ParsedDesignation{}, s.fail(MsgExpectGostMakerCode)
 		}
 	}
 	if !s.atEnd() {

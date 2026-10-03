@@ -15,18 +15,20 @@ import (
 // до записи; порядок таблиц учитывает FK.
 func (t *Tx) WriteCatalog(ctx context.Context, in catalog.Input) error {
 	for _, r := range in.Kinds {
-		if err := t.upsert(ctx,
-			`UPDATE kinds SET name = @name WHERE code = @code`,
-			`INSERT INTO kinds(code, name) VALUES (@code, @name)`,
-			map[string]any{"code": string(r.Code), "name": r.Name}); err != nil {
+		if err := t.insertIfAbsent(ctx,
+			`INSERT INTO kinds(code)
+SELECT @code
+WHERE NOT EXISTS (SELECT 1 FROM kinds WHERE code = @code)`,
+			map[string]any{"code": string(r.Code)}); err != nil {
 			return err
 		}
 	}
 	for _, r := range in.Systems {
-		if err := t.upsert(ctx,
-			`UPDATE designation_systems SET name = @name, description = @description WHERE code = @code`,
-			`INSERT INTO designation_systems(code, name, description) VALUES (@code, @name, @description)`,
-			map[string]any{"code": string(r.Code), "name": r.Name, "description": nilIfEmpty(r.Description)}); err != nil {
+		if err := t.insertIfAbsent(ctx,
+			`INSERT INTO designation_systems(code)
+SELECT @code
+WHERE NOT EXISTS (SELECT 1 FROM designation_systems WHERE code = @code)`,
+			map[string]any{"code": string(r.Code)}); err != nil {
 			return err
 		}
 	}
@@ -43,33 +45,34 @@ WHERE NOT EXISTS (
 	}
 	for _, r := range in.SeriesFamilies {
 		if err := t.upsert(ctx,
-			`UPDATE series_families SET name = @name, tail_semantic = @tail
+			`UPDATE series_families SET tail_semantic = @tail
 WHERE series = @series AND kind_code = @kind`,
-			`INSERT INTO series_families(series, kind_code, name, tail_semantic)
-VALUES (@series, @kind, @name, @tail)`,
+			`INSERT INTO series_families(series, kind_code, tail_semantic)
+VALUES (@series, @kind, @tail)`,
 			map[string]any{
 				"series": r.Series, "kind": string(r.Kind),
-				"name": nilIfEmpty(r.Name), "tail": nilIfEmpty(r.TailSemantic),
+				"tail": nilIfEmpty(r.TailSemantic),
 			}); err != nil {
 			return err
 		}
 	}
 	for _, r := range in.Units {
-		if err := t.upsert(ctx,
-			`UPDATE units SET name = @name, symbol = @symbol WHERE code = @code`,
-			`INSERT INTO units(code, name, symbol) VALUES (@code, @name, @symbol)`,
-			map[string]any{"code": r.Code, "name": r.Name, "symbol": r.Symbol}); err != nil {
+		if err := t.insertIfAbsent(ctx,
+			`INSERT INTO units(code)
+SELECT @code
+WHERE NOT EXISTS (SELECT 1 FROM units WHERE code = @code)`,
+			map[string]any{"code": r.Code}); err != nil {
 			return err
 		}
 	}
 	for _, r := range in.Conditions {
 		if err := t.upsert(ctx,
-			`UPDATE conditions SET name = @name, unit_code = @unit, allow_negative = @neg
+			`UPDATE conditions SET unit_code = @unit, allow_negative = @neg
 WHERE code = @code`,
-			`INSERT INTO conditions(code, name, unit_code, allow_negative)
-VALUES (@code, @name, @unit, @neg)`,
+			`INSERT INTO conditions(code, unit_code, allow_negative)
+VALUES (@code, @unit, @neg)`,
 			map[string]any{
-				"code": r.Code, "name": r.Name,
+				"code": r.Code,
 				"unit": nilIfEmpty(r.Unit), "neg": boolInt(r.AllowNegative),
 			}); err != nil {
 			return err
@@ -77,22 +80,22 @@ VALUES (@code, @name, @unit, @neg)`,
 	}
 	for _, r := range in.Groups {
 		if err := t.upsert(ctx,
-			`UPDATE parameter_groups SET section_name = @section, display_name = @display, sort_order = @sort
+			`UPDATE parameter_groups SET section_name = @section, sort_order = @sort
 WHERE code = @code`,
-			`INSERT INTO parameter_groups(code, section_name, display_name, sort_order)
-VALUES (@code, @section, @display, @sort)`,
+			`INSERT INTO parameter_groups(code, section_name, sort_order)
+VALUES (@code, @section, @sort)`,
 			map[string]any{
-				"code": r.Code, "section": r.SectionName,
-				"display": r.DisplayName, "sort": r.SortOrder,
+				"code": r.Code, "section": r.SectionName, "sort": r.SortOrder,
 			}); err != nil {
 			return err
 		}
 	}
 	for _, r := range in.Rules {
-		if err := t.upsert(ctx,
-			`UPDATE validation_rules SET description = @description WHERE code = @code`,
-			`INSERT INTO validation_rules(code, description) VALUES (@code, @description)`,
-			map[string]any{"code": r.Code, "description": r.Description}); err != nil {
+		if err := t.insertIfAbsent(ctx,
+			`INSERT INTO validation_rules(code)
+SELECT @code
+WHERE NOT EXISTS (SELECT 1 FROM validation_rules WHERE code = @code)`,
+			map[string]any{"code": r.Code}); err != nil {
 			return err
 		}
 	}
@@ -119,15 +122,15 @@ WHERE NOT EXISTS (
 func (t *Tx) writeParameters(ctx context.Context, rows []catalog.ParameterDef) error {
 	for _, r := range rows {
 		if err := t.upsert(ctx, `
-UPDATE parameters SET group_code = @group, display_name = @display, unit_code = @unit,
+UPDATE parameters SET group_code = @group, unit_code = @unit,
        value_type = @vtype, value_ceiling = @ceiling, allow_negative = @neg,
        validation_rule = @rule, sort_order = @sort, is_active = @active
 WHERE code = @code`,
-			`INSERT INTO parameters(code, group_code, display_name, unit_code, value_type,
+			`INSERT INTO parameters(code, group_code, unit_code, value_type,
     value_ceiling, allow_negative, validation_rule, sort_order, is_active)
-VALUES (@code, @group, @display, @unit, @vtype, @ceiling, @neg, @rule, @sort, @active)`,
+VALUES (@code, @group, @unit, @vtype, @ceiling, @neg, @rule, @sort, @active)`,
 			map[string]any{
-				"code": r.Code, "group": r.Group, "display": r.DisplayName,
+				"code": r.Code, "group": r.Group,
 				"unit": nilIfEmpty(r.Unit), "vtype": string(r.ValueType),
 				"ceiling": r.Ceiling, "neg": boolInt(r.AllowNegative),
 				"rule": nilIfEmpty(r.ValidationRule), "sort": r.SortOrder,
@@ -196,14 +199,14 @@ VALUES (@code, @no, @cond, @mode, @fixed)`,
 func (t *Tx) writeAttributes(ctx context.Context, rows []catalog.AttributeDef) error {
 	for _, r := range rows {
 		if err := t.upsert(ctx, `
-UPDATE attributes SET display_name = @display, "group" = @group, value_type = @vtype,
+UPDATE attributes SET "group" = @group, value_type = @vtype,
        unit_code = @unit, validation_rule = @rule, sort_order = @sort, is_active = @active
 WHERE code = @code`,
-			`INSERT INTO attributes(code, display_name, "group", value_type, unit_code,
+			`INSERT INTO attributes(code, "group", value_type, unit_code,
     validation_rule, sort_order, is_active)
-VALUES (@code, @display, @group, @vtype, @unit, @rule, @sort, @active)`,
+VALUES (@code, @group, @vtype, @unit, @rule, @sort, @active)`,
 			map[string]any{
-				"code": r.Code, "display": r.DisplayName, "group": nilIfEmpty(r.GroupName),
+				"code": r.Code, "group": nilIfEmpty(r.GroupName),
 				"vtype": string(r.Type), "unit": nilIfEmpty(r.Unit),
 				"rule": nilIfEmpty(r.ValidationRule), "sort": r.SortOrder,
 				"active": boolInt(r.Active),

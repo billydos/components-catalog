@@ -64,8 +64,7 @@ func (m *Importer) ImportCatalogFile(ctx context.Context, r io.Reader, name stri
 		return rep, err
 	}
 	if rep.Records > 0 {
-		return rep, domain.NewError(domain.CodeInvalidImportFile,
-			"файл содержит записи классов; catalog import применяется к файлам только с секцией catalog")
+		return rep, domain.NewErrorf(domain.CodeInvalidImportFile, domain.MsgImportCatalogRecordsMixed)
 	}
 	return rep, nil
 }
@@ -143,18 +142,12 @@ func (m *Importer) importNDJSON(ctx context.Context, r io.Reader, name string, d
 			return rep, err
 		}
 		if v.kind != kindObject {
-			rep.Issues = append(rep.Issues, Issue{
-				Line: number, Code: domain.CodeInvalidImportFile,
-				Message: "строка должна быть объектом-обёрткой {\"<класс>\": <запись>} либо {\"catalog\": …}",
-			})
+			rep.Issues = append(rep.Issues, issuef(number, domain.MsgImportNdjsonLineObject))
 			continue
 		}
 		if catVal, isCat := v.has("catalog"); isCat {
 			if catalogFlushed {
-				rep.Issues = append(rep.Issues, Issue{
-					Line: number, Code: domain.CodeInvalidImportFile,
-					Message: "блок catalog должен предшествовать записям",
-				})
+				rep.Issues = append(rep.Issues, issuef(number, domain.MsgImportNdjsonCatalogOrder))
 				continue
 			}
 			// Строки catalog сливаются до валидации метасхемы.
@@ -194,8 +187,7 @@ func mergeCatalogTrees(a, b value) (value, error) {
 		return a, nil
 	}
 	if a.kind != kindObject || b.kind != kindObject {
-		return value{}, domain.NewError(domain.CodeInvalidImportFile,
-			"catalog должен быть объектом с подразделами")
+		return value{}, domain.NewErrorf(domain.CodeInvalidImportFile, domain.MsgImportCatalogPlain)
 	}
 	out := a
 	for _, m := range b.members {
@@ -205,8 +197,8 @@ func mergeCatalogTrees(a, b value) (value, error) {
 			continue
 		}
 		if existing.kind != kindArray || m.value.kind != kindArray {
-			return value{}, domain.NewError(domain.CodeInvalidImportFile,
-				"подраздел каталога «"+m.name+"» должен быть массивом в каждой строке catalog")
+			return value{}, domain.NewErrorf(domain.CodeInvalidImportFile,
+				domain.MsgImportNdjsonSubsection, m.name)
 		}
 		existing.items = append(existing.items, m.value.items...)
 		for i := range out.members {
@@ -232,7 +224,9 @@ func (m *Importer) applyCatalog(ctx context.Context, tree value, cur *catalog.Sn
 	rep.Issues = append(rep.Issues, issues...)
 	out, probs := catalog.ApplyCatalog(cur, in)
 	for _, p := range probs {
-		rep.Issues = append(rep.Issues, Issue{Code: p.Code, Message: p.Message})
+		iss := issuef(0, p.MsgID, p.Args...)
+		iss.Code = p.Code
+		rep.Issues = append(rep.Issues, iss)
 	}
 	if len(probs) > 0 {
 		// Каталог не применён: записи читаются по текущему снимку и
@@ -428,11 +422,15 @@ func isAnalogNotFound(err error) bool {
 
 // issueFromError — проблема записи из ошибки домена.
 func issueFromError(rec Record, err error) Issue {
-	code := domain.CodeValidationFailed
+	iss := issuef(rec.Line, domain.MsgInternalError, err.Error())
 	if de, ok := domain.AsError(err); ok {
-		code = de.Code
+		iss.Code = de.Code
+		iss.MsgID = de.MsgID
+		iss.Args = de.Args
+		iss.Message = de.Message
 	}
-	return Issue{Record: rec.Input.Name, Line: rec.Line, Code: code, Message: err.Error()}
+	iss.Record = rec.Input.Name
+	return iss
 }
 
 // Summary — строка итога прогона для CLI (контракт вывода).

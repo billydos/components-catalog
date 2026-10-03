@@ -39,23 +39,23 @@ func TestParseProValid(t *testing.T) {
 			t.Errorf("«%s»:\n got:  %s\n want: %s", tc.input, got, tc.fields)
 		}
 		if p.System != SystemPro || p.Designation != tc.input {
-			t.Errorf("«%s»: система/ключ %s/%s", tc.input, p.System, p.Designation)
+			t.Errorf("«%s»: system/ключ %s/%s", tc.input, p.System, p.Designation)
 		}
 	}
 }
 
 func TestParseProMessages(t *testing.T) {
 	cases := []struct{ input, want string }{
-		{"BC5", "обозначение «BC5»: позиция 3: ожидалось: номер регистрации 100–999 (до 9999), получено «5»"},
-		{"BD23", "обозначение «BD23»: позиция 3: ожидалось: номер регистрации 100–999 (до 9999), получено «23»"},
-		{"BZ", "обозначение «BZ»: позиция 3: ожидалось: номер регистрации (100–999 либо буква и 10–99), получено конец обозначения"},
-		{"BX", "обозначение «BX»: позиция 3: ожидалось: номер регистрации (100–999 либо буква и 10–99), получено конец обозначения"},
-		{"BX5", "обозначение «BX5»: позиция 3: ожидалось: номер регистрации 100–999 (до 9999), получено «5»"},
-		{"BZX5", "обозначение «BZX5»: позиция 4: ожидалось: номер промышленной регистрации 10–99 (до 999), получено «5»"},
-		{"2N2222A", "обозначение «2N2222A»: позиция 1: ожидалось: буква материала (A, B, C, R), получено «2»"},
-		{"BI100", "обозначение «BI100»: позиция 2: ожидалось: буква класса прибора (A–Z по таблице классов), получено «I»"},
-		{"BZY74-", "обозначение «BZY74-»: позиция 7: ожидалось: суффикс подклассификации (буквы и цифры), получено конец обозначения"},
-		{"BC547BPX", "обозначение «BC547BPX»: позиция 8: ожидался конец обозначения, получено «X»"},
+		{"BC5", "designation «BC5»: position 3: expected: registration number 100–999 (up to 9999), got «5»"},
+		{"BD23", "designation «BD23»: position 3: expected: registration number 100–999 (up to 9999), got «23»"},
+		{"BZ", "designation «BZ»: position 3: expected: registration number (100–999, or a letter and 10–99), got end of designation"},
+		{"BX", "designation «BX»: position 3: expected: registration number (100–999, or a letter and 10–99), got end of designation"},
+		{"BX5", "designation «BX5»: position 3: expected: registration number 100–999 (up to 9999), got «5»"},
+		{"BZX5", "designation «BZX5»: position 4: expected: consumer registration number 10–99 (up to 999), got «5»"},
+		{"2N2222A", "designation «2N2222A»: position 1: expected: material letter (A, B, C, R), got «2»"},
+		{"BI100", "designation «BI100»: position 2: expected: device class letter (A–Z per the class table), got «I»"},
+		{"BZY74-", "designation «BZY74-»: position 7: expected: subclassification suffix (letters and digits), got end of designation"},
+		{"BC547BPX", "designation «BC547BPX»: position 8: expected end of designation, got «X»"},
 	}
 	for _, tc := range cases {
 		_, err := parsePro(newScanner(tc.input), "")

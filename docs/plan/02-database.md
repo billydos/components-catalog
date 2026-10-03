@@ -20,15 +20,19 @@ schema_meta(key TEXT PRIMARY KEY, value TEXT NOT NULL)
     -- (для ETag REST); data_revision — счётчик изменений устройств (для ETag)
 ```
 
-### 2.2. Каталог (определения — данные)
+### 2.2. Каталог (определения — данные; языконезависимые коды — D9)
+
+Текстовые колонки (названия, описания, символы единиц) в каталожных таблицах отсутствуют (схема v2): отображаемые строки — бандлы `internal/i18n` (канонический язык en), в БД — только коды и структурные метаданные.
 
 ```
-kinds(code TEXT PRIMARY KEY, name TEXT NOT NULL)
+kinds(code TEXT PRIMARY KEY)
     -- сиды: transistor, diode, resistor, capacitor; расширяемо (тиристоры и др.)
+    -- отображаемое название — i18n: kind.<код>
 
-designation_systems(code TEXT PRIMARY KEY, name TEXT NOT NULL, description TEXT NULL)
+designation_systems(code TEXT PRIMARY KEY)
     -- системы обозначений: сиды — gost, ost, pro, jedec, jis, series, other
     -- (03-data-model.md §1.2); расширение — вставкой строк
+    -- название и пояснение — i18n: system.<код> / system.<код>.description
 
 designation_system_kinds(system_code TEXT NOT NULL
                              REFERENCES designation_systems(code) ON DELETE CASCADE,
@@ -37,35 +41,40 @@ designation_system_kinds(system_code TEXT NOT NULL
     -- применимость систем к классам (03-data-model.md §1.1); проверяется метасхемой
 
 series_families(series TEXT NOT NULL, kind_code TEXT NOT NULL REFERENCES kinds(code),
-                name TEXT NULL, tail_semantic TEXT NULL,
+                tail_semantic TEXT NULL,
                 PRIMARY KEY (series, kind_code))
     -- реестр семейств для system = series (семейства вне строгих ГОСТ + мировые дом-номера);
     -- tail_semantic = 'power' — хвост-число есть мощность, Вт (МЛТ-0.5, ПЭВ-10),
-    -- NULL — общий слабый разбор хвоста (число/буквы); реестр — данные
+    -- NULL — общий слабый разбор хвоста (число/буквы); реестр — данные;
+    -- расшифровка семейства — i18n: family.<семейство>
 
-units(code TEXT PRIMARY KEY, name TEXT NOT NULL, symbol TEXT NOT NULL)
-    -- канонические единицы, см. 03-data-model.md; символ — для вывода
+units(code TEXT PRIMARY KEY)
+    -- канонические единицы; коды — латиница (locale-neutral): V, mV, mA, uA, A, MHz,
+    -- dB, pct, W, mW, ohm, pF, ps, ns, us, degC, degC_per_W, ppm_per_degC,
+    -- pct_per_degC, g, mm, nm, mcd (см. 03-data-model.md §3);
+    -- название и символ — i18n: unit.<код>.name / unit.<код>.symbol
 
-conditions(code TEXT PRIMARY KEY, name TEXT NOT NULL,
+conditions(code TEXT PRIMARY KEY,
            unit_code TEXT NULL REFERENCES units(code),
            allow_negative INTEGER NOT NULL DEFAULT 0)
-    -- условия измерения/контекста значения: Uke «напряжение коллектор-эмиттер, В»,
-    -- freq «частота, МГц», pulse_duration «длительность импульса, мкс» …
+    -- условия измерения/контекста значения: Uke «напряжение коллектор-эмиттер, V»,
+    -- freq «частота, MHz», pulse_duration «длительность импульса, us» …
     -- unit_code NULL — безразмерное условие; allow_negative = 1 (temp) — значению
     -- условия разрешено быть неположительным, по умолчанию условия положительны;
-    -- ключ условия в файле наполнения — код (отдельной колонки нет)
+    -- ключ условия в файле наполнения — код (отдельной колонки нет);
+    -- отображаемое название — i18n: condition.<код>
 
 parameter_groups(code TEXT PRIMARY KEY, section_name TEXT NOT NULL,
-                 display_name TEXT NOT NULL, sort_order INTEGER NOT NULL)
+                 sort_order INTEGER NOT NULL)
     -- группа параметров + имя секции файла наполнения и REST:
-    --   electrical / «parameters»  / «Электрические параметры»
-    --   limiting   / «ratings»     / «Предельные эксплуатационные данные»
-    --   dimensional/ «dimensions»  / «Массогабаритные данные»
-    -- display группы на карточке и порядок — данные
+    --   electrical / «parameters»
+    --   limiting   / «ratings»
+    --   dimensional/ «dimensions»
+    -- section_name — ключ формата и REST (ASCII), не отображаемый текст;
+    -- отображаемое название группы — i18n: group.<код>; порядок — sort_order
 
 parameters(code TEXT PRIMARY KEY,
            group_code TEXT NOT NULL REFERENCES parameter_groups(code),
-           display_name TEXT NOT NULL,
            unit_code TEXT NULL REFERENCES units(code),
            value_type TEXT NOT NULL                          -- exact | at_least | at_most |
                                                               -- range | text | enum
@@ -75,6 +84,7 @@ parameters(code TEXT PRIMARY KEY,
                                                               -- пределы), по умолчанию > 0
            validation_rule TEXT NULL REFERENCES validation_rules(code),
            sort_order INTEGER NOT NULL, is_active INTEGER NOT NULL DEFAULT 1)
+    -- отображаемое название параметра — i18n: param.<код>
 
 parameter_kinds(parameter_code TEXT NOT NULL REFERENCES parameters(code) ON DELETE CASCADE,
                 kind_code TEXT NOT NULL REFERENCES kinds(code) ON DELETE CASCADE,
@@ -110,11 +120,12 @@ parameter_condition_set_items(parameter_code TEXT NOT NULL, set_no INTEGER NOT N
     -- optional (Tgd с опциональной temp); fixed_value допустим только при mode = required
 
 attributes(code TEXT PRIMARY KEY,
-           display_name TEXT NOT NULL, group TEXT NULL,
+           group TEXT NULL,
            value_type TEXT NOT NULL,                           -- text | bool | int | number | enum
            unit_code TEXT NULL REFERENCES units(code),
            validation_rule TEXT NULL REFERENCES validation_rules(code),
            sort_order INTEGER NOT NULL, is_active INTEGER NOT NULL DEFAULT 1)
+    -- отображаемое название атрибута — i18n: attr.<код>
 
 attribute_kinds(attribute_code TEXT NOT NULL REFERENCES attributes(code) ON DELETE CASCADE,
                 kind_code TEXT NOT NULL REFERENCES kinds(code) ON DELETE CASCADE,
@@ -126,10 +137,11 @@ attribute_kinds(attribute_code TEXT NOT NULL REFERENCES attributes(code) ON DELE
 attribute_enum_values(attribute_code TEXT NOT NULL REFERENCES attributes(code) ON DELETE CASCADE,
                       value TEXT NOT NULL, PRIMARY KEY (attribute_code, value))
 
-validation_rules(code TEXT PRIMARY KEY, description TEXT NOT NULL)
+validation_rules(code TEXT PRIMARY KEY)
     -- именованные код-валидаторы (межполевые правила); реестр реализаций — в internal/catalog;
     -- привязка — данными (в parameters.validation_rule / attributes.validation_rule);
-    -- unknown правило в данных — ошибка импорта каталога (громко, не молча)
+    -- unknown правило в данных — ошибка импорта каталога (громко, не молча);
+    -- строка — якорь FK привязок; описание правила — i18n: rule.<код>
 
 kind_validation_rules(kind_code TEXT NOT NULL REFERENCES kinds(code) ON DELETE CASCADE,
                       validation_rule TEXT NOT NULL
@@ -266,8 +278,8 @@ device_analogs(device_id NOT NULL REFERENCES devices(id) ON DELETE CASCADE,
 
 1. `EnsureCreated` выполняет полный DDL (`CREATE … IF NOT EXISTS`) и записывает `schema_version = N` (N — константа модуля, инкрементируется при любом изменении DDL) и `catalog_revision = 1`, `data_revision = 1`; вставка версии — `INSERT … SELECT … WHERE NOT EXISTS`, конфликт PK при конкурентном создании трактуется как проигранная гонка с перечитыванием версии.
 2. Если база уже существует: читается `schema_version`; несовпадение — `*domain.Error{Code: schema_version_mismatch}` с текстом «база данных создана другой версией модуля (N ≠ M); пересоздайте её: удалите файл/базу и выполните import»; продолжение работы запрещено — тихая порча данных исключена. Отсутствие таблицы `schema_meta` (не инициализированная база, файл другой программы, повреждённая база) — отдельный код `database_not_initialized` с текстом «база данных не инициализирована или не является базой модуля; выполните init (CLI) или EnsureCreated».
-3. **Сиды каталога** (`seed/`, формат — та же секция `catalog` файла наполнения): единицы, условия, группы, именованные правила, системы обозначений и применимость к классам, реестры семейств (`series_families`), стартовые каталоги параметров/атрибутов четырёх классов (`03-data-model.md`). Применяются при `EnsureCreated` на пустую базу; содержимое каталога — данные, поэтому его эволюция не требует изменения `schema_version` (новый параметр/семейство — строки).
-4. Каталог может расширяться файлом наполнения (секция `catalog`) или экспортироваться целиком (`catalog export`); импорт каталога — **upsert по коду**: вставка новой строки либо обновление полей существующей (enum-значения, наборы условий и применимость `parameter_kinds`/`attribute_kinds` замещаются целиком); удаление строк каталога файлом не поддерживается — только деактивация (`is_active = 0`); round-trip идемпотентен (экспорт включает все строки, включая сиды); валидация метасхемы при импорте (единицы/условия/enum существуют, наборы условий корректны, правила известны).
+3. **Сиды каталога** (`seed/`, формат — та же секция `catalog` файла наполнения: только коды и структурные поля, D9): единицы (латинские коды), условия, группы, именованные правила, системы обозначений и применимость к классам, реестры семейств (`series_families`), стартовые каталоги параметров/атрибутов четырёх классов (`03-data-model.md`). Применяются при `EnsureCreated` на пустую базу; содержимое каталога — данные, поэтому его эволюция не требует изменения `schema_version` (новый параметр/семейство — строки). Отображаемые названия сидов — бандлы `internal/i18n`; полнота бандлов для всех кодов сидов закреплена пин-тестами (`seed/seed_test.go`).
+4. Каталог может расширяться файлом наполнения (секция `catalog`) или экспортироваться целиком (`catalog export`); импорт каталога — **upsert по коду**: вставка новой строки либо обновление полей существующей (enum-значения, наборы условий и применимость `parameter_kinds`/`attribute_kinds` замещаются целиком); удаление строк каталога файлом не поддерживается — только деактивация (`is_active = 0`); round-trip идемпотентен (экспорт включает все строки, включая сиды; ключей имён/описаний формат не несёт — D9); валидация метасхемы при импорте (единицы/условия/enum существуют, наборы условий корректны, правила известны).
 5. Изменение `catalog_revision`/`data_revision` — атомарным инкрементом (`UPDATE … SET value = value + 1`) по одному разу в каждой транзакции, меняющей каталог/устройства (корректно при конкурентных записях; upsert с исходом `Skipped` ничего не меняет и не инкрементирует); REST отдаёт их в `ETag`.
 
 ## 6. Жизненный цикл записи

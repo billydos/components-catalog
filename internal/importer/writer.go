@@ -2,7 +2,6 @@ package importer
 
 import (
 	"context"
-	"fmt"
 	"io"
 	"strconv"
 	"strings"
@@ -29,8 +28,8 @@ func formatExportNum(f float64) string {
 // строке-обёртке на запись.
 func (m *Importer) Export(ctx context.Context, w io.Writer, format Format, kind *domain.Kind) error {
 	if !format.Known() {
-		return domain.NewError(domain.CodeInvalidImportFile,
-			"неизвестный формат «"+string(format)+"» (допустимы: jsonc, yaml, ndjson)")
+		return domain.NewErrorf(domain.CodeInvalidImportFile,
+			domain.MsgImportFormatUnknown, string(format))
 	}
 	snap, err := m.app.Snapshot(ctx)
 	if err != nil {
@@ -38,8 +37,8 @@ func (m *Importer) Export(ctx context.Context, w io.Writer, format Format, kind 
 	}
 	if kind != nil {
 		if _, ok := snap.Kind(*kind); !ok {
-			return domain.NewError(domain.CodeValidationFailed,
-				fmt.Sprintf("неизвестный класс приборов «%s»", string(*kind)))
+			return domain.NewErrorf(domain.CodeValidationFailed,
+				domain.MsgKindUnknown, string(*kind))
 		}
 	}
 
@@ -72,8 +71,8 @@ func (m *Importer) Export(ctx context.Context, w io.Writer, format Format, kind 
 // наполнения: секция catalog со всеми подразделами.
 func (m *Importer) ExportCatalog(ctx context.Context, w io.Writer, format Format) error {
 	if !format.Known() {
-		return domain.NewError(domain.CodeInvalidImportFile,
-			"неизвестный формат «"+string(format)+"» (допустимы: jsonc, yaml, ndjson)")
+		return domain.NewErrorf(domain.CodeInvalidImportFile,
+			domain.MsgImportFormatUnknown, string(format))
 	}
 	snap, err := m.app.Snapshot(ctx)
 	if err != nil {
@@ -233,18 +232,13 @@ func catalogTree(snap *catalog.Snapshot) value {
 
 	kindRows := make([]value, 0, len(snap.Kinds))
 	for _, k := range snap.Kinds {
-		kindRows = append(kindRows, object(
-			pair("code", str(string(k.Code))), pair("name", str(k.Name))))
+		kindRows = append(kindRows, object(pair("code", str(string(k.Code)))))
 	}
 	cat.members = append(cat.members, pair("kinds", array(kindRows...)))
 
 	sysRows := make([]value, 0, len(snap.Systems))
 	for _, s := range snap.Systems {
-		members := []member{pair("code", str(string(s.Code))), pair("name", str(s.Name))}
-		if s.Description != "" {
-			members = append(members, pair("description", str(s.Description)))
-		}
-		sysRows = append(sysRows, object(members...))
+		sysRows = append(sysRows, object(pair("code", str(string(s.Code)))))
 	}
 	if len(sysRows) > 0 {
 		cat.members = append(cat.members, pair("designation_systems", array(sysRows...)))
@@ -262,9 +256,6 @@ func catalogTree(snap *catalog.Snapshot) value {
 	famRows := make([]value, 0, len(snap.SeriesFamilies))
 	for _, f := range snap.SeriesFamilies {
 		members := []member{pair("series", str(f.Series)), pair("kind", str(string(f.Kind)))}
-		if f.Name != "" {
-			members = append(members, pair("name", str(f.Name)))
-		}
 		if f.TailSemantic != "" {
 			members = append(members, pair("tail_semantic", str(f.TailSemantic)))
 		}
@@ -276,8 +267,7 @@ func catalogTree(snap *catalog.Snapshot) value {
 
 	unitRows := make([]value, 0, len(snap.Units))
 	for _, u := range snap.Units {
-		unitRows = append(unitRows, object(
-			pair("code", str(u.Code)), pair("name", str(u.Name)), pair("symbol", str(u.Symbol))))
+		unitRows = append(unitRows, object(pair("code", str(u.Code))))
 	}
 	if len(unitRows) > 0 {
 		cat.members = append(cat.members, pair("units", array(unitRows...)))
@@ -285,7 +275,7 @@ func catalogTree(snap *catalog.Snapshot) value {
 
 	condRows := make([]value, 0, len(snap.Conditions))
 	for _, c := range snap.Conditions {
-		members := []member{pair("code", str(c.Code)), pair("name", str(c.Name))}
+		members := []member{pair("code", str(c.Code))}
 		if c.Unit != "" {
 			members = append(members, pair("unit", str(c.Unit)))
 		}
@@ -301,7 +291,7 @@ func catalogTree(snap *catalog.Snapshot) value {
 	groupRows := make([]value, 0, len(snap.Groups))
 	for _, g := range snap.Groups {
 		members := []member{
-			pair("code", str(g.Code)), pair("section", str(g.SectionName)), pair("name", str(g.DisplayName)),
+			pair("code", str(g.Code)), pair("section", str(g.SectionName)),
 		}
 		if g.SortOrder != 0 {
 			members = append(members, pair("sort_order", num(float64(g.SortOrder))))
@@ -330,7 +320,7 @@ func catalogTree(snap *catalog.Snapshot) value {
 
 	ruleRows := make([]value, 0, len(snap.Rules))
 	for _, r := range snap.Rules {
-		ruleRows = append(ruleRows, object(pair("code", str(r.Code)), pair("description", str(r.Description))))
+		ruleRows = append(ruleRows, object(pair("code", str(r.Code))))
 	}
 	if len(ruleRows) > 0 {
 		cat.members = append(cat.members, pair("validation_rules", array(ruleRows...)))
@@ -350,7 +340,7 @@ func catalogTree(snap *catalog.Snapshot) value {
 // parameterTree — строка подраздела parameters.
 func parameterTree(p *catalog.ParameterDef) value {
 	members := []member{
-		pair("code", str(p.Code)), pair("group", str(p.Group)), pair("name", str(p.DisplayName)),
+		pair("code", str(p.Code)), pair("group", str(p.Group)),
 	}
 	if p.Unit != "" {
 		members = append(members, pair("unit", str(p.Unit)))
@@ -403,7 +393,7 @@ func parameterTree(p *catalog.ParameterDef) value {
 
 // attributeTree — строка подраздела attributes.
 func attributeTree(a *catalog.AttributeDef) value {
-	members := []member{pair("code", str(a.Code)), pair("name", str(a.DisplayName))}
+	members := []member{pair("code", str(a.Code))}
 	if a.GroupName != "" {
 		members = append(members, pair("group", str(a.GroupName)))
 	}

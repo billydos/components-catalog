@@ -7,7 +7,7 @@ import (
 )
 
 // Канонизация (03 §2.4): trim, верхний регистр, удаление пробелов,
-// типографские дефисы → «-», запятая → точка.
+// типографские hyphenы → «-», запятая → точка.
 func TestCanonicalize(t *testing.T) {
 	cases := []struct{ input, want string }{
 		{"КТ315Б", "КТ315Б"},
@@ -39,16 +39,16 @@ func TestCanonicalizeMessages(t *testing.T) {
 		code  domain.Code
 		want  string
 	}{
-		{"", domain.CodeInvalidDesignation, "пустое обозначение"},
-		{"   ", domain.CodeInvalidDesignation, "пустое обозначение"},
-		{"1234", domain.CodeInvalidDesignation, "обозначение «1234»: в обозначении нет букв"},
-		{"КТ3#5", domain.CodeInvalidDesignation, "обозначение «КТ3#5»: позиция 4: недопустимый символ «#»"},
-		{"KT315Б", domain.CodeInvalidDesignation, "обозначение «KT315Б»: позиция 6: смешение алфавитов (кириллица и латиница), получено «Б»"},
-		{"BC547В", domain.CodeInvalidDesignation, "обозначение «BC547В»: позиция 6: смешение алфавитов (кириллица и латиница), получено «В»"},
-		{"КТ315B", domain.CodeInvalidDesignation, "обозначение «КТ315B»: позиция 6: смешение алфавитов (кириллица и латиница), получено «B»"},
+		{"", domain.CodeInvalidDesignation, "empty designation"},
+		{"   ", domain.CodeInvalidDesignation, "empty designation"},
+		{"1234", domain.CodeInvalidDesignation, "designation «1234»: no letters in the designation"},
+		{"КТ3#5", domain.CodeInvalidDesignation, "designation «КТ3#5»: position 4: invalid character «#»"},
+		{"KT315Б", domain.CodeInvalidDesignation, "designation «KT315Б»: position 6: mixed alphabets (Cyrillic and Latin), got «Б»"},
+		{"BC547В", domain.CodeInvalidDesignation, "designation «BC547В»: position 6: mixed alphabets (Cyrillic and Latin), got «В»"},
+		{"КТ315B", domain.CodeInvalidDesignation, "designation «КТ315B»: position 6: mixed alphabets (Cyrillic and Latin), got «B»"},
 		// Русский алфавит, а не весь блок Unicode «кириллица».
-		{"КТ3102Њ", domain.CodeInvalidDesignation, "обозначение «КТ3102Њ»: позиция 7: недопустимый символ «Њ»"},
-		{"Д226Ў", domain.CodeInvalidDesignation, "обозначение «Д226Ў»: позиция 5: недопустимый символ «Ў»"},
+		{"КТ3102Њ", domain.CodeInvalidDesignation, "designation «КТ3102Њ»: position 7: invalid character «Њ»"},
+		{"Д226Ў", domain.CodeInvalidDesignation, "designation «Д226Ў»: position 5: invalid character «Ў»"},
 	}
 	for _, tc := range cases {
 		_, err := domain.Canonicalize(tc.input)
@@ -75,14 +75,14 @@ func TestAutodetectFail(t *testing.T) {
 			t.Errorf("«%s»: ожидался invalid_designation, получено %v", in, err)
 			continue
 		}
-		want := "обозначение «" + in + "»: не удалось распознать систему обозначений (поддерживаемые: gost, ost, pro, jedec, jis, series)"
+		want := "designation «" + in + "»: designation system not recognized (supported: gost, ost, pro, jedec, jis, series)"
 		if err.Error() != want {
 			t.Errorf("«%s»:\n got:  %s\n want: %s", in, err.Error(), want)
 		}
 	}
 }
 
-// Явная система и класс переопределяют автодетект (03 §2.4).
+// Явная system и класс переопределяют автодетект (03 §2.4).
 func TestParseForSystem(t *testing.T) {
 	// other — без разбора, только канонизация; класс обязателен.
 	p, err := domain.ParseDesignationForSystem("JANTX2N3055", domain.SystemOther, domain.KindTransistor)
@@ -104,7 +104,7 @@ func TestParseForSystem(t *testing.T) {
 	if de, ok := domain.AsError(err); !ok || de.Code != domain.CodeDesignationMismatch {
 		t.Fatalf("ожидался designation_mismatch, получено %v", err)
 	}
-	want := "обозначение «КТ315Б» не соответствует системе обозначений jedec"
+	want := "designation «КТ315Б» does not match designation system jedec"
 	if err.Error() != want {
 		t.Errorf("\n got:  %s\n want: %s", err.Error(), want)
 	}
@@ -114,7 +114,7 @@ func TestParseForSystem(t *testing.T) {
 	if de, ok := domain.AsError(err); !ok || de.Code != domain.CodeDesignationMismatch {
 		t.Fatalf("ожидался designation_mismatch, получено %v", err)
 	}
-	want = "обозначение «КТ315Б» принадлежит классу transistor, указан класс diode"
+	want = "designation «КТ315Б» belongs to kind transistor, kind diode was given"
 	if err.Error() != want {
 		t.Errorf("\n got:  %s\n want: %s", err.Error(), want)
 	}
@@ -144,15 +144,15 @@ func TestParseForSystem(t *testing.T) {
 	if de, ok := domain.AsError(err); !ok || de.Code != domain.CodeDesignationMismatch {
 		t.Fatalf("КЯ123 gost: %v", err)
 	}
-	if want := "обозначение «КЯ123» не соответствует системе обозначений gost"; err.Error() != want {
+	if want := "designation «КЯ123» does not match designation system gost"; err.Error() != want {
 		t.Errorf("\n got:  %s\n want: %s", err.Error(), want)
 	}
 
-	// Канонизация внутри разбора: пустое обозначение всплывает из Parse.
+	// Канонизация внутри разбора: empty designation всплывает из Parse.
 	if _, err := domain.ParseDesignation("   "); err == nil {
-		t.Error("пустое обозначение должно давать ошибку разбора")
+		t.Error("empty designation должно давать ошибку разбора")
 	} else if de, _ := domain.AsError(err); de == nil || de.Code != domain.CodeInvalidDesignation {
-		t.Errorf("пустое обозначение: %v", err)
+		t.Errorf("empty designation: %v", err)
 	}
 
 	// Класс при gost выбирает предметную грамматику напрямую.
@@ -199,7 +199,7 @@ func TestParseForSystem(t *testing.T) {
 		t.Errorf("2N2222A/transistor: %v", err)
 	}
 
-	// Конфликт класса у семейства — симметрично строгим системам.
+	// Конфликт класса у семейства — симметрично строгим systemм.
 	for _, tc := range []struct {
 		in         string
 		kind       domain.Kind
@@ -213,20 +213,20 @@ func TestParseForSystem(t *testing.T) {
 			t.Errorf("«%s»/%s: ожидался designation_mismatch, получено %v", tc.in, tc.kind, err)
 			continue
 		}
-		want := "обозначение «" + tc.in + "» принадлежит классу " + tc.actualKind +
-			", указан класс " + string(tc.kind)
+		want := "designation «" + tc.in + "» belongs to kind " + tc.actualKind +
+			", kind " + string(tc.kind) + " was given"
 		if err.Error() != want {
 			t.Errorf("«%s»:\n got:  %s\n want: %s", tc.in, err.Error(), want)
 		}
 	}
 
-	// Явная система series: неизвестное семейство — перечень поддерживаемых
+	// Явная system series: неизвестное семейство — перечень поддерживаемых
 	// (план 03 §2.1–2.2), а не generic-несоответствие системе.
 	_, err = domain.ParseDesignationForSystem("ЧТОТО", domain.SystemSeries, "")
 	if de, ok := domain.AsError(err); !ok || de.Code != domain.CodeInvalidDesignation {
 		t.Fatalf("ЧТОТО/series: %v", err)
 	}
-	want = "обозначение «ЧТОТО»: неизвестное семейство «ЧТОТО»; поддерживаемые семейства (все классы): " +
+	want = "designation «ЧТОТО»: unknown family «ЧТОТО»; supported families (все классы): " +
 		"CFR, KNP, M55342, MPSA, OC, RB, RC, RL, RN, RW, TIP, " +
 		"БМ, ВК, ВС, Д, ДГ, КБГИ, КД, КИМ, КЛС, КМ, КПК, КСО, КЭГ, МБГО, МБГЧ, МБМ, " +
 		"МГТ, МЛТ, МП, МТ, ОМЛТ, П, ПЭ, ПЭВ, СГМ, СПО, УЛИ, ЭМ, ЭТО"
@@ -239,7 +239,7 @@ func TestParseForSystem(t *testing.T) {
 	if err == nil {
 		t.Fatal("ЧТОТО/series/resistor: ожидалась ошибка")
 	}
-	want = "обозначение «ЧТОТО»: неизвестное семейство «ЧТОТО»; поддерживаемые семейства (resistor): " +
+	want = "designation «ЧТОТО»: unknown family «ЧТОТО»; supported families (resistor): " +
 		"CFR, KNP, M55342, RB, RC, RL, RN, RW, ВК, ВС, КИМ, МГТ, МЛТ, МТ, ОМЛТ, ПЭ, ПЭВ, СПО, УЛИ"
 	if err.Error() != want {
 		t.Errorf("\n got:  %s\n want: %s", err.Error(), want)
@@ -248,9 +248,9 @@ func TestParseForSystem(t *testing.T) {
 	// По-позиционные ошибки хвоста опознанного семейства всплывают из
 	// автодетекта, а не затираются итоговым отказом.
 	for _, tc := range []struct{ in, want string }{
-		{"МЛТ-А", "обозначение «МЛТ-А»: позиция 5: ожидалось: положительное число номинальной мощности, получено «А»"},
-		{"КСО-", "обозначение «КСО-»: позиция 5: ожидалось: хвост семейства (число и буквы), получено конец обозначения"},
-		{"Д99999999999999999999", "обозначение «Д99999999999999999999»: позиция 2: ожидалось: число в хвосте семейства (до 5 цифр), получено «99999999999999999999»"},
+		{"МЛТ-А", "designation «МЛТ-А»: position 5: expected: positive nominal power number, got «А»"},
+		{"КСО-", "designation «КСО-»: position 5: expected: family tail (digits and letters), got end of designation"},
+		{"Д99999999999999999999", "designation «Д99999999999999999999»: position 2: expected: number in the family tail (up to 5 digits), got «99999999999999999999»"},
 	} {
 		_, err := domain.ParseDesignation(tc.in)
 		if err == nil {
@@ -277,7 +277,7 @@ func TestParseForSystem(t *testing.T) {
 	// Неизвестные коды системы/класса — непредвиденные ошибки значений.
 	_, err = domain.ParseDesignationForSystem("КТ315Б", domain.System("x"), "")
 	if _, ok := domain.AsError(err); ok {
-		t.Errorf("неизвестная система: %v", err)
+		t.Errorf("неизвестная system: %v", err)
 	}
 	_, err = domain.ParseDesignationForSystem("КТ315Б", "", domain.Kind("x"))
 	if _, ok := domain.AsError(err); ok {

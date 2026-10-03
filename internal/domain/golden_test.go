@@ -166,7 +166,7 @@ func TestGoldenNegative(t *testing.T) {
 	if de, ok := domain.AsError(err); !ok || de.Code != domain.CodePowerSuffix {
 		t.Fatalf("С2-33Н-0.125: %v", err)
 	}
-	want := "обозначение «С2-33Н-0.125»: числовой хвост после букв — суффикс мощности, элемент полного обозначения; используйте обозначение «С2-33Н» и секцию variants"
+	want := "designation «С2-33Н-0.125»: numeric tail after letters is a power suffix, an element of the full designation; use designation «С2-33Н» and the variants section"
 	if err.Error() != want {
 		t.Errorf("\n got:  %s\n want: %s", err.Error(), want)
 	}

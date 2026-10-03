@@ -1,7 +1,6 @@
 package importer
 
 import (
-	"fmt"
 	"strconv"
 	"strings"
 
@@ -31,8 +30,7 @@ func ReadCatalogSection(v value) (catalog.Input, []Issue) {
 		return catalog.Input{}, nil
 	}
 	if v.kind != kindObject {
-		r.fail("catalog должен быть объектом с подразделами (допустимы: %s)",
-			strings.Join(catalogSubsections, ", "))
+		r.fail(domain.MsgImportCatalogObject, strings.Join(catalogSubsections, ", "))
 		return catalog.Input{}, r.issues
 	}
 	for _, m := range v.members {
@@ -60,8 +58,7 @@ func ReadCatalogSection(v value) (catalog.Input, []Issue) {
 		case "kind_validation_rules":
 			r.readKindRules(m.value)
 		default:
-			r.fail("неизвестный подраздел каталога «%s» (допустимы: %s)",
-				m.name, strings.Join(catalogSubsections, ", "))
+			r.fail(domain.MsgImportCatalogSubsection, m.name, strings.Join(catalogSubsections, ", "))
 		}
 	}
 	return r.in, r.issues
@@ -88,11 +85,8 @@ type catReader struct {
 	issues []Issue
 }
 
-func (r *catReader) fail(format string, a ...any) {
-	r.issues = append(r.issues, Issue{
-		Code:    domain.CodeInvalidImportFile,
-		Message: "каталог: " + fmt.Sprintf(format, a...),
-	})
+func (r *catReader) fail(id domain.MsgID, a ...any) {
+	r.issues = append(r.issues, issuef(0, id, a...))
 }
 
 // rows — массив объектов подраздела; имя — для сообщений.
@@ -101,7 +95,7 @@ func (r *catReader) rows(section string, v value) ([]value, bool) {
 		return nil, true
 	}
 	if v.kind != kindArray {
-		r.fail("подраздел %s должен быть массивом объектов", section)
+		r.fail(domain.MsgImportCatalogRowsArray, section)
 		return nil, false
 	}
 	return v.items, true
@@ -110,7 +104,7 @@ func (r *catReader) rows(section string, v value) ([]value, bool) {
 // checkKeys — известность полей объекта строки подраздела.
 func (r *catReader) checkKeys(section string, v value, code string, allowed ...string) bool {
 	if v.kind != kindObject {
-		r.fail("%s: должна быть объектом", section)
+		r.fail(domain.MsgImportCatalogRowObject, section)
 		return false
 	}
 	known := make(map[string]bool, len(allowed))
@@ -119,19 +113,18 @@ func (r *catReader) checkKeys(section string, v value, code string, allowed ...s
 	}
 	for _, m := range v.members {
 		if !known[m.name] {
-			r.fail("%s: неизвестное поле «%s» (допустимы: %s)",
-				rowName(section, code), m.name, strings.Join(allowed, ", "))
+			r.fail(domain.MsgImportCatalogUnknownField, rowName(section, code), m.name, strings.Join(allowed, ", "))
 			return false
 		}
 	}
 	return true
 }
 
-func rowName(section, code string) string {
+func rowName(section, code string) any {
 	if code == "" {
-		return "раздел " + section
+		return domain.MsgArg(domain.MsgImportCatalogRow, section)
 	}
-	return "раздел " + section + ", «" + code + "»"
+	return domain.MsgArg(domain.MsgImportCatalogRowCode, section, code)
 }
 
 // Скалярные поля со строгими типами; обязательность проверяют читатели
@@ -141,13 +134,13 @@ func (r *catReader) str(v value, section, code, key string, required bool) (stri
 	val, has := v.has(key)
 	if !has || val.kind == kindNull {
 		if required {
-			r.fail("%s: обязательное поле \"%s\"", rowName(section, code), key)
+			r.fail(domain.MsgImportCatalogFieldRequired, rowName(section, code), key)
 			return "", false
 		}
 		return "", true
 	}
 	if val.kind != kindString {
-		r.fail("%s: поле \"%s\" должно быть строкой", rowName(section, code), key)
+		r.fail(domain.MsgImportCatalogFieldString, rowName(section, code), key)
 		return "", false
 	}
 	return strings.TrimSpace(val.str), true
@@ -159,12 +152,12 @@ func (r *catReader) num(v value, section, code, key string) (*float64, bool) {
 		return nil, true
 	}
 	if val.kind != kindNumber {
-		r.fail("%s: поле \"%s\" должно быть числом", rowName(section, code), key)
+		r.fail(domain.MsgImportCatalogFieldNumber, rowName(section, code), key)
 		return nil, false
 	}
 	f, err := strconv.ParseFloat(val.num, 64)
 	if err != nil {
-		r.fail("%s: поле \"%s\" должно быть числом", rowName(section, code), key)
+		r.fail(domain.MsgImportCatalogFieldNumber, rowName(section, code), key)
 		return nil, false
 	}
 	return &f, true
@@ -176,7 +169,7 @@ func (r *catReader) integer(v value, section, code, key string) (int, bool) {
 		return 0, ok
 	}
 	if *f != float64(int(*f)) {
-		r.fail("%s: поле \"%s\" должно быть целым числом", rowName(section, code), key)
+		r.fail(domain.MsgImportCatalogFieldInteger, rowName(section, code), key)
 		return 0, false
 	}
 	return int(*f), true
@@ -188,7 +181,7 @@ func (r *catReader) boolean(v value, section, code, key string) (bool, bool) {
 		return false, true
 	}
 	if val.kind != kindBool {
-		r.fail("%s: поле \"%s\" должно быть true или false", rowName(section, code), key)
+		r.fail(domain.MsgImportCatalogFieldBool, rowName(section, code), key)
 		return false, false
 	}
 	return val.boolean, true
@@ -200,13 +193,13 @@ func (r *catReader) strSlice(v value, section, code, key string) ([]string, bool
 		return nil, true
 	}
 	if val.kind != kindArray {
-		r.fail("%s: поле \"%s\" должно быть массивом строк", rowName(section, code), key)
+		r.fail(domain.MsgImportCatalogFieldStrings, rowName(section, code), key)
 		return nil, false
 	}
 	out := make([]string, 0, len(val.items))
 	for _, item := range val.items {
 		if item.kind != kindString {
-			r.fail("%s: поле \"%s\": ожидалась строка", rowName(section, code), key)
+			r.fail(domain.MsgImportCatalogItemString, rowName(section, code), key)
 			return nil, false
 		}
 		out = append(out, strings.TrimSpace(item.str))
@@ -221,14 +214,10 @@ func (r *catReader) readKinds(v value) {
 	}
 	for _, row := range rows {
 		code, _ := r.str(row, "kinds", "", "code", false)
-		if !r.checkKeys("kinds", row, code, "code", "name") {
+		if !r.checkKeys("kinds", row, code, "code") {
 			continue
 		}
-		name, ok := r.str(row, "kinds", code, "name", true)
-		if !ok {
-			continue
-		}
-		r.in.Kinds = append(r.in.Kinds, catalog.KindDef{Code: domain.Kind(code), Name: name})
+		r.in.Kinds = append(r.in.Kinds, catalog.KindDef{Code: domain.Kind(code)})
 	}
 }
 
@@ -239,17 +228,10 @@ func (r *catReader) readSystems(v value) {
 	}
 	for _, row := range rows {
 		code, _ := r.str(row, "designation_systems", "", "code", false)
-		if !r.checkKeys("designation_systems", row, code, "code", "name", "description") {
+		if !r.checkKeys("designation_systems", row, code, "code") {
 			continue
 		}
-		name, ok := r.str(row, "designation_systems", code, "name", true)
-		if !ok {
-			continue
-		}
-		desc, _ := r.str(row, "designation_systems", code, "description", false)
-		r.in.Systems = append(r.in.Systems, catalog.SystemDef{
-			Code: domain.System(code), Name: name, Description: desc,
-		})
+		r.in.Systems = append(r.in.Systems, catalog.SystemDef{Code: domain.System(code)})
 	}
 }
 
@@ -283,17 +265,16 @@ func (r *catReader) readSeriesFamilies(v value) {
 	}
 	for _, row := range rows {
 		series, _ := r.str(row, "series_families", "", "series", false)
-		if !r.checkKeys("series_families", row, series, "series", "kind", "name", "tail_semantic") {
+		if !r.checkKeys("series_families", row, series, "series", "kind", "tail_semantic") {
 			continue
 		}
 		kind, ok := r.str(row, "series_families", series, "kind", true)
 		if !ok {
 			continue
 		}
-		name, _ := r.str(row, "series_families", series, "name", false)
 		tail, _ := r.str(row, "series_families", series, "tail_semantic", false)
 		r.in.SeriesFamilies = append(r.in.SeriesFamilies, catalog.SeriesFamilyDef{
-			Series: series, Kind: domain.Kind(kind), Name: name, TailSemantic: tail,
+			Series: series, Kind: domain.Kind(kind), TailSemantic: tail,
 		})
 	}
 }
@@ -305,18 +286,10 @@ func (r *catReader) readUnits(v value) {
 	}
 	for _, row := range rows {
 		code, _ := r.str(row, "units", "", "code", false)
-		if !r.checkKeys("units", row, code, "code", "name", "symbol") {
+		if !r.checkKeys("units", row, code, "code") {
 			continue
 		}
-		name, ok := r.str(row, "units", code, "name", true)
-		if !ok {
-			continue
-		}
-		symbol, ok := r.str(row, "units", code, "symbol", true)
-		if !ok {
-			continue
-		}
-		r.in.Units = append(r.in.Units, catalog.UnitDef{Code: code, Name: name, Symbol: symbol})
+		r.in.Units = append(r.in.Units, catalog.UnitDef{Code: code})
 	}
 }
 
@@ -327,11 +300,7 @@ func (r *catReader) readConditions(v value) {
 	}
 	for _, row := range rows {
 		code, _ := r.str(row, "conditions", "", "code", false)
-		if !r.checkKeys("conditions", row, code, "code", "name", "unit", "allow_negative") {
-			continue
-		}
-		name, ok := r.str(row, "conditions", code, "name", true)
-		if !ok {
+		if !r.checkKeys("conditions", row, code, "code", "unit", "allow_negative") {
 			continue
 		}
 		unit, _ := r.str(row, "conditions", code, "unit", false)
@@ -340,7 +309,7 @@ func (r *catReader) readConditions(v value) {
 			continue
 		}
 		r.in.Conditions = append(r.in.Conditions, catalog.ConditionDef{
-			Code: code, Name: name, Unit: unit, AllowNegative: neg,
+			Code: code, Unit: unit, AllowNegative: neg,
 		})
 	}
 }
@@ -352,14 +321,10 @@ func (r *catReader) readGroups(v value) {
 	}
 	for _, row := range rows {
 		code, _ := r.str(row, "parameter_groups", "", "code", false)
-		if !r.checkKeys("parameter_groups", row, code, "code", "section", "name", "sort_order") {
+		if !r.checkKeys("parameter_groups", row, code, "code", "section", "sort_order") {
 			continue
 		}
 		section, ok := r.str(row, "parameter_groups", code, "section", true)
-		if !ok {
-			continue
-		}
-		name, ok := r.str(row, "parameter_groups", code, "name", true)
 		if !ok {
 			continue
 		}
@@ -368,7 +333,7 @@ func (r *catReader) readGroups(v value) {
 			continue
 		}
 		r.in.Groups = append(r.in.Groups, catalog.GroupDef{
-			Code: code, SectionName: section, DisplayName: name, SortOrder: sortOrder,
+			Code: code, SectionName: section, SortOrder: sortOrder,
 		})
 	}
 }
@@ -381,7 +346,7 @@ func (r *catReader) readParameters(v value) {
 	for _, row := range rows {
 		code, _ := r.str(row, "parameters", "", "code", false)
 		if !r.checkKeys("parameters", row, code,
-			"code", "group", "name", "unit", "value_type", "kinds", "enum_values",
+			"code", "group", "unit", "value_type", "kinds", "enum_values",
 			"condition_sets", "ceiling", "allow_negative", "rule", "sort_order", "is_active") {
 			continue
 		}
@@ -391,11 +356,6 @@ func (r *catReader) readParameters(v value) {
 			continue
 		}
 		p.Group = group
-		name, ok := r.str(row, "parameters", code, "name", true)
-		if !ok {
-			continue
-		}
-		p.DisplayName = name
 		unit, _ := r.str(row, "parameters", code, "unit", false)
 		p.Unit = unit
 		vt, ok := r.str(row, "parameters", code, "value_type", true)
@@ -438,7 +398,7 @@ func (r *catReader) readParameters(v value) {
 			if activeVal.kind == kindBool {
 				p.Active = activeVal.boolean
 			} else {
-				r.fail("каталог: раздел parameters, «%s»: поле \"is_active\" должно быть true или false", code)
+				r.fail(domain.MsgImportCatalogParamActiveBool, code)
 				continue
 			}
 		} else {
@@ -461,16 +421,11 @@ func (r *catReader) readAttributes(v value) {
 	for _, row := range rows {
 		code, _ := r.str(row, "attributes", "", "code", false)
 		if !r.checkKeys("attributes", row, code,
-			"code", "name", "group", "type", "unit", "kinds", "enum_values",
+			"code", "group", "type", "unit", "kinds", "enum_values",
 			"rule", "sort_order", "is_active") {
 			continue
 		}
 		a := catalog.AttributeDef{Code: code}
-		name, ok := r.str(row, "attributes", code, "name", true)
-		if !ok {
-			continue
-		}
-		a.DisplayName = name
 		group, _ := r.str(row, "attributes", code, "group", false)
 		a.GroupName = group
 		typ, ok := r.str(row, "attributes", code, "type", true)
@@ -505,7 +460,7 @@ func (r *catReader) readAttributes(v value) {
 			if activeVal.kind == kindBool {
 				a.Active = activeVal.boolean
 			} else {
-				r.fail("каталог: раздел attributes, «%s»: поле \"is_active\" должно быть true или false", code)
+				r.fail(domain.MsgImportCatalogAttrActiveBool, code)
 				continue
 			}
 		} else {
@@ -522,14 +477,10 @@ func (r *catReader) readRules(v value) {
 	}
 	for _, row := range rows {
 		code, _ := r.str(row, "validation_rules", "", "code", false)
-		if !r.checkKeys("validation_rules", row, code, "code", "description") {
+		if !r.checkKeys("validation_rules", row, code, "code") {
 			continue
 		}
-		desc, ok := r.str(row, "validation_rules", code, "description", true)
-		if !ok {
-			continue
-		}
-		r.in.Rules = append(r.in.Rules, catalog.RuleDef{Code: code, Description: desc})
+		r.in.Rules = append(r.in.Rules, catalog.RuleDef{Code: code})
 	}
 }
 
@@ -564,25 +515,24 @@ func (r *catReader) conditionSets(v value, code string) ([]catalog.ConditionSet,
 		return nil, true
 	}
 	if val.kind != kindArray {
-		r.fail("каталог: раздел parameters, «%s»: поле \"condition_sets\" должно быть массивом наборов", code)
+		r.fail(domain.MsgImportCatalogCondsetsArray, code)
 		return nil, false
 	}
 	var sets []catalog.ConditionSet
 	for i, setVal := range val.items {
 		set := catalog.ConditionSet{No: i + 1}
 		if setVal.kind != kindObject {
-			r.fail("каталог: раздел parameters, «%s»: набор условий №%d должен быть объектом", code, i+1)
+			r.fail(domain.MsgImportCatalogCondsetObject, code, i+1)
 			return nil, false
 		}
 		itemsVal, hasItems := setVal.has("items")
 		if !hasItems || itemsVal.kind != kindArray {
-			r.fail("каталог: раздел parameters, «%s»: набор условий №%d: обязательное поле \"items\" — массив", code, i+1)
+			r.fail(domain.MsgImportCatalogCondsetItems, code, i+1)
 			return nil, false
 		}
 		for j, itemVal := range itemsVal.items {
 			if itemVal.kind != kindObject {
-				r.fail("каталог: раздел parameters, «%s»: набор условий №%d, элемент №%d должен быть объектом",
-					code, i+1, j+1)
+				r.fail(domain.MsgImportCatalogCondsetItemObject, code, i+1, j+1)
 				return nil, false
 			}
 			cond, ok := r.str(itemVal, "parameters", code, "condition", true)
@@ -602,7 +552,7 @@ func (r *catReader) conditionSets(v value, code string) ([]catalog.ConditionSet,
 			set.Items = append(set.Items, item)
 		}
 		if len(set.Items) == 0 {
-			r.fail("каталог: раздел parameters, «%s»: набор условий №%d пуст", code, i+1)
+			r.fail(domain.MsgImportCatalogCondsetEmpty, code, i+1)
 			return nil, false
 		}
 		sets = append(sets, set)

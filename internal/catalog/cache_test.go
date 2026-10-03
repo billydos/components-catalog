@@ -8,7 +8,7 @@ import (
 	"github.com/billydos/components-catalog/internal/catalog"
 )
 
-// fakeStore — транспорт каталога для тестов кэша: ревизия и число загрузок.
+// fakeStore — транспорт каталога для тестов кэша: ревизия и number загрузок.
 type fakeStore struct {
 	rev    int64
 	loads  int
@@ -24,7 +24,7 @@ func (s *fakeStore) CatalogRevision(context.Context) (int64, error) {
 
 func (s *fakeStore) LoadSnapshot(context.Context) (*catalog.Snapshot, error) {
 	s.loads++
-	return &catalog.Snapshot{Revision: s.rev, Units: []catalog.UnitDef{{Code: "В", Name: "вольт", Symbol: "В"}}}, nil
+	return &catalog.Snapshot{Revision: s.rev, Units: []catalog.UnitDef{{Code: "V"}}}, nil
 }
 
 // Кэш перезагружает снимок только при смене catalog_revision

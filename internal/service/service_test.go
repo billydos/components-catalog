@@ -199,8 +199,8 @@ func suiteUpsertSections(t *testing.T, factory configFactory) {
 	if err != nil || !ok {
 		t.Fatalf("get: ok=%v err=%v", ok, err)
 	}
-	if card.System != domain.SystemGost || card.KindName != "транзисторы" {
-		t.Fatalf("карточка: system=%s kind=%s", card.System, card.KindName)
+	if card.System != domain.SystemGost || card.Kind != domain.KindTransistor {
+		t.Fatalf("карточка: system=%s kind=%s", card.System, card.Kind)
 	}
 	field := func(name string) (domain.Field, bool) { return card.FieldByName(name) }
 	if f, ok := field("material"); !ok || f.String() != "кремний" {
@@ -299,14 +299,14 @@ func suiteAtomicOnError(t *testing.T, factory configFactory) {
 		},
 	})
 	wantDomainError(t, err, domain.CodeValidationFailed,
-		"параметр «UkeoMax»: значение ключа value должно быть положительным")
+		"parameter «UkeoMax»: value of key value must be positive")
 
 	_, err = svc.Upsert(ctx, DeviceInput{
 		Name:     "КТ315Б",
 		Sections: []SectionInput{section("parameters", pvRange("h21e", 50, 350))},
 	})
 	wantDomainError(t, err, domain.CodeValidationFailed,
-		"параметр «h21e»: комбинация условий не соответствует ни одному набору условий параметра")
+		"parameter «h21e»: the combination of conditions does not match any condition set of the parameter")
 
 	// Запись не изменилась.
 	card, _, _ := svc.Get(ctx, "transistor", "КТ315Б")
@@ -323,22 +323,22 @@ func suiteAtomicOnError(t *testing.T, factory configFactory) {
 		Sections: []SectionInput{section("ratings", pvExact("TempMin", 100), pvExact("TempMax", 50), pvExact("UkeoMax", 25))},
 	})
 	wantDomainError(t, err, domain.CodeValidationFailed,
-		"параметр «TempMin» должен быть меньше параметра «TempMax»")
+		"parameter «TempMin» must be less than parameter «TempMax»")
 
 	// Дубликаты и пустые значения входа.
 	_, err = svc.Upsert(ctx, DeviceInput{
 		Name:       "КТ315Б",
 		Attributes: []catalog.AttributeValue{attrText("package", "X"), attrText("package", "Y")},
 	})
-	wantDomainError(t, err, domain.CodeValidationFailed, "атрибут «package» задан повторно")
+	wantDomainError(t, err, domain.CodeValidationFailed, "attribute «package» is set more than once")
 
 	names := []string{"Восход", " Восход "}
 	_, err = svc.Upsert(ctx, DeviceInput{Name: "КТ315Б", Manufacturers: &names})
-	wantDomainError(t, err, domain.CodeValidationFailed, "производитель «Восход» задан повторно")
+	wantDomainError(t, err, domain.CodeValidationFailed, "manufacturer «Восход» is set more than once")
 
 	empty := []string{" "}
 	_, err = svc.Upsert(ctx, DeviceInput{Name: "КТ315Б", Manufacturers: &empty})
-	wantDomainError(t, err, domain.CodeValidationFailed, "пустое имя производителя")
+	wantDomainError(t, err, domain.CodeValidationFailed, "empty manufacturer name")
 
 	// Неизвестная секция.
 	_, err = svc.Upsert(ctx, DeviceInput{
@@ -346,12 +346,12 @@ func suiteAtomicOnError(t *testing.T, factory configFactory) {
 		Sections: []SectionInput{{Section: "nosuch"}},
 	})
 	wantDomainError(t, err, domain.CodeValidationFailed,
-		"секция «nosuch» не соответствует ни одной группе каталога")
+		"section «nosuch» does not match any catalog group")
 
 	// Несовпадение системы.
 	_, err = svc.Upsert(ctx, DeviceInput{Name: "КТ315Б", System: domain.SystemPro})
 	wantDomainError(t, err, domain.CodeDesignationMismatch,
-		"обозначение «КТ315Б» не соответствует системе обозначений pro")
+		"designation «КТ315Б» does not match designation system pro")
 }
 
 // suiteVariants — исполнения: матрица в карточке, полная замена секции,
@@ -436,7 +436,7 @@ func suiteVariants(t *testing.T, factory configFactory) {
 	}}}
 	_, err := svc.Upsert(ctx, DeviceInput{Name: "С2-33Н", Variants: &badVariants})
 	wantDomainError(t, err, domain.CodeValidationFailed,
-		"вариант «0.5 Вт»: отсутствует обязательный параметр Pnom")
+		"variant «0.5 Вт»: mandatory parameter Pnom is missing")
 
 	// Транзисторы — без исполнений.
 	tv := []VariantInput{{Label: "x", Sections: []SectionInput{
@@ -444,7 +444,7 @@ func suiteVariants(t *testing.T, factory configFactory) {
 	}}}
 	_, err = svc.Upsert(ctx, DeviceInput{Name: "КТ315Б", Variants: &tv})
 	wantDomainError(t, err, domain.CodeValidationFailed,
-		"класс transistor не поддерживает исполнения (варианты)")
+		"kind transistor does not support variants")
 
 	// Матрица конденсатора: вариант обязан иметь Unom и Cnom.
 	cv := []VariantInput{{Label: "25 В", Sections: []SectionInput{
@@ -452,7 +452,7 @@ func suiteVariants(t *testing.T, factory configFactory) {
 	}}}
 	_, err = svc.Upsert(ctx, DeviceInput{Name: "К50-35", Variants: &cv})
 	wantDomainError(t, err, domain.CodeValidationFailed,
-		"вариант «25 В»: отсутствует обязательный параметр Cnom")
+		"variant «25 В»: mandatory parameter Cnom is missing")
 }
 
 // suiteVariantFilters — вариантные параметрические фильтры применяются
@@ -547,7 +547,7 @@ func suiteAnalogs(t *testing.T, factory configFactory) {
 		t.Fatalf("встречные: %+v", b.Backlinks)
 	}
 
-	// Встречная ссылка B→A — самостоятельная строка.
+	// Встречная ссылка B→A — самостоятельная string.
 	mustUpsert(t, svc, DeviceInput{
 		Name:    "BC547B",
 		Analogs: &[]AnalogInput{{Designation: "КТ315Б", Note: "с ограничениями"}},
@@ -583,26 +583,26 @@ func suiteAnalogs(t *testing.T, factory configFactory) {
 		Name:    "МП39",
 		Analogs: &[]AnalogInput{{Designation: "НЕТ123"}},
 	})
-	wantDomainError(t, err, domain.CodeNotFound, "аналог «НЕТ123» не найден в классе transistor")
+	wantDomainError(t, err, domain.CodeNotFound, "analog «НЕТ123» not found in kind transistor")
 
 	_, err = svc.Upsert(ctx, DeviceInput{
 		Name:    "МП39",
 		Analogs: &[]AnalogInput{{Designation: "мп39"}},
 	})
-	wantDomainError(t, err, domain.CodeValidationFailed, "запись «МП39» не может быть аналогом самой себя")
+	wantDomainError(t, err, domain.CodeValidationFailed, "record «МП39» cannot be an analog of itself")
 
 	_, err = svc.Upsert(ctx, DeviceInput{
 		Name:    "МП39",
 		Analogs: &[]AnalogInput{{Designation: "КТ315Б"}, {Designation: "кт315б"}},
 	})
-	wantDomainError(t, err, domain.CodeValidationFailed, "аналог «КТ315Б» задан повторно")
+	wantDomainError(t, err, domain.CodeValidationFailed, "analog «КТ315Б» is set more than once")
 
 	// Аналог из другого класса не разрешается (в пределах класса).
 	_, err = svc.Upsert(ctx, DeviceInput{
 		Name:    "МП39",
 		Analogs: &[]AnalogInput{{Designation: "К10-17Б"}},
 	})
-	wantDomainError(t, err, domain.CodeNotFound, "аналог «К10-17Б» не найден в классе transistor")
+	wantDomainError(t, err, domain.CodeNotFound, "analog «К10-17Б» not found in kind transistor")
 }
 
 // suiteFind — точное совпадение, раздельность равнозначных записей и
@@ -660,7 +660,7 @@ func suiteFind(t *testing.T, factory configFactory) {
 	}
 }
 
-// suiteSearch — подстрока, фильтры полей/атрибутов/параметров, сортировка,
+// suiteSearch — подstring, фильтры полей/атрибутов/параметров, сортировка,
 // пагинация.
 func suiteSearch(t *testing.T, factory configFactory) {
 	ctx := context.Background()
@@ -685,10 +685,10 @@ func suiteSearch(t *testing.T, factory configFactory) {
 		return out
 	}
 
-	// Подстрока обозначения (канонический регистр ввода не важен).
+	// Подstring обозначения (канонический регистр ввода не важен).
 	page, err := svc.Search(ctx, SearchQuery{Query: "кт3"})
 	if err != nil || !slices.Equal(designations(page), []string{"КТ315Б"}) {
-		t.Fatalf("подстрока: %v err=%v", designations(page), err)
+		t.Fatalf("подstring: %v err=%v", designations(page), err)
 	}
 
 	// Фильтр полей: материал — сквозной между gost и pro.
@@ -712,7 +712,7 @@ func suiteSearch(t *testing.T, factory configFactory) {
 		t.Fatalf("dev_number=315: %v err=%v", designations(page), err)
 	}
 
-	// Атрибуты: текстовый и числовой.
+	// Attributes: текстовый и numberвой.
 	page, err = svc.Search(ctx, SearchQuery{
 		Kind:       domain.KindTransistor,
 		Attributes: []AttributeFilter{{Attribute: "structure", Text: "npn"}},
@@ -728,7 +728,7 @@ func suiteSearch(t *testing.T, factory configFactory) {
 		t.Fatalf("yearFrom≥1990: %v err=%v", designations(page), err)
 	}
 
-	// Параметры: границы по гарантированному значению (нижняя граница
+	// Parameters: границы по гарантированному значению (нижняя граница
 	// диапазона / точное значение) и точные значения.
 	page, err = svc.Search(ctx, SearchQuery{
 		Kind:       domain.KindTransistor,
@@ -817,29 +817,29 @@ func suiteSearchValidation(t *testing.T, factory configFactory) {
 	_, err := svc.Search(ctx, SearchQuery{
 		Parameters: []ParameterFilter{{Parameter: "nosuch", Min: ptr(1.0)}},
 	})
-	wantDomainError(t, err, domain.CodeUnknownParameter, "неизвестный параметр «nosuch»")
+	wantDomainError(t, err, domain.CodeUnknownParameter, "unknown parameter «nosuch»")
 
 	_, err = svc.Search(ctx, SearchQuery{
 		Kind:       domain.KindResistor,
 		Parameters: []ParameterFilter{{Parameter: "h21e", Min: ptr(1.0)}},
 	})
 	wantDomainError(t, err, domain.CodeParameterNotApplicable,
-		"параметр «h21e» неприменим к классу resistor")
+		"parameter «h21e» is not applicable to kind resistor")
 
 	_, err = svc.Search(ctx, SearchQuery{
 		Attributes: []AttributeFilter{{Attribute: "nosuch", Text: "x"}},
 	})
-	wantDomainError(t, err, domain.CodeUnknownAttribute, "неизвестный атрибут «nosuch»")
+	wantDomainError(t, err, domain.CodeUnknownAttribute, "unknown attribute «nosuch»")
 
 	_, err = svc.Search(ctx, SearchQuery{
 		Kind:       domain.KindTransistor,
 		Attributes: []AttributeFilter{{Attribute: "polarized", Num: 1, HasNum: true}},
 	})
 	wantDomainError(t, err, domain.CodeAttributeNotApplicable,
-		"атрибут «polarized» неприменим к классу transistor")
+		"attribute «polarized» is not applicable to kind transistor")
 
 	_, err = svc.Search(ctx, SearchQuery{Kind: domain.Kind("thyristor")})
-	wantDomainError(t, err, domain.CodeValidationFailed, "неизвестный класс приборов «thyristor»")
+	wantDomainError(t, err, domain.CodeValidationFailed, "unknown device kind «thyristor»")
 }
 
 // suiteDeleteCascade — каскадное удаление записи с данными и ссылками,
@@ -917,7 +917,7 @@ func suiteRevisions(t *testing.T, factory configFactory) {
 
 	// Импорт каталога меняет только catalog_revision.
 	err := app.Services().Catalog.Import(ctx, catalog.Input{
-		Units: []catalog.UnitDef{{Code: "тест-ед", Name: "тестовая единица", Symbol: "т"}},
+		Units: []catalog.UnitDef{{Code: "test_unit"}},
 	})
 	if err != nil {
 		t.Fatalf("импорт каталога: %v", err)
@@ -940,7 +940,7 @@ func suiteCatalogImport(t *testing.T, factory configFactory) {
 	// Новое семейство — данными каталога.
 	err := cat.Import(ctx, catalog.Input{
 		SeriesFamilies: []catalog.SeriesFamilyDef{
-			{Series: "ФГТ", Kind: domain.KindTransistor, Name: "тестовое семейство"},
+			{Series: "ФГТ", Kind: domain.KindTransistor},
 		},
 	})
 	if err != nil {
@@ -974,10 +974,10 @@ func suiteCatalogImport(t *testing.T, factory configFactory) {
 
 	// Неверный каталог — проблемы метасхемы, применение целиком отменено.
 	err = cat.Import(ctx, catalog.Input{
-		Rules: []catalog.RuleDef{{Code: "nosuch_rule", Description: "x"}},
+		Rules: []catalog.RuleDef{{Code: "nosuch_rule"}},
 	})
 	wantDomainError(t, err, domain.CodeInvalidImportFile,
-		"каталог: раздел validation_rules: неизвестное правило «nosuch_rule»")
+		"catalog: section validation_rules: unknown rule «nosuch_rule»")
 
 	snap, _ = cat.Snapshot(ctx)
 	if _, ok := snap.Family("ФГТ", domain.KindTransistor); !ok {

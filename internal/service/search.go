@@ -2,7 +2,6 @@ package service
 
 import (
 	"context"
-	"fmt"
 	"strings"
 
 	"github.com/billydos/components-catalog/internal/catalog"
@@ -119,19 +118,17 @@ func buildSearchRequest(snap *catalog.Snapshot, q SearchQuery) (storage.SearchRe
 	}
 	if q.Kind != "" {
 		if _, ok := snap.Kind(q.Kind); !ok {
-			return req, domain.NewError(domain.CodeValidationFailed,
-				fmt.Sprintf("неизвестный класс приборов «%s»", string(q.Kind)))
+			return req, domain.NewErrorf(domain.CodeValidationFailed, domain.MsgKindUnknown, string(q.Kind))
 		}
 	}
 	if q.System != "" {
 		if _, ok := snap.System(q.System); !ok {
-			return req, domain.NewError(domain.CodeValidationFailed,
-				fmt.Sprintf("неизвестная система обозначений «%s»", string(q.System)))
+			return req, domain.NewErrorf(domain.CodeValidationFailed, domain.MsgSystemUnknown, string(q.System))
 		}
 	}
 	for _, f := range q.Fields {
 		if f.Field == "" {
-			return req, domain.NewError(domain.CodeValidationFailed, "не задано поле фильтра обозначения")
+			return req, domain.NewErrorf(domain.CodeValidationFailed, domain.MsgSvcFilterFieldMissing)
 		}
 		req.Fields = append(req.Fields, storage.FieldCond{
 			Field: f.Field, Text: f.Text, Num: f.Num, HasNum: f.HasNum, Op: storage.FilterOp(f.Op),
@@ -140,24 +137,20 @@ func buildSearchRequest(snap *catalog.Snapshot, q SearchQuery) (storage.SearchRe
 	for _, a := range q.Attributes {
 		def, ok := snap.Attribute(a.Attribute)
 		if !ok {
-			return req, domain.NewError(domain.CodeUnknownAttribute,
-				fmt.Sprintf("неизвестный атрибут «%s»", a.Attribute))
+			return req, domain.NewErrorf(domain.CodeUnknownAttribute, domain.MsgEngineAttrUnknown, a.Attribute)
 		}
 		if q.Kind != "" && !def.AppliesTo(q.Kind) {
-			return req, domain.NewError(domain.CodeAttributeNotApplicable,
-				fmt.Sprintf("атрибут «%s» неприменим к классу %s", a.Attribute, string(q.Kind)))
+			return req, domain.NewErrorf(domain.CodeAttributeNotApplicable, domain.MsgEngineAttrNotApplicable, a.Attribute, string(q.Kind))
 		}
 		cond := storage.AttrCond{Code: a.Attribute, Text: a.Text, Num: a.Num, HasNum: a.HasNum, Op: storage.FilterOp(a.Op)}
 		switch def.Type {
 		case catalog.AttrText, catalog.AttrEnum:
 			if a.HasNum {
-				return req, domain.NewError(domain.CodeValidationFailed,
-					fmt.Sprintf("фильтр атрибута «%s»: ожидается текстовое значение", a.Attribute))
+				return req, domain.NewErrorf(domain.CodeValidationFailed, domain.MsgSvcFilterAttrText, a.Attribute)
 			}
 		default:
 			if !a.HasNum {
-				return req, domain.NewError(domain.CodeValidationFailed,
-					fmt.Sprintf("фильтр атрибута «%s»: ожидается число", a.Attribute))
+				return req, domain.NewErrorf(domain.CodeValidationFailed, domain.MsgSvcFilterAttrNumber, a.Attribute)
 			}
 		}
 		req.Attrs = append(req.Attrs, cond)
@@ -165,28 +158,23 @@ func buildSearchRequest(snap *catalog.Snapshot, q SearchQuery) (storage.SearchRe
 	for _, p := range q.Parameters {
 		def, ok := snap.Parameter(p.Parameter)
 		if !ok {
-			return req, domain.NewError(domain.CodeUnknownParameter,
-				fmt.Sprintf("неизвестный параметр «%s»", p.Parameter))
+			return req, domain.NewErrorf(domain.CodeUnknownParameter, domain.MsgEngineParamUnknown, p.Parameter)
 		}
 		if q.Kind != "" && !def.AppliesTo(q.Kind) {
-			return req, domain.NewError(domain.CodeParameterNotApplicable,
-				fmt.Sprintf("параметр «%s» неприменим к классу %s", p.Parameter, string(q.Kind)))
+			return req, domain.NewErrorf(domain.CodeParameterNotApplicable, domain.MsgEngineParamNotApplicable, p.Parameter, string(q.Kind))
 		}
 		hasNum := p.Min != nil || p.Max != nil || p.Exact != nil
 		hasText := p.Text != ""
 		if !hasNum && !hasText {
-			return req, domain.NewError(domain.CodeValidationFailed,
-				fmt.Sprintf("фильтр параметра «%s»: задайте значение", p.Parameter))
+			return req, domain.NewErrorf(domain.CodeValidationFailed, domain.MsgSvcFilterParamSet, p.Parameter)
 		}
 		cond := storage.ParamCond{Code: p.Parameter, Text: p.Text, HasText: hasText}
 		if def.ValueType == catalog.ValueText || def.ValueType == catalog.ValueEnum {
 			if hasNum {
-				return req, domain.NewError(domain.CodeValidationFailed,
-					fmt.Sprintf("фильтр параметра «%s»: ожидается текстовое значение", p.Parameter))
+				return req, domain.NewErrorf(domain.CodeValidationFailed, domain.MsgSvcFilterParamText, p.Parameter)
 			}
 		} else if hasText {
-			return req, domain.NewError(domain.CodeValidationFailed,
-				fmt.Sprintf("фильтр параметра «%s»: ожидается число", p.Parameter))
+			return req, domain.NewErrorf(domain.CodeValidationFailed, domain.MsgSvcFilterParamNumber, p.Parameter)
 		}
 		if p.Min != nil {
 			cond.Min, cond.HasMin = *p.Min, true

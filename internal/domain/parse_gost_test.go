@@ -12,14 +12,14 @@ func TestVerdictErrorGuard(t *testing.T) {
 	if isVerdictError(errors.New("прочая")) {
 		t.Error("прочая ошибка — не вердикт")
 	}
-	if isVerdictError(NewError(CodeInvalidDesignation, "x")) {
+	if isVerdictError(NewErrorf(CodeInvalidDesignation, MsgScannerEof)) {
 		t.Error("ошибка разбора — не вердикт")
 	}
 	for _, err := range []error{
 		KindNotSupported(),
 		KindAmbiguous(),
-		NewError(CodePowerSuffix, "x"),
-		NewError(CodeDesignationMismatch, "x"),
+		NewErrorf(CodePowerSuffix, MsgPowerSuffix),
+		NewErrorf(CodeDesignationMismatch, MsgKindMismatch),
 	} {
 		if !isVerdictError(err) {
 			t.Errorf("ожидался вердикт: %v", err)
@@ -79,35 +79,35 @@ func TestParseGostSemiconductorValid(t *testing.T) {
 			t.Errorf("«%s»: поля:\n got:  %s\n want: %s", tc.input, got, tc.fields)
 		}
 		if p.System != SystemGost || p.Designation != tc.input {
-			t.Errorf("«%s»: система/ключ %s/%s", tc.input, p.System, p.Designation)
+			t.Errorf("«%s»: system/ключ %s/%s", tc.input, p.System, p.Designation)
 		}
 	}
 }
 
 func TestParseGostSemiconductorMessages(t *testing.T) {
 	cases := []struct{ input, want string }{
-		{"КТ", "обозначение «КТ»: позиция 3: ожидалось: номер разработки, получено конец обозначения"},
-		{"КТ3", "обозначение «КТ3»: позиция 3: ожидалось: номер разработки 101–999 либо цифра признака и номер 1–99, получено «3»"},
-		{"КТ3100", "обозначение «КТ3100»: позиция 4: ожидалось: номер разработки 1–99 или 101–999, получено «100»"},
-		{"КТ0215", "обозначение «КТ0215»: позиция 3: ожидалось: цифра признака 1–9, получено «0»"},
-		{"КТ3015", "обозначение «КТ3015»: позиция 4: ожидалось: номер разработки 1–99 или 101–999 без ведущего нуля, получено «015»"},
-		{"КТ015", "обозначение «КТ015»: позиция 3: ожидалось: номер разработки 1–99 или 101–999 без ведущего нуля, получено «015»"},
-		{"К", "обозначение «К»: позиция 2: ожидалось: буква подкласса (Т, П, Д, С, В, А, И, Г, Л, Ф, Ц, Н, У, Е, Р, Ж, Э, Х, М, УП либо О с буквой функции), получено конец обозначения"},
-		{"АОД", "обозначение «АОД»: позиция 4: ожидалось: номер разработки, получено конец обозначения"},
-		{"КОФ2111", "обозначение «КОФ2111»: позиция 4: ожидалось: номер разработки 1–99 или 101–999, получено «2111»"},
-		{"2Т31485", "обозначение «2Т31485»: позиция 4: ожидалось: номер разработки 1–99 или 101–999, получено «1485»"},
-		{"КТ30", "обозначение «КТ30»: позиция 4: ожидалось: номер разработки 1–9, получено «0»"},
-		{"КТ05", "обозначение «КТ05»: позиция 3: ожидалось: цифра признака 1–9, получено «0»"},
-		{"КТ315А0", "обозначение «КТ315А0»: позиция 7: ожидалось: цифра модернизации 1–8 либо 9 (поверхностный монтаж), получено «0»"},
-		{"КТ31485", "обозначение «КТ31485»: позиция 3: ожидалось: признак и номер разработки (не более четырёх цифр), получено «31485»"},
-		{"2Т3", "обозначение «2Т3»: позиция 4: ожидалось: цифра признака (1–9) и номер разработки, получено конец обозначения"},
-		{"2Т014", "обозначение «2Т014»: позиция 3: ожидалось: цифра признака 1–9, получено «0»"},
-		{"ХТ315Б", "обозначение «ХТ315Б»: позиция 1: ожидалось: символ материала (Г, К, А, И, Д, П либо цифра 1–6), получено «Х»"},
-		{"КЯ123", "обозначение «КЯ123»: позиция 2: ожидалось: буква подкласса (Т, П, Д, С, В, А, И, Г, Л, Ф, Ц, Н, У, Е, Р, Ж, Э, Х, М, УП либо О с буквой функции), получено «Я»"},
-		{"КОХ123", "обозначение «КОХ123»: позиция 3: ожидалось: буква функции оптоэлектронного прибора (И, Ф, Д, Т, Р, У, К, Л, М, П), получено «Х»"},
-		{"КТ315З", "обозначение «КТ315З»: позиция 6: ожидался конец обозначения, получено «З»"},
-		{"КТ315Б-7", "обозначение «КТ315Б-7»: позиция 8: ожидалось: цифра бескорпусного исполнения 1–6, получено «7»"},
-		{"КТ315Б/9", "обозначение «КТ315Б/9»: позиция 8: ожидалось: код предприятия-изготовителя (буквы), получено «9»"},
+		{"КТ", "designation «КТ»: position 3: expected: development number, got end of designation"},
+		{"КТ3", "designation «КТ3»: position 3: expected: development number 101–999, or a feature digit and number 1–99, got «3»"},
+		{"КТ3100", "designation «КТ3100»: position 4: expected: development number 1–99 or 101–999, got «100»"},
+		{"КТ0215", "designation «КТ0215»: position 3: expected: feature digit 1–9, got «0»"},
+		{"КТ3015", "designation «КТ3015»: position 4: expected: development number 1–99 or 101–999 without a leading zero, got «015»"},
+		{"КТ015", "designation «КТ015»: position 3: expected: development number 1–99 or 101–999 without a leading zero, got «015»"},
+		{"К", "designation «К»: position 2: expected: subclass letter (Т, П, Д, С, В, А, И, Г, Л, Ф, Ц, Н, У, Е, Р, Ж, Э, Х, М, УП, or О with a function letter), got end of designation"},
+		{"АОД", "designation «АОД»: position 4: expected: development number, got end of designation"},
+		{"КОФ2111", "designation «КОФ2111»: position 4: expected: development number 1–99 or 101–999, got «2111»"},
+		{"2Т31485", "designation «2Т31485»: position 4: expected: development number 1–99 or 101–999, got «1485»"},
+		{"КТ30", "designation «КТ30»: position 4: expected: development number 1–9, got «0»"},
+		{"КТ05", "designation «КТ05»: position 3: expected: feature digit 1–9, got «0»"},
+		{"КТ315А0", "designation «КТ315А0»: position 7: expected: modification digit 1–8 or 9 (surface mount), got «0»"},
+		{"КТ31485", "designation «КТ31485»: position 3: expected: feature and development number (at most four digits), got «31485»"},
+		{"2Т3", "designation «2Т3»: position 4: expected: feature digit (1–9) and development number, got end of designation"},
+		{"2Т014", "designation «2Т014»: position 3: expected: feature digit 1–9, got «0»"},
+		{"ХТ315Б", "designation «ХТ315Б»: position 1: expected: material symbol (Г, К, А, И, Д, П, or digit 1–6), got «Х»"},
+		{"КЯ123", "designation «КЯ123»: position 2: expected: subclass letter (Т, П, Д, С, В, А, И, Г, Л, Ф, Ц, Н, У, Е, Р, Ж, Э, Х, М, УП, or О with a function letter), got «Я»"},
+		{"КОХ123", "designation «КОХ123»: position 3: expected: optoelectronic device function letter (И, Ф, Д, Т, Р, У, К, Л, М, П), got «Х»"},
+		{"КТ315З", "designation «КТ315З»: position 6: expected end of designation, got «З»"},
+		{"КТ315Б-7", "designation «КТ315Б-7»: position 8: expected: chip (leadless) variant digit 1–6, got «7»"},
+		{"КТ315Б/9", "designation «КТ315Б/9»: position 8: expected: manufacturer code (letters), got «9»"},
 	}
 	for _, tc := range cases {
 		_, err := parseGostSemiconductor(newScanner(tc.input), "")

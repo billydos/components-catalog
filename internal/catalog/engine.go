@@ -1,7 +1,6 @@
 package catalog
 
 import (
-	"fmt"
 	"slices"
 	"strconv"
 	"strings"
@@ -48,7 +47,7 @@ func (e *Engine) ValidateDevice(d *Device) []Problem {
 	probs = append(probs, e.validateValues(d.Kind, d.Values)...)
 	if len(d.Variants) > 0 {
 		if !e.kindAllowsVariants(d.Kind) {
-			probs = append(probs, ruleProblem("класс %s не поддерживает исполнения (варианты)", string(d.Kind)))
+			probs = append(probs, ruleProblem(domain.MsgEngineKindNoVariants, string(d.Kind)))
 		}
 		for i := range d.Variants {
 			probs = append(probs, e.validateValues(d.Kind, d.Variants[i].Values)...)
@@ -64,28 +63,20 @@ func (e *Engine) ValidateDevice(d *Device) []Problem {
 func (e *Engine) validateHeader(d *Device) []Problem {
 	var probs []Problem
 	if d.Kind == "" {
-		return append(probs, Problem{domain.CodeValidationFailed, "класс прибора не задан"})
+		return append(probs, Problemf(domain.CodeValidationFailed, domain.MsgEngineKindMissing))
 	}
 	if _, ok := e.snap.Kind(d.Kind); !ok {
-		probs = append(probs, Problem{
-			Code:    domain.CodeValidationFailed,
-			Message: fmt.Sprintf("неизвестный класс приборов «%s»", string(d.Kind)),
-		})
+		probs = append(probs, Problemf(domain.CodeValidationFailed, domain.MsgKindUnknown, string(d.Kind)))
 	}
 	if d.System == "" {
 		return probs
 	}
 	if _, ok := e.snap.System(d.System); !ok {
-		return append(probs, Problem{
-			Code:    domain.CodeValidationFailed,
-			Message: fmt.Sprintf("неизвестная система обозначений «%s»", string(d.System)),
-		})
+		return append(probs, Problemf(domain.CodeValidationFailed, domain.MsgSystemUnknown, string(d.System)))
 	}
 	if !e.snap.SystemAppliesTo(d.System, d.Kind) {
-		probs = append(probs, Problem{
-			Code:    domain.CodeValidationFailed,
-			Message: fmt.Sprintf("система обозначений «%s» неприменима к классу %s", string(d.System), string(d.Kind)),
-		})
+		probs = append(probs, Problemf(domain.CodeValidationFailed, domain.MsgEngineSystemNotApplicable,
+			string(d.System), string(d.Kind)))
 	}
 	if d.System == domain.SystemSeries {
 		probs = append(probs, e.validateSeriesRecord(d)...)
@@ -96,20 +87,13 @@ func (e *Engine) validateHeader(d *Device) []Problem {
 func (e *Engine) validateSeriesRecord(d *Device) []Problem {
 	var probs []Problem
 	if _, ok := e.snap.MatchSeriesFamily(d.Designation, d.Kind); !ok {
-		probs = append(probs, Problem{
-			Code: domain.CodeValidationFailed,
-			Message: fmt.Sprintf("обозначение «%s»: неизвестное семейство (система series, класс %s)",
-				d.Designation, string(d.Kind)),
-		})
+		probs = append(probs, Problemf(domain.CodeValidationFailed, domain.MsgEngineSeriesFamilyUnknown,
+			d.Designation, string(d.Kind)))
 	}
 	for _, sys := range strictSystems {
 		if _, err := domain.ParseDesignationForSystem(d.Designation, sys, d.Kind); err == nil {
-			probs = append(probs, Problem{
-				Code: domain.CodeValidationFailed,
-				Message: fmt.Sprintf(
-					"обозначение «%s» разбирается строгой системой «%s» и не может принадлежать системе series",
-					d.Designation, string(sys)),
-			})
+			probs = append(probs, Problemf(domain.CodeValidationFailed, domain.MsgEngineSeriesStrict,
+				d.Designation, string(sys)))
 		}
 	}
 	return probs
@@ -123,24 +107,16 @@ func (e *Engine) validateAttributes(kind domain.Kind, vals []AttributeValue) []P
 	for _, av := range vals {
 		a, ok := e.snap.Attribute(av.Attribute)
 		if !ok {
-			probs = append(probs, Problem{
-				Code:    domain.CodeUnknownAttribute,
-				Message: fmt.Sprintf("неизвестный атрибут «%s»", av.Attribute),
-			})
+			probs = append(probs, Problemf(domain.CodeUnknownAttribute, domain.MsgEngineAttrUnknown, av.Attribute))
 			continue
 		}
 		if !a.Active {
-			probs = append(probs, Problem{
-				Code:    domain.CodeValidationFailed,
-				Message: fmt.Sprintf("атрибут «%s» деактивирован", a.Code),
-			})
+			probs = append(probs, Problemf(domain.CodeValidationFailed, domain.MsgEngineAttrInactive, a.Code))
 			continue
 		}
 		if !a.AppliesTo(kind) {
-			probs = append(probs, Problem{
-				Code:    domain.CodeAttributeNotApplicable,
-				Message: fmt.Sprintf("атрибут «%s» неприменим к классу %s", a.Code, string(kind)),
-			})
+			probs = append(probs, Problemf(domain.CodeAttributeNotApplicable, domain.MsgEngineAttrNotApplicable,
+				a.Code, string(kind)))
 			continue
 		}
 		probs = append(probs, checkAttrValue(a, av)...)
@@ -162,46 +138,44 @@ func (e *Engine) validateAttributes(kind domain.Kind, vals []AttributeValue) []P
 // (docs/plan/03-data-model.md §9: текст непустой после trim, bool 0/1,
 // enum из списка, число положительно).
 func checkAttrValue(a *AttributeDef, av AttributeValue) []Problem {
-	fail := func(msg string) []Problem {
-		return []Problem{{Code: domain.CodeValidationFailed, Message: msg}}
+	fail := func(id domain.MsgID, args ...any) []Problem {
+		return []Problem{Problemf(domain.CodeValidationFailed, id, args...)}
 	}
 	switch a.Type {
 	case AttrText:
 		if av.Text == nil {
-			return fail(fmt.Sprintf("атрибут «%s»: ожидается текстовое значение", a.Code))
+			return fail(domain.MsgEngineAttrTextExpected, a.Code)
 		}
 		if strings.TrimSpace(*av.Text) == "" {
-			return fail(fmt.Sprintf("атрибут «%s»: текст не может быть пустым", a.Code))
+			return fail(domain.MsgEngineAttrTextEmpty, a.Code)
 		}
 	case AttrEnum:
 		if av.Text == nil {
-			return fail(fmt.Sprintf("атрибут «%s»: ожидается значение из списка (%s)",
-				a.Code, strings.Join(a.EnumValues, ", ")))
+			return fail(domain.MsgEngineAttrEnumExpected, a.Code, strings.Join(a.EnumValues, ", "))
 		}
 		if !slices.Contains(a.EnumValues, *av.Text) {
-			return fail(fmt.Sprintf("атрибут «%s»: значение «%s» не входит в допустимые (%s)",
-				a.Code, *av.Text, strings.Join(a.EnumValues, ", ")))
+			return fail(domain.MsgEngineAttrEnumInvalid, a.Code, *av.Text, strings.Join(a.EnumValues, ", "))
 		}
 	case AttrBool:
 		if av.Bool == nil {
-			return fail(fmt.Sprintf("атрибут «%s»: ожидается логическое значение", a.Code))
+			return fail(domain.MsgEngineAttrBoolExpected, a.Code)
 		}
 	case AttrInt:
 		if av.Num == nil {
-			return fail(fmt.Sprintf("атрибут «%s»: ожидается целое число", a.Code))
+			return fail(domain.MsgEngineAttrIntExpected, a.Code)
 		}
 		if !isWholeNumber(*av.Num) {
-			return fail(fmt.Sprintf("атрибут «%s»: значение должно быть целым числом", a.Code))
+			return fail(domain.MsgEngineAttrWhole, a.Code)
 		}
 		if *av.Num <= 0 {
-			return fail(fmt.Sprintf("атрибут «%s»: значение должно быть положительным", a.Code))
+			return fail(domain.MsgEngineAttrPositive, a.Code)
 		}
 	case AttrNumber:
 		if av.Num == nil {
-			return fail(fmt.Sprintf("атрибут «%s»: ожидается число", a.Code))
+			return fail(domain.MsgEngineAttrNumExpected, a.Code)
 		}
 		if *av.Num <= 0 {
-			return fail(fmt.Sprintf("атрибут «%s»: значение должно быть положительным", a.Code))
+			return fail(domain.MsgEngineAttrPositive, a.Code)
 		}
 	}
 	return nil
@@ -218,43 +192,29 @@ func (e *Engine) validateValues(kind domain.Kind, vals []ParameterValue) []Probl
 		v := &vals[i]
 		p, ok := e.snap.Parameter(v.Parameter)
 		if !ok {
-			probs = append(probs, Problem{
-				Code:    domain.CodeUnknownParameter,
-				Message: fmt.Sprintf("неизвестный параметр «%s»", v.Parameter),
-			})
+			probs = append(probs, Problemf(domain.CodeUnknownParameter, domain.MsgEngineParamUnknown, v.Parameter))
 			continue
 		}
 		if !p.Active {
-			probs = append(probs, Problem{
-				Code:    domain.CodeValidationFailed,
-				Message: fmt.Sprintf("параметр «%s» деактивирован", p.Code),
-			})
+			probs = append(probs, Problemf(domain.CodeValidationFailed, domain.MsgEngineParamInactive, p.Code))
 			continue
 		}
 		if !p.AppliesTo(kind) {
-			probs = append(probs, Problem{
-				Code:    domain.CodeParameterNotApplicable,
-				Message: fmt.Sprintf("параметр «%s» неприменим к классу %s", p.Code, string(kind)),
-			})
+			probs = append(probs, Problemf(domain.CodeParameterNotApplicable, domain.MsgEngineParamNotApplicable,
+				p.Code, string(kind)))
 			continue
 		}
 		if v.Section != "" {
 			if g, ok := e.snap.Group(p.Group); ok && g.SectionName != v.Section {
-				probs = append(probs, Problem{
-					Code: domain.CodeValidationFailed,
-					Message: fmt.Sprintf("параметр «%s» задан в секции «%s», относится к секции «%s»",
-						p.Code, v.Section, g.SectionName),
-				})
+				probs = append(probs, Problemf(domain.CodeValidationFailed, domain.MsgEngineParamWrongSection,
+					p.Code, v.Section, g.SectionName))
 			}
 		}
 		probs = append(probs, checkValueShape(p, v)...)
 		probs = append(probs, e.checkValueConditions(p, v)...)
 		key := valueKey(v)
 		if seen[key] {
-			probs = append(probs, Problem{
-				Code:    domain.CodeValidationFailed,
-				Message: fmt.Sprintf("параметр «%s»: дубликат значения с теми же условиями", p.Code),
-			})
+			probs = append(probs, Problemf(domain.CodeValidationFailed, domain.MsgEngineParamDuplicate, p.Code))
 		} else {
 			seen[key] = true
 		}
@@ -279,109 +239,108 @@ func (e *Engine) validateValues(kind domain.Kind, vals []ParameterValue) []Probl
 // проверяются для каждой числовой части.
 func checkValueShape(p *ParameterDef, v *ParameterValue) []Problem {
 	var probs []Problem
-	add := func(format string, a ...any) {
-		probs = append(probs, Problem{Code: domain.CodeValidationFailed, Message: fmt.Sprintf(format, a...)})
+	add := func(id domain.MsgID, args ...any) {
+		probs = append(probs, Problemf(domain.CodeValidationFailed, id, args...))
 	}
 	numKey := func(key string, val *float64) {
 		if val == nil {
 			return
 		}
 		if *val <= 0 && !p.AllowNegative {
-			add("параметр «%s»: значение ключа %s должно быть положительным", p.Code, key)
+			add(domain.MsgValueKeyPositive, p.Code, key)
 		}
 		if p.Ceiling != nil && *val > *p.Ceiling {
-			add("параметр «%s»: значение ключа %s превышает потолок %s", p.Code, key, formatNum(*p.Ceiling))
+			add(domain.MsgValueKeyCeiling, p.Code, key, formatNum(*p.Ceiling))
 		}
 	}
 	switch p.ValueType {
 	case ValueExact:
 		if v.Exact == nil {
-			add("параметр «%s»: тип значения exact — обязателен ключ value", p.Code)
+			add(domain.MsgValueKeyRequired, p.Code, "exact", "value")
 		}
 		if v.Min != nil {
-			add("параметр «%s»: тип значения exact не допускает ключ min", p.Code)
+			add(domain.MsgValueKeyForbidden, p.Code, "exact", "min")
 		}
 		if v.Max != nil {
-			add("параметр «%s»: тип значения exact не допускает ключ max", p.Code)
+			add(domain.MsgValueKeyForbidden, p.Code, "exact", "max")
 		}
 		if v.Text != nil {
-			add("параметр «%s»: тип значения exact не допускает ключ text", p.Code)
+			add(domain.MsgValueKeyForbidden, p.Code, "exact", "text")
 		}
 		numKey("value", v.Exact)
 	case ValueAtLeast:
 		if v.Min == nil {
-			add("параметр «%s»: тип значения at_least — обязателен ключ min", p.Code)
+			add(domain.MsgValueKeyRequired, p.Code, "at_least", "min")
 		}
 		if v.Exact != nil {
-			add("параметр «%s»: тип значения at_least не допускает ключ value", p.Code)
+			add(domain.MsgValueKeyForbidden, p.Code, "at_least", "value")
 		}
 		if v.Text != nil {
-			add("параметр «%s»: тип значения at_least не допускает ключ text", p.Code)
+			add(domain.MsgValueKeyForbidden, p.Code, "at_least", "text")
 		}
 		numKey("min", v.Min)
 		numKey("max", v.Max)
 		if v.Min != nil && v.Max != nil && *v.Min > *v.Max {
-			add("параметр «%s»: min превышает max", p.Code)
+			add(domain.MsgValueMinMax, p.Code)
 		}
 	case ValueAtMost:
 		if v.Max == nil {
-			add("параметр «%s»: тип значения at_most — обязателен ключ max", p.Code)
+			add(domain.MsgValueKeyRequired, p.Code, "at_most", "max")
 		}
 		if v.Min != nil {
-			add("параметр «%s»: тип значения at_most не допускает ключ min", p.Code)
+			add(domain.MsgValueKeyForbidden, p.Code, "at_most", "min")
 		}
 		if v.Exact != nil {
-			add("параметр «%s»: тип значения at_most не допускает ключ value", p.Code)
+			add(domain.MsgValueKeyForbidden, p.Code, "at_most", "value")
 		}
 		if v.Text != nil {
-			add("параметр «%s»: тип значения at_most не допускает ключ text", p.Code)
+			add(domain.MsgValueKeyForbidden, p.Code, "at_most", "text")
 		}
 		numKey("max", v.Max)
 	case ValueRange:
 		if v.Min == nil || v.Max == nil {
-			add("параметр «%s»: тип значения range — обязательны ключи min и max", p.Code)
+			add(domain.MsgValueKeysPairRequired, p.Code)
 		}
 		if v.Exact != nil {
-			add("параметр «%s»: тип значения range не допускает ключ value", p.Code)
+			add(domain.MsgValueKeyForbidden, p.Code, "range", "value")
 		}
 		if v.Text != nil {
-			add("параметр «%s»: тип значения range не допускает ключ text", p.Code)
+			add(domain.MsgValueKeyForbidden, p.Code, "range", "text")
 		}
 		numKey("min", v.Min)
 		numKey("max", v.Max)
 		if v.Min != nil && v.Max != nil && *v.Min > *v.Max {
-			add("параметр «%s»: min превышает max", p.Code)
+			add(domain.MsgValueMinMax, p.Code)
 		}
 	case ValueText:
 		if v.Text == nil {
-			add("параметр «%s»: тип значения text — обязателен ключ text", p.Code)
+			add(domain.MsgValueKeyRequired, p.Code, "text", "text")
 		} else if strings.TrimSpace(*v.Text) == "" {
-			add("параметр «%s»: текст не может быть пустым", p.Code)
+			add(domain.MsgEngineParamTextEmpty, p.Code)
 		}
 		if v.Exact != nil {
-			add("параметр «%s»: тип значения text не допускает ключ value", p.Code)
+			add(domain.MsgValueKeyForbidden, p.Code, "text", "value")
 		}
 		if v.Min != nil {
-			add("параметр «%s»: тип значения text не допускает ключ min", p.Code)
+			add(domain.MsgValueKeyForbidden, p.Code, "text", "min")
 		}
 		if v.Max != nil {
-			add("параметр «%s»: тип значения text не допускает ключ max", p.Code)
+			add(domain.MsgValueKeyForbidden, p.Code, "text", "max")
 		}
 	case ValueEnum:
 		if v.Text == nil {
-			add("параметр «%s»: тип значения enum — обязателен ключ text", p.Code)
+			add(domain.MsgValueKeyRequired, p.Code, "enum", "text")
 		} else if !slices.Contains(p.EnumValues, *v.Text) {
-			add("параметр «%s»: значение «%s» не входит в допустимые (%s)",
-				p.Code, *v.Text, strings.Join(p.EnumValues, ", "))
+			add(domain.MsgValueEnumInvalid, p.Code, *v.Text, strings.Join(p.EnumValues, ", "))
 		}
 		if v.Exact != nil {
-			add("параметр «%s»: тип значения enum не допускает ключ value", p.Code)
+			add(domain.MsgValueKeyForbidden, p.Code, "enum", "value")
 		}
 		if v.Min != nil {
-			add("параметр «%s»: тип значения enum не допускает ключ min", p.Code)
+			add(domain.MsgValueKeyForbidden, p.Code, "enum", "min")
 		}
 		if v.Max != nil {
-			add("параметр «%s»: тип значения enum не допускает ключ max", p.Code)
+			add(domain.MsgValueKeyForbidden, p.Code, "enum", "max")
 		}
 	}
 	return probs
@@ -395,27 +354,25 @@ func checkValueShape(p *ParameterDef, v *ParameterValue) []Problem {
 // быть не должно.
 func (e *Engine) checkValueConditions(p *ParameterDef, v *ParameterValue) []Problem {
 	var probs []Problem
-	add := func(format string, a ...any) {
-		probs = append(probs, Problem{Code: domain.CodeValidationFailed, Message: fmt.Sprintf(format, a...)})
+	add := func(id domain.MsgID, args ...any) {
+		probs = append(probs, Problemf(domain.CodeValidationFailed, id, args...))
 	}
 	conds := make(map[string]float64, len(v.Conditions))
 	unknown := false
 	for _, cv := range v.Conditions {
 		if _, dup := conds[cv.Condition]; dup {
-			add("параметр «%s»: условие «%s» задано повторно", p.Code, cv.Condition)
+			add(domain.MsgCondDuplicate, p.Code, cv.Condition)
 			continue
 		}
 		c, ok := e.snap.Condition(cv.Condition)
 		if !ok {
-			probs = append(probs, Problem{
-				Code:    domain.CodeUnknownCondition,
-				Message: fmt.Sprintf("параметр «%s»: неизвестное условие «%s»", p.Code, cv.Condition),
-			})
+			probs = append(probs, Problemf(domain.CodeUnknownCondition, domain.MsgCondUnknown,
+				p.Code, cv.Condition))
 			unknown = true
 			continue
 		}
 		if cv.Value <= 0 && !c.AllowNegative {
-			add("параметр «%s»: условие «%s» — значение должно быть положительным", p.Code, cv.Condition)
+			add(domain.MsgCondPositive, p.Code, cv.Condition)
 		}
 		conds[cv.Condition] = cv.Value
 	}
@@ -424,7 +381,7 @@ func (e *Engine) checkValueConditions(p *ParameterDef, v *ParameterValue) []Prob
 	}
 	if len(p.ConditionSets) == 0 {
 		if len(conds) > 0 {
-			add("параметр «%s»: безусловный параметр — условия недопустимы", p.Code)
+			add(domain.MsgCondNotAllowed, p.Code)
 		}
 		return probs
 	}
@@ -440,14 +397,13 @@ func (e *Engine) checkValueConditions(p *ParameterDef, v *ParameterValue) []Prob
 				continue
 			}
 			if val, has := conds[it.Condition]; has && val != *it.FixedValue {
-				add("параметр «%s»: условие «%s» зафиксировано значением %s",
-					p.Code, it.Condition, formatNum(*it.FixedValue))
+				add(domain.MsgCondFixed, p.Code, it.Condition, formatNum(*it.FixedValue))
 				fixedReported = true
 			}
 		}
 	}
 	if !fixedReported {
-		add("параметр «%s»: комбинация условий не соответствует ни одному набору условий параметра", p.Code)
+		add(domain.MsgCondSetMismatch, p.Code)
 	}
 	return probs
 }

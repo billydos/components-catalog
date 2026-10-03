@@ -65,22 +65,22 @@ func TestContractMessages(t *testing.T) {
 		{
 			"schema_version_mismatch",
 			domain.SchemaVersionMismatch(3, 7),
-			"база данных создана другой версией модуля (3 ≠ 7); пересоздайте её: удалите файл/базу и выполните import",
+			"database was created by another module version (3 ≠ 7); recreate it: delete the file/database and run import",
 		},
 		{
 			"database_not_initialized",
 			domain.DatabaseNotInitialized(),
-			"база данных не инициализирована или не является базой модуля; выполните init (CLI) или EnsureCreated",
+			"database is not initialized or is not a module database; run init (CLI) or EnsureCreated",
 		},
 		{
 			"kind_not_supported",
 			domain.KindNotSupported(),
-			"обозначение принадлежит классу, не поддерживаемому модулем",
+			"designation belongs to a kind not supported by the module",
 		},
 		{
 			"kind_ambiguous",
 			domain.KindAmbiguous(),
-			"класс прибора не определяется по обозначению однозначно; укажите класс явно",
+			"device kind is not determined unambiguously by the designation; specify the kind explicitly",
 		},
 	}
 	for _, tc := range cases {
@@ -93,7 +93,7 @@ func TestContractMessages(t *testing.T) {
 }
 
 func TestAsError(t *testing.T) {
-	base := domain.NewError(domain.CodeInvalidDesignation, "обозначение не разобрано")
+	base := domain.NewErrorf(domain.CodeInvalidDesignation, domain.MsgEmptyDesignation)
 	if got, ok := domain.AsError(base); !ok || got != base {
 		t.Fatal("ожидаемая ошибка не распознана")
 	}
@@ -110,8 +110,8 @@ func TestAsError(t *testing.T) {
 }
 
 func TestErrorReturnsMessageOnly(t *testing.T) {
-	e := domain.NewError(domain.CodeNotFound, "запись не найдена")
-	if got := e.Error(); got != "запись не найдена" {
+	e := domain.NewErrorf(domain.CodeNotFound, domain.MsgCliRecordNotFound, "КТ315")
+	if got := e.Error(); got != "record «КТ315» not found" {
 		t.Fatalf("Error() должен возвращать только текст сообщения: %q", got)
 	}
 	if e.Code != domain.CodeNotFound {

@@ -33,8 +33,7 @@ func (f Format) Known() bool {
 func ParseFormat(s string) (Format, error) {
 	f := Format(strings.ToLower(strings.TrimSpace(s)))
 	if !f.Known() {
-		return "", domain.NewError(domain.CodeInvalidImportFile,
-			"неизвестный формат «"+s+"» (допустимы: jsonc, yaml, ndjson)")
+		return "", domain.NewErrorf(domain.CodeInvalidImportFile, domain.MsgImportFormatUnknown, s)
 	}
 	return f, nil
 }
@@ -53,10 +52,8 @@ func FormatByFilename(name string) (Format, error) {
 	case ".ndjson":
 		return FormatNDJSON, nil
 	default:
-		return "", domain.NewError(domain.CodeInvalidImportFile, strings.Join([]string{
-			"файл «" + name + "»: не удалось определить формат по расширению «" + ext + "»",
-			"(допустимы: .jsonc/.json, .yaml/.yml, .ndjson — либо задайте --format)",
-		}, " "))
+		return "", domain.NewErrorf(domain.CodeInvalidImportFile,
+			domain.MsgImportFormatByExt, name, ext)
 	}
 }
 
@@ -70,8 +67,8 @@ func parseTree(data []byte, format Format) (value, error) {
 	case FormatYAML:
 		return parseYAML(data)
 	default:
-		return value{}, domain.NewError(domain.CodeInvalidImportFile,
-			"формат "+string(format)+" читается построчно, а не деревом целиком")
+		return value{}, domain.NewErrorf(domain.CodeInvalidImportFile,
+			domain.MsgImportFormatLineOnly, string(format))
 	}
 }
 
@@ -88,8 +85,8 @@ func parseLineJSON(data []byte, line int) (value, error) {
 
 // lineError — ошибка разбора строки NDJSON с номером строки.
 func lineError(line int, err error) error {
-	return domain.NewError(domain.CodeInvalidImportFile,
-		"строка "+itoa(line)+": "+err.Error())
+	return domain.NewErrorf(domain.CodeInvalidImportFile,
+		domain.MsgImportNdjsonLineError, line, err.Error())
 }
 
 func itoa(n int) string {
@@ -108,8 +105,8 @@ func itoa(n int) string {
 
 // syntaxError — ошибка синтаксиса формата с указанием формата.
 func syntaxError(format Format, err error) error {
-	return domain.NewError(domain.CodeInvalidImportFile,
-		"файл не является корректным "+formatSyntaxName(format)+": "+err.Error())
+	return domain.NewErrorf(domain.CodeInvalidImportFile,
+		domain.MsgImportSyntaxError, formatSyntaxName(format), err.Error())
 }
 
 func formatSyntaxName(f Format) string {

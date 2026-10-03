@@ -64,33 +64,34 @@ type FindResult struct {
 	Suggestion *Card
 }
 
-// CardAttribute — значение атрибута в карточке.
+// CardAttribute — значение атрибута в карточке (отображаемое название —
+// бандлы internal/i18n: attr.<код> — D9).
 type CardAttribute struct {
-	Code        string
-	DisplayName string
-	Text        *string
-	Num         *float64
-	Bool        *bool
+	Code string
+	Text *string
+	Num  *float64
+	Bool *bool
 }
 
-// CardValue — значение параметра с условиями в карточке.
+// CardValue — значение параметра с условиями в карточке (отображаемые
+// название и символ единицы — бандлы internal/i18n: param.<код>,
+// unit.<код>.symbol — D9; Unit — канонический код).
 type CardValue struct {
-	Parameter   string
-	DisplayName string
-	Unit        string
-	Exact       *float64
-	Min         *float64
-	Max         *float64
-	Text        *string
-	Conditions  []catalog.ConditionValue
+	Parameter  string
+	Unit       string
+	Exact      *float64
+	Min        *float64
+	Max        *float64
+	Text       *string
+	Conditions []catalog.ConditionValue
 }
 
-// CardGroup — группа каталога со значениями на карточке.
+// CardGroup — группа каталога со значениями на карточке (отображаемое
+// название — бандлы internal/i18n: group.<код> — D9).
 type CardGroup struct {
-	Code        string
-	Section     string
-	DisplayName string
-	Values      []CardValue
+	Code    string
+	Section string
+	Values  []CardValue
 }
 
 // CardVariant — исполнение на карточке (матрица «номинал × напряжение →
@@ -115,9 +116,7 @@ type CardLink struct {
 type Card struct {
 	ID            int64
 	Kind          domain.Kind
-	KindName      string
 	System        domain.System
-	SystemName    string
 	Designation   string
 	Fields        []domain.Field
 	Attributes    []CardAttribute

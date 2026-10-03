@@ -106,7 +106,7 @@ func TestLoad(t *testing.T) {
 		t.Fatalf("импорт: отвергнуто записей: %d", rep.Rejected)
 	}
 	if rep.Added != scale {
-		t.Fatalf("импорт: добавлено %d записей, ожидалось %d", rep.Added, scale)
+		t.Fatalf("импорт: added %d записей, ожидалось %d", rep.Added, scale)
 	}
 	t.Logf("диалект=%s записей=%d импорт=%v (%.0f записей/с)", dialect, scale, importTime,
 		float64(scale)/importTime.Seconds())
@@ -156,7 +156,7 @@ func TestLoad(t *testing.T) {
 	devices := app.Services().Devices
 	designations := app.Services().Designations
 
-	bench("поиск: подстрока обозначения", targetSearch, func() error {
+	bench("поиск: подstring обозначения", targetSearch, func() error {
 		p, err := devices.Search(ctx, service.SearchQuery{Kind: domain.KindTransistor, Query: "2N3", Limit: 50})
 		if err != nil {
 			return err

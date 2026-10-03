@@ -5,8 +5,9 @@ import "strings"
 // SchemaVersion — версия схемы модуля (docs/plan/02-database.md §5): любое
 // изменение DDL ниже — с инкрементом этой константы; несовпадение с
 // schema_meta.schema_version — отказ в работе (schema_version_mismatch),
-// миграций нет (D5).
-const SchemaVersion = 1
+// миграций нет (D5). Версия 2 — каталожные таблицы без текстовых колонок
+// (D9: отображаемые строки — бандлы internal/i18n; коды единиц — латиница).
+const SchemaVersion = 2
 
 // autoIncToken — маркер авто-PK в переносимом DDL; диалект заменяет его
 // своим определением (sqlite: PRIMARY KEY AUTOINCREMENT — запрет
@@ -24,14 +25,11 @@ var ddlStatements = []string{
 )`,
 
 	`CREATE TABLE IF NOT EXISTS kinds (
-    code TEXT PRIMARY KEY,
-    name TEXT NOT NULL
+    code TEXT PRIMARY KEY
 )`,
 
 	`CREATE TABLE IF NOT EXISTS designation_systems (
-    code        TEXT PRIMARY KEY,
-    name        TEXT NOT NULL,
-    description TEXT NULL
+    code TEXT PRIMARY KEY
 )`,
 
 	`CREATE TABLE IF NOT EXISTS designation_system_kinds (
@@ -43,20 +41,16 @@ var ddlStatements = []string{
 	`CREATE TABLE IF NOT EXISTS series_families (
     series        TEXT NOT NULL,
     kind_code     TEXT NOT NULL REFERENCES kinds(code),
-    name          TEXT NULL,
     tail_semantic TEXT NULL,
     PRIMARY KEY (series, kind_code)
 )`,
 
 	`CREATE TABLE IF NOT EXISTS units (
-    code   TEXT PRIMARY KEY,
-    name   TEXT NOT NULL,
-    symbol TEXT NOT NULL
+    code TEXT PRIMARY KEY
 )`,
 
 	`CREATE TABLE IF NOT EXISTS conditions (
     code           TEXT PRIMARY KEY,
-    name           TEXT NOT NULL,
     unit_code      TEXT NULL REFERENCES units(code),
     allow_negative INTEGER NOT NULL DEFAULT 0
 )`,
@@ -64,19 +58,16 @@ var ddlStatements = []string{
 	`CREATE TABLE IF NOT EXISTS parameter_groups (
     code         TEXT PRIMARY KEY,
     section_name TEXT NOT NULL,
-    display_name TEXT NOT NULL,
     sort_order   INTEGER NOT NULL
 )`,
 
 	`CREATE TABLE IF NOT EXISTS validation_rules (
-    code        TEXT PRIMARY KEY,
-    description TEXT NOT NULL
+    code TEXT PRIMARY KEY
 )`,
 
 	`CREATE TABLE IF NOT EXISTS parameters (
     code            TEXT PRIMARY KEY,
     group_code      TEXT NOT NULL REFERENCES parameter_groups(code),
-    display_name    TEXT NOT NULL,
     unit_code       TEXT NULL REFERENCES units(code),
     value_type      TEXT NOT NULL,
     value_ceiling   REAL NULL,
@@ -118,7 +109,6 @@ var ddlStatements = []string{
 
 	`CREATE TABLE IF NOT EXISTS attributes (
     code            TEXT PRIMARY KEY,
-    display_name    TEXT NOT NULL,
     "group"         TEXT NULL,
     value_type      TEXT NOT NULL,
     unit_code       TEXT NULL REFERENCES units(code),

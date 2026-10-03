@@ -1,7 +1,6 @@
 package domain
 
 import (
-	"fmt"
 	"strings"
 )
 
@@ -85,11 +84,10 @@ func parseCapacitorGost(s *scanner, _ Kind) (ParsedDesignation, error) {
 		start := s.i
 		run, n := s.digits()
 		if n != 2 {
-			return ParsedDesignation{}, s.failToken(start, "двузначная группа по таблице групп конденсаторов", run)
+			return ParsedDesignation{}, s.failToken(start, MsgExpectCapGroup, run)
 		}
 		if _, known := capGroups[mustAtoi(run)]; !known {
-			return ParsedDesignation{}, NewError(CodeInvalidDesignation, fmt.Sprintf(
-				"обозначение «%s»: неизвестная группа конденсаторов «%s» (префикс К)", canonical, run))
+			return ParsedDesignation{}, NewErrorf(CodeInvalidDesignation, MsgCapGroupUnknown, canonical, run)
 		}
 		group = mustAtoi(run)
 	default:

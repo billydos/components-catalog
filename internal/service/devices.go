@@ -2,7 +2,6 @@ package service
 
 import (
 	"context"
-	"fmt"
 	"sort"
 	"strings"
 
@@ -52,7 +51,7 @@ func (s *DeviceService) DryRun(ctx context.Context, in DeviceInput, snap *catalo
 func (s *DeviceService) applyUpsert(ctx context.Context, in DeviceInput,
 	snapOverride *catalog.Snapshot, pending PendingDesignations, write bool) (Outcome, error) {
 	if strings.TrimSpace(in.Name) == "" {
-		return "", domain.NewError(domain.CodeValidationFailed, "не задано обозначение записи")
+		return "", domain.NewErrorf(domain.CodeValidationFailed, domain.MsgSvcRecordNameMissing)
 	}
 	if err := validateInputShape(&in); err != nil {
 		return "", err
@@ -75,8 +74,7 @@ func (s *DeviceService) applyUpsert(ctx context.Context, in DeviceInput,
 	checkSections := func(sections []SectionInput) error {
 		for _, sec := range sections {
 			if _, ok := snap.GroupBySection(sec.Section); !ok {
-				return domain.NewError(domain.CodeValidationFailed,
-					fmt.Sprintf("секция «%s» не соответствует ни одной группе каталога", sec.Section))
+				return domain.NewErrorf(domain.CodeValidationFailed, domain.MsgSvcSectionUnknown, sec.Section)
 			}
 		}
 		return nil
@@ -260,12 +258,10 @@ func validateInputShape(in *DeviceInput) error {
 		seen := make(map[string]bool, len(sections))
 		for _, sec := range sections {
 			if strings.TrimSpace(sec.Section) == "" {
-				return domain.NewError(domain.CodeValidationFailed,
-					"не задано имя секции группы параметров")
+				return domain.NewErrorf(domain.CodeValidationFailed, domain.MsgSvcSectionMissing)
 			}
 			if seen[sec.Section] {
-				return domain.NewError(domain.CodeValidationFailed,
-					fmt.Sprintf("секция «%s» задана повторно", sec.Section))
+				return domain.NewErrorf(domain.CodeValidationFailed, domain.MsgSvcSectionDuplicate, sec.Section)
 			}
 			seen[sec.Section] = true
 		}
@@ -277,11 +273,10 @@ func validateInputShape(in *DeviceInput) error {
 	seenAttrs := make(map[string]bool, len(in.Attributes))
 	for _, a := range in.Attributes {
 		if strings.TrimSpace(a.Attribute) == "" {
-			return domain.NewError(domain.CodeValidationFailed, "не задан код атрибута")
+			return domain.NewErrorf(domain.CodeValidationFailed, domain.MsgSvcAttrCodeMissing)
 		}
 		if seenAttrs[a.Attribute] {
-			return domain.NewError(domain.CodeValidationFailed,
-				fmt.Sprintf("атрибут «%s» задан повторно", a.Attribute))
+			return domain.NewErrorf(domain.CodeValidationFailed, domain.MsgSvcAttrDuplicate, a.Attribute)
 		}
 		seenAttrs[a.Attribute] = true
 	}
@@ -291,11 +286,10 @@ func validateInputShape(in *DeviceInput) error {
 			trimmed := strings.TrimSpace(name)
 			(*in.Manufacturers)[i] = trimmed
 			if trimmed == "" {
-				return domain.NewError(domain.CodeValidationFailed, "пустое имя производителя")
+				return domain.NewErrorf(domain.CodeValidationFailed, domain.MsgSvcManufacturerEmpty)
 			}
 			if seen[trimmed] {
-				return domain.NewError(domain.CodeValidationFailed,
-					fmt.Sprintf("производитель «%s» задан повторно", trimmed))
+				return domain.NewErrorf(domain.CodeValidationFailed, domain.MsgSvcManufacturerDuplicate, trimmed)
 			}
 			seen[trimmed] = true
 		}
@@ -327,19 +321,17 @@ func resolveAnalogs(ctx context.Context, tx *storage.Tx, kind domain.Kind,
 	out := make([]resolvedAnalog, 0, len(list))
 	for _, a := range list {
 		if strings.TrimSpace(a.Designation) == "" {
-			return nil, domain.NewError(domain.CodeValidationFailed, "пустое обозначение аналога")
+			return nil, domain.NewErrorf(domain.CodeValidationFailed, domain.MsgSvcAnalogEmpty)
 		}
 		canonical, err := domain.Canonicalize(a.Designation)
 		if err != nil {
 			return nil, err
 		}
 		if canonical == ownerDesignation {
-			return nil, domain.NewError(domain.CodeValidationFailed,
-				fmt.Sprintf("запись «%s» не может быть аналогом самой себя", canonical))
+			return nil, domain.NewErrorf(domain.CodeValidationFailed, domain.MsgSvcAnalogSelf, canonical)
 		}
 		if seen[canonical] {
-			return nil, domain.NewError(domain.CodeValidationFailed,
-				fmt.Sprintf("аналог «%s» задан повторно", canonical))
+			return nil, domain.NewErrorf(domain.CodeValidationFailed, domain.MsgSvcAnalogDuplicate, canonical)
 		}
 		seen[canonical] = true
 		dev, err := tx.FindDevice(ctx, kind, canonical)
@@ -353,8 +345,7 @@ func resolveAnalogs(ctx context.Context, tx *storage.Tx, kind domain.Kind,
 				out = append(out, resolvedAnalog{designation: canonical, note: strings.TrimSpace(a.Note)})
 				continue
 			}
-			return nil, domain.NewError(domain.CodeNotFound,
-				fmt.Sprintf("аналог «%s» не найден в классе %s", canonical, string(kind)))
+			return nil, domain.NewErrorf(domain.CodeNotFound, domain.MsgSvcAnalogNotFound, canonical, string(kind))
 		}
 		out = append(out, resolvedAnalog{
 			id: dev.ID, designation: canonical, note: strings.TrimSpace(a.Note),
@@ -375,8 +366,7 @@ func (s *DeviceService) Get(ctx context.Context, kind domain.Kind, designation s
 	}
 	if kind != "" {
 		if _, ok := snap.Kind(kind); !ok {
-			return nil, false, domain.NewError(domain.CodeValidationFailed,
-				fmt.Sprintf("неизвестный класс приборов «%s»", string(kind)))
+			return nil, false, domain.NewErrorf(domain.CodeValidationFailed, domain.MsgKindUnknown, string(kind))
 		}
 	}
 	canonical, err := domain.Canonicalize(designation)
@@ -427,8 +417,7 @@ func (s *DeviceService) GetByID(ctx context.Context, id int64) (*Card, bool, err
 // false — запись не найдена. Удаление инкрементирует data_revision.
 func (s *DeviceService) Delete(ctx context.Context, kind domain.Kind, designation string) (bool, error) {
 	if kind != "" && !kind.IsValid() {
-		return false, domain.NewError(domain.CodeValidationFailed,
-			fmt.Sprintf("неизвестный класс приборов «%s»", string(kind)))
+		return false, domain.NewErrorf(domain.CodeValidationFailed, domain.MsgKindUnknown, string(kind))
 	}
 	canonical, err := domain.Canonicalize(designation)
 	if err != nil {

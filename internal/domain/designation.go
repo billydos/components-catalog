@@ -5,6 +5,8 @@ import (
 	"strconv"
 	"strings"
 	"unicode"
+
+	"github.com/billydos/components-catalog/internal/i18n"
 )
 
 // Field — поле разбора обозначения: единые имена для одинаковой семантики
@@ -153,29 +155,28 @@ func (s *scanner) peekIs(i int, want rune) bool {
 	return ok && r == want
 }
 
-// fail строит по-позиционную ошибку «ожидалось/получено» в текущей позиции.
-func (s *scanner) fail(expected string) *Error {
+// fail строит по-позиционную ошибку «ожидалось/получено» в текущей позиции;
+// expected — MsgID фрагмента грамматики (expect_*), локализуемый при рендере.
+func (s *scanner) fail(expected MsgID) *Error {
 	return s.failAt(s.i, expected)
 }
 
 // failAt строит по-позиционную ошибку «ожидалось/получено» в заданной позиции.
-func (s *scanner) failAt(pos int, expected string) *Error {
+func (s *scanner) failAt(pos int, expected MsgID) *Error {
+	arg := i18n.Arg(string(expected))
 	if r, ok := s.peekAt(pos); ok {
-		return NewError(CodeInvalidDesignation, fmt.Sprintf(
-			"обозначение «%s»: позиция %d: ожидалось: %s, получено «%c»",
-			s.text(), pos+1, expected, r))
+		return NewErrorf(CodeInvalidDesignation, MsgScannerExpected,
+			s.text(), pos+1, arg, string(r))
 	}
-	return NewError(CodeInvalidDesignation, fmt.Sprintf(
-		"обозначение «%s»: позиция %d: ожидалось: %s, получено конец обозначения",
-		s.text(), pos+1, expected))
+	return NewErrorf(CodeInvalidDesignation, MsgScannerUnexpected,
+		s.text(), pos+1, arg)
 }
 
 // failToken — ошибка значения токена (вне позиции одного символа):
 // «ожидалось: …, получено «токен»».
-func (s *scanner) failToken(pos int, expected, token string) *Error {
-	return NewError(CodeInvalidDesignation, fmt.Sprintf(
-		"обозначение «%s»: позиция %d: ожидалось: %s, получено «%s»",
-		s.text(), pos+1, expected, token))
+func (s *scanner) failToken(pos int, expected MsgID, token string) *Error {
+	return NewErrorf(CodeInvalidDesignation, MsgScannerToken,
+		s.text(), pos+1, i18n.Arg(string(expected)), token)
 }
 
 func (s *scanner) text() string {
@@ -184,9 +185,8 @@ func (s *scanner) text() string {
 
 // eofErr — ошибка непотреблённого хвоста: «ожидался конец обозначения».
 func (s *scanner) eofErr() *Error {
-	return NewError(CodeInvalidDesignation, fmt.Sprintf(
-		"обозначение «%s»: позиция %d: ожидался конец обозначения, получено «%c»",
-		s.text(), s.i+1, s.src[s.i]))
+	return NewErrorf(CodeInvalidDesignation, MsgScannerEof,
+		s.text(), s.i+1, string(s.src[s.i]))
 }
 
 func isDigitRune(r rune) bool {
@@ -274,7 +274,7 @@ var typographicHyphens = map[rune]struct{}{
 func Canonicalize(text string) (string, error) {
 	trimmed := strings.TrimSpace(text)
 	if trimmed == "" {
-		return "", NewError(CodeInvalidDesignation, "пустое обозначение")
+		return "", NewErrorf(CodeInvalidDesignation, MsgEmptyDesignation)
 	}
 	upper := []rune(strings.ToUpper(trimmed))
 	var b strings.Builder
@@ -297,32 +297,28 @@ func Canonicalize(text string) (string, error) {
 			if alphabet == 0 {
 				alphabet = 1
 			} else if alphabet == 2 {
-				return "", NewError(CodeInvalidDesignation, fmt.Sprintf(
-					"обозначение «%s»: позиция %d: смешение алфавитов (кириллица и латиница), получено «%c»",
-					string(upper), pos+1, r))
+				return "", NewErrorf(CodeInvalidDesignation, MsgCanonicalAlphabetMix,
+					string(upper), pos+1, string(r))
 			}
 		case isLatinUpper(r):
 			letters = true
 			if alphabet == 0 {
 				alphabet = 2
 			} else if alphabet == 1 {
-				return "", NewError(CodeInvalidDesignation, fmt.Sprintf(
-					"обозначение «%s»: позиция %d: смешение алфавитов (кириллица и латиница), получено «%c»",
-					string(upper), pos+1, r))
+				return "", NewErrorf(CodeInvalidDesignation, MsgCanonicalAlphabetMix,
+					string(upper), pos+1, string(r))
 			}
 		case isDigitRune(r), r == '-', r == '.', r == '/':
 			// нейтральные символы
 		default:
-			return "", NewError(CodeInvalidDesignation, fmt.Sprintf(
-				"обозначение «%s»: позиция %d: недопустимый символ «%c»",
-				string(upper), pos+1, r))
+			return "", NewErrorf(CodeInvalidDesignation, MsgCanonicalBadRune,
+				string(upper), pos+1, string(r))
 		}
 		b.WriteRune(r)
 		pos++
 	}
 	if !letters {
-		return "", NewError(CodeInvalidDesignation, fmt.Sprintf(
-			"обозначение «%s»: в обозначении нет букв", string(upper)))
+		return "", NewErrorf(CodeInvalidDesignation, MsgCanonicalNoLetters, string(upper))
 	}
 	return b.String(), nil
 }
@@ -351,7 +347,7 @@ type strictParser func(s *scanner, kind Kind) (ParsedDesignation, error)
 // либо автодетект; явный класс проверяется против результата.
 func parseDesignation(text string, system System, kind Kind) (ParsedDesignation, error) {
 	if kind != "" && !kind.IsValid() {
-		return ParsedDesignation{}, fmt.Errorf("неизвестный класс прибора: %q", string(kind))
+		return ParsedDesignation{}, fmt.Errorf("unknown device kind %q", string(kind))
 	}
 	canonical, err := Canonicalize(text)
 	if err != nil {
@@ -382,16 +378,14 @@ func parseDesignation(text string, system System, kind Kind) (ParsedDesignation,
 
 // kindMismatch — явный класс противоречит классу обозначения.
 func kindMismatch(canonical string, got, want Kind) *Error {
-	return NewError(CodeDesignationMismatch, fmt.Sprintf(
-		"обозначение «%s» принадлежит классу %s, указан класс %s",
-		canonical, string(got), string(want)))
+	return NewErrorf(CodeDesignationMismatch, MsgKindMismatch,
+		canonical, string(got), string(want))
 }
 
 // systemMismatch — обозначение синтаксически не соответствует системе.
 func systemMismatch(canonical string, system System) *Error {
-	return NewError(CodeDesignationMismatch, fmt.Sprintf(
-		"обозначение «%s» не соответствует системе обозначений %s",
-		canonical, string(system)))
+	return NewErrorf(CodeDesignationMismatch, MsgSystemMismatch,
+		canonical, string(system))
 }
 
 // isVerdictError — семантическая ошибка разбора: обозначение грамматически
@@ -472,7 +466,7 @@ func parseWithSystem(scan func() *scanner, canonical string, system System, kind
 		}
 		return ParsedDesignation{Kind: kind, System: SystemOther, Designation: canonical}, nil
 	}
-	return ParsedDesignation{}, fmt.Errorf("неизвестная система обозначений: %q", string(system))
+	return ParsedDesignation{}, fmt.Errorf("unknown designation system %q", string(system))
 }
 
 // runStrict прогоняет парсер явной системы, преобразуя синтаксические
@@ -508,7 +502,5 @@ func autodetect(scan func() *scanner, canonical string, kind Kind) (ParsedDesign
 		// либо вердикт/по-позиционную ошибку — все сохраняются.
 		return parseSeries(canonical, kind)
 	}
-	return ParsedDesignation{}, NewError(CodeInvalidDesignation, fmt.Sprintf(
-		"обозначение «%s»: не удалось распознать систему обозначений (поддерживаемые: gost, ost, pro, jedec, jis, series)",
-		canonical))
+	return ParsedDesignation{}, NewErrorf(CodeInvalidDesignation, MsgAutodetectFailed, canonical)
 }

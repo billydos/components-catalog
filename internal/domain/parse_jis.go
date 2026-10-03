@@ -36,12 +36,12 @@ func parseJis(s *scanner, _ Kind) (ParsedDesignation, error) {
 	junc := s.src[s.i]
 	s.i++
 	if junc < '1' || junc > '3' {
-		return ParsedDesignation{}, s.failAt(s.i-1, "цифра числа p-n-переходов (1–3)")
+		return ParsedDesignation{}, s.failAt(s.i-1, MsgExpectJisJunctions)
 	}
 
 	// Признак регистрации S.
 	if !s.peekIs(s.i, 'S') {
-		return ParsedDesignation{}, s.fail("признак регистрации S")
+		return ParsedDesignation{}, s.fail(MsgExpectJisS)
 	}
 	s.i++
 
@@ -49,20 +49,20 @@ func parseJis(s *scanner, _ Kind) (ParsedDesignation, error) {
 	var subclass string
 	if r, has := s.peek(); has && isLatinUpper(r) {
 		if !strings.ContainsRune(jisClassLetters, r) {
-			return ParsedDesignation{}, s.fail("буква класса прибора (A, B, C, D, E, F, G, H, J, K, M, Q, R, S, T, V, Z)")
+			return ParsedDesignation{}, s.fail(MsgExpectJisClassLetter)
 		}
 		subclass = string(r)
 		s.i++
 	}
 	if subclass == "" && junc != '1' {
-		return ParsedDesignation{}, s.fail("буква класса прибора (обязательна для 2S и 3S)")
+		return ParsedDesignation{}, s.fail(MsgExpectJisClassRequired)
 	}
 
 	// Номер регистрации JEITA-EDEREC.
 	start := s.i
 	run, n := s.digits()
 	if n < 2 || n > 4 || run[0] == '0' {
-		return ParsedDesignation{}, s.failToken(start, "номер регистрации (2–4 цифры, без ведущего нуля)", run)
+		return ParsedDesignation{}, s.failToken(start, MsgExpectJisNumber, run)
 	}
 	devNumber := mustAtoi(run)
 
@@ -80,7 +80,7 @@ func parseJis(s *scanner, _ Kind) (ParsedDesignation, error) {
 	if s.peekIs(s.i, '-') {
 		s.i++
 		if s.readAlnumRun(8) == 0 {
-			return ParsedDesignation{}, s.fail("суффикс после дефиса (буквы и цифры)")
+			return ParsedDesignation{}, s.fail(MsgExpectJisSuffix)
 		}
 	}
 	if !s.atEnd() {
@@ -108,13 +108,13 @@ func parseJis(s *scanner, _ Kind) (ParsedDesignation, error) {
 func parseJisShortForm(s *scanner) (ParsedDesignation, error) {
 	class, has := s.peek()
 	if !has || !strings.ContainsRune(jisShortFormClasses, class) {
-		return ParsedDesignation{}, s.fail("цифра числа переходов и S либо буква транзисторного класса (сокращённая форма)")
+		return ParsedDesignation{}, s.fail(MsgExpectJisShortForm)
 	}
 	s.i++
 	start := s.i
 	run, n := s.digits()
 	if n < 3 || n > 4 || run[0] == '0' {
-		return ParsedDesignation{}, s.failToken(start, "номер регистрации сокращённой формы (3–4 цифры)", run)
+		return ParsedDesignation{}, s.failToken(start, MsgExpectJisShortNumber, run)
 	}
 	if !s.atEnd() {
 		return ParsedDesignation{}, s.eofErr()

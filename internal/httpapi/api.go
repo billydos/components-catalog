@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/billydos/components-catalog/internal/domain"
+	"github.com/billydos/components-catalog/internal/i18n"
 	"github.com/billydos/components-catalog/internal/service"
 )
 
@@ -150,7 +151,7 @@ func (a *API) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			a.log.Error("паника обработки запроса", "op", op, "method", r.Method,
 				"path", r.URL.Path, "panic", rec)
 			if !rw.wrote {
-				a.writeError(rw, http.StatusInternalServerError, domain.CodeInternal, msgPanic)
+				a.writeError(rw, r, http.StatusInternalServerError, domain.CodeInternal, domain.MsgApiPanic)
 			}
 			rw.fail(domain.CodeInternal)
 		}
@@ -178,9 +179,9 @@ func (a *API) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		handler.handler(a, rw, r.WithContext(contextWithOp(r.Context(), op)), params)
 	case pathMatched:
 		w.Header().Set("Allow", strings.Join(a.allowedMethods(segments), ", "))
-		a.writeError(rw, http.StatusMethodNotAllowed, domain.CodeMethodNotAllowed, msgMethodNotAllowed)
+		a.writeError(rw, r, http.StatusMethodNotAllowed, domain.CodeMethodNotAllowed, domain.MsgApiMethodNotAllowed)
 	default:
-		a.writeError(rw, http.StatusNotFound, domain.CodeNotFound, msgRouteNotFound)
+		a.writeError(rw, r, http.StatusNotFound, domain.CodeNotFound, domain.MsgApiRouteNotFound)
 	}
 }
 
@@ -260,24 +261,7 @@ func (a *API) allowedMethods(segments []string) []string {
 
 // Тексты транспортных сообщений — контракт (как тексты домена);
 // закреплены тестами дословно.
-const (
-	msgRouteNotFound    = "неизвестный маршрут запроса"
-	msgMethodNotAllowed = "метод не допускается для этого маршрута"
-	msgPanic            = "внутренняя ошибка обработки запроса"
-	msgBodyTooLarge     = "тело запроса превышает допустимый размер"
-	msgNotFoundCard     = "запись «%s» не найдена"
-	msgNotFoundByID     = "запись с идентификатором %s не найдена"
-	msgAlreadyExists    = "запись «%s» уже существует"
-	msgMismatch         = "обозначение тела запроса не совпадает с обозначением в пути"
-	msgBadID            = "параметр пути id: ожидается целое число"
-	msgNoQ              = "не задан параметр q"
-	msgLimitRange       = "параметр limit: ожидается целое от 1 до %d"
-	msgOffsetNonNeg     = "параметр offset: ожидается целое неотрицательное число"
-	msgSortKey          = "параметр sort: неизвестный ключ сортировки «%s»"
-	msgUnknownParam     = "неизвестный параметр запроса «%s»"
-	msgNumberParam      = "параметр «%s»: ожидается число"
-	msgBoolAttrFilter   = "фильтр атрибута «%s»: логические атрибуты не поддерживаются в фильтрах"
-)
+const ()
 
 // errorBody — модель ошибки REST (docs/plan/04-module-functionality.md §2):
 // машиночитаемый код, русский текст и необязательные подробности.
@@ -296,22 +280,30 @@ func writeJSON(w *responseWriter, status int, v any) {
 	_ = json.NewEncoder(w).Encode(v)
 }
 
-// writeError — транспортная ошибка с кодом домена.
-func (a *API) writeError(w *responseWriter, status int, code domain.Code, msg string) {
+// writeError — транспортная ошибка с кодом домена: текст — каталог
+// сообщений по локали запроса (D9).
+func (a *API) writeError(w *responseWriter, r *http.Request, status int, code domain.Code, id domain.MsgID, args ...any) {
 	w.fail(code)
-	writeJSON(w, status, errorBody{Code: string(code), Message: msg})
+	writeJSON(w, status, errorBody{
+		Code:    string(code),
+		Message: i18n.Message(requestLang(r), string(id), args...),
+	})
 }
 
 // writeDomainErr — ожидаемая ошибка домена: статус по коду и контексту
-// (inQuery — параметры/путь запроса, иначе — тело записи POST/PUT).
-func (a *API) writeDomainErr(w *responseWriter, err error, inQuery bool) {
+// (inQuery — параметры/путь запроса, иначе — тело записи POST/PUT);
+// текст — каталог сообщений по локали запроса (D9).
+func (a *API) writeDomainErr(w *responseWriter, r *http.Request, err error, inQuery bool) {
 	de, ok := domain.AsError(err)
 	if !ok {
 		a.writeErr(w, err)
 		return
 	}
 	w.fail(de.Code)
-	writeJSON(w, statusFor(de.Code, inQuery), errorBody{Code: string(de.Code), Message: de.Message})
+	writeJSON(w, statusFor(de.Code, inQuery), errorBody{
+		Code:    string(de.Code),
+		Message: i18n.Message(requestLang(r), string(de.MsgID), de.Args...),
+	})
 }
 
 // writeErr — неожидаемая ошибка: 500 internal_error с фиксированным
@@ -321,7 +313,7 @@ func (a *API) writeErr(w *responseWriter, err error) {
 	a.log.Error("непредвиденная ошибка REST", "error", err)
 	w.fail(domain.CodeInternal)
 	writeJSON(w, http.StatusInternalServerError,
-		errorBody{Code: string(domain.CodeInternal), Message: msgPanic})
+		errorBody{Code: string(domain.CodeInternal), Message: domain.Msgf(domain.MsgApiPanic)})
 }
 
 // statusFor — HTTP-статус по коду ошибки (план 04 §2: 400/404/409/422/500).
