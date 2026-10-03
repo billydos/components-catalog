@@ -74,7 +74,7 @@ func TestParseWithoutDatabase(t *testing.T) {
 		t.Fatalf("код %d", code)
 	}
 	want := "КТ315Б: transistor (transistor), system GOST (gost)\n" +
-		"  material: кремний\n  subclass: Т\n  assembly: device\n" +
+		"  material: silicon\n  subclass: Т\n  assembly: device\n" +
 		"  development number: 315\n  letters: Б\n"
 	if stdout != want {
 		t.Fatalf("вывод:\n got:  %q\n want: %q", stdout, want)

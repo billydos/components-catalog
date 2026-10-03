@@ -349,4 +349,5 @@ var messageFormatsRu = map[string]string{
 	"import_ndjson_wrapper_single":   "строка-обёртка должна содержать ровно один ключ — класс либо catalog",
 	"cli_usage_word":                 "формат:",
 	"import_where_value":             "%[1]s, значение №%[2]d",
+	"unknown_material":               "неизвестный материал «%[1]s» (допустимы: ge, si, ga, in, sic, other, gaas либо отображаемое название локали)",
 }

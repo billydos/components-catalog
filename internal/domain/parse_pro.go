@@ -128,7 +128,7 @@ func parsePro(s *scanner, _ Kind) (ParsedDesignation, error) {
 	}
 
 	fields := []Field{
-		TextField("material", material.Name),
+		TextField("material", material.Code),
 		TextField("subclass", string(class)),
 		NumField("dev_number", float64(devNumber)),
 	}

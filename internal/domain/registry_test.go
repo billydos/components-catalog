@@ -66,16 +66,16 @@ func TestSystemsForKind(t *testing.T) {
 // Единый словарь материалов gost/pro (03 §2.1; выверка — 07 §1–2).
 func TestMaterials(t *testing.T) {
 	gost := map[rune]string{
-		'Г': "германий", '1': "германий",
-		'К': "кремний", '2': "кремний",
-		'А': "соединения галлия", '3': "соединения галлия",
-		'И': "соединения индия", '4': "соединения индия",
-		'Д': "соединения карбида", '5': "соединения карбида",
-		'П': "соединения прочих металлов", '6': "соединения прочих металлов",
+		'Г': "ge", '1': "ge",
+		'К': "si", '2': "si",
+		'А': "ga", '3': "ga",
+		'И': "in", '4': "in",
+		'Д': "sic", '5': "sic",
+		'П': "other", '6': "other",
 	}
 	for sym, name := range gost {
 		m, ok := domain.GostMaterialBySymbol(sym)
-		if !ok || m.Name != name {
+		if !ok || m.Code != name {
 			t.Errorf("символ %c: %+v", sym, m)
 		}
 	}
@@ -86,24 +86,24 @@ func TestMaterials(t *testing.T) {
 		t.Error("7 не символ материала")
 	}
 	pro := map[rune]string{
-		'A': "германий",
-		'B': "кремний",
-		'C': "арсенид галлия",
+		'A': "ge",
+		'B': "si",
+		'C': "gaas",
 	}
 	for sym, name := range pro {
 		m, ok := domain.ProMaterialByLetter(sym)
-		if !ok || m.Name != name {
+		if !ok || m.Code != name {
 			t.Errorf("буква pro %c: %+v", sym, m)
 		}
 	}
 	if _, ok := domain.ProMaterialByLetter('R'); ok {
 		t.Error("R — соединения без p-n-перехода, вне словаря классов модуля")
 	}
-	if _, ok := domain.MaterialByName("кремний"); !ok {
-		t.Error("кремний отсутствует в словаре")
+	if _, ok := domain.MaterialByCode("si"); !ok {
+		t.Error("si отсутствует в словаре")
 	}
-	if _, ok := domain.MaterialByName("медь"); ok {
-		t.Error("медь отсутствует в словаре материалов модуля")
+	if _, ok := domain.MaterialByCode("copper"); ok {
+		t.Error("copper отсутствует в словаре материалов модуля")
 	}
 	if got := len(domain.Materials()); got != 7 {
 		t.Errorf("словарь материалов: %d записей", got)
@@ -117,7 +117,7 @@ func TestParsedDesignationFields(t *testing.T) {
 		t.Fatalf("КТ315Б: %v", err)
 	}
 	f, ok := p.FieldByName("material")
-	if !ok || f.Text != "кремний" || f.String() != "кремний" {
+	if !ok || f.Text != "si" || f.String() != "si" {
 		t.Errorf("поле material: %+v", f)
 	}
 	if _, ok := p.FieldByName("series"); ok {

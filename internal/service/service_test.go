@@ -203,7 +203,7 @@ func suiteUpsertSections(t *testing.T, factory configFactory) {
 		t.Fatalf("карточка: system=%s kind=%s", card.System, card.Kind)
 	}
 	field := func(name string) (domain.Field, bool) { return card.FieldByName(name) }
-	if f, ok := field("material"); !ok || f.String() != "кремний" {
+	if f, ok := field("material"); !ok || f.String() != "si" {
 		t.Fatalf("поле material: %+v", f)
 	}
 	if f, ok := field("subclass"); !ok || f.String() != "Т" {
@@ -694,13 +694,13 @@ func suiteSearch(t *testing.T, factory configFactory) {
 	// Фильтр полей: материал — сквозной между gost и pro.
 	page, err = svc.Search(ctx, SearchQuery{
 		Kind:   domain.KindTransistor,
-		Fields: []FieldFilter{{Field: "material", Text: "кремний"}},
+		Fields: []FieldFilter{{Field: "material", Text: "si"}},
 	})
 	if err != nil {
 		t.Fatalf("material: %v", err)
 	}
 	if !slices.Equal(designations(page), []string{"BC547B", "КТ315Б"}) {
-		t.Fatalf("material=кремний: %v", designations(page))
+		t.Fatalf("material=si: %v", designations(page))
 	}
 
 	// Числовой фильтр поля.

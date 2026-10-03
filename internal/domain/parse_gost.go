@@ -315,7 +315,7 @@ func parseGostSemiconductor(s *scanner, kindHint Kind) (ParsedDesignation, error
 	}
 
 	fields := []Field{
-		TextField("material", material.Name),
+		TextField("material", material.Code),
 		TextField("subclass", subclass),
 		NumField("assembly", float64(assembly)),
 	}

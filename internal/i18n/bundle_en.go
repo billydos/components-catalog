@@ -119,6 +119,15 @@ var bundleEn = map[string]string{
 	"unit.mcd.name":            "millicandela",
 	"unit.mcd.symbol":          "mcd",
 
+	// Материалы полупроводников (domain.Materials).
+	"material.ge":    "germanium",
+	"material.si":    "silicon",
+	"material.ga":    "gallium compounds",
+	"material.in":    "indium compounds",
+	"material.sic":   "carbide compounds",
+	"material.other": "other metal compounds",
+	"material.gaas":  "gallium arsenide",
+
 	// Условия (conditions).
 	"condition.Uke":            "collector-emitter voltage",
 	"condition.Ukb":            "collector-base voltage",

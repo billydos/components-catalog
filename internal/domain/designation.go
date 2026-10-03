@@ -2,6 +2,7 @@ package domain
 
 import (
 	"fmt"
+	"slices"
 	"strconv"
 	"strings"
 	"unicode"
@@ -108,6 +109,21 @@ func NumericDesignationField(name string) (numeric, known bool) {
 		return false, true
 	}
 	return false, false
+}
+
+// DesignationFieldCodes перечисляет коды реестра полей разбора в
+// стабильном порядке (для тестов полноты бандлов internal/i18n:
+// field.<код> — D9).
+func DesignationFieldCodes() []string {
+	out := make([]string, 0, len(textDesignationFields)+len(numericDesignationFields))
+	for code := range textDesignationFields {
+		out = append(out, code)
+	}
+	for code := range numericDesignationFields {
+		out = append(out, code)
+	}
+	slices.Sort(out)
+	return out
 }
 
 // scanner — по-позиционный разбор канонической строки; все сообщения

@@ -222,60 +222,81 @@ func TestSeedSpotChecks(t *testing.T) {
 	}
 }
 
-// Полнота бандлов i18n (D9): каждый код сидов (классы, системы+описания,
-// семейства, единицы имя+символ, условия, группы, параметры, атрибуты,
-// правила) имеет строки в en (канонический) и ru; расширение каталога
-// кодом — вместе с записями в бандлах в том же изменении.
-func TestSeedI18nCompleteness(t *testing.T) {
+// expectedBundleKeys — полное ожидаемое множество ключей бандлов i18n:
+// коды сидов (классы, системы+описания, семейства, единицы имя+символ,
+// условия, группы, параметры, атрибуты, правила), материалы
+// domain.Materials и поля разбора domain.DesignationFieldCodes. Новая
+// группа ключей бандла обязана расширять это множество тем же изменением.
+func expectedBundleKeys(t *testing.T) map[string]bool {
+	t.Helper()
 	snap, probs := catalog.ApplyCatalog(nil, seed.Catalog())
 	if len(probs) != 0 {
 		t.Fatalf("проблемы применения сидов: %v", probs)
 	}
-	require := func(lang i18n.Language, key string) {
-		t.Helper()
-		if !i18n.HasString(lang, key) {
-			t.Errorf("бандл %s: отсутствует ключ %q", string(lang), key)
-		}
-	}
+	want := make(map[string]bool, 300)
 	for _, k := range snap.Kinds {
-		require(i18n.En, "kind."+string(k.Code))
-		require(i18n.Ru, "kind."+string(k.Code))
+		want["kind."+string(k.Code)] = true
 	}
 	for _, s := range snap.Systems {
-		require(i18n.En, "system."+string(s.Code))
-		require(i18n.En, "system."+string(s.Code)+".description")
-		require(i18n.Ru, "system."+string(s.Code))
-		require(i18n.Ru, "system."+string(s.Code)+".description")
+		want["system."+string(s.Code)] = true
+		want["system."+string(s.Code)+".description"] = true
 	}
 	for _, f := range snap.SeriesFamilies {
-		require(i18n.En, "family."+f.Series)
-		require(i18n.Ru, "family."+f.Series)
+		want["family."+f.Series] = true
 	}
 	for _, u := range snap.Units {
-		require(i18n.En, "unit."+u.Code+".name")
-		require(i18n.En, "unit."+u.Code+".symbol")
-		require(i18n.Ru, "unit."+u.Code+".name")
-		require(i18n.Ru, "unit."+u.Code+".symbol")
+		want["unit."+u.Code+".name"] = true
+		want["unit."+u.Code+".symbol"] = true
 	}
 	for _, c := range snap.Conditions {
-		require(i18n.En, "condition."+c.Code)
-		require(i18n.Ru, "condition."+c.Code)
+		want["condition."+c.Code] = true
 	}
 	for _, g := range snap.Groups {
-		require(i18n.En, "group."+g.Code)
-		require(i18n.Ru, "group."+g.Code)
+		want["group."+g.Code] = true
 	}
 	for _, p := range snap.Parameters {
-		require(i18n.En, "param."+p.Code)
-		require(i18n.Ru, "param."+p.Code)
+		want["param."+p.Code] = true
 	}
 	for _, a := range snap.Attributes {
-		require(i18n.En, "attr."+a.Code)
-		require(i18n.Ru, "attr."+a.Code)
+		want["attr."+a.Code] = true
 	}
 	for _, r := range snap.Rules {
-		require(i18n.En, "rule."+r.Code)
-		require(i18n.Ru, "rule."+r.Code)
+		want["rule."+r.Code] = true
+	}
+	for _, m := range domain.Materials() {
+		want["material."+m.Code] = true
+	}
+	for _, f := range domain.DesignationFieldCodes() {
+		want["field."+f] = true
+	}
+	return want
+}
+
+// Полнота бандлов i18n (D9): каждый ожидаемый ключ каталога имеет
+// непустую строку в en (канонический) и ru; расширение каталога кодом —
+// вместе с записями в бандлах в том же изменении.
+func TestSeedI18nCompleteness(t *testing.T) {
+	for key := range expectedBundleKeys(t) {
+		if !i18n.HasString(i18n.En, key) {
+			t.Errorf("бандл en: отсутствует ключ %q", key)
+		}
+		if !i18n.HasString(i18n.Ru, key) {
+			t.Errorf("бандл ru: отсутствует ключ %q", key)
+		}
+	}
+}
+
+// Обратное направление полноты: каждый ключ бандла соответствует коду
+// каталога — «сироты» (ключи без кода после удаления или переименования
+// кода) не накапливаются.
+func TestSeedI18nNoOrphans(t *testing.T) {
+	want := expectedBundleKeys(t)
+	for _, l := range i18n.Languages() {
+		for _, k := range i18n.Keys(l) {
+			if !want[k] {
+				t.Errorf("бандл %s: ключ %q не соответствует ни одному коду каталога", string(l), k)
+			}
+		}
 	}
 }
 

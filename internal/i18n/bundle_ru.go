@@ -117,6 +117,15 @@ var bundleRu = map[string]string{
 	"unit.mcd.name":            "милликандела",
 	"unit.mcd.symbol":          "мкд",
 
+	// Материалы полупроводников (domain.Materials).
+	"material.ge":    "германий",
+	"material.si":    "кремний",
+	"material.ga":    "соединения галлия",
+	"material.in":    "соединения индия",
+	"material.sic":   "соединения карбида",
+	"material.other": "соединения прочих металлов",
+	"material.gaas":  "арсенид галлия",
+
 	// Условия (conditions).
 	"condition.Uke":            "напряжение коллектор-эмиттер",
 	"condition.Ukb":            "напряжение коллектор-база",

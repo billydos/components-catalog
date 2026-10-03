@@ -339,7 +339,7 @@ func TestStats(t *testing.T) {
 		t.Fatalf("статус: %d", status)
 	}
 	st := decode[statsJSON](t, body)
-	if st.SchemaVersion != 2 || st.Total != 4 || st.Kinds["transistor"] != 2 || st.Kinds["capacitor"] != 1 {
+	if st.SchemaVersion != 3 || st.Total != 4 || st.Kinds["transistor"] != 2 || st.Kinds["capacitor"] != 1 {
 		t.Fatalf("статистика: %+v", st)
 	}
 	if st.CatalogRevision == 0 || st.DataRevision == 0 {
@@ -359,7 +359,9 @@ func TestSearch(t *testing.T) {
 		{"класс", "kind=transistor", []string{"BC547B", "КТ315Б"}, false},
 		{"system", "system=pro", []string{"BC547B"}, false},
 		{"подstring", "q=315", []string{"КТ315Б"}, false},
-		{"поле обозначения", "material=%D0%BA%D1%80%D0%B5%D0%BC%D0%BD%D0%B8%D0%B9", []string{"BC547B", "КТ315Б"}, false},
+		{"поле обозначения (код материала)", "material=si", []string{"BC547B", "КТ315Б"}, false},
+		{"поле обозначения (ru название)", "material=%D0%BA%D1%80%D0%B5%D0%BC%D0%BD%D0%B8%D0%B9", []string{"BC547B", "КТ315Б"}, false},
+		{"поле обозначения (en название)", "material=silicon", []string{"BC547B", "КТ315Б"}, false},
 		{"параметр", "par.h21e.min=150", []string{"BC547B"}, false},
 		{"точный параметр", "par.Pnom.exact=0.5", []string{"МЛТ-0.5"}, false},
 		{"атрибут", "attr.structure=npn", []string{"BC547B", "КТ315Б"}, false},

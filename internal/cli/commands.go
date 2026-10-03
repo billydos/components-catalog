@@ -255,6 +255,16 @@ func runList(ctx context.Context, opts *options, pos []string, stdout, stderr io
 	}
 	for _, name := range []string{"material", "subclass", "series", "letters"} {
 		if v, ok := opts.texts[name]; ok {
+			if name == "material" {
+				// Фильтр материала: вход канонизируется к коду словаря
+				// (код либо отображаемое название локали — D9).
+				code, okCode := i18n.MaterialCode(v)
+				if !okCode {
+					return fail(stderr, opts.langOf(), domain.NewErrorf(domain.CodeValidationFailed,
+						domain.MsgUnknownMaterial, v))
+				}
+				v = code
+			}
 			query.Fields = append(query.Fields, service.FieldFilter{Field: name, Text: v})
 		}
 	}

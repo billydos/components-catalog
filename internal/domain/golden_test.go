@@ -19,27 +19,27 @@ func TestGoldenAutodetect(t *testing.T) {
 		fields string
 	}{
 		// Полупроводники gost (03 §2.1 + примеры ГОСТ Р 71055-2023).
-		{"КТ315Б", domain.KindTransistor, domain.SystemGost, "", "material=кремний; subclass=Т; assembly=0; dev_number=315; letters=Б"},
-		{"ГТ109Г", domain.KindTransistor, domain.SystemGost, "", "material=германий; subclass=Т; assembly=0; dev_number=109; letters=Г"},
-		{"2Т914А-1", domain.KindTransistor, domain.SystemGost, "", "material=кремний; subclass=Т; assembly=0; feature=9; dev_number=14; letters=А"},
-		{"КДС111В", domain.KindDiode, domain.SystemGost, "", "material=кремний; subclass=Д; assembly=1; dev_number=111; letters=В"},
-		{"КС168А", domain.KindDiode, domain.SystemGost, "", "material=кремний; subclass=С; assembly=0; dev_number=168; letters=А"},
-		{"АЛ307Б", domain.KindDiode, domain.SystemGost, "", "material=соединения галлия; subclass=Л; assembly=0; dev_number=307; letters=Б"},
-		{"2Д627АС", domain.KindDiode, domain.SystemGost, "", "material=кремний; subclass=Д; assembly=1; feature=6; dev_number=27; letters=А"},
-		{"КДШ289А", domain.KindDiode, domain.SystemGost, "", "material=кремний; subclass=Д; assembly=0; feature=2; dev_number=89; letters=А"},
-		{"2П798Г/ИФ", domain.KindTransistor, domain.SystemGost, "", "material=кремний; subclass=П; assembly=0; feature=7; dev_number=98; letters=Г"},
-		{"КТД735В", domain.KindTransistor, domain.SystemGost, "", "material=кремний; subclass=Т; assembly=0; feature=7; dev_number=35; letters=В"},
-		{"2Т3148А", domain.KindTransistor, domain.SystemGost, "", "material=кремний; subclass=Т; assembly=0; feature=3; dev_number=148; letters=А"},
-		{"2В131А", domain.KindDiode, domain.SystemGost, "", "material=кремний; subclass=В; assembly=0; feature=1; dev_number=31; letters=А"},
-		{"3А538А", domain.KindDiode, domain.SystemGost, "", "material=соединения галлия; subclass=А; assembly=0; feature=5; dev_number=38; letters=А"},
+		{"КТ315Б", domain.KindTransistor, domain.SystemGost, "", "material=si; subclass=Т; assembly=0; dev_number=315; letters=Б"},
+		{"ГТ109Г", domain.KindTransistor, domain.SystemGost, "", "material=ge; subclass=Т; assembly=0; dev_number=109; letters=Г"},
+		{"2Т914А-1", domain.KindTransistor, domain.SystemGost, "", "material=si; subclass=Т; assembly=0; feature=9; dev_number=14; letters=А"},
+		{"КДС111В", domain.KindDiode, domain.SystemGost, "", "material=si; subclass=Д; assembly=1; dev_number=111; letters=В"},
+		{"КС168А", domain.KindDiode, domain.SystemGost, "", "material=si; subclass=С; assembly=0; dev_number=168; letters=А"},
+		{"АЛ307Б", domain.KindDiode, domain.SystemGost, "", "material=ga; subclass=Л; assembly=0; dev_number=307; letters=Б"},
+		{"2Д627АС", domain.KindDiode, domain.SystemGost, "", "material=si; subclass=Д; assembly=1; feature=6; dev_number=27; letters=А"},
+		{"КДШ289А", domain.KindDiode, domain.SystemGost, "", "material=si; subclass=Д; assembly=0; feature=2; dev_number=89; letters=А"},
+		{"2П798Г/ИФ", domain.KindTransistor, domain.SystemGost, "", "material=si; subclass=П; assembly=0; feature=7; dev_number=98; letters=Г"},
+		{"КТД735В", domain.KindTransistor, domain.SystemGost, "", "material=si; subclass=Т; assembly=0; feature=7; dev_number=35; letters=В"},
+		{"2Т3148А", domain.KindTransistor, domain.SystemGost, "", "material=si; subclass=Т; assembly=0; feature=3; dev_number=148; letters=А"},
+		{"2В131А", domain.KindDiode, domain.SystemGost, "", "material=si; subclass=В; assembly=0; feature=1; dev_number=31; letters=А"},
+		{"3А538А", domain.KindDiode, domain.SystemGost, "", "material=ga; subclass=А; assembly=0; feature=5; dev_number=38; letters=А"},
 
 		// PRO ELECTRON (03 §2.1 + 06 §1–2).
-		{"BC547B", domain.KindTransistor, domain.SystemPro, "", "material=кремний; subclass=C; dev_number=547; letters=B"},
-		{"AD161", domain.KindTransistor, domain.SystemPro, "", "material=германий; subclass=D; dev_number=161"},
-		{"BF245", domain.KindTransistor, domain.SystemPro, "", "material=кремний; subclass=F; dev_number=245"},
-		{"AA119", domain.KindDiode, domain.SystemPro, "", "material=германий; subclass=A; dev_number=119"},
-		{"BY133", domain.KindDiode, domain.SystemPro, "", "material=кремний; subclass=Y; dev_number=133"},
-		{"BZX85C5V1", domain.KindDiode, domain.SystemPro, "", "material=кремний; subclass=Z; dev_number=85; letters=C"},
+		{"BC547B", domain.KindTransistor, domain.SystemPro, "", "material=si; subclass=C; dev_number=547; letters=B"},
+		{"AD161", domain.KindTransistor, domain.SystemPro, "", "material=ge; subclass=D; dev_number=161"},
+		{"BF245", domain.KindTransistor, domain.SystemPro, "", "material=si; subclass=F; dev_number=245"},
+		{"AA119", domain.KindDiode, domain.SystemPro, "", "material=ge; subclass=A; dev_number=119"},
+		{"BY133", domain.KindDiode, domain.SystemPro, "", "material=si; subclass=Y; dev_number=133"},
+		{"BZX85C5V1", domain.KindDiode, domain.SystemPro, "", "material=si; subclass=Z; dev_number=85; letters=C"},
 
 		// JEDEC (03 §2.1 + 06).
 		{"1N4148", domain.KindDiode, domain.SystemJedec, "", "junctions=1; dev_number=4148"},
@@ -109,8 +109,8 @@ func TestGoldenAutodetect(t *testing.T) {
 
 		// Раздельность КТ312/2Т312 (критерий этапа 3): пара «буква/цифра»
 		// материала физически равнозначна, записи раздельные.
-		{"КТ312", domain.KindTransistor, domain.SystemGost, "", "material=кремний; subclass=Т; assembly=0; dev_number=312"},
-		{"2Т312", domain.KindTransistor, domain.SystemGost, "", "material=кремний; subclass=Т; assembly=0; feature=3; dev_number=12"},
+		{"КТ312", domain.KindTransistor, domain.SystemGost, "", "material=si; subclass=Т; assembly=0; dev_number=312"},
+		{"2Т312", domain.KindTransistor, domain.SystemGost, "", "material=si; subclass=Т; assembly=0; feature=3; dev_number=12"},
 	}
 	for _, tc := range cases {
 		p, err := domain.ParseDesignation(tc.input)

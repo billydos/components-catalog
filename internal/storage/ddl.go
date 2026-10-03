@@ -7,7 +7,7 @@ import "strings"
 // schema_meta.schema_version — отказ в работе (schema_version_mismatch),
 // миграций нет (D5). Версия 2 — каталожные таблицы без текстовых колонок
 // (D9: отображаемые строки — бандлы internal/i18n; коды единиц — латиница).
-const SchemaVersion = 2
+const SchemaVersion = 3
 
 // autoIncToken — маркер авто-PK в переносимом DDL; диалект заменяет его
 // своим определением (sqlite: PRIMARY KEY AUTOINCREMENT — запрет

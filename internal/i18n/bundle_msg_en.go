@@ -350,4 +350,5 @@ var messageFormatsEn = map[string]string{
 	"import_ndjson_wrapper_single":   "the wrapper line must contain exactly one key — a kind or catalog",
 	"cli_usage_word":                 "usage:",
 	"import_where_value":             "%[1]s, value no. %[2]d",
+	"unknown_material":               "unknown material «%[1]s» (allowed: ge, si, ga, in, sic, other, gaas or a localized display name)",
 }

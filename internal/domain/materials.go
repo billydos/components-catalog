@@ -4,11 +4,15 @@ package domain
 // по полю material между системами gost и pro (docs/plan/03-data-model.md §2.1,
 // §2.4; выверка — docs/plan/07-r1-verification.md §1–2).
 //
-// Равнозначные символы ГОСТ (буква — общегражданское применение, цифра —
-// категории качества ВП/ОС/ОСМ) физически равнозначны: КТ312 и 2Т312 —
-// раздельные записи, подсказка find использует пару символов материала.
+// Ключ словаря — стабильный код (латиница, D9): значение поля material
+// разбора обозначений, device_designation_fields.text_value и фильтры
+// поиска оперируют кодом; отображаемые названия — бандлы internal/i18n
+// (material.<код>). Равнозначные символы ГОСТ (буква — общегражданское
+// применение, цифра — категории качества ВП/ОС/ОСМ) физически равнозначны:
+// КТ312 и 2Т312 — раздельные записи, подсказка find использует пару
+// символов материала.
 type Material struct {
-	Name string // значение словаря: «кремний», …
+	Code string // стабильный код словаря: «ge», «si», …
 
 	// GostLetter и GostDigit — пара равнозначных символов ГОСТ
 	// (0 — символ не используется, например у арсенида галлия).
@@ -19,16 +23,16 @@ type Material struct {
 	ProLetter rune
 }
 
-// materials — единый словарь: gost и pro отображаются в одни значения,
+// materials — единый словарь: gost и pro отображаются в одни коды,
 // где символы совпадают физически (германий, кремний).
 var materials = []Material{
-	{Name: "германий", GostLetter: 'Г', GostDigit: '1', ProLetter: 'A'},
-	{Name: "кремний", GostLetter: 'К', GostDigit: '2', ProLetter: 'B'},
-	{Name: "соединения галлия", GostLetter: 'А', GostDigit: '3'},
-	{Name: "соединения индия", GostLetter: 'И', GostDigit: '4'},
-	{Name: "соединения карбида", GostLetter: 'Д', GostDigit: '5'},
-	{Name: "соединения прочих металлов", GostLetter: 'П', GostDigit: '6'},
-	{Name: "арсенид галлия", ProLetter: 'C'},
+	{Code: "ge", GostLetter: 'Г', GostDigit: '1', ProLetter: 'A'},
+	{Code: "si", GostLetter: 'К', GostDigit: '2', ProLetter: 'B'},
+	{Code: "ga", GostLetter: 'А', GostDigit: '3'},
+	{Code: "in", GostLetter: 'И', GostDigit: '4'},
+	{Code: "sic", GostLetter: 'Д', GostDigit: '5'},
+	{Code: "other", GostLetter: 'П', GostDigit: '6'},
+	{Code: "gaas", ProLetter: 'C'},
 }
 
 // Materials возвращает словарь материалов в стабильном порядке.
@@ -38,10 +42,10 @@ func Materials() []Material {
 	return out
 }
 
-// MaterialByName ищет материал по значению словаря.
-func MaterialByName(name string) (Material, bool) {
+// MaterialByCode ищет материал по стабильному коду словаря.
+func MaterialByCode(code string) (Material, bool) {
 	for _, m := range materials {
-		if m.Name == name {
+		if m.Code == code {
 			return m, true
 		}
 	}

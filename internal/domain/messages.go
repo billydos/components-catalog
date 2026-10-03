@@ -26,11 +26,12 @@ const (
 	MsgScannerToken      MsgID = "scanner_token"
 	MsgScannerEof        MsgID = "scanner_eof"
 
-	MsgKindUnknown    MsgID = "kind_unknown"
-	MsgSystemUnknown  MsgID = "system_unknown"
-	MsgFamilyUnknown  MsgID = "family_unknown"
-	MsgPowerSuffix    MsgID = "power_suffix"
-	MsgDevNumberZeros MsgID = "dev_number_leading_zero"
+	MsgKindUnknown     MsgID = "kind_unknown"
+	MsgSystemUnknown   MsgID = "system_unknown"
+	MsgFamilyUnknown   MsgID = "family_unknown"
+	MsgUnknownMaterial MsgID = "unknown_material"
+	MsgPowerSuffix     MsgID = "power_suffix"
+	MsgDevNumberZeros  MsgID = "dev_number_leading_zero"
 
 	MsgCanonicalAlphabetMix MsgID = "canonical_alphabet_mix"
 	MsgCanonicalBadRune     MsgID = "canonical_bad_rune"
@@ -377,11 +378,12 @@ var msgRegistry = map[MsgID]struct{}{
 	MsgScannerToken:      {},
 	MsgScannerEof:        {},
 
-	MsgKindUnknown:    {},
-	MsgSystemUnknown:  {},
-	MsgFamilyUnknown:  {},
-	MsgPowerSuffix:    {},
-	MsgDevNumberZeros: {},
+	MsgKindUnknown:     {},
+	MsgSystemUnknown:   {},
+	MsgFamilyUnknown:   {},
+	MsgUnknownMaterial: {},
+	MsgPowerSuffix:     {},
+	MsgDevNumberZeros:  {},
 
 	MsgCanonicalAlphabetMix: {},
 	MsgCanonicalBadRune:     {},

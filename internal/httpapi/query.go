@@ -8,6 +8,7 @@ import (
 
 	"github.com/billydos/components-catalog/internal/catalog"
 	"github.com/billydos/components-catalog/internal/domain"
+	"github.com/billydos/components-catalog/internal/i18n"
 	"github.com/billydos/components-catalog/internal/service"
 )
 
@@ -73,6 +74,14 @@ func parseSearchQuery(r *http.Request, snap *catalog.Snapshot) (service.SearchQu
 		case reservedQueryParam(name):
 			// разобраны выше
 		case known && !numeric:
+			if name == "material" {
+				code, okCode := i18n.MaterialCode(v)
+				if !okCode {
+					return q, domain.NewErrorf(domain.CodeValidationFailed,
+						domain.MsgUnknownMaterial, v)
+				}
+				v = code
+			}
 			q.Fields = append(q.Fields, service.FieldFilter{Field: name, Text: v})
 		case known:
 			f, err := strconv.ParseFloat(v, 64)

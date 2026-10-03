@@ -46,12 +46,12 @@ cli_suite() {
   echo "== CLI: $label =="
 
   local out rc
-  out="$("$CTL" init "${db[@]}" 2>&1)"
+  out="$("$CTL" init --lang ru "${db[@]}" 2>&1)"
   check "init: база инициализирована" $(ok_if contains "$out" "инициализирована"; echo $?)
 
   local total=0 imported n_tr=0 n_caps=0 n_diodes=0
   for f in data/transistors.jsonc data/diodes.jsonc data/resistors.jsonc data/capacitors.jsonc; do
-    out="$("$CTL" import "$f" "${db[@]}" 2>&1)"
+    out="$("$CTL" import --lang ru "$f" "${db[@]}" 2>&1)"
     imported="$(printf '%s' "$out" | sed -n 's/.*записей: \([0-9]*\),.*/\1/p')"
     total=$((total + imported))
     case "$f" in
@@ -62,7 +62,7 @@ cli_suite() {
   done
   check "import: выверенная выборка целиком ($total записей)" $([ "$total" -gt 0 ]; echo $?)
 
-  out="$("$CTL" import data/transistors.jsonc "${db[@]}" 2>&1)"
+  out="$("$CTL" import --lang ru data/transistors.jsonc "${db[@]}" 2>&1)"
   check "идемпотентность: повторный импорт — без изменений, без отказов" \
     $(ok_if contains "$out" "без изменений: $n_tr" && ! contains "$out" "отвергнуто"; echo $?)
 
@@ -78,14 +78,14 @@ cli_suite() {
   out="$("$CTL" info КТ315Б "${db[@]}" 2>&1)"
   check "info: карточка транзистора (система gost)" $(ok_if contains "$out" "(gost)"; echo $?)
 
-  out="$("$CTL" info К50-35 "${db[@]}" 2>&1)"
+  out="$("$CTL" info --lang ru К50-35 "${db[@]}" 2>&1)"
   check "info: матрица исполнений конденсатора" $(ok_if contains "$out" "Исполнение"; echo $?)
 
-  out="$("$CTL" find КТ315Б "${db[@]}" 2>&1)"
+  out="$("$CTL" find --lang ru КТ315Б "${db[@]}" 2>&1)"
   check "find: точное совпадение" $(ok_if contains "$out" "КТ315Б — "; echo $?)
 
   rc=0
-  out="$("$CTL" find 2Т315Б "${db[@]}" 2>&1)" || rc=$?
+  out="$("$CTL" find --lang ru 2Т315Б "${db[@]}" 2>&1)" || rc=$?
   check "find: подсказка равнозначного по материалу, код выхода 1" \
     $([ $rc -eq 1 ] && contains "$out" "равнозначная по материалу: КТ315Б"; echo $?)
 
@@ -101,20 +101,20 @@ cli_suite() {
     $([ $rc -eq 1 ] && contains "$out" "Ошибка: "; echo $?)
 
   "$CTL" export --kind capacitor --format ndjson "${db[@]}" > "$TMP/caps.ndjson" 2>/dev/null
-  out="$("$CTL" import "$TMP/caps.ndjson" "${db[@]}" 2>&1)"
+  out="$("$CTL" import --lang ru "$TMP/caps.ndjson" "${db[@]}" 2>&1)"
   check "round-trip: экспорт ndjson → импорт — без изменений" \
     $(ok_if contains "$out" "без изменений: $n_caps" && ! contains "$out" "отвергнуто"; echo $?)
 
   "$CTL" export --format yaml "${db[@]}" > "$TMP/all.yaml" 2>/dev/null
-  out="$("$CTL" import "$TMP/all.yaml" "${db[@]}" 2>&1)"
+  out="$("$CTL" import --lang ru "$TMP/all.yaml" "${db[@]}" 2>&1)"
   check "round-trip: полный экспорт yaml → импорт — без изменений" \
     $(ok_if contains "$out" "без изменений: $total" && ! contains "$out" "отвергнуто"; echo $?)
 
-  out="$("$CTL" import data/diodes.jsonc --dry-run "${db[@]}" 2>&1)"
+  out="$("$CTL" import --lang ru data/diodes.jsonc --dry-run "${db[@]}" 2>&1)"
   check "import --dry-run: контрольный прогон без записи" \
     $(ok_if contains "$out" "контрольный прогон" && contains "$out" "без изменений: $n_diodes"; echo $?)
 
-  out="$("$CTL" delete КД522А "${db[@]}" 2>&1)"
+  out="$("$CTL" delete --lang ru КД522А "${db[@]}" 2>&1)"
   check "delete: удаление с каскадом" $(ok_if contains "$out" "удалено"; echo $?)
 
   rc=0

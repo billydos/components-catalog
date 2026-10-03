@@ -2,6 +2,7 @@ package i18n_test
 
 import (
 	"slices"
+	"strings"
 	"testing"
 
 	"github.com/billydos/components-catalog/internal/domain"
@@ -36,6 +37,45 @@ func TestMessageCatalogCompleteness(t *testing.T) {
 	}
 }
 
+// formatVerbs разбирает последовательность fmt-глаголов формата: флаги,
+// ширина, точность и позиционные индексы %[1]s пропускаются, %% не
+// считается глаголом.
+func formatVerbs(format string) []string {
+	var out []string
+	for i := 0; i < len(format); i++ {
+		if format[i] != '%' {
+			continue
+		}
+		if i+1 < len(format) && format[i+1] == '%' {
+			i++
+			continue
+		}
+		j := i + 1
+		for j < len(format) && strings.IndexByte("+-# []0123456789.", format[j]) >= 0 {
+			j++
+		}
+		if j < len(format) {
+			out = append(out, string(format[j]))
+			i = j
+		}
+	}
+	return out
+}
+
+// Паритет форматов en/ru: последовательность fmt-глаголов совпадает —
+// рассинхрон не падает, а рендерится артефактами %!s(MISSING)/
+// %!d(EXTRA …) при локализованном выводе.
+func TestMessageVerbParity(t *testing.T) {
+	for _, id := range domain.MsgIDs() {
+		en := i18n.Message(i18n.En, string(id))
+		ru := i18n.Message(i18n.Ru, string(id))
+		ve, vr := formatVerbs(en), formatVerbs(ru)
+		if !slices.Equal(ve, vr) {
+			t.Errorf("MsgID %s: глаголы en %v ≠ ru %v\n  en: %s\n  ru: %s", string(id), ve, vr, en, ru)
+		}
+	}
+}
+
 // Канонический рендер и локализация: подстановка аргументов, вложенные
 // аргументы-сообщения, fallbackи.
 func TestMessageRender(t *testing.T) {
@@ -56,6 +96,38 @@ func TestMessageRender(t *testing.T) {
 	// Порядок слов локали: value_key_required.
 	if got := i18n.Message(i18n.En, "value_key_required", "Cnom", "range", "min"); got == "" {
 		t.Error("пустой рендер")
+	}
+}
+
+// Словарь материалов: полнота бандлов для всех кодов domain.Materials и
+// канонизация входа (код либо название локали → код, D9).
+func TestMaterialDictionary(t *testing.T) {
+	for _, m := range domain.Materials() {
+		for _, l := range i18n.Languages() {
+			if !i18n.HasString(l, "material."+m.Code) {
+				t.Errorf("бандл %s: нет материала %q", string(l), m.Code)
+			}
+		}
+	}
+	cases := map[string]string{
+		"si":        "si",
+		"кремний":   "si",
+		"silicon":   "si",
+		"германий":  "ge",
+		"germanium": "ge",
+		"gaas":      "gaas",
+	}
+	for in, want := range cases {
+		got, ok := i18n.MaterialCode(in)
+		if !ok || got != want {
+			t.Errorf("MaterialCode(%q) = %q,%v; want %q", in, got, ok, want)
+		}
+	}
+	if _, ok := i18n.MaterialCode("медь"); ok {
+		t.Error("медь ошибочно канонизируется")
+	}
+	if _, ok := i18n.MaterialCode(""); ok {
+		t.Error("пустая строка ошибочно канонизируется")
 	}
 }
 

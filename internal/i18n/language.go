@@ -208,3 +208,30 @@ func DesignationField(l Language, code string) string {
 	mustKnown(l)
 	return resolve(l, "field."+code, code)
 }
+
+// MaterialName возвращает отображаемое название материала полупроводника
+// по стабильному коду словаря (D9: значения словаря — коды).
+func MaterialName(l Language, code string) string {
+	mustKnown(l)
+	return resolve(l, "material."+code, code)
+}
+
+// MaterialCode канонизирует вход значения материала: код словаря либо
+// отображаемое название любой локали (кремний/silicon) → стабильный код.
+// Для фильтров поиска на краю (CLI --material, REST material=).
+func MaterialCode(codeOrDisplay string) (string, bool) {
+	if codeOrDisplay == "" {
+		return "", false
+	}
+	if HasString(En, "material."+codeOrDisplay) {
+		return codeOrDisplay, true
+	}
+	for _, l := range languageOrder {
+		for key, val := range bundles[l] {
+			if strings.HasPrefix(key, "material.") && val == codeOrDisplay {
+				return strings.TrimPrefix(key, "material."), true
+			}
+		}
+	}
+	return "", false
+}

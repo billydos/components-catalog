@@ -35,36 +35,36 @@ func TestParseGostSemiconductorValid(t *testing.T) {
 		kind   Kind
 		fields string
 	}{
-		{"КТ315Б", KindTransistor, "material=кремний; subclass=Т; assembly=0; dev_number=315; letters=Б"},
-		{"ГТ109Г", KindTransistor, "material=германий; subclass=Т; assembly=0; dev_number=109; letters=Г"},
-		{"2Т914А-1", KindTransistor, "material=кремний; subclass=Т; assembly=0; feature=9; dev_number=14; letters=А"},
-		{"КТ3102", KindTransistor, "material=кремний; subclass=Т; assembly=0; feature=3; dev_number=102"},
-		{"КТ31", KindTransistor, "material=кремний; subclass=Т; assembly=0; feature=3; dev_number=1"},
-		{"2Т312", KindTransistor, "material=кремний; subclass=Т; assembly=0; feature=3; dev_number=12"},
+		{"КТ315Б", KindTransistor, "material=si; subclass=Т; assembly=0; dev_number=315; letters=Б"},
+		{"ГТ109Г", KindTransistor, "material=ge; subclass=Т; assembly=0; dev_number=109; letters=Г"},
+		{"2Т914А-1", KindTransistor, "material=si; subclass=Т; assembly=0; feature=9; dev_number=14; letters=А"},
+		{"КТ3102", KindTransistor, "material=si; subclass=Т; assembly=0; feature=3; dev_number=102"},
+		{"КТ31", KindTransistor, "material=si; subclass=Т; assembly=0; feature=3; dev_number=1"},
+		{"2Т312", KindTransistor, "material=si; subclass=Т; assembly=0; feature=3; dev_number=12"},
 		// Раздельность КТ312/2Т312: буква — трёхзначный номер (старая
 		// форма), цифра — признак и номер (современная).
-		{"КТ312", KindTransistor, "material=кремний; subclass=Т; assembly=0; dev_number=312"},
-		{"2Т3148А", KindTransistor, "material=кремний; subclass=Т; assembly=0; feature=3; dev_number=148; letters=А"},
-		{"2П798Г/ИФ", KindTransistor, "material=кремний; subclass=П; assembly=0; feature=7; dev_number=98; letters=Г"},
-		{"КТД735В", KindTransistor, "material=кремний; subclass=Т; assembly=0; feature=7; dev_number=35; letters=В"},
-		{"АП362А9", KindTransistor, "material=соединения галлия; subclass=П; assembly=0; dev_number=362; letters=А; chip=9"},
-		{"КТ315А5", KindTransistor, "material=кремний; subclass=Т; assembly=0; dev_number=315; letters=А; modification=5"},
-		{"КП303А", KindTransistor, "material=кремний; subclass=П; assembly=0; dev_number=303; letters=А"},
-		{"КДС111В", KindDiode, "material=кремний; subclass=Д; assembly=1; dev_number=111; letters=В"},
-		{"КСС393А", KindDiode, "material=кремний; subclass=С; assembly=1; dev_number=393; letters=А"},
-		{"КС168А", KindDiode, "material=кремний; subclass=С; assembly=0; dev_number=168; letters=А"},
-		{"2Д627АС", KindDiode, "material=кремний; subclass=Д; assembly=1; feature=6; dev_number=27; letters=А"},
-		{"КДШ289А", KindDiode, "material=кремний; subclass=Д; assembly=0; feature=2; dev_number=89; letters=А"},
-		{"АЛ307Б", KindDiode, "material=соединения галлия; subclass=Л; assembly=0; dev_number=307; letters=Б"},
-		{"2В131А", KindDiode, "material=кремний; subclass=В; assembly=0; feature=1; dev_number=31; letters=А"},
-		{"3А538А", KindDiode, "material=соединения галлия; subclass=А; assembly=0; feature=5; dev_number=38; letters=А"},
-		{"ГТ402В", KindTransistor, "material=германий; subclass=Т; assembly=0; dev_number=402; letters=В"},
-		{"АИ101А", KindDiode, "material=соединения галлия; subclass=И; assembly=0; dev_number=101; letters=А"},
-		{"КВ102А", KindDiode, "material=кремний; subclass=В; assembly=0; dev_number=102; letters=А"},
-		{"КГ508А", KindDiode, "material=кремний; subclass=Г; assembly=0; dev_number=508; letters=А"},
-		{"КЦ405А", KindDiode, "material=кремний; subclass=Ц; assembly=0; dev_number=405; letters=А"},
+		{"КТ312", KindTransistor, "material=si; subclass=Т; assembly=0; dev_number=312"},
+		{"2Т3148А", KindTransistor, "material=si; subclass=Т; assembly=0; feature=3; dev_number=148; letters=А"},
+		{"2П798Г/ИФ", KindTransistor, "material=si; subclass=П; assembly=0; feature=7; dev_number=98; letters=Г"},
+		{"КТД735В", KindTransistor, "material=si; subclass=Т; assembly=0; feature=7; dev_number=35; letters=В"},
+		{"АП362А9", KindTransistor, "material=ga; subclass=П; assembly=0; dev_number=362; letters=А; chip=9"},
+		{"КТ315А5", KindTransistor, "material=si; subclass=Т; assembly=0; dev_number=315; letters=А; modification=5"},
+		{"КП303А", KindTransistor, "material=si; subclass=П; assembly=0; dev_number=303; letters=А"},
+		{"КДС111В", KindDiode, "material=si; subclass=Д; assembly=1; dev_number=111; letters=В"},
+		{"КСС393А", KindDiode, "material=si; subclass=С; assembly=1; dev_number=393; letters=А"},
+		{"КС168А", KindDiode, "material=si; subclass=С; assembly=0; dev_number=168; letters=А"},
+		{"2Д627АС", KindDiode, "material=si; subclass=Д; assembly=1; feature=6; dev_number=27; letters=А"},
+		{"КДШ289А", KindDiode, "material=si; subclass=Д; assembly=0; feature=2; dev_number=89; letters=А"},
+		{"АЛ307Б", KindDiode, "material=ga; subclass=Л; assembly=0; dev_number=307; letters=Б"},
+		{"2В131А", KindDiode, "material=si; subclass=В; assembly=0; feature=1; dev_number=31; letters=А"},
+		{"3А538А", KindDiode, "material=ga; subclass=А; assembly=0; feature=5; dev_number=38; letters=А"},
+		{"ГТ402В", KindTransistor, "material=ge; subclass=Т; assembly=0; dev_number=402; letters=В"},
+		{"АИ101А", KindDiode, "material=ga; subclass=И; assembly=0; dev_number=101; letters=А"},
+		{"КВ102А", KindDiode, "material=si; subclass=В; assembly=0; dev_number=102; letters=А"},
+		{"КГ508А", KindDiode, "material=si; subclass=Г; assembly=0; dev_number=508; letters=А"},
+		{"КЦ405А", KindDiode, "material=si; subclass=Ц; assembly=0; dev_number=405; letters=А"},
 		// Подобранная группа Р после буквы группы — часть ключа, поля не меняет.
-		{"КТ805АР", KindTransistor, "material=кремний; subclass=Т; assembly=0; dev_number=805; letters=А"},
+		{"КТ805АР", KindTransistor, "material=si; subclass=Т; assembly=0; dev_number=805; letters=А"},
 	}
 	for _, tc := range cases {
 		p, err := parseGostSemiconductor(newScanner(tc.input), "")
@@ -158,7 +158,7 @@ func TestParseGostSemiconductorLeadingZero(t *testing.T) {
 	if err != nil {
 		t.Fatalf("«2Д602А»: %v", err)
 	}
-	want := "material=кремний; subclass=Д; assembly=0; feature=6; dev_number=2; letters=А"
+	want := "material=si; subclass=Д; assembly=0; feature=6; dev_number=2; letters=А"
 	if got := p.String(); got != want {
 		t.Fatalf("«2Д602А»:\n got:  %s\n want: %s", got, want)
 	}

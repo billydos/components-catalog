@@ -41,11 +41,16 @@ func printParsed(w io.Writer, lang i18n.Language, p domain.ParsedDesignation) {
 // fieldDisplayValue — значение поля разбора: assembly — качественное
 // (сборка/прибор), прочие числа — компактной записью локали.
 func fieldDisplayValue(lang i18n.Language, f domain.Field) string {
-	if f.Name == "assembly" {
+	switch f.Name {
+	case "assembly":
 		if f.IsNum && f.Num != 0 {
 			return i18n.Message(lang, "cli_assembly_value")
 		}
 		return i18n.Message(lang, "cli_device_value")
+	case "material":
+		// Значение словаря материалов — стабильный код (D9); отображается
+		// названием локали, расширения без записи в бандле — кодом.
+		return i18n.MaterialName(lang, f.Text)
 	}
 	if f.IsNum {
 		return i18n.FormatNumber(lang, f.Num)

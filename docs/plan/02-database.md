@@ -185,7 +185,9 @@ device_designation_fields(device_id NOT NULL REFERENCES devices(id) ON DELETE CA
                            PRIMARY KEY (device_id, field))
     -- разложение обозначения для фильтрации/вывода; поле всегда одно из пары значений
     -- (текст или число); заполнение — при создании записи парсером; сама система —
-    -- колонка devices.system_code, не поле
+    -- колонка devices.system_code, не поле; текстовые значения — нормативные
+    -- элементы обозначения (subclass, letters) либо коды словаря (material:
+    -- si, ge… — D9; отображаемые названия — бандлы internal/i18n)
 
 device_attribute_values(device_id NOT NULL REFERENCES devices(id) ON DELETE CASCADE,
                         attribute_code TEXT NOT NULL REFERENCES attributes(code),
