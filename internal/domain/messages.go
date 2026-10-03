@@ -350,7 +350,6 @@ const (
 	MsgCliDryRunHead        MsgID = "cli_dry_run_head"
 	MsgCliIssueLine         MsgID = "cli_issue_line"
 	MsgCliSystemLine        MsgID = "cli_system_line"
-	MsgCliAttrLine          MsgID = "cli_attr_line"
 	MsgCliVariantHead       MsgID = "cli_variant_head"
 	MsgCliNoLabel           MsgID = "cli_no_label"
 	MsgCliManufacturers     MsgID = "cli_manufacturers"
@@ -700,7 +699,6 @@ var msgRegistry = map[MsgID]struct{}{
 	MsgCliDryRunHead:                  {},
 	MsgCliIssueLine:                   {},
 	MsgCliSystemLine:                  {},
-	MsgCliAttrLine:                    {},
 	MsgCliVariantHead:                 {},
 	MsgCliNoLabel:                     {},
 	MsgCliManufacturers:               {},

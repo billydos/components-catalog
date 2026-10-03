@@ -297,7 +297,6 @@ var messageFormatsEn = map[string]string{
 	"cli_assembly_value":             "assembly",
 	"cli_at_least":                   "at least %[1]s",
 	"cli_at_most":                    "at most %[1]s",
-	"cli_attr_line":                  "  %[1]s (%[2]s): %[3]s",
 	"cli_attr_list_line":             "  %[1]s — %[2]s; type %[3]s",
 	"cli_backlinks":                  "Backlinks: %[1]s",
 	"cli_catalog_export_args":        "wrong number of arguments; usage: catalog export [--format jsonc|yaml|ndjson] [--db]",

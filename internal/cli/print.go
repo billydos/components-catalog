@@ -101,8 +101,10 @@ func printCard(w io.Writer, lang i18n.Language, c *service.Card, snap *catalog.S
 			case a.Bool != nil:
 				value = strconv.FormatBool(*a.Bool)
 			}
-			fmt.Fprintln(w, i18n.Message(lang, "cli_attr_line",
-				i18n.AttributeName(lang, a.Code), a.Code, value))
+			// Код атрибута не повторяется: назначение — ключ файла
+			// наполнения, выводится catalog list; карточка — чтение.
+			fmt.Fprintln(w, i18n.Message(lang, "cli_field_line",
+				i18n.AttributeName(lang, a.Code), value))
 		}
 	}
 	for _, g := range c.Groups {

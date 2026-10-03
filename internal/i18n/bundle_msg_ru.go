@@ -296,7 +296,6 @@ var messageFormatsRu = map[string]string{
 	"cli_assembly_value":             "сборка",
 	"cli_at_least":                   "не менее %[1]s",
 	"cli_at_most":                    "не более %[1]s",
-	"cli_attr_line":                  "  %[1]s (%[2]s): %[3]s",
 	"cli_attr_list_line":             "  %[1]s — %[2]s; тип %[3]s",
 	"cli_backlinks":                  "Встречные ссылки: %[1]s",
 	"cli_catalog_export_args":        "неверное число аргументов; формат: catalog export [--format jsonc|yaml|ndjson] [--db]",
