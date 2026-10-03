@@ -119,6 +119,16 @@ type UnitDef struct {
 	Code string
 }
 
+// CategoryDef — строка таблицы categories: код классификационного поля
+// category (применение/характеристика прибора — переключательный,
+// импульсный, малошумящий…; ортогонален подклассу — функции перехода).
+// Словарь — данные каталога (расширяется секцией catalog без правки
+// кода); отображаемое название — бандлы internal/i18n: category.<код>,
+// расширения без записи в бандле отображаются кодом (D9).
+type CategoryDef struct {
+	Code string
+}
+
 // ConditionDef — строка таблицы conditions: условие измерения/контекста
 // значения. Unit "" — безразмерное условие; AllowNegative разрешает
 // неположительные значения (temp), по умолчанию условия положительны.
@@ -237,6 +247,7 @@ type Snapshot struct {
 	SystemKinds    []SystemKindRef
 	SeriesFamilies []SeriesFamilyDef
 	Units          []UnitDef
+	Categories     []CategoryDef
 	Conditions     []ConditionDef
 	Groups         []GroupDef
 	Parameters     []ParameterDef
@@ -262,6 +273,7 @@ type snapshotIndex struct {
 	kinds         map[domain.Kind]int
 	systems       map[domain.System]int
 	units         map[string]int
+	categories    map[string]int
 	conditions    map[string]int
 	groups        map[string]int
 	groupSections map[string]int
@@ -280,6 +292,7 @@ func (s *Snapshot) index() *snapshotIndex {
 			kinds:         make(map[domain.Kind]int, len(s.Kinds)),
 			systems:       make(map[domain.System]int, len(s.Systems)),
 			units:         make(map[string]int, len(s.Units)),
+			categories:    make(map[string]int, len(s.Categories)),
 			conditions:    make(map[string]int, len(s.Conditions)),
 			groups:        make(map[string]int, len(s.Groups)),
 			groupSections: make(map[string]int, len(s.Groups)),
@@ -297,6 +310,9 @@ func (s *Snapshot) index() *snapshotIndex {
 		}
 		for i := range s.Units {
 			idx.units[s.Units[i].Code] = i
+		}
+		for i := range s.Categories {
+			idx.categories[s.Categories[i].Code] = i
 		}
 		for i := range s.Conditions {
 			idx.conditions[s.Conditions[i].Code] = i
@@ -410,6 +426,31 @@ func (s *Snapshot) Unit(code string) (UnitDef, bool) {
 	return s.Units[i], true
 }
 
+// Category ищет код словаря категорий (поле category).
+func (s *Snapshot) Category(code string) (CategoryDef, bool) {
+	if s == nil {
+		return CategoryDef{}, false
+	}
+	i, ok := s.index().categories[code]
+	if !ok {
+		return CategoryDef{}, false
+	}
+	return s.Categories[i], true
+}
+
+// CategoryCodes перечисляет коды словаря категорий в порядке строк снимка
+// (аргумент перечня допустимых в сообщениях об ошибках).
+func (s *Snapshot) CategoryCodes() []string {
+	if s == nil {
+		return nil
+	}
+	out := make([]string, 0, len(s.Categories))
+	for _, c := range s.Categories {
+		out = append(out, c.Code)
+	}
+	return out
+}
+
 // Condition ищет условие по коду.
 func (s *Snapshot) Condition(code string) (ConditionDef, bool) {
 	if s == nil {
@@ -491,6 +532,7 @@ func (s *Snapshot) Clone() *Snapshot {
 		SystemKinds:    slices.Clone(s.SystemKinds),
 		SeriesFamilies: slices.Clone(s.SeriesFamilies),
 		Units:          slices.Clone(s.Units),
+		Categories:     slices.Clone(s.Categories),
 		Conditions:     slices.Clone(s.Conditions),
 		Groups:         slices.Clone(s.Groups),
 		Parameters:     slices.Clone(s.Parameters),

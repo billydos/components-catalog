@@ -14,6 +14,7 @@ type Input struct {
 	SystemKinds    []SystemKindRef
 	SeriesFamilies []SeriesFamilyDef
 	Units          []UnitDef
+	Categories     []CategoryDef
 	Conditions     []ConditionDef
 	Groups         []GroupDef
 	Parameters     []ParameterDef

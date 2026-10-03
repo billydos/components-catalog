@@ -74,15 +74,11 @@ func parseSearchQuery(r *http.Request, snap *catalog.Snapshot) (service.SearchQu
 		case reservedQueryParam(name):
 			// разобраны выше
 		case known && !numeric:
-			if name == "material" {
-				code, okCode := i18n.MaterialCode(v)
-				if !okCode {
-					return q, domain.NewErrorf(domain.CodeValidationFailed,
-						domain.MsgUnknownMaterial, v)
-				}
-				v = code
+			if code, args, msgID, ok := canonicalizeFieldCode(name, v, snap); !ok {
+				return q, domain.NewErrorf(domain.CodeValidationFailed, msgID, args...)
+			} else {
+				q.Fields = append(q.Fields, service.FieldFilter{Field: name, Text: code})
 			}
-			q.Fields = append(q.Fields, service.FieldFilter{Field: name, Text: v})
 		case known:
 			f, err := strconv.ParseFloat(v, 64)
 			if err != nil {
@@ -118,6 +114,40 @@ func reservedQueryParam(name string) bool {
 		return true
 	}
 	return false
+}
+
+// canonicalizeFieldCode канонизирует значение словарного поля разбора
+// (material, subclass, adjustment, category): код либо отображаемое
+// название локали → стабильный код (словарь category — коды каталога).
+// При неудаче возвращает аргументы и MsgID ошибки для ответа.
+func canonicalizeFieldCode(field, value string, snap *catalog.Snapshot) (string, []any, domain.MsgID, bool) {
+	switch field {
+	case "material":
+		if code, ok := i18n.MaterialCode(value); ok {
+			return code, nil, "", true
+		}
+		return value, []any{value}, domain.MsgUnknownMaterial, false
+	case "subclass":
+		if code, ok := i18n.SubclassCode(value); ok {
+			return code, nil, "", true
+		}
+		return value, []any{value, strings.Join(domain.SubclassCodes(), ", ")},
+			domain.MsgUnknownSubclass, false
+	case "adjustment":
+		if code, ok := i18n.AdjustmentCode(value); ok {
+			return code, nil, "", true
+		}
+		return value, []any{value, strings.Join(domain.AdjustmentCodes(), ", ")},
+			domain.MsgUnknownAdjust, false
+	case "category":
+		if code, ok := i18n.CategoryCode(value, snap.CategoryCodes()); ok {
+			return code, nil, "", true
+		}
+		return value, []any{value, strings.Join(snap.CategoryCodes(), ", ")},
+			domain.MsgUnknownCategory, false
+	}
+	// Поле не словарное — значение без канонизации.
+	return value, nil, "", true
 }
 
 // parseSort — сортировка: ключи через запятую, «-» — убывание;

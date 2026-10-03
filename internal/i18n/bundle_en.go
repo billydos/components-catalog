@@ -128,6 +128,45 @@ var bundleEn = map[string]string{
 	"material.other": "other metal compounds",
 	"material.gaas":  "gallium arsenide",
 
+	// Подклассы приборов (domain.Subclasses).
+	"subclass.bjt":        "bipolar transistor",
+	"subclass.fet":        "field-effect transistor",
+	"subclass.ujt":        "unijunction transistor",
+	"subclass.avalanche":  "avalanche transistor",
+	"subclass.thyristor":  "thyristor",
+	"subclass.triac":      "triac",
+	"subclass.rectifier":  "rectifier/general-purpose diode",
+	"subclass.zener":      "zener (voltage-regulator) diode",
+	"subclass.varicap":    "varicap (varactor) diode",
+	"subclass.tunnel":     "tunnel (Esaki) diode",
+	"subclass.gunn":       "Gunn diode",
+	"subclass.generator":  "noise generator diode",
+	"subclass.led":        "light-emitting diode",
+	"subclass.detector":   "microwave detector diode",
+	"subclass.signal":     "small-signal diode",
+	"subclass.multiplier": "multiplier (varactor, step-recovery) diode",
+	"subclass.magnetic":   "magnetically sensitive diode",
+	"subclass.photo":      "photodetector (photodiode)",
+
+	// Способы подстройки номинала (domain.Adjustments).
+	"adjustment.fixed":    "fixed",
+	"adjustment.variable": "variable",
+	"adjustment.preset":   "preset (trimmer)",
+
+	// Категории — стартовый словарь (seed.categories); расширения каталога
+	// данными отображаются кодом.
+	"category.general_purpose": "general purpose",
+	"category.power":           "power",
+	"category.high_voltage":    "high voltage",
+	"category.switching":       "switching",
+	"category.pulse":           "pulse",
+	"category.rf":              "RF",
+	"category.audio":           "audio (low frequency)",
+	"category.lownoise":        "low noise",
+	"category.fast":            "fast",
+	"category.precision":       "precision",
+	"category.composite":       "composite (Darlington)",
+
 	// Условия (conditions).
 	"condition.Uke":            "collector-emitter voltage",
 	"condition.Ukb":            "collector-base voltage",
@@ -247,7 +286,7 @@ var bundleEn = map[string]string{
 	"param.leadPitch":  "lead pitch",
 
 	// Атрибуты (attributes).
-	"attr.category":          "device category",
+	"attr.description":       "description (as in reference book)",
 	"attr.structure":         "structure (p-n-p / n-p-n, channel type)",
 	"attr.polarized":         "polarized (electrolytic)",
 	"attr.functionalChar":    "taper (resistance law)",
@@ -287,4 +326,6 @@ var bundleEn = map[string]string{
 	"field.series":       "series",
 	"field.power":        "power",
 	"field.family":       "family letter",
+	"field.adjustment":   "adjustment",
+	"field.category":     "category",
 }

@@ -30,6 +30,9 @@ func (d *DB) LoadSnapshot(ctx context.Context) (*catalog.Snapshot, error) {
 	if snap.Units, err = d.loadUnits(ctx); err != nil {
 		return nil, err
 	}
+	if snap.Categories, err = d.loadCategories(ctx); err != nil {
+		return nil, err
+	}
 	if snap.Conditions, err = d.loadConditions(ctx); err != nil {
 		return nil, err
 	}
@@ -152,6 +155,23 @@ func (d *DB) loadUnits(ctx context.Context) ([]catalog.UnitDef, error) {
 	var out []catalog.UnitDef
 	for rows.Next() {
 		var r catalog.UnitDef
+		if err := rows.Scan(&r.Code); err != nil {
+			return nil, err
+		}
+		out = append(out, r)
+	}
+	return out, rows.Err()
+}
+
+func (d *DB) loadCategories(ctx context.Context) ([]catalog.CategoryDef, error) {
+	rows, err := d.query(ctx, `SELECT code FROM categories ORDER BY code`, nil)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []catalog.CategoryDef
+	for rows.Next() {
+		var r catalog.CategoryDef
 		if err := rows.Scan(&r.Code); err != nil {
 			return nil, err
 		}

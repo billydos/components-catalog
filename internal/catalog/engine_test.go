@@ -442,11 +442,11 @@ func TestAttributeValueTypes(t *testing.T) {
 		av   catalog.AttributeValue
 		want string
 	}{
-		{"текст", catalog.AttributeValue{Attribute: "category", Text: s("выпрямительный")}, ""},
-		{"пустой текст", catalog.AttributeValue{Attribute: "category", Text: s("  ")},
-			"attribute «category»: text cannot be empty"},
-		{"не текст", catalog.AttributeValue{Attribute: "category", Num: f(1)},
-			"attribute «category»: a text value is expected"},
+		{"текст", catalog.AttributeValue{Attribute: "description", Text: s("выпрямительный")}, ""},
+		{"пустой текст", catalog.AttributeValue{Attribute: "description", Text: s("  ")},
+			"attribute «description»: text cannot be empty"},
+		{"не текст", catalog.AttributeValue{Attribute: "description", Num: f(1)},
+			"attribute «description»: a text value is expected"},
 		{"bool", catalog.AttributeValue{Attribute: "esdSensitive", Bool: b(true)}, ""},
 		{"не bool", catalog.AttributeValue{Attribute: "esdSensitive", Text: s("да")},
 			"attribute «esdSensitive»: a boolean value is expected"},

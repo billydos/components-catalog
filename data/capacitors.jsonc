@@ -195,6 +195,7 @@
     {
       "name": "КСО-2",                       // слюдяные опрессованные
       "system": "series",
+      "fields": { "adjustment": "fixed" },
       "attributes": { "datasheetUrl": "https://rudatasheet.ru/capacitors/kso-2/" },
       "parameters": [
         { "parameter": "Cnom", "min": 100, "max": 2400 },
@@ -208,6 +209,7 @@
     {
       "name": "МБМ",                         // металлобумажные малогабаритные
       "system": "series",
+      "fields": { "adjustment": "fixed" },
       "attributes": { "datasheetUrl": "https://eandc.ru/pdf/kondensator/mbm.pdf" },
       "parameters": [
         { "parameter": "Dop", "max": 20 },
@@ -269,6 +271,7 @@
     {
       "name": "МБГЧ-1",                      // металлобумажные герметизированные частотные
       "system": "series",
+      "fields": { "adjustment": "fixed" },
       "attributes": { "datasheetUrl": "https://asenergi.ru/catalog/kondensatory-puskovye/mbgch.html" },
       "parameters": [
         { "parameter": "Dop", "max": 20 },
@@ -316,6 +319,7 @@
     {
       "name": "GRM188R71H104KA93D",          // Murata MLCC: декодирование кода заказа
       "system": "other",
+      "fields": { "adjustment": "fixed" },
       "attributes": {
         "technology": "керамика X7R", "package": "0603 (1608)",
         "datasheetUrl": "https://www.digikey.com/en/products/detail/murata-electronics/GRM188R71H104KA93D/587143"
@@ -332,6 +336,7 @@
     {
       "name": "T491C476K016AT",              // KEMET танталовые (MnO2), корпус C (6032-28)
       "system": "other",
+      "fields": { "adjustment": "fixed" },
       "attributes": {
         "polarized": true, "technology": "танталовые", "package": "C (6032-28)",
         "datasheetUrl": "https://content.kemet.com/datasheets/KEM_T2005_T491.pdf"

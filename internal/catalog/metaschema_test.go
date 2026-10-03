@@ -12,10 +12,13 @@ import (
 func TestSeedSnapshotCounts(t *testing.T) {
 	snap := seedSnapshot(t)
 	want := struct {
-		units, conditions, groups, params, attrs, rules int
-	}{23, 17, 3, 76, 17, 5}
+		units, categories, conditions, groups, params, attrs, rules int
+	}{23, 11, 17, 3, 76, 17, 5}
 	if got := len(snap.Units); got != want.units {
 		t.Errorf("единиц: %d, ожидалось %d", got, want.units)
+	}
+	if got := len(snap.Categories); got != want.categories {
+		t.Errorf("категорий: %d, ожидалось %d", got, want.categories)
 	}
 	if got := len(snap.Conditions); got != want.conditions {
 		t.Errorf("условий: %d, ожидалось %d", got, want.conditions)
@@ -31,6 +34,29 @@ func TestSeedSnapshotCounts(t *testing.T) {
 	}
 	if got := len(snap.Rules); got != want.rules {
 		t.Errorf("правил: %d, ожидалось %d", got, want.rules)
+	}
+}
+
+// Словарь категорий: расширение каталога секцией categories — upsert
+// по коду, дубликаты кода отвергаются.
+func TestCategoriesApply(t *testing.T) {
+	base := seedSnapshot(t)
+	in := catalog.Input{Categories: []catalog.CategoryDef{{Code: "automotive"}}}
+	out, probs := catalog.ApplyCatalog(base, in)
+	if len(probs) != 0 {
+		t.Fatalf("проблемы: %v", probs)
+	}
+	if _, ok := out.Category("automotive"); !ok {
+		t.Fatal("категория automotive не добавлена")
+	}
+	if _, ok := out.Category("power"); !ok {
+		t.Fatal("стартовые категории потеряны")
+	}
+	in = catalog.Input{Categories: []catalog.CategoryDef{
+		{Code: "x"}, {Code: "x"},
+	}}
+	if _, probs := catalog.ApplyCatalog(base, in); len(probs) != 1 {
+		t.Fatalf("дубликат кода категории: %v", probs)
 	}
 }
 
@@ -147,9 +173,9 @@ func TestMetaschemaKindRuleWithoutRow(t *testing.T) {
 
 // Attributes: нарушения метасхемы по типам значений и привязкам правил.
 func TestMetaschemaAttributeViolations(t *testing.T) {
-	base, ok := seedSnapshot(t).Attribute("category")
+	base, ok := seedSnapshot(t).Attribute("description")
 	if !ok {
-		t.Fatal("category отсутствует")
+		t.Fatal("description отсутствует")
 	}
 	cases := []struct {
 		name string
@@ -158,19 +184,19 @@ func TestMetaschemaAttributeViolations(t *testing.T) {
 	}{
 		{"unknown type атрибута", catalog.Input{Attributes: []catalog.AttributeDef{
 			withAttrType(base, "string"),
-		}}, "catalog: attribute «category»: unknown value type «string»"},
+		}}, "catalog: attribute «description»: unknown value type «string»"},
 		{"несуществующая единица атрибута", catalog.Input{Attributes: []catalog.AttributeDef{
 			withAttrUnit(yearFrom(t), "мкВ"),
 		}}, "catalog: attribute «yearFrom»: unit «мкВ» does not exist"},
 		{"enum атрибута без значений", catalog.Input{Attributes: []catalog.AttributeDef{
 			withAttrType(base, catalog.AttrEnum),
-		}}, "catalog: attribute «category»: type enum requires a non-empty list of values"},
+		}}, "catalog: attribute «description»: type enum requires a non-empty list of values"},
 		{"правило параметров у атрибута", catalog.Input{Attributes: []catalog.AttributeDef{
 			withAttrRule(base, "temp_pair"),
-		}}, "catalog: attribute «category»: rule «temp_pair» does not apply to attributes"},
+		}}, "catalog: attribute «description»: rule «temp_pair» does not apply to attributes"},
 		{"неизвестный класс применимости атрибута", catalog.Input{Attributes: []catalog.AttributeDef{
 			withAttrKinds(base, domain.Kind("thyristor")),
-		}}, "catalog: attribute «category»: applicability kind «thyristor» does not exist"},
+		}}, "catalog: attribute «description»: applicability kind «thyristor» does not exist"},
 	}
 	snap := seedSnapshot(t)
 	for _, tc := range cases {

@@ -54,6 +54,13 @@ units(code TEXT PRIMARY KEY)
     -- pct_per_degC, g, mm, nm, mcd (см. 03-data-model.md §3);
     -- название и символ — i18n: unit.<код>.name / unit.<код>.symbol
 
+categories(code TEXT PRIMARY KEY)
+    -- словарь категорий — значений классификационного поля category
+    -- (секция fields формата наполнения; применение/характеристика прибора,
+    -- ортогонально подклассу); словарь — данные каталога (расширяется секцией
+    -- catalog без правки кода); отображаемое название — i18n: category.<код>,
+    -- расширения без записи в бандле отображаются кодом (D9)
+
 conditions(code TEXT PRIMARY KEY,
            unit_code TEXT NULL REFERENCES units(code),
            allow_negative INTEGER NOT NULL DEFAULT 0)

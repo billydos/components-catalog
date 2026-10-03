@@ -69,6 +69,15 @@ func (s *DeviceService) applyUpsert(ctx context.Context, in DeviceInput,
 			return "", err
 		}
 	}
+	// Явные классификационные поля (секция fields): валидация после
+	// разбора — известны класс и система записи.
+	var explicit []domain.Field
+	if in.Fields != nil {
+		explicit, err = validateExplicitFields(p, *in.Fields, snap)
+		if err != nil {
+			return "", err
+		}
+	}
 	// Имена секций — из групп каталога (неизвестная секция — ошибка,
 	// значения не теряются молча).
 	checkSections := func(sections []SectionInput) error {
@@ -110,7 +119,7 @@ func (s *DeviceService) applyUpsert(ctx context.Context, in DeviceInput,
 
 	var cur *deviceState
 	if dev != nil {
-		cur, err = merger.loadState(ctx, tx, dev.ID)
+		cur, err = merger.loadState(ctx, tx, dev.ID, p)
 		if err != nil {
 			return "", err
 		}
@@ -122,7 +131,7 @@ func (s *DeviceService) applyUpsert(ctx context.Context, in DeviceInput,
 	for _, a := range analogs {
 		stateAnalogs = append(stateAnalogs, stateAnalog{Designation: a.designation, Note: a.note})
 	}
-	merged := merger.merge(cur, &in, stateAnalogs)
+	merged := merger.merge(cur, &in, explicit, stateAnalogs)
 
 	// Валидация слитого состояния — единственная точка записи (R5).
 	catDev := merger.toCatalogDevice(p, merged)
@@ -143,19 +152,21 @@ func (s *DeviceService) applyUpsert(ctx context.Context, in DeviceInput,
 		if !write {
 			return OutcomeAdded, nil // записи нет — откатит defer (транзакция без DML)
 		}
-		return OutcomeAdded, s.writeUpsert(ctx, tx, 0, p, in, merged, analogs, snap)
+		return OutcomeAdded, s.writeUpsert(ctx, tx, 0, p, in, cur, merged, explicit, analogs, snap)
 	}
 	if !write {
 		return OutcomeUpdatedExisting, nil // откатит defer (транзакция без DML)
 	}
-	return OutcomeUpdatedExisting, s.writeUpsert(ctx, tx, dev.ID, p, in, merged, analogs, snap)
+	return OutcomeUpdatedExisting, s.writeUpsert(ctx, tx, dev.ID, p, in, cur, merged, explicit, analogs, snap)
 }
 
 // writeUpsert применяет слитое состояние записи в БД (секции целиком)
-// и инкрементирует data_revision.
+// и инкрементирует data_revision. Явные классификационные поля (explicit):
+// при создании дополняют продукты разбора, при обновлении заменяют прежний
+// набор (удаляются имена прежних и новых явных полей, вставляются новые).
 func (s *DeviceService) writeUpsert(ctx context.Context, tx *storage.Tx, deviceID int64,
-	p domain.ParsedDesignation, in DeviceInput, merged *deviceState, analogs []resolvedAnalog,
-	snap *catalog.Snapshot) error {
+	p domain.ParsedDesignation, in DeviceInput, cur, merged *deviceState,
+	explicit []domain.Field, analogs []resolvedAnalog, snap *catalog.Snapshot) error {
 	if deviceID == 0 {
 		id, _, err := tx.InsertDevice(ctx, p.Kind, p.System, p.Designation)
 		if err != nil {
@@ -164,6 +175,21 @@ func (s *DeviceService) writeUpsert(ctx context.Context, tx *storage.Tx, deviceI
 		deviceID = id
 		if err := tx.InsertDesignationFields(ctx, deviceID, p.Fields); err != nil {
 			return err
+		}
+		if len(explicit) > 0 {
+			if err := tx.InsertDesignationFields(ctx, deviceID, explicit); err != nil {
+				return err
+			}
+		}
+	} else if in.Fields != nil {
+		if err := tx.DeleteDesignationFields(ctx, deviceID,
+			fieldNamesUnion(cur.fields, explicit)); err != nil {
+			return err
+		}
+		if len(explicit) > 0 {
+			if err := tx.InsertDesignationFields(ctx, deviceID, explicit); err != nil {
+				return err
+			}
 		}
 	}
 

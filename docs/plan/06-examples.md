@@ -4,7 +4,7 @@
 
 Форма секций групп параметров **едина для всех групп** (`parameters`, `ratings`, `dimensions`) — список объектов `{ "parameter": <код>, значение, условия }`; значение — `value` (exact) | `min`/`max` | `text` (text/enum). Условия — соседние ключи по коду условия.
 
-Примеры разбиты по классам — один блок кода соответствует секции одного класса в файле наполнения. Внутри блока записи сгруппированы по системам обозначений, **по три записи на систему**. Записи минимальны: они демонстрируют форму записи и отличия систем обозначений, а не полноту данных типа; поля разбора (материал, подкласс, семейство) в файле не задаются — их даёт разбор обозначения. Ключ `system` проставлен каждой записи явно — чтобы система читалась из самой записи, без комментариев; в рабочем наполнении он нужен только для `other` (автодетекта нет) и при неоднозначности автодетекта, в остальных случаях систему определяет автодетект (формы `gost`/`ost` у резисторов не пересекаются — `С`/`СП` против `Р`/`РП`). Аналоги в примерах ссылаются только на записи своего блока; ссылки направленные (`03-data-model.md` §8): секция `analogs` записи задаёт её исходящие ссылки (встречные отображаются на карточке получателя). Предметные атрибуции примеров выверены — `07-r1-verification.md`.
+Примеры разбиты по классам — один блок кода соответствует секции одного класса в файле наполнения. Внутри блока записи сгруппированы по системам обозначений, **по три записи на систему**. Записи минимальны: они демонстрируют форму записи и отличия систем обозначений, а не полноту данных типа; поля грамматик систем в файле не задаются — их даёт разбор обозначения; классификационные словарные поля (материал, подкласс, подстройка, категория) для систем, не кодирующих их обозначением, — секцией `fields` (D10). Ключ `system` проставлен каждой записи явно — чтобы система читалась из самой записи, без комментариев; в рабочем наполнении он нужен только для `other` (автодетекта нет) и при неоднозначности автодетекта, в остальных случаях систему определяет автодетект (формы `gost`/`ost` у резисторов не пересекаются — `С`/`СП` против `Р`/`РП`). Аналоги в примерах ссылаются только на записи своего блока; ссылки направленные (`03-data-model.md` §8): секция `analogs` записи задаёт её исходящие ссылки (встречные отображаются на карточке получателя). Предметные атрибуции примеров выверены — `07-r1-verification.md`.
 
 ## 1. Транзисторы
 
@@ -99,11 +99,12 @@
       ]
     },
 
-    // jedec: материал и категория не кодируются — задаются атрибутами; один номер — много производителей
+    // jedec: материал/подкласс/категория не кодируются — секцией fields; один номер — много производителей
     {
       "name": "2N2222A",
       "system": "jedec",
-      "attributes": { "structure": "npn", "category": "универсальный", "package": "TO-18" },
+      "fields": { "material": "si", "subclass": "bjt", "category": "general_purpose" },
+      "attributes": { "structure": "npn", "description": "универсальный", "package": "TO-18" },
       "parameters": [ { "parameter": "h21e", "min": 100, "max": 300, "Uke": 10, "Ik": 10 } ],
       "ratings": [
         { "parameter": "UkeoMax", "value": 40 },
@@ -115,8 +116,9 @@
     {
       "name": "2N3055",
       "system": "jedec",
+      "fields": { "material": "si", "subclass": "bjt", "category": "power" },
       "attributes": {
-        "structure": "npn", "category": "низкочастотный мощный", "package": "TO-3"
+        "structure": "npn", "description": "низкочастотный мощный", "package": "TO-3"
       },
       "manufacturers": ["Motorola", "RCA", "ST"],
       "parameters": [ { "parameter": "h21e", "min": 20, "max": 70, "Uke": 4, "Ik": 4000 } ],
@@ -130,7 +132,8 @@
     {
       "name": "2N3904",
       "system": "jedec",
-      "attributes": { "structure": "npn", "category": "универсальный", "package": "TO-92" },
+      "fields": { "material": "si", "subclass": "bjt", "category": "general_purpose" },
+      "attributes": { "structure": "npn", "description": "универсальный", "package": "TO-92" },
       "parameters": [ { "parameter": "h21e", "min": 100, "max": 300, "Uke": 10, "Ik": 10 } ],
       "ratings": [ { "parameter": "UkeoMax", "value": 40 }, { "parameter": "IkMax", "value": 200 } ],
       "analogs": ["КТ315Б"]
@@ -170,11 +173,12 @@
       ]
     },
 
-    // series: семейство из реестра series_families + слабый хвост; материал и категория — атрибутами
+    // series: семейство из реестра series_families + слабый хвост; классификация — секцией fields
     {
       "name": "МП39",
       "system": "series",
-      "attributes": { "structure": "pnp", "category": "низкочастотный" },
+      "fields": { "material": "ge", "subclass": "bjt", "category": "audio" },
+      "attributes": { "structure": "pnp", "description": "низкочастотный" },
       "parameters": [
         { "parameter": "h21e", "min": 20, "max": 50, "Uke": 5, "Ik": 5 },
         { "parameter": "Ikbo", "max": 15, "Ukb": 5 }
@@ -190,7 +194,8 @@
     {
       "name": "П214",
       "system": "series",
-      "attributes": { "structure": "pnp", "category": "низкочастотный мощный" },
+      "fields": { "material": "ge", "subclass": "bjt", "category": "power" },
+      "attributes": { "structure": "pnp", "description": "низкочастотный мощный" },
       "parameters": [ { "parameter": "h21e", "min": 20, "max": 80, "Uke": 10, "Ik": 2000 } ],
       "ratings": [
         { "parameter": "UkeoMax", "value": 60 },
@@ -203,7 +208,8 @@
     {
       "name": "TIP120",
       "system": "series",
-      "attributes": { "structure": "npn", "category": "составной", "package": "TO-220" },
+      "fields": { "material": "si", "subclass": "bjt", "category": "composite" },
+      "attributes": { "structure": "npn", "description": "составной", "package": "TO-220" },
       "parameters": [ { "parameter": "h21e", "min": 1000, "max": 20000, "Uke": 3, "Ik": 3000 } ],
       "ratings": [
         { "parameter": "UkeoMax", "value": 60 },
@@ -212,11 +218,12 @@
       ]
     },
 
-    // other: разбора нет, ключ system обязателен; классификация — атрибутами
+    // other: разбора нет, ключ system обязателен; классификация — секцией fields
     {
       "name": "MJE340",
       "system": "other",
-      "attributes": { "structure": "npn", "category": "универсальный", "package": "TO-126" },
+      "fields": { "material": "si", "subclass": "bjt", "category": "general_purpose" },
+      "attributes": { "structure": "npn", "description": "универсальный", "package": "TO-126" },
       "ratings": [
         { "parameter": "UkeoMax", "value": 300 },
         { "parameter": "IkMax", "value": 500 },
@@ -226,7 +233,8 @@
     {
       "name": "IRF540",
       "system": "other",
-      "attributes": { "structure": "n-канал", "category": "МОП мощный", "package": "TO-220" },
+      "fields": { "material": "si", "subclass": "fet", "category": "power" },
+      "attributes": { "structure": "n-канал", "description": "МОП мощный", "package": "TO-220" },
       "ratings": [
         { "parameter": "UsiMax", "value": 100 },
         { "parameter": "IsiMax", "value": 28000 },
@@ -236,7 +244,8 @@
     {
       "name": "JANTX2N3055",                // MIL-форма на базе JEDEC-номера — вне строгих систем
       "system": "other",
-      "attributes": { "structure": "npn", "category": "низкочастотный мощный", "package": "TO-3", "militaryGrade": true },
+      "fields": { "material": "si", "subclass": "bjt", "category": "power" },
+      "attributes": { "structure": "npn", "description": "низкочастотный мощный", "package": "TO-3", "militaryGrade": true },
       "ratings": [
         { "parameter": "UkeoMax", "value": 60 },
         { "parameter": "IkMax", "value": 15000 },
@@ -335,7 +344,7 @@
     {
       "name": "1N4148",
       "system": "jedec",
-      "attributes": { "category": "импульсный" },
+      "attributes": { "description": "импульсный" },
       "parameters": [
         { "parameter": "Upr", "max": 1, "Ipr": 10 },
         { "parameter": "trr", "max": 4, "Ipr": 10 },
@@ -352,7 +361,7 @@
     {
       "name": "1N4007",
       "system": "jedec",
-      "attributes": { "category": "выпрямительный" },
+      "attributes": { "description": "выпрямительный" },
       "parameters": [
         { "parameter": "Upr", "max": 1.1, "Ipr": 1000 },
         { "parameter": "Iobr", "max": 10, "Uobr": 700 }
@@ -366,7 +375,7 @@
     {
       "name": "1N5408",
       "system": "jedec",
-      "attributes": { "category": "выпрямительный" },
+      "attributes": { "description": "выпрямительный" },
       "parameters": [ { "parameter": "Upr", "max": 1.1, "Ipr": 3000 } ],
       "ratings": [
         { "parameter": "UobrMax", "value": 1000 },
@@ -379,7 +388,7 @@
     {
       "name": "1S2076",                     // старая форма без буквы класса; современные диоды несут букву (S сигнальный, R выпрямительный, V варикап, Z стабилитрон)
       "system": "jis",
-      "attributes": { "category": "импульсный" },
+      "attributes": { "description": "импульсный" },
       "parameters": [
         { "parameter": "Upr", "max": 1, "Ipr": 10 },
         { "parameter": "trr", "max": 4, "Ipr": 10 }
@@ -389,14 +398,14 @@
     {
       "name": "1SS352",
       "system": "jis",
-      "attributes": { "category": "импульсный" },
+      "attributes": { "description": "импульсный" },
       "parameters": [ { "parameter": "trr", "max": 4, "Ipr": 10 } ],
       "ratings": [ { "parameter": "UobrMax", "value": 35 }, { "parameter": "IprMax", "value": 100 } ]
     },
     {
       "name": "1SR154-400",                 // суффикс — напряжение
       "system": "jis",
-      "attributes": { "category": "выпрямительный быстрый" },
+      "attributes": { "description": "выпрямительный быстрый" },
       "parameters": [
         { "parameter": "Upr", "max": 1.3, "Ipr": 1000 },
         { "parameter": "trr", "max": 60, "Ipr": 1000 }
@@ -408,7 +417,7 @@
     {
       "name": "Д226",
       "system": "series",
-      "attributes": { "category": "выпрямительный" },
+      "attributes": { "description": "выпрямительный" },
       "parameters": [
         { "parameter": "Upr", "max": 1, "Ipr": 300 },
         { "parameter": "Iobr", "max": 100, "Uobr": 400 }
@@ -424,7 +433,7 @@
     {
       "name": "Д814А",
       "system": "series",
-      "attributes": { "category": "стабилитрон" },
+      "attributes": { "description": "стабилитрон" },
       "parameters": [
         { "parameter": "Ust", "min": 7, "max": 8.5, "Ist": 5 },
         { "parameter": "Rdiff", "max": 6, "Ist": 5 },
@@ -439,7 +448,7 @@
     {
       "name": "Д2Б",
       "system": "series",
-      "attributes": { "category": "универсальный" },
+      "attributes": { "description": "универсальный" },
       "parameters": [
         { "parameter": "Upr", "max": 1, "Ipr": 10 },
         { "parameter": "Iobr", "max": 100, "Uobr": 30 }
@@ -451,7 +460,7 @@
     {
       "name": "LL4148",
       "system": "other",
-      "attributes": { "category": "импульсный", "package": "miniMELF" },
+      "attributes": { "description": "импульсный", "package": "miniMELF" },
       "parameters": [
         { "parameter": "Upr", "max": 1, "Ipr": 10 },
         { "parameter": "trr", "max": 4, "Ipr": 10 }
@@ -462,7 +471,7 @@
     {
       "name": "UF4007",
       "system": "other",
-      "attributes": { "category": "выпрямительный быстрый" },
+      "attributes": { "description": "выпрямительный быстрый" },
       "parameters": [
         { "parameter": "Upr", "max": 1.7, "Ipr": 1000 },
         { "parameter": "trr", "max": 75, "Ipr": 1000 }
@@ -472,7 +481,7 @@
     {
       "name": "JAN1N4007",
       "system": "other",
-      "attributes": { "category": "выпрямительный", "militaryGrade": true },
+      "attributes": { "description": "выпрямительный", "militaryGrade": true },
       "ratings": [ { "parameter": "UobrMax", "value": 1000 }, { "parameter": "IprMax", "value": 1000 } ]
     }
   ]

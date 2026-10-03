@@ -27,7 +27,7 @@ const usageTextRu = `catalogctl — консольная утилита спра
                                     «-» — stdin, формат jsonc)
   list [фильтры]                    список записей (--kind --system --material --subclass
                                     --junctions --group --series --number --letters
-                                    --q --limit --offset)
+                                    --adjustment --category --q --limit --offset)
   info <обозначение>                карточка записи
   find <обозначение>                точный поиск; подсказка равнозначной по материалу (gost)
   delete <обозначение>… [--dry-run] удаление (каскад)
@@ -62,7 +62,7 @@ Commands:
                                     «-» — stdin, jsonc format)
   list [filters]                    list records (--kind --system --material --subclass
                                     --junctions --group --series --number --letters
-                                    --q --limit --offset)
+                                    --adjustment --category --q --limit --offset)
   info <designation>                record card
   find <designation>                exact search; suggestion of equivalent by material (gost)
   delete <designation>… [--dry-run] deletion (cascade)

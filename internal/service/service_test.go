@@ -147,7 +147,7 @@ func seedTransistors(t *testing.T, svc *DeviceService) {
 	mustUpsert(t, svc, DeviceInput{
 		Name: "МП39",
 		Attributes: []catalog.AttributeValue{
-			attrText("structure", "pnp"), attrText("category", "низкочастотный"),
+			attrText("structure", "pnp"), attrText("description", "низкочастотный"),
 		},
 		Sections: []SectionInput{
 			section("parameters", pvRange("h21e", 20, 50, cond("Uke", 5), cond("Ik", 5))),
@@ -168,6 +168,7 @@ func runSuite(t *testing.T, factory configFactory) {
 	t.Run("delete cascade", func(t *testing.T) { suiteDeleteCascade(t, factory) })
 	t.Run("revisions", func(t *testing.T) { suiteRevisions(t, factory) })
 	t.Run("catalog import", func(t *testing.T) { suiteCatalogImport(t, factory) })
+	t.Run("classification fields", func(t *testing.T) { suiteClassificationFields(t, factory) })
 	t.Run("parse and suggest", func(t *testing.T) { suiteParseSuggest(t, factory) })
 }
 
@@ -206,7 +207,7 @@ func suiteUpsertSections(t *testing.T, factory configFactory) {
 	if f, ok := field("material"); !ok || f.String() != "si" {
 		t.Fatalf("поле material: %+v", f)
 	}
-	if f, ok := field("subclass"); !ok || f.String() != "Т" {
+	if f, ok := field("subclass"); !ok || f.String() != "bjt" {
 		t.Fatalf("поле subclass: %+v", f)
 	}
 	if f, ok := field("dev_number"); !ok || f.String() != "315" {
@@ -1018,5 +1019,96 @@ func suiteParseSuggest(t *testing.T, factory configFactory) {
 	sugg, err = ds.Suggest(ctx, "КТ3", domain.KindResistor, 10)
 	if err != nil || len(sugg) != 0 {
 		t.Fatalf("suggest по классу: %+v err=%v", sugg, err)
+	}
+}
+
+// suiteClassificationFields — явные классификационные поля (секция fields):
+// пер-полое правило (парсер системы сам не устанавливает поле),
+// применимость к классу, коды словарей, семантика секции (nil — не менять,
+// задано — заменить целиком) и Skipped по каноническому сравнению.
+func suiteClassificationFields(t *testing.T, factory configFactory) {
+	ctx := context.Background()
+	app := openSuiteApp(t, factory)
+	svc := app.Services().Devices
+
+	// Создание с полями; повторное применение того же входа — Skipped.
+	fields := []domain.Field{
+		domain.TextField("material", "si"),
+		domain.TextField("subclass", "bjt"),
+		domain.TextField("category", "general_purpose"),
+	}
+	in := DeviceInput{Name: "MJE340", System: domain.SystemOther, Kind: domain.KindTransistor, Fields: &fields}
+	if out := mustUpsert(t, svc, in); out != OutcomeAdded {
+		t.Fatalf("исход: %v", out)
+	}
+	if out := mustUpsert(t, svc, in); out != OutcomeSkipped {
+		t.Fatalf("повтор: %v", out)
+	}
+	card, found, err := svc.Get(ctx, domain.KindTransistor, "MJE340")
+	if err != nil || !found {
+		t.Fatalf("карточка: %v %v", err, found)
+	}
+	if f, ok := card.FieldByName("category"); !ok || f.Text != "general_purpose" {
+		t.Fatalf("category: %v", f)
+	}
+
+	// Замена набора целиком: category исчезает, material меняется.
+	fields2 := []domain.Field{domain.TextField("material", "ge")}
+	in.Fields = &fields2
+	if out := mustUpsert(t, svc, in); out != OutcomeUpdatedExisting {
+		t.Fatalf("замена: %v", out)
+	}
+	card, _, _ = svc.Get(ctx, domain.KindTransistor, "MJE340")
+	if f, ok := card.FieldByName("material"); !ok || f.Text != "ge" {
+		t.Fatalf("material после замены: %v", f)
+	}
+	if _, ok := card.FieldByName("category"); ok {
+		t.Fatal("category не удалён заменой набора")
+	}
+
+	// nil — не менять: поля сохраняются.
+	in.Fields = nil
+	if out := mustUpsert(t, svc, in); out != OutcomeSkipped {
+		t.Fatalf("nil-секция: %v", out)
+	}
+
+	// Пер-полое правило: поле парсера системы явно не задаётся.
+	bad := []domain.Field{domain.TextField("material", "si")}
+	_, err = svc.Upsert(ctx, DeviceInput{Name: "КТ315Б", Fields: &bad})
+	wantDomainError(t, err, domain.CodeValidationFailed,
+		"field «material» is derived from the designation by the gost parser and cannot be set explicitly")
+	// Грамматическое поле даже для other — не классификационное.
+	bad = []domain.Field{domain.TextField("dev_number", "315")}
+	_, err = svc.Upsert(ctx, DeviceInput{Name: "MJE340", System: domain.SystemOther, Kind: domain.KindTransistor, Fields: &bad})
+	wantDomainError(t, err, domain.CodeValidationFailed,
+		"unknown classification field «dev_number» (allowed: material, subclass, adjustment, category, assembly)")
+	// Применимость к классу: adjustment — только резисторы/конденсаторы.
+	bad = []domain.Field{domain.TextField("adjustment", "variable")}
+	_, err = svc.Upsert(ctx, DeviceInput{Name: "MJE340", System: domain.SystemOther, Kind: domain.KindTransistor, Fields: &bad})
+	wantDomainError(t, err, domain.CodeValidationFailed,
+		"field «adjustment» is not applicable to kind transistor")
+	// Коды словарей и диапазон assembly.
+	bad = []domain.Field{domain.TextField("subclass", "thyristor2")}
+	_, err = svc.Upsert(ctx, DeviceInput{Name: "MJE340", System: domain.SystemOther, Kind: domain.KindTransistor, Fields: &bad})
+	wantDomainError(t, err, domain.CodeValidationFailed,
+		"unknown subclass «thyristor2» (allowed: bjt, fet, ujt, avalanche, thyristor, triac, rectifier, zener, varicap, tunnel, gunn, generator, led, detector, signal, multiplier, magnetic, photo or a localized display name)")
+	bad = []domain.Field{domain.TextField("category", "bogus")}
+	_, err = svc.Upsert(ctx, DeviceInput{Name: "MJE340", System: domain.SystemOther, Kind: domain.KindTransistor, Fields: &bad})
+	wantDomainError(t, err, domain.CodeValidationFailed,
+		"unknown category «bogus» (allowed: audio, composite, fast, general_purpose, high_voltage, lownoise, power, precision, pulse, rf, switching)")
+	bad = []domain.Field{domain.NumField("assembly", 2)}
+	_, err = svc.Upsert(ctx, DeviceInput{Name: "MJE340", System: domain.SystemOther, Kind: domain.KindTransistor, Fields: &bad})
+	wantDomainError(t, err, domain.CodeValidationFailed,
+		"value of field assembly must be 0 or 1")
+	// Дубликат поля.
+	bad = []domain.Field{domain.TextField("material", "si"), domain.TextField("material", "ge")}
+	_, err = svc.Upsert(ctx, DeviceInput{Name: "MJE340", System: domain.SystemOther, Kind: domain.KindTransistor, Fields: &bad})
+	wantDomainError(t, err, domain.CodeValidationFailed,
+		"classification field «material» is set more than once")
+
+	// Отвергнутый вход не меняет запись (атомарность).
+	card, _, _ = svc.Get(ctx, domain.KindTransistor, "MJE340")
+	if f, ok := card.FieldByName("material"); !ok || f.Text != "ge" {
+		t.Fatalf("material после отказа: %v", f)
 	}
 }

@@ -79,12 +79,15 @@ func (p ParsedDesignation) String() string {
 // Реестр полей разбора по разрядам: текстовые и числовые. Единый источник
 // для фильтров и сортировки поиска (REST/CLI) — транспорты собственных
 // списков полей не ведут: новое поле парсера попадает в реестр и сразу
-// доступно фильтрам. Состав синхронен полям, которые создают парсеры
-// строгих систем и series (закреплён тестом).
+// доступно фильтрам. Кроме продуктов парсеров реестр содержит
+// классификационные поля (adjustment, category) — их задаёт секция fields
+// формата наполнения для систем, которые не кодируют их обозначением
+// (состав полей парсеров закреплён тестом отдельно от реестра).
 var (
 	textDesignationFields = map[string]bool{
 		"material": true, "subclass": true, "letters": true,
 		"prefix": true, "family": true, "series": true,
+		"adjustment": true, "category": true,
 	}
 	numericDesignationFields = map[string]bool{
 		"assembly": true, "feature": true, "dev_number": true,
@@ -92,6 +95,90 @@ var (
 		"group": true, "power": true,
 	}
 )
+
+// ClassificationFieldCodes — коды классификационных полей, допустимых
+// в секции fields формата наполнения (документация формата и валидация
+// сервисного слоя). Поля грамматик систем (dev_number, letters, group,
+// series, …) явно не задаются: их даёт разбор обозначения.
+var ClassificationFieldCodes = []string{
+	"material", "subclass", "adjustment", "category", "assembly",
+}
+
+// classificationFieldKinds — применимость классификационных полей к
+// классам (аналог attribute_kinds, D7): material/subclass/assembly —
+// полупроводники, adjustment — резисторы и конденсаторы, category — все
+// классы.
+var classificationFieldKinds = map[string][]Kind{
+	"material":   {KindTransistor, KindDiode},
+	"subclass":   {KindTransistor, KindDiode},
+	"assembly":   {KindTransistor, KindDiode},
+	"adjustment": {KindResistor, KindCapacitor},
+	"category":   nil, // все классы
+}
+
+// ClassificationFieldAppliesTo сообщает, применимо ли классификационное
+// поле к классу записи.
+func ClassificationFieldAppliesTo(field string, kind Kind) bool {
+	kinds, ok := classificationFieldKinds[field]
+	if !ok {
+		return false
+	}
+	if kinds == nil {
+		return true
+	}
+	for _, k := range kinds {
+		if k == kind {
+			return true
+		}
+	}
+	return false
+}
+
+// parserFieldSets — поля, которые парсер системы способен установить сам
+// (по классу записи): секция fields формата наполнения может задавать
+// только остальные. Состав синхронен полям, создаваемым парсерами
+// (закреплён тестом).
+var parserFieldSets = map[System]map[Kind][]string{
+	SystemGost: {
+		KindTransistor: {"material", "subclass", "assembly", "feature", "dev_number", "letters", "modification", "chip"},
+		KindDiode:      {"material", "subclass", "assembly", "feature", "dev_number", "letters", "modification", "chip"},
+		KindResistor:   {"family", "group", "adjustment", "dev_number", "letters"},
+		KindCapacitor:  {"prefix", "group", "adjustment", "dev_number", "letters"},
+	},
+	SystemOst: {
+		KindResistor: {"family", "group", "adjustment", "dev_number", "letters"},
+	},
+	SystemPro: {
+		KindTransistor: {"material", "subclass", "dev_number", "letters"},
+		KindDiode:      {"material", "subclass", "dev_number", "letters"},
+	},
+	SystemJedec: {
+		KindTransistor: {"junctions", "dev_number", "letters"},
+		KindDiode:      {"junctions", "dev_number", "letters"},
+	},
+	SystemJis: {
+		KindTransistor: {"junctions", "subclass", "dev_number", "letters"},
+		KindDiode:      {"junctions", "subclass", "dev_number", "letters"},
+	},
+	SystemSeries: {
+		KindTransistor: {"series", "power", "dev_number", "letters"},
+		KindDiode:      {"series", "power", "dev_number", "letters"},
+		KindResistor:   {"series", "power", "dev_number", "letters"},
+		KindCapacitor:  {"series", "power", "dev_number", "letters"},
+	},
+	SystemOther: {},
+}
+
+// ParserFieldKnown сообщает, способна ли система обозначений установить
+// поле разбора сама для класса записи (продукты грамматики парсера).
+func ParserFieldKnown(system System, kind Kind, field string) bool {
+	for _, f := range parserFieldSets[system][kind] {
+		if f == field {
+			return true
+		}
+	}
+	return false
+}
 
 // KnownDesignationField сообщает, существует ли поле разбора с кодом name.
 func KnownDesignationField(name string) bool {

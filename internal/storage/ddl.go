@@ -7,7 +7,11 @@ import "strings"
 // schema_meta.schema_version — отказ в работе (schema_version_mismatch),
 // миграций нет (D5). Версия 2 — каталожные таблицы без текстовых колонок
 // (D9: отображаемые строки — бандлы internal/i18n; коды единиц — латиница).
-const SchemaVersion = 3
+// Версия 3 — словарь материалов полупроводников (коды вместо русских
+// названий в device_designation_fields.text_value). Версия 4 — словарь
+// подклассов и способов подстройки (коды полей subclass/adjustment),
+// классификационные поля секции fields и каталожный словарь категорий.
+const SchemaVersion = 4
 
 // autoIncToken — маркер авто-PK в переносимом DDL; диалект заменяет его
 // своим определением (sqlite: PRIMARY KEY AUTOINCREMENT — запрет
@@ -46,6 +50,10 @@ var ddlStatements = []string{
 )`,
 
 	`CREATE TABLE IF NOT EXISTS units (
+    code TEXT PRIMARY KEY
+)`,
+
+	`CREATE TABLE IF NOT EXISTS categories (
     code TEXT PRIMARY KEY
 )`,
 

@@ -379,6 +379,63 @@ func runImporterSuite(t *testing.T, factory configFactory) {
 			t.Fatal("h21e не найден в карточке")
 		}
 	})
+
+	t.Run("ClassificationFieldsRoundTrip", func(t *testing.T) {
+		app := openApp(t, factory)
+		importFile(t, app, dataPath(t, "transistors.jsonc"), false)
+		// Явные классификационные поля: карточка, сквозной поиск по коду,
+		// round-trip экспорта и идемпотентность повторного импорта.
+		card, found, err := app.Services().Devices.Get(context.Background(), domain.KindTransistor, "MJE340")
+		if err != nil || !found {
+			t.Fatalf("карточка MJE340: %v (found=%v)", err, found)
+		}
+		f, ok := card.FieldByName("material")
+		if !ok || f.Text != "si" {
+			t.Fatalf("material MJE340: %v", f)
+		}
+		if f, ok := card.FieldByName("subclass"); !ok || f.Text != "bjt" {
+			t.Fatalf("subclass MJE340: %v", f)
+		}
+		// gost-запись: подкласс — продукт парсера (код словаря).
+		card, found, err = app.Services().Devices.Get(context.Background(), domain.KindTransistor, "КТ315Б")
+		if err != nil || !found {
+			t.Fatalf("карточка КТ315Б: %v (found=%v)", err, found)
+		}
+		if f, ok := card.FieldByName("subclass"); !ok || f.Text != "bjt" {
+			t.Fatalf("subclass КТ315Б: %v", f)
+		}
+		// Сквозной фильтр: other и gost в одном запросе по коду словаря.
+		page, err := app.Services().Devices.Search(context.Background(), service.SearchQuery{
+			Kind:   domain.KindTransistor,
+			Fields: []service.FieldFilter{{Field: "subclass", Text: "bjt"}},
+			Limit:  200,
+		})
+		if err != nil {
+			t.Fatalf("поиск: %v", err)
+		}
+		names := map[string]bool{}
+		for _, item := range page.Items {
+			names[item.Designation] = true
+		}
+		if !names["КТ315Б"] || !names["MJE340"] || !names["2N2222A"] || names["IRF540"] {
+			t.Fatalf("subclass=bjt: %v", names)
+		}
+		// Экспорт пишет секцию fields, повторный импорт — без изменений.
+		kind := domain.KindTransistor
+		var buf bytes.Buffer
+		if err := New(app).Export(context.Background(), &buf, FormatJSONC, &kind); err != nil {
+			t.Fatalf("экспорт: %v", err)
+		}
+		if !strings.Contains(buf.String(), `"fields": {`) {
+			t.Fatalf("экспорт: секция fields отсутствует:\n%s", buf.String())
+		}
+		file := filepath.Join(t.TempDir(), "export.jsonc")
+		write(t, file, buf.String())
+		rep := importFile(t, app, file, false)
+		if rep.HasIssues() || rep.Added != 0 || rep.Updated != 0 {
+			t.Fatalf("повторный импорт: %+v; %v", rep, issueMessages(rep.Issues))
+		}
+	})
 }
 
 func write(t *testing.T, path, content string) {

@@ -131,6 +131,79 @@ func TestMaterialDictionary(t *testing.T) {
 	}
 }
 
+// Словари подклассов и способов подстройки: полнота бандлов и канонизация
+// входа фильтров (код либо название локали → код, D9).
+func TestSubclassDictionary(t *testing.T) {
+	for _, s := range domain.Subclasses() {
+		for _, l := range i18n.Languages() {
+			if !i18n.HasString(l, "subclass."+s.Code) {
+				t.Errorf("бандл %s: нет подкласса %q", string(l), s.Code)
+			}
+		}
+	}
+	cases := map[string]string{
+		"bjt": "bjt",
+		"биполярный транзистор":           "bjt",
+		"bipolar transistor":              "bjt",
+		"стабилитрон":                     "zener",
+		"zener (voltage-regulator) diode": "zener",
+	}
+	for in, want := range cases {
+		got, ok := i18n.SubclassCode(in)
+		if !ok || got != want {
+			t.Errorf("SubclassCode(%q) = %q,%v; want %q", in, got, ok, want)
+		}
+	}
+	if _, ok := i18n.SubclassCode("самодельный"); ok {
+		t.Error("самодельный подкласс ошибочно канонизируется")
+	}
+}
+
+func TestAdjustmentDictionary(t *testing.T) {
+	for _, a := range domain.Adjustments() {
+		for _, l := range i18n.Languages() {
+			if !i18n.HasString(l, "adjustment."+a.Code) {
+				t.Errorf("бандл %s: нет способа подстройки %q", string(l), a.Code)
+			}
+		}
+	}
+	cases := map[string]string{
+		"fixed":        "fixed",
+		"постоянный":   "fixed",
+		"переменный":   "variable",
+		"variable":     "variable",
+		"подстроечный": "preset",
+	}
+	for in, want := range cases {
+		got, ok := i18n.AdjustmentCode(in)
+		if !ok || got != want {
+			t.Errorf("AdjustmentCode(%q) = %q,%v; want %q", in, got, ok, want)
+		}
+	}
+}
+
+// Категории — каталожный словарь: канонизация по кодам каталога и
+// названиям бандлов; расширения без бандла — только точным кодом.
+func TestCategoryCode(t *testing.T) {
+	codes := []string{"general_purpose", "power", "custom_ext"}
+	cases := map[string]string{
+		"general_purpose": "general_purpose",
+		"универсальный":   "general_purpose",
+		"general purpose": "general_purpose",
+		"custom_ext":      "custom_ext",
+	}
+	for in, want := range cases {
+		got, ok := i18n.CategoryCode(in, codes)
+		if !ok || got != want {
+			t.Errorf("CategoryCode(%q) = %q,%v; want %q", in, got, ok, want)
+		}
+	}
+	// Название локали без кода в каталоге — не канонизируется.
+	if _, ok := i18n.CategoryCode("precision", codes); ok {
+		t.Error("код вне каталога ошибочно канонизируется названием")
+	}
+}
+
 // Инженерное форматирование значений (этап 8.4): производные единицы
 // отображения и разделитель локали.
 func TestFormatValue(t *testing.T) {

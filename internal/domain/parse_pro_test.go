@@ -8,23 +8,23 @@ func TestParseProValid(t *testing.T) {
 		kind   Kind
 		fields string
 	}{
-		{"BC547B", KindTransistor, "material=si; subclass=C; dev_number=547; letters=B"},
-		{"AD161", KindTransistor, "material=ge; subclass=D; dev_number=161"},
-		{"BF245", KindTransistor, "material=si; subclass=F; dev_number=245"},
-		{"BY133", KindDiode, "material=si; subclass=Y; dev_number=133"},
-		{"AA112", KindDiode, "material=ge; subclass=A; dev_number=112"},
-		{"ACY32", KindTransistor, "material=ge; subclass=C; dev_number=32"},
+		{"BC547B", KindTransistor, "material=si; subclass=bjt; dev_number=547; letters=B"},
+		{"AD161", KindTransistor, "material=ge; subclass=bjt; dev_number=161"},
+		{"BF245", KindTransistor, "material=si; subclass=bjt; dev_number=245"},
+		{"BY133", KindDiode, "material=si; subclass=rectifier; dev_number=133"},
+		{"AA112", KindDiode, "material=ge; subclass=signal; dev_number=112"},
+		{"ACY32", KindTransistor, "material=ge; subclass=bjt; dev_number=32"},
 		// ASZ15 — индустриальная регистрация, поэтому НЕ входит в реестр
 		// series (инвариант 03 §2.4).
-		{"ASZ15", KindTransistor, "material=ge; subclass=S; dev_number=15"},
-		{"BZX85C5V1", KindDiode, "material=si; subclass=Z; dev_number=85; letters=C"},
-		{"BZY74-C6V3", KindDiode, "material=si; subclass=Z; dev_number=74"},
-		{"BZW70-9V1", KindDiode, "material=si; subclass=Z; dev_number=70"},
-		{"BZW10-15B", KindDiode, "material=si; subclass=Z; dev_number=10"},
-		{"BLU80-24", KindTransistor, "material=si; subclass=L; dev_number=80"},
-		{"BPW50-6", KindDiode, "material=si; subclass=P; dev_number=50"},
-		{"CQY17", KindDiode, "material=gaas; subclass=Q; dev_number=17"},
-		{"BU208A", KindTransistor, "material=si; subclass=U; dev_number=208; letters=A"},
+		{"ASZ15", KindTransistor, "material=ge; subclass=bjt; dev_number=15"},
+		{"BZX85C5V1", KindDiode, "material=si; subclass=zener; dev_number=85; letters=C"},
+		{"BZY74-C6V3", KindDiode, "material=si; subclass=zener; dev_number=74"},
+		{"BZW70-9V1", KindDiode, "material=si; subclass=zener; dev_number=70"},
+		{"BZW10-15B", KindDiode, "material=si; subclass=zener; dev_number=10"},
+		{"BLU80-24", KindTransistor, "material=si; subclass=bjt; dev_number=80"},
+		{"BPW50-6", KindDiode, "material=si; subclass=photo; dev_number=50"},
+		{"CQY17", KindDiode, "material=gaas; subclass=led; dev_number=17"},
+		{"BU208A", KindTransistor, "material=si; subclass=bjt; dev_number=208; letters=A"},
 	}
 	for _, tc := range cases {
 		p, err := parsePro(newScanner(tc.input), "")

@@ -8,7 +8,7 @@
       "name": "КДС111В",                     // сборка из двух выпрямительных диодов, общий катод
       "system": "gost",
       "attributes": {
-        "category": "выпрямительная сборка", "tu": "3.362.145ТУ",
+        "description": "выпрямительная сборка", "tu": "3.362.145ТУ",
         "datasheetUrl": "https://eandc.ru/catalog/detail.php?ID=8815"
       },
       "parameters": [
@@ -26,7 +26,7 @@
       "name": "КС168А",                      // стабилитрон 6,8 В: напряжение — в двух последних цифрах номера
       "system": "gost",
       "attributes": {
-        "category": "стабилитрон", "package": "КД-4-1", "tu": "СМ3.362.812ТУ",
+        "description": "стабилитрон", "package": "КД-4-1", "tu": "СМ3.362.812ТУ",
         "datasheetUrl": "http://www.club155.ru/datasheet/KS168A"
       },
       "parameters": [
@@ -46,7 +46,7 @@
       "name": "АЛ307Б",                      // светодиод красный; Iv нормирован снизу (≥0,9 мкд) — диапазон в модель не ложится
       "system": "gost",
       "attributes": {
-        "category": "светодиод", "tu": "аА0.336.076ТУ",
+        "description": "светодиод", "tu": "аА0.336.076ТУ",
         "datasheetUrl": "https://kazus.ru/post/3200032-al307"
       },
       "parameters": [
@@ -64,7 +64,7 @@
       "name": "КД522А",                      // импульсный; trr и Cд без условий нормировки — не сохраняются
       "system": "gost",
       "attributes": {
-        "category": "импульсный",
+        "description": "импульсный",
         "datasheetUrl": "https://kazus.ru/post/2686850-kd522a"
       },
       "parameters": [
@@ -85,7 +85,7 @@
       "name": "AA119",                       // A германий; класс без буквы — старая регистрация
       "system": "pro",
       "attributes": {
-        "category": "универсальный (германиевый)", "package": "DO-7",
+        "description": "универсальный (германиевый)", "package": "DO-7",
         "datasheetUrl": "https://www.fabian.com.mt/en/featured/webshop/9216/germanium-diode-35ma-30v-aa119.htm"
       },
       "manufacturers": ["Telefunken"],
@@ -99,7 +99,7 @@
       "name": "BY133",                       // Y мощный выпрямитель; VRRM 1300 В
       "system": "pro",
       "attributes": {
-        "category": "выпрямительный",
+        "description": "выпрямительный",
         "datasheetUrl": "https://diotec.com/en/product/BY133.html"
       },
       "manufacturers": ["Diotec", "Philips", "Tesla"],
@@ -119,7 +119,7 @@
       "name": "BZX85C5V1",                   // стабилитрон 5,1 В ±5 %; тест-ток в доступных источниках не приведён — Ust/Rdiff не сохраняются
       "system": "pro",
       "attributes": {
-        "category": "стабилитрон",
+        "description": "стабилитрон",
         "datasheetUrl": "https://www.soselectronic.com/en/products/vishay-semiconductors/bzx-85-c-5v1-bzx85c5v1-tap-14206"
       },
       "manufacturers": ["Vishay", "onsemi", "Fairchild"],
@@ -133,8 +133,9 @@
     {
       "name": "1N4148",
       "system": "jedec",
+      "fields": { "material": "si", "subclass": "signal", "category": "pulse" },
       "attributes": {
-        "category": "импульсный",
+        "description": "импульсный",
         "datasheetUrl": "https://en.wikipedia.org/wiki/1N4148"
       },
       "manufacturers": ["Fairchild", "Vishay"],
@@ -152,8 +153,9 @@
     {
       "name": "1N4007",
       "system": "jedec",
+      "fields": { "material": "si", "subclass": "rectifier" },
       "attributes": {
-        "category": "выпрямительный",
+        "description": "выпрямительный",
         "datasheetUrl": "https://diotec.com/en/product/1N4007.html"
       },
       "manufacturers": ["Diotec", "Fairchild"],
@@ -173,8 +175,9 @@
     {
       "name": "1N5408",
       "system": "jedec",
+      "fields": { "material": "si", "subclass": "rectifier" },
       "attributes": {
-        "category": "выпрямительный",
+        "description": "выпрямительный",
         "datasheetUrl": "https://diotec.com/en/product/1N5408.html"
       },
       "manufacturers": ["Diotec"],
@@ -195,7 +198,7 @@
       "name": "1SS352",                      // параметры с неполными условиями нормировки не сохраняются
       "system": "jis",
       "attributes": {
-        "category": "имульсный", "package": "SOD-323",
+        "description": "имульсный", "package": "SOD-323",
         "datasheetUrl": "https://datasheet4u.com/datasheets/Toshiba-Semiconductor/1SS352/96169"
       },
       "manufacturers": ["Toshiba"],
@@ -210,7 +213,7 @@
       "name": "1SR154-400",                  // ROHM классифицирует как стандартный (не быстрый) выпрямитель
       "system": "jis",
       "attributes": {
-        "category": "выпрямительный",
+        "description": "выпрямительный",
         "datasheetUrl": "https://www.rohm.com/products/diodes/rectifier-diodes/standard/1sr154-400-product"
       },
       "manufacturers": ["ROHM"],
@@ -230,8 +233,9 @@
     {
       "name": "Д226",
       "system": "series",
+      "fields": { "material": "si", "subclass": "rectifier" },
       "attributes": {
-        "category": "выпрямительный",
+        "description": "выпрямительный",
         "datasheetUrl": "https://kazus.ru/post/2686188-d226"
       },
       "parameters": [
@@ -249,8 +253,9 @@
     {
       "name": "Д814А",                       // стабилитрон 7–8,5 В
       "system": "series",
+      "fields": { "material": "si", "subclass": "zener" },
       "attributes": {
-        "category": "стабилитрон",
+        "description": "стабилитрон",
         "datasheetUrl": "http://www.club155.ru/datasheet/D814A"
       },
       "parameters": [
@@ -268,8 +273,9 @@
     {
       "name": "Д2Б",                         // германиевый точечный
       "system": "series",
+      "fields": { "material": "ge", "subclass": "rectifier" },
       "attributes": {
-        "category": "универсальный (германиевый точечный)",
+        "description": "универсальный (германиевый точечный)",
         "datasheetUrl": "https://www.radiolibrary.ru/reference/diod/d2b.html"
       },
       "parameters": [
@@ -288,8 +294,9 @@
     {
       "name": "UF4007",                      // ультрабыстрый 1000 В; условия trr — по вторичному источнику
       "system": "other",
+      "fields": { "material": "si", "subclass": "rectifier", "category": "fast" },
       "attributes": {
-        "category": "выпрямительный ультрабыстрый",
+        "description": "выпрямительный ультрабыстрый",
         "datasheetUrl": "https://diotec.com/en/product/UF4007.html"
       },
       "manufacturers": ["Diotec", "Vishay", "onsemi"],

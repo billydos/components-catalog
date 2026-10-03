@@ -54,6 +54,7 @@ func Catalog() catalog.Input {
 		SystemKinds:    systemKinds,
 		SeriesFamilies: families,
 		Units:          units(),
+		Categories:     categories(),
 		Conditions:     conditions(),
 		Groups:         groups(),
 		Parameters:     parameters(),
@@ -78,6 +79,23 @@ func units() []catalog.UnitDef {
 	out := make([]catalog.UnitDef, 0, len(codes))
 	for _, c := range codes {
 		out = append(out, catalog.UnitDef{Code: c})
+	}
+	return out
+}
+
+// categories — стартовый словарь категорий (поле классификации category:
+// применение/характеристика прибора, ортогональная подклассу — функции
+// перехода). Коды — латиница (D9); названия — бандлы internal/i18n
+// (category.<код>), расширения каталога данными без записи в бандле
+// отображаются кодом.
+func categories() []catalog.CategoryDef {
+	codes := []string{
+		"general_purpose", "power", "high_voltage", "switching", "pulse",
+		"rf", "audio", "lownoise", "fast", "precision", "composite",
+	}
+	out := make([]catalog.CategoryDef, 0, len(codes))
+	for _, c := range codes {
+		out = append(out, catalog.CategoryDef{Code: c})
 	}
 	return out
 }
@@ -398,7 +416,7 @@ func parameters() []catalog.ParameterDef {
 func attributes() []catalog.AttributeDef {
 	trDi := []domain.Kind{domain.KindTransistor, domain.KindDiode}
 	return []catalog.AttributeDef{
-		{Code: "category", Type: catalog.AttrText, SortOrder: 10, Active: true},
+		{Code: "description", Type: catalog.AttrText, SortOrder: 10, Active: true},
 		{Code: "structure", Type: catalog.AttrText,
 			SortOrder: 20, Active: true, Kinds: trDi},
 		{Code: "polarized", Type: catalog.AttrBool,

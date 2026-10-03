@@ -131,6 +131,16 @@ func checkGostDevNumber(s *scanner, digits string, allowLeadingZero bool, pos in
 	return 0, s.failToken(pos, MsgExpectGostDevNumber, digits)
 }
 
+// gostSubclassCode отображает прочитанную букву подкласса в код словаря
+// (Т → bjt, П → fet, …); двухбуквенные формы принадлежат неподерживаемым
+// классам и сюда не доходят.
+func gostSubclassCode(subclass string) string {
+	if code, ok := GostSubclassBySymbol([]rune(subclass)[0]); ok {
+		return code
+	}
+	return subclass
+}
+
 // parseGostSemiconductor разбирает полупроводниковые обозначения gost;
 // kindHint переопределяет неоднозначный класс Ф (фотодиод/фототранзистор).
 func parseGostSemiconductor(s *scanner, kindHint Kind) (ParsedDesignation, error) {
@@ -316,7 +326,7 @@ func parseGostSemiconductor(s *scanner, kindHint Kind) (ParsedDesignation, error
 
 	fields := []Field{
 		TextField("material", material.Code),
-		TextField("subclass", subclass),
+		TextField("subclass", gostSubclassCode(subclass)),
 		NumField("assembly", float64(assembly)),
 	}
 	if hasFeature {

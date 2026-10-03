@@ -30,6 +30,9 @@ const (
 	MsgSystemUnknown   MsgID = "system_unknown"
 	MsgFamilyUnknown   MsgID = "family_unknown"
 	MsgUnknownMaterial MsgID = "unknown_material"
+	MsgUnknownSubclass MsgID = "unknown_subclass"
+	MsgUnknownAdjust   MsgID = "unknown_adjustment"
+	MsgUnknownCategory MsgID = "unknown_category"
 	MsgPowerSuffix     MsgID = "power_suffix"
 	MsgDevNumberZeros  MsgID = "dev_number_leading_zero"
 
@@ -192,6 +195,10 @@ const (
 	MsgImportRecordUnknownField       MsgID = "import_record_unknown_field"
 	MsgImportRecordSystemString       MsgID = "import_record_system_string"
 	MsgImportRecordSystemUnknown      MsgID = "import_record_system_unknown"
+	MsgImportFieldsObject             MsgID = "import_fields_object"
+	MsgImportFieldUnknown             MsgID = "import_field_unknown"
+	MsgImportFieldString              MsgID = "import_field_string"
+	MsgImportFieldNumber              MsgID = "import_field_number"
 	MsgImportSectionArray             MsgID = "import_section_array"
 	MsgImportManufacturersArray       MsgID = "import_manufacturers_array"
 	MsgImportManufacturerItem         MsgID = "import_manufacturer_item"
@@ -287,6 +294,11 @@ const (
 	MsgSvcFilterParamSet        MsgID = "svc_filter_param_value_missing"
 	MsgSvcFilterParamText       MsgID = "svc_filter_param_text_expected"
 	MsgSvcFilterParamNumber     MsgID = "svc_filter_param_number_expected"
+	MsgSvcFieldDuplicate        MsgID = "svc_field_duplicate"
+	MsgSvcFieldUnknown          MsgID = "svc_field_unknown"
+	MsgSvcFieldParserOwned      MsgID = "svc_field_parser_owned"
+	MsgSvcFieldNotApplicable    MsgID = "svc_field_not_applicable"
+	MsgSvcFieldAssemblyRange    MsgID = "svc_field_assembly_range"
 
 	// Транспортные сообщения REST (internal/httpapi).
 	MsgApiRouteNotFound       MsgID = "api_route_not_found"
@@ -382,6 +394,9 @@ var msgRegistry = map[MsgID]struct{}{
 	MsgSystemUnknown:   {},
 	MsgFamilyUnknown:   {},
 	MsgUnknownMaterial: {},
+	MsgUnknownSubclass: {},
+	MsgUnknownAdjust:   {},
+	MsgUnknownCategory: {},
 	MsgPowerSuffix:     {},
 	MsgDevNumberZeros:  {},
 
@@ -539,6 +554,10 @@ var msgRegistry = map[MsgID]struct{}{
 	MsgImportRecordUnknownField:       {},
 	MsgImportRecordSystemString:       {},
 	MsgImportRecordSystemUnknown:      {},
+	MsgImportFieldsObject:             {},
+	MsgImportFieldUnknown:             {},
+	MsgImportFieldString:              {},
+	MsgImportFieldNumber:              {},
 	MsgImportSectionArray:             {},
 	MsgImportManufacturersArray:       {},
 	MsgImportManufacturerItem:         {},
@@ -630,6 +649,11 @@ var msgRegistry = map[MsgID]struct{}{
 	MsgSvcFilterParamSet:              {},
 	MsgSvcFilterParamText:             {},
 	MsgSvcFilterParamNumber:           {},
+	MsgSvcFieldDuplicate:              {},
+	MsgSvcFieldUnknown:                {},
+	MsgSvcFieldParserOwned:            {},
+	MsgSvcFieldNotApplicable:          {},
+	MsgSvcFieldAssemblyRange:          {},
 	MsgApiRouteNotFound:               {},
 	MsgApiMethodNotAllowed:            {},
 	MsgApiPanic:                       {},

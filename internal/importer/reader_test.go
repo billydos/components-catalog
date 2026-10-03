@@ -39,6 +39,59 @@ func issueMessages(issues []Issue) []string {
 	return out
 }
 
+// Секция fields: форма значений (коды словарей — строками, assembly —
+// числом), null-члены пропускаются, неизвестные ключи — дословные тексты.
+func TestReadDocumentClassificationFields(t *testing.T) {
+	root, snap := parseDoc(t, `{
+		"transistors": [
+			{
+				"name": "MJE340", "system": "other",
+				"fields": { "material": "si", "subclass": "bjt", "category": "high_voltage", "assembly": 0 }
+			},
+			{ "name": "MJE350", "system": "other", "fields": { "material": null, "subclass": "bjt" } },
+			{ "name": "MJE360", "system": "other", "fields": [] },
+			{ "name": "MJE370", "system": "other", "fields": { "power": 5 } },
+			{ "name": "MJE380", "system": "other", "fields": { "material": 5 } },
+			{ "name": "MJE390", "system": "other", "fields": { "assembly": "нет" } }
+		]
+	}`)
+	doc, issues := ReadDocument(root, snap)
+	if len(doc.Records) != 2 || doc.Rejected != 4 {
+		t.Fatalf("записи: %d, rejected: %d: %v", len(doc.Records), doc.Rejected, issueMessages(issues))
+	}
+	f := doc.Records[0].Input.Fields
+	if f == nil || len(*f) != 4 {
+		t.Fatalf("fields: %v", f)
+	}
+	byName := map[string]domain.Field{}
+	for _, field := range *f {
+		byName[field.Name] = field
+	}
+	if byName["material"].Text != "si" || byName["subclass"].Text != "bjt" ||
+		byName["category"].Text != "high_voltage" {
+		t.Fatalf("текстовые поля: %v", *f)
+	}
+	if !byName["assembly"].IsNum || byName["assembly"].Num != 0 {
+		t.Fatalf("assembly: %v", byName["assembly"])
+	}
+	f2 := doc.Records[1].Input.Fields
+	if f2 == nil || len(*f2) != 1 || (*f2)[0].Text != "bjt" {
+		t.Fatalf("null-член: %v", f2)
+	}
+	got := issueMessages(issues)
+	want := []string{
+		"record «MJE360»: the fields section must be an object «field code → value»",
+		"record «MJE370»: unknown classification field «power» (allowed: material, subclass, adjustment, category, assembly)",
+		"record «MJE380»: value of classification field «material» must be a string with a dictionary code",
+		"record «MJE390»: value of classification field assembly must be a number 0 or 1",
+	}
+	for _, w := range want {
+		if !containsMessage(got, w) {
+			t.Errorf("проблема отсутствует: %q (есть: %v)", w, got)
+		}
+	}
+}
+
 func TestReadDocumentRecordForms(t *testing.T) {
 	root, snap := parseDoc(t, `{
 		"transistors": [
@@ -213,7 +266,7 @@ func TestReadDocumentIssuesVerbatimTexts(t *testing.T) {
 		"unknown root key «widgets» (allowed: catalog, transistors, diodes, resistors, capacitors)",
 		"record no. 1: mandatory key \"name\" — a string with the designation",
 		"record «КТ315Б»: unknown designation system «star» (allowed: gost, ost, pro, jedec, jis, series, other)",
-		"record «КТ315Б»: unknown field «voltparams» (allowed: name, system, attributes, manufacturers, variants, analogs and group sections: parameters, ratings, dimensions)",
+		"record «КТ315Б»: unknown field «voltparams» (allowed: name, system, fields, attributes, manufacturers, variants, analogs and group sections: parameters, ratings, dimensions)",
 		"record «КТ315Б»: section «parameters», value no. 1: key \"min\" must be a number",
 		"record no. 5: a record must be a string (designation) or an object, got: number",
 	}
@@ -346,7 +399,7 @@ func TestReadCatalogSectionUnknownSubsection(t *testing.T) {
 	if len(issues) != 1 {
 		t.Fatalf("проблем: %d", len(issues))
 	}
-	want := "catalog: unknown catalog subsection «paraneters» (allowed: kinds, designation_systems, designation_system_kinds, series_families, units, conditions, parameter_groups, parameters, attributes, validation_rules, kind_validation_rules)"
+	want := "catalog: unknown catalog subsection «paraneters» (allowed: kinds, designation_systems, designation_system_kinds, series_families, units, categories, conditions, parameter_groups, parameters, attributes, validation_rules, kind_validation_rules)"
 	if issues[0].String() != want {
 		t.Fatalf("текст: %q", issues[0].String())
 	}

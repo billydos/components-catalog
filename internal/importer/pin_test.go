@@ -95,7 +95,7 @@ func TestPinDataKeysFromCatalog(t *testing.T) {
 		kinds[KindSection(k.Code)] = true
 	}
 	serviceKeys := map[string]bool{
-		"name": true, "system": true, "attributes": true,
+		"name": true, "system": true, "fields": true, "attributes": true,
 		"manufacturers": true, "variants": true, "analogs": true,
 	}
 	files, err := filepath.Glob(filepath.Join("..", "..", "data", "*"))
@@ -183,7 +183,7 @@ func TestPinExportShapeFromCatalog(t *testing.T) {
 		kinds[KindSection(k.Code)] = true
 	}
 	serviceKeys := map[string]bool{
-		"name": true, "system": true, "attributes": true,
+		"name": true, "system": true, "fields": true, "attributes": true,
 		"manufacturers": true, "variants": true, "analogs": true,
 		"label": true,
 	}

@@ -65,6 +65,15 @@ WHERE NOT EXISTS (SELECT 1 FROM units WHERE code = @code)`,
 			return err
 		}
 	}
+	for _, r := range in.Categories {
+		if err := t.insertIfAbsent(ctx,
+			`INSERT INTO categories(code)
+SELECT @code
+WHERE NOT EXISTS (SELECT 1 FROM categories WHERE code = @code)`,
+			map[string]any{"code": r.Code}); err != nil {
+			return err
+		}
+	}
 	for _, r := range in.Conditions {
 		if err := t.upsert(ctx,
 			`UPDATE conditions SET unit_code = @unit, allow_negative = @neg

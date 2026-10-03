@@ -211,10 +211,10 @@ func (r *reader) record(kind domain.Kind, v value, line, no int) (service.Device
 		return service.DeviceInput{}, false
 	}
 
-	// Допустимые ключи: name, system, служебные секции и секции групп
-	// каталога (имена секций — из каталога, 05-work-plan.md задача 4.6).
+	// Допустимые ключи: name, system, fields, служебные секции и секции
+	// групп каталога (имена секций — из каталога, 05-work-plan.md задача 4.6).
 	serviceKeys := map[string]bool{
-		"name": true, "system": true, "attributes": true,
+		"name": true, "system": true, "fields": true, "attributes": true,
 		"manufacturers": true, "variants": true, "analogs": true,
 	}
 	for _, m := range v.members {
@@ -239,6 +239,14 @@ func (r *reader) record(kind domain.Kind, v value, line, no int) (service.Device
 			return service.DeviceInput{}, false
 		}
 		rec.Input.System = sys
+	}
+
+	if fieldsVal, ok := v.has("fields"); ok && fieldsVal.kind != kindNull {
+		fields, ok := r.classificationFields(rec, fieldsVal)
+		if !ok {
+			return service.DeviceInput{}, false
+		}
+		rec.Input.Fields = &fields
 	}
 
 	if attrVal, ok := v.has("attributes"); ok && attrVal.kind != kindNull {
@@ -329,6 +337,55 @@ func (r *reader) record(kind domain.Kind, v value, line, no int) (service.Device
 		rec.Input.Analogs = &analogs
 	}
 	return rec.Input, true
+}
+
+// classificationFields читает секцию fields — объект «код классификацион-
+// ного поля → значение» (материал, подкласс, подстройка, категория —
+// строка-код; assembly — число). Читатель проверяет только форму ключей
+// и типов; принадлежность кодов словарям, применимость к классу и запрет
+// переопределения продуктов парсера проверяет сервисный слой.
+func (r *reader) classificationFields(rec *Record, v value) ([]domain.Field, bool) {
+	if v.kind != kindObject {
+		r.recFail(rec, domain.MsgImportFieldsObject)
+		return nil, false
+	}
+	allowed := false
+	out := make([]domain.Field, 0, len(v.members))
+	for _, m := range v.members {
+		allowed = false
+		for _, code := range domain.ClassificationFieldCodes {
+			if m.name == code {
+				allowed = true
+				break
+			}
+		}
+		if !allowed {
+			r.recFail(rec, domain.MsgImportFieldUnknown, m.name)
+			return nil, false
+		}
+		if m.value.kind == kindNull {
+			continue // null — поле не задаётся
+		}
+		if m.name == "assembly" {
+			if m.value.kind != kindNumber {
+				r.recFail(rec, domain.MsgImportFieldNumber)
+				return nil, false
+			}
+			f, err := strconv.ParseFloat(m.value.num, 64)
+			if err != nil {
+				r.recFail(rec, domain.MsgImportFieldNumber)
+				return nil, false
+			}
+			out = append(out, domain.NumField("assembly", f))
+			continue
+		}
+		if m.value.kind != kindString {
+			r.recFail(rec, domain.MsgImportFieldString, m.name)
+			return nil, false
+		}
+		out = append(out, domain.TextField(m.name, strings.TrimSpace(m.value.str)))
+	}
+	return out, true
 }
 
 // attributes читает секцию attributes: объект «код атрибута → значение».

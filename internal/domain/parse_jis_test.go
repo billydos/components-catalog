@@ -9,23 +9,23 @@ func TestParseJisValid(t *testing.T) {
 		kind       Kind
 		fields     string
 	}{
-		{"2SA1015", "2SA1015", KindTransistor, "junctions=2; subclass=A; dev_number=1015"},
-		{"2SC1815", "2SC1815", KindTransistor, "junctions=2; subclass=C; dev_number=1815"},
-		{"2SK1058", "2SK1058", KindTransistor, "junctions=2; subclass=K; dev_number=1058"},
-		{"2SB75", "2SB75", KindTransistor, "junctions=2; subclass=B; dev_number=75"},
-		{"2SJ50", "2SJ50", KindTransistor, "junctions=2; subclass=J; dev_number=50"},
-		{"2SD555GR", "2SD555GR", KindTransistor, "junctions=2; subclass=D; dev_number=555; letters=GR"},
-		{"3SK122", "3SK122", KindTransistor, "junctions=3; subclass=K; dev_number=122"},
+		{"2SA1015", "2SA1015", KindTransistor, "junctions=2; subclass=bjt; dev_number=1015"},
+		{"2SC1815", "2SC1815", KindTransistor, "junctions=2; subclass=bjt; dev_number=1815"},
+		{"2SK1058", "2SK1058", KindTransistor, "junctions=2; subclass=fet; dev_number=1058"},
+		{"2SB75", "2SB75", KindTransistor, "junctions=2; subclass=bjt; dev_number=75"},
+		{"2SJ50", "2SJ50", KindTransistor, "junctions=2; subclass=fet; dev_number=50"},
+		{"2SD555GR", "2SD555GR", KindTransistor, "junctions=2; subclass=bjt; dev_number=555; letters=GR"},
+		{"3SK122", "3SK122", KindTransistor, "junctions=3; subclass=fet; dev_number=122"},
 		{"1S2076", "1S2076", KindDiode, "junctions=1; dev_number=2076"},
-		{"1SS352", "1SS352", KindDiode, "junctions=1; subclass=S; dev_number=352"},
-		{"1SR154-400", "1SR154-400", KindDiode, "junctions=1; subclass=R; dev_number=154"},
-		{"1SZ10", "1SZ10", KindDiode, "junctions=1; subclass=Z; dev_number=10"},
+		{"1SS352", "1SS352", KindDiode, "junctions=1; subclass=signal; dev_number=352"},
+		{"1SR154-400", "1SR154-400", KindDiode, "junctions=1; subclass=rectifier; dev_number=154"},
+		{"1SZ10", "1SZ10", KindDiode, "junctions=1; subclass=zener; dev_number=10"},
 		// Сокращённые формы: префикс 2S опущен, канонизация восстанавливает
 		// полный формат; сокращённые — не ключи записей (03 §2.1).
-		{"C1815", "2SC1815", KindTransistor, "junctions=2; subclass=C; dev_number=1815"},
-		{"A1015", "2SA1015", KindTransistor, "junctions=2; subclass=A; dev_number=1015"},
-		{"K1058", "2SK1058", KindTransistor, "junctions=2; subclass=K; dev_number=1058"},
-		{"D1047", "2SD1047", KindTransistor, "junctions=2; subclass=D; dev_number=1047"},
+		{"C1815", "2SC1815", KindTransistor, "junctions=2; subclass=bjt; dev_number=1815"},
+		{"A1015", "2SA1015", KindTransistor, "junctions=2; subclass=bjt; dev_number=1015"},
+		{"K1058", "2SK1058", KindTransistor, "junctions=2; subclass=fet; dev_number=1058"},
+		{"D1047", "2SD1047", KindTransistor, "junctions=2; subclass=bjt; dev_number=1047"},
 	}
 	for _, tc := range cases {
 		p, err := parseJis(newScanner(tc.input), "")

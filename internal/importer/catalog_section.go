@@ -17,8 +17,8 @@ import (
 // catalogSubsections — подразделы секции catalog (порядок экспорта).
 var catalogSubsections = []string{
 	"kinds", "designation_systems", "designation_system_kinds", "series_families",
-	"units", "conditions", "parameter_groups", "parameters", "attributes",
-	"validation_rules", "kind_validation_rules",
+	"units", "categories", "conditions", "parameter_groups", "parameters",
+	"attributes", "validation_rules", "kind_validation_rules",
 }
 
 // ReadCatalogSection читает дерево секции catalog в каталог. Значение
@@ -45,6 +45,8 @@ func ReadCatalogSection(v value) (catalog.Input, []Issue) {
 			r.readSeriesFamilies(m.value)
 		case "units":
 			r.readUnits(m.value)
+		case "categories":
+			r.readCategories(m.value)
 		case "conditions":
 			r.readConditions(m.value)
 		case "parameter_groups":
@@ -72,6 +74,7 @@ func MergeCatalogInput(dst *catalog.Input, add catalog.Input) {
 	dst.SystemKinds = append(dst.SystemKinds, add.SystemKinds...)
 	dst.SeriesFamilies = append(dst.SeriesFamilies, add.SeriesFamilies...)
 	dst.Units = append(dst.Units, add.Units...)
+	dst.Categories = append(dst.Categories, add.Categories...)
 	dst.Conditions = append(dst.Conditions, add.Conditions...)
 	dst.Groups = append(dst.Groups, add.Groups...)
 	dst.Parameters = append(dst.Parameters, add.Parameters...)
@@ -290,6 +293,20 @@ func (r *catReader) readUnits(v value) {
 			continue
 		}
 		r.in.Units = append(r.in.Units, catalog.UnitDef{Code: code})
+	}
+}
+
+func (r *catReader) readCategories(v value) {
+	rows, ok := r.rows("categories", v)
+	if !ok {
+		return
+	}
+	for _, row := range rows {
+		code, _ := r.str(row, "categories", "", "code", false)
+		if !r.checkKeys("categories", row, code, "code") {
+			continue
+		}
+		r.in.Categories = append(r.in.Categories, catalog.CategoryDef{Code: code})
 	}
 }
 

@@ -235,3 +235,93 @@ func MaterialCode(codeOrDisplay string) (string, bool) {
 	}
 	return "", false
 }
+
+// SubclassName возвращает отображаемое название подкласса прибора
+// по стабильному коду словаря (D9: значения словаря — коды).
+func SubclassName(l Language, code string) string {
+	mustKnown(l)
+	return resolve(l, "subclass."+code, code)
+}
+
+// SubclassCode канонизирует вход значения подкласса: код словаря либо
+// отображаемое название любой локали → стабильный код. Для фильтров
+// поиска на краю (CLI --subclass, REST subclass=).
+func SubclassCode(codeOrDisplay string) (string, bool) {
+	if codeOrDisplay == "" {
+		return "", false
+	}
+	if HasString(En, "subclass."+codeOrDisplay) {
+		return codeOrDisplay, true
+	}
+	for _, l := range languageOrder {
+		for key, val := range bundles[l] {
+			if strings.HasPrefix(key, "subclass.") && val == codeOrDisplay {
+				return strings.TrimPrefix(key, "subclass."), true
+			}
+		}
+	}
+	return "", false
+}
+
+// AdjustmentName возвращает отображаемое название способа подстройки
+// по стабильному коду словаря (D9: значения словаря — коды).
+func AdjustmentName(l Language, code string) string {
+	mustKnown(l)
+	return resolve(l, "adjustment."+code, code)
+}
+
+// AdjustmentCode канонизирует вход значения подстройки: код словаря либо
+// отображаемое название любой локали → стабильный код. Для фильтров
+// поиска на краю (CLI --adjustment, REST adjustment=).
+func AdjustmentCode(codeOrDisplay string) (string, bool) {
+	if codeOrDisplay == "" {
+		return "", false
+	}
+	if HasString(En, "adjustment."+codeOrDisplay) {
+		return codeOrDisplay, true
+	}
+	for _, l := range languageOrder {
+		for key, val := range bundles[l] {
+			if strings.HasPrefix(key, "adjustment.") && val == codeOrDisplay {
+				return strings.TrimPrefix(key, "adjustment."), true
+			}
+		}
+	}
+	return "", false
+}
+
+// CategoryName возвращает отображаемое название категории по коду
+// каталожного словаря; расширения каталога данными без записи в бандле
+// отображаются кодом (D9).
+func CategoryName(l Language, code string) string {
+	mustKnown(l)
+	return resolve(l, "category."+code, code)
+}
+
+// CategoryCode канонизирует вход значения категории по кодам словаря
+// каталога (данные, не бандлы): точный код либо отображаемое название
+// любой локали бандлов → код. Для фильтров поиска на краю (CLI --category,
+// REST category=).
+func CategoryCode(codeOrDisplay string, codes []string) (string, bool) {
+	if codeOrDisplay == "" {
+		return "", false
+	}
+	for _, code := range codes {
+		if code == codeOrDisplay {
+			return code, true
+		}
+	}
+	for _, l := range languageOrder {
+		for key, val := range bundles[l] {
+			if strings.HasPrefix(key, "category.") && val == codeOrDisplay {
+				code := strings.TrimPrefix(key, "category.")
+				for _, known := range codes {
+					if known == code {
+						return code, true
+					}
+				}
+			}
+		}
+	}
+	return "", false
+}

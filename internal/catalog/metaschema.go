@@ -38,6 +38,7 @@ func validateInputSelf(in Input) []Problem {
 	probs = append(probs, checkPairCodes("series_families", in.SeriesFamilies,
 		func(r SeriesFamilyDef) string { return r.Series + "+" + string(r.Kind) })...)
 	probs = append(probs, checkCodes("units", in.Units, func(r UnitDef) string { return r.Code })...)
+	probs = append(probs, checkCodes("categories", in.Categories, func(r CategoryDef) string { return r.Code })...)
 	probs = append(probs, checkCodes("conditions", in.Conditions, func(r ConditionDef) string { return r.Code })...)
 	probs = append(probs, checkCodes("parameter_groups", in.Groups, func(r GroupDef) string { return r.Code })...)
 	probs = append(probs, checkCodes("parameters", in.Parameters, func(r ParameterDef) string { return r.Code })...)
@@ -162,6 +163,13 @@ func applyInput(out *Snapshot, in Input) {
 			out.Units = append(out.Units, r)
 		}
 	}
+	for _, r := range in.Categories {
+		if i := indexOfCategory(out.Categories, r.Code); i >= 0 {
+			out.Categories[i] = r
+		} else {
+			out.Categories = append(out.Categories, r)
+		}
+	}
 	for _, r := range in.Conditions {
 		if i := indexOfCondition(out.Conditions, r.Code); i >= 0 {
 			out.Conditions[i] = r
@@ -241,6 +249,15 @@ func indexOfFamily(rows []SeriesFamilyDef, series string, kind domain.Kind) int 
 }
 
 func indexOfUnit(rows []UnitDef, code string) int {
+	for i := range rows {
+		if rows[i].Code == code {
+			return i
+		}
+	}
+	return -1
+}
+
+func indexOfCategory(rows []CategoryDef, code string) int {
 	for i := range rows {
 		if rows[i].Code == code {
 			return i
@@ -353,6 +370,12 @@ func validateMetaschema(out *Snapshot) []Problem {
 		r := &out.Units[i]
 		if r.Code == "" {
 			probs = append(probs, metaProblem(domain.MsgMetaSectionNoCode, "units"))
+		}
+	}
+	for i := range out.Categories {
+		r := &out.Categories[i]
+		if r.Code == "" {
+			probs = append(probs, metaProblem(domain.MsgMetaSectionNoCode, "categories"))
 		}
 	}
 	for i := range out.Conditions {

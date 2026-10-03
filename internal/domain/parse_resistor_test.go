@@ -7,14 +7,14 @@ func TestParseResistorGostValid(t *testing.T) {
 		input  string
 		fields string
 	}{
-		{"С2-33Н", "family=С; group=2; dev_number=33; letters=Н"},
-		{"СП3-19А", "family=СП; group=3; dev_number=19; letters=А"},
-		{"С5-16МВ", "family=С; group=5; dev_number=16; letters=МВ"},
-		{"С1-4", "family=С; group=1; dev_number=4"},
-		{"С4-2", "family=С; group=4; dev_number=2"},
-		{"С2-29В", "family=С; group=2; dev_number=29; letters=В"},
-		{"СП5-1", "family=СП; group=5; dev_number=1"},
-		{"С6-6", "family=С; group=6; dev_number=6"},
+		{"С2-33Н", "family=С; adjustment=fixed; group=2; dev_number=33; letters=Н"},
+		{"СП3-19А", "family=СП; adjustment=variable; group=3; dev_number=19; letters=А"},
+		{"С5-16МВ", "family=С; adjustment=fixed; group=5; dev_number=16; letters=МВ"},
+		{"С1-4", "family=С; adjustment=fixed; group=1; dev_number=4"},
+		{"С4-2", "family=С; adjustment=fixed; group=4; dev_number=2"},
+		{"С2-29В", "family=С; adjustment=fixed; group=2; dev_number=29; letters=В"},
+		{"СП5-1", "family=СП; adjustment=variable; group=5; dev_number=1"},
+		{"С6-6", "family=С; adjustment=fixed; group=6; dev_number=6"},
 	}
 	for _, tc := range cases {
 		p, err := parseResistorGost(newScanner(tc.input), "")
@@ -71,10 +71,10 @@ func TestParseResistorOstValid(t *testing.T) {
 		input  string
 		fields string
 	}{
-		{"Р1-4", "family=Р; group=1; dev_number=4"},
-		{"РП1-46", "family=РП; group=1; dev_number=46"},
-		{"Р2-12", "family=Р; group=2; dev_number=12"},
-		{"НР1-1", "family=НР; group=1; dev_number=1"},
+		{"Р1-4", "family=Р; adjustment=fixed; group=1; dev_number=4"},
+		{"РП1-46", "family=РП; adjustment=variable; group=1; dev_number=46"},
+		{"Р2-12", "family=Р; adjustment=fixed; group=2; dev_number=12"},
+		{"НР1-1", "family=НР; adjustment=fixed; group=1; dev_number=1"},
 	}
 	for _, tc := range cases {
 		p, err := parseResistorOst(newScanner(tc.input), "")

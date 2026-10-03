@@ -111,7 +111,15 @@ func (m *Importer) exportKindRecords(ctx context.Context, snap *catalog.Snapshot
 			if !found { // параллельное удаление — запись уже не выгружается
 				continue
 			}
-			out = append(out, recordTree(card))
+			// Разбор обозначения над реестром семейств каталога — как при
+			// импорте: явные классификационные поля = хранимые минус
+			// продукты парсера (round-trip секции fields).
+			p, err := m.app.Services().Designations.ParseForSystem(ctx,
+				card.Designation, card.System, card.Kind)
+			if err != nil {
+				return nil, err
+			}
+			out = append(out, recordTree(card, &p))
 		}
 		offset += pageLimit
 		if offset >= page.Total {
@@ -120,11 +128,26 @@ func (m *Importer) exportKindRecords(ctx context.Context, snap *catalog.Snapshot
 	}
 }
 
-// recordTree строит дерево записи наполнения из карточки.
-func recordTree(c *service.Card) value {
+// recordTree строит дерево записи наполнения из карточки. Поля разбора
+// записей восстанавливает разбор обозначения; секция fields содержит
+// только явные классификационные поля (хранимые минус продукты парсера).
+func recordTree(c *service.Card, parsed *domain.ParsedDesignation) value {
 	members := []member{
 		pair("name", str(c.Designation)),
 		pair("system", str(string(c.System))),
+	}
+	if parsed != nil {
+		if explicit := explicitFields(c, parsed); len(explicit) > 0 {
+			fieldPairs := make([]member, 0, len(explicit))
+			for _, f := range explicit {
+				if f.IsNum {
+					fieldPairs = append(fieldPairs, pair(f.Name, num(f.Num)))
+					continue
+				}
+				fieldPairs = append(fieldPairs, pair(f.Name, str(f.Text)))
+			}
+			members = append(members, pair("fields", object(fieldPairs...)))
+		}
 	}
 	if len(c.Attributes) > 0 {
 		attrPairs := make([]member, 0, len(c.Attributes))
@@ -186,6 +209,20 @@ func recordTree(c *service.Card) value {
 		members = append(members, pair("analogs", array(analogs...)))
 	}
 	return object(members...)
+}
+
+// explicitFields — явные классификационные поля записи: хранимые поля
+// минус продукты разбора обозначения (импортёр запрещает совпадения,
+// разность всегда определена).
+func explicitFields(c *service.Card, parsed *domain.ParsedDesignation) []domain.Field {
+	var out []domain.Field
+	for _, f := range c.Fields {
+		if _, parsed := parsed.FieldByName(f.Name); parsed {
+			continue
+		}
+		out = append(out, f)
+	}
+	return out
 }
 
 // attrTreeValue — скаляр значения атрибута.
@@ -271,6 +308,14 @@ func catalogTree(snap *catalog.Snapshot) value {
 	}
 	if len(unitRows) > 0 {
 		cat.members = append(cat.members, pair("units", array(unitRows...)))
+	}
+
+	catRows := make([]value, 0, len(snap.Categories))
+	for _, c := range snap.Categories {
+		catRows = append(catRows, object(pair("code", str(c.Code))))
+	}
+	if len(catRows) > 0 {
+		cat.members = append(cat.members, pair("categories", array(catRows...)))
 	}
 
 	condRows := make([]value, 0, len(snap.Conditions))

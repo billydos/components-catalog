@@ -42,6 +42,7 @@ type stateAnalog struct {
 
 // deviceState — слитое состояние записи.
 type deviceState struct {
+	fields        []domain.Field           // явные классификационные поля (по имени поля)
 	attributes    []catalog.AttributeValue // отсортированы по коду атрибута
 	groupValues   map[string][]stateValue  // код группы каталога → значения в порядке
 	variants      []stateVariant           // исполнения в порядке
@@ -52,7 +53,10 @@ type deviceState struct {
 // loadState читает текущее состояние записи внутри транзакции записи
 // (консистентность с последующим применением секций); значения типа
 // в целом группируются по группам каталога (группа параметра — из снимка).
-func (s *stateMerger) loadState(ctx context.Context, tx *storage.Tx, deviceID int64) (*deviceState, error) {
+// Явные классификационные поля — хранимые поля минус продукты разбора
+// обозначения записи (p).
+func (s *stateMerger) loadState(ctx context.Context, tx *storage.Tx, deviceID int64,
+	p domain.ParsedDesignation) (*deviceState, error) {
 	attrs, err := tx.LoadAttributes(ctx, deviceID)
 	if err != nil {
 		return nil, err
@@ -73,10 +77,15 @@ func (s *stateMerger) loadState(ctx context.Context, tx *storage.Tx, deviceID in
 	if err != nil {
 		return nil, err
 	}
+	storedFields, err := tx.LoadFields(ctx, deviceID)
+	if err != nil {
+		return nil, err
+	}
 
 	st := &deviceState{
 		groupValues:   make(map[string][]stateValue),
 		manufacturers: manufacturers,
+		fields:        explicitFieldsOf(storedFields, p.Fields),
 	}
 	for _, a := range attrs {
 		st.attributes = append(st.attributes, catalog.AttributeValue{
@@ -139,9 +148,18 @@ type stateMerger struct {
 // merge строит слитое состояние: заданные секции входа заменяют текущие,
 // отсутствующие — сохраняются. Вход предварительно нормализуется
 // (сортировка/дедупликация — ошибки даёт validateInput до слияния).
-func (s *stateMerger) merge(cur *deviceState, in *DeviceInput, resolvedAnalogs []stateAnalog) *deviceState {
+// explicit — провалидированный набор явных классификационных полей
+// (не nil только при заданной секции fields).
+func (s *stateMerger) merge(cur *deviceState, in *DeviceInput, explicit []domain.Field,
+	resolvedAnalogs []stateAnalog) *deviceState {
 	out := &deviceState{
 		groupValues: make(map[string][]stateValue),
+	}
+	// Явные классификационные поля: nil — не менять, иначе замена целиком.
+	if in.Fields != nil {
+		out.fields = append([]domain.Field(nil), explicit...)
+	} else {
+		out.fields = cur.fields
 	}
 	// Атрибуты: nil — не менять, иначе замена целиком (включая очистку).
 	if in.Attributes != nil {
@@ -224,6 +242,13 @@ func sameState(a, b *deviceState) bool {
 // stateKey строит каноническое представление состояния для сравнения.
 func stateKey(st *deviceState) string {
 	var b strings.Builder
+	for _, f := range st.fields {
+		b.WriteString("F:")
+		b.WriteString(f.Name)
+		b.WriteString("=")
+		b.WriteString(f.String())
+		b.WriteString(";")
+	}
 	for _, a := range st.attributes {
 		b.WriteString("A:")
 		b.WriteString(a.Attribute)

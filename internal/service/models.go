@@ -44,12 +44,16 @@ type AnalogInput struct {
 // (docs/plan/01-architecture.md §2.4): отсутствует (nil) — не менять; задана —
 // заменить целиком; пустой непустой-nil срез/[] — очистить; ошибка в любом
 // значении секции — запись не применяется вовсе. System/Kind необязательны
-// (автодетект; Kind обязателен для other).
+// (автодетект; Kind обязателен для other). Fields — явные классификацион-
+// ные поля (material/subclass/adjustment/category/assembly): допустимы
+// только те, что парсер системы записи не устанавливает сам, и только
+// применимые к классу (проверка — сервисным слоем после разбора).
 type DeviceInput struct {
 	Name   string
 	System domain.System
 	Kind   domain.Kind
 
+	Fields        *[]domain.Field
 	Attributes    []catalog.AttributeValue
 	Sections      []SectionInput
 	Manufacturers *[]string

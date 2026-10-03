@@ -17,6 +17,7 @@ import (
 	"time"
 
 	"github.com/billydos/components-catalog/internal/catalog"
+	"github.com/billydos/components-catalog/internal/domain"
 	"github.com/billydos/components-catalog/internal/service"
 	"github.com/goccy/go-yaml"
 )
@@ -100,7 +101,8 @@ func seedDevices(t *testing.T, app *service.App) {
 		Analogs:       &[]service.AnalogInput{{Designation: "BC547B"}},
 	})
 	upsert(service.DeviceInput{
-		Name: "МЛТ-0.5",
+		Name:   "МЛТ-0.5",
+		Fields: &[]domain.Field{domain.TextField("adjustment", "fixed")},
 		Sections: []service.SectionInput{
 			{Section: "parameters", Values: []catalog.ParameterValue{
 				{Parameter: "Rnom", Min: ptr(1.0), Max: ptr(5100000.0)},
@@ -339,7 +341,7 @@ func TestStats(t *testing.T) {
 		t.Fatalf("статус: %d", status)
 	}
 	st := decode[statsJSON](t, body)
-	if st.SchemaVersion != 3 || st.Total != 4 || st.Kinds["transistor"] != 2 || st.Kinds["capacitor"] != 1 {
+	if st.SchemaVersion != 4 || st.Total != 4 || st.Kinds["transistor"] != 2 || st.Kinds["capacitor"] != 1 {
 		t.Fatalf("статистика: %+v", st)
 	}
 	if st.CatalogRevision == 0 || st.DataRevision == 0 {
@@ -362,6 +364,12 @@ func TestSearch(t *testing.T) {
 		{"поле обозначения (код материала)", "material=si", []string{"BC547B", "КТ315Б"}, false},
 		{"поле обозначения (ru название)", "material=%D0%BA%D1%80%D0%B5%D0%BC%D0%BD%D0%B8%D0%B9", []string{"BC547B", "КТ315Б"}, false},
 		{"поле обозначения (en название)", "material=silicon", []string{"BC547B", "КТ315Б"}, false},
+		{"подкласс (код словаря)", "subclass=bjt", []string{"BC547B", "КТ315Б"}, false},
+		{"подкласс (ru название)", "subclass=%D0%B1%D0%B8%D0%BF%D0%BE%D0%BB%D1%8F%D1%80%D0%BD%D1%8B%D0%B9%20%D1%82%D1%80%D0%B0%D0%BD%D0%B7%D0%B8%D1%81%D1%82%D0%BE%D1%80", []string{"BC547B", "КТ315Б"}, false},
+		{"подкласс (en название)", "subclass=bipolar%20transistor", []string{"BC547B", "КТ315Б"}, false},
+		{"подстройка (код)", "adjustment=fixed", []string{"К50-35", "МЛТ-0.5"}, false},
+		{"подстройка (ru название)", "adjustment=%D0%BF%D0%BE%D1%81%D1%82%D0%BE%D1%8F%D0%BD%D0%BD%D1%8B%D0%B9", []string{"К50-35", "МЛТ-0.5"}, false},
+		{"категория (код каталога)", "category=general_purpose", nil, false},
 		{"параметр", "par.h21e.min=150", []string{"BC547B"}, false},
 		{"точный параметр", "par.Pnom.exact=0.5", []string{"МЛТ-0.5"}, false},
 		{"атрибут", "attr.structure=npn", []string{"BC547B", "КТ315Б"}, false},
@@ -405,6 +413,15 @@ func TestSearch(t *testing.T) {
 	if page.Total != 4 || len(page.Items) != 2 || page.Limit != 2 {
 		t.Fatalf("пагинация: %+v", page)
 	}
+
+	// Неизвестные коды словарных фильтров — 400 с дословным текстом.
+	status, body, eb := do(t, srv, http.MethodGet, apiPrefix+"/components?subclass=bogus", "")
+	wantError(t, status, eb, http.StatusBadRequest, "validation_failed",
+		"unknown subclass «bogus» (allowed: bjt, fet, ujt, avalanche, thyristor, triac, rectifier, zener, varicap, tunnel, gunn, generator, led, detector, signal, multiplier, magnetic, photo or a localized display name)")
+	status, body, eb = do(t, srv, http.MethodGet, apiPrefix+"/components?category=bogus", "")
+	wantError(t, status, eb, http.StatusBadRequest, "validation_failed",
+		"unknown category «bogus» (allowed: audio, composite, fast, general_purpose, high_voltage, lownoise, power, precision, pulse, rf, switching)")
+	_ = body
 
 	// вариантный параметрический фильтр — в пределах одного исполнения:
 	// Unom=25 И diameter≤9 — у К50-35 диаметр 10 на 25 В → пусто.
@@ -631,7 +648,7 @@ func TestCreate(t *testing.T) {
 	status, _, eb = do(t, srv, http.MethodPost, apiPrefix+"/components",
 		`{"name":"ГТ402Г","bogus":[]}`)
 	wantError(t, status, eb, http.StatusBadRequest, "invalid_import_file",
-		"unknown field «bogus» (allowed: name, system, attributes, manufacturers, variants, analogs and group sections: parameters, ratings, dimensions)")
+		"unknown field «bogus» (allowed: name, system, fields, attributes, manufacturers, variants, analogs and group sections: parameters, ratings, dimensions)")
 
 	// Невалидное обозначение — 422 invalid_designation.
 	status, _, eb = do(t, srv, http.MethodPost, apiPrefix+"/components", `{"name":"@@@"}`)
@@ -694,7 +711,7 @@ func TestPut(t *testing.T) {
 	// для системы other).
 	status, body, _ = do(t, srv, http.MethodPut,
 		apiPrefix+"/components/diode/"+esc("Д226"),
-		`{"name":"Д226","system":"series","attributes":{"category":"выпрямительный"}}`)
+		`{"name":"Д226","system":"series","attributes":{"description":"выпрямительный"}}`)
 	if status != http.StatusOK {
 		t.Fatalf("создание PUT: %d, тело %s", status, body)
 	}
@@ -702,6 +719,54 @@ func TestPut(t *testing.T) {
 		resp.Card.Designation != "Д226" {
 		t.Fatalf("создание PUT: %+v", resp)
 	}
+
+	// Секция fields в теле REST: создание с классификацией и замена набора.
+	status, body, _ = do(t, srv, http.MethodPut,
+		apiPrefix+"/components/transistor/"+esc("MJE350"),
+		`{"name":"MJE350","system":"other","fields":{"material":"si","subclass":"bjt","category":"high_voltage"}}`)
+	if status != http.StatusOK {
+		t.Fatalf("создание с fields: %d, тело %s", status, body)
+	}
+	resp = decode[upsertResponseJSON](t, body)
+	if resp.Outcome != "Added" {
+		t.Fatalf("создание с fields: %+v", resp)
+	}
+	fieldJSON := map[string]string{}
+	for _, f := range resp.Card.Fields {
+		if f.Text != nil {
+			fieldJSON[f.Name] = *f.Text
+		}
+	}
+	if fieldJSON["material"] != "si" || fieldJSON["subclass"] != "bjt" ||
+		fieldJSON["category"] != "high_voltage" {
+		t.Fatalf("карточка fields: %+v", resp.Card.Fields)
+	}
+	// Замена набора: category исчезает, material меняется.
+	status, body, _ = do(t, srv, http.MethodPut,
+		apiPrefix+"/components/transistor/"+esc("MJE350"),
+		`{"name":"MJE350","system":"other","fields":{"material":"ge"}}`)
+	if status != http.StatusOK {
+		t.Fatalf("замена fields: %d, тело %s", status, body)
+	}
+	resp = decode[upsertResponseJSON](t, body)
+	fieldJSON = map[string]string{}
+	for _, f := range resp.Card.Fields {
+		if f.Text != nil {
+			fieldJSON[f.Name] = *f.Text
+		}
+	}
+	if fieldJSON["material"] != "ge" {
+		t.Fatalf("material после замены: %+v", resp.Card.Fields)
+	}
+	if _, ok := fieldJSON["category"]; ok {
+		t.Fatal("category не удалён заменой набора")
+	}
+	// Неклассификационное поле в fields — 400 (код читателя формата).
+	status, _, eb = do(t, srv, http.MethodPut,
+		apiPrefix+"/components/transistor/"+esc("MJE350"),
+		`{"name":"MJE350","system":"other","fields":{"letters":"X"}}`)
+	wantError(t, status, eb, http.StatusBadRequest, "invalid_import_file",
+		"unknown classification field «letters» (allowed: material, subclass, adjustment, category, assembly)")
 }
 
 func TestDelete(t *testing.T) {

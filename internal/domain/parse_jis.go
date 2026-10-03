@@ -94,7 +94,9 @@ func parseJis(s *scanner, _ Kind) (ParsedDesignation, error) {
 	designation := canonical
 	fields := []Field{NumField("junctions", float64(junc-'0'))}
 	if subclass != "" {
-		fields = append(fields, TextField("subclass", subclass))
+		// Подкласс — код единого словаря (A/B/C/D → bjt, J/K → fet, …).
+		code, _ := JisSubclassByLetter([]rune(subclass)[0])
+		fields = append(fields, TextField("subclass", code))
 	}
 	fields = append(fields, NumField("dev_number", float64(devNumber)))
 	if letters != "" {
@@ -120,13 +122,14 @@ func parseJisShortForm(s *scanner) (ParsedDesignation, error) {
 		return ParsedDesignation{}, s.eofErr()
 	}
 	full := "2S" + string(class) + run
+	subclassCode, _ := JisSubclassByLetter(class)
 	return ParsedDesignation{
 		Kind:        KindTransistor,
 		System:      SystemJis,
 		Designation: full,
 		Fields: []Field{
 			NumField("junctions", 2),
-			TextField("subclass", string(class)),
+			TextField("subclass", subclassCode),
 			NumField("dev_number", float64(mustAtoi(run))),
 		},
 	}, nil

@@ -127,9 +127,11 @@ func parsePro(s *scanner, _ Kind) (ParsedDesignation, error) {
 		return ParsedDesignation{}, KindNotSupported()
 	}
 
+	// Подкласс — код единого словаря (C/D/F/L/S/U → bjt и т.д.).
+	subclassCode, _ := ProSubclassByLetter(class)
 	fields := []Field{
 		TextField("material", material.Code),
-		TextField("subclass", string(class)),
+		TextField("subclass", subclassCode),
 		NumField("dev_number", float64(devNumber)),
 	}
 	if letters != "" {

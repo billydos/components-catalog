@@ -113,10 +113,11 @@ var commands = map[string]*command{
 		flags: append([]flagSpec{kindFlag, systemFlag}, dbFlags...), minArgs: 1, maxArgs: -1, run: runAdd},
 	"import": {usage: "import <файл> [--dry-run] [--db]",
 		flags: append([]flagSpec{dryRunFlag}, dbFlags...), minArgs: 1, maxArgs: 1, run: runImport},
-	"list": {usage: "list [--kind] [--system] [--material] [--subclass] [--junctions] [--group] [--series] [--number] [--letters] [--q] [--limit] [--offset] [--db]",
+	"list": {usage: "list [--kind] [--system] [--material] [--subclass] [--adjustment] [--category] [--junctions] [--group] [--series] [--number] [--letters] [--q] [--limit] [--offset] [--db]",
 		flags: append([]flagSpec{
 			kindFlag, systemFlag,
 			{name: "material", hasValue: true}, {name: "subclass", hasValue: true},
+			{name: "adjustment", hasValue: true}, {name: "category", hasValue: true},
 			{name: "junctions", hasValue: true}, {name: "group", hasValue: true},
 			{name: "series", hasValue: true}, {name: "number", hasValue: true},
 			{name: "letters", hasValue: true}, {name: "q", hasValue: true},
@@ -226,7 +227,7 @@ func (o *options) set(cmd, name, value string) error {
 		} else {
 			o.offset = n
 		}
-	case "material", "subclass", "series", "letters":
+	case "material", "subclass", "adjustment", "category", "series", "letters":
 		o.texts[name] = value
 	case "junctions", "group", "number":
 		f, err := strconv.ParseFloat(value, 64)

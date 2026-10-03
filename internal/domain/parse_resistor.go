@@ -78,6 +78,7 @@ func parseResistorGost(s *scanner, _ Kind) (ParsedDesignation, error) {
 
 	fields := []Field{
 		TextField("family", family),
+		TextField("adjustment", ResistorFamilyAdjustment(family)),
 		NumField("group", float64(group)),
 		NumField("dev_number", float64(devNumber)),
 	}
@@ -131,6 +132,7 @@ func parseResistorOst(s *scanner, _ Kind) (ParsedDesignation, error) {
 		Designation: canonical,
 		Fields: []Field{
 			TextField("family", family),
+			TextField("adjustment", ResistorFamilyAdjustment(family)),
 			NumField("group", float64(group)),
 			NumField("dev_number", float64(devNumber)),
 		},

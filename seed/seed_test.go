@@ -217,8 +217,8 @@ func TestSeedSpotChecks(t *testing.T) {
 			t.Errorf("%s: %+v", code, a)
 		}
 	}
-	if a := attr("category"); len(a.Kinds) != 0 {
-		t.Errorf("category: применимость должна быть «все классы», задано %v", a.Kinds)
+	if a := attr("description"); len(a.Kinds) != 0 {
+		t.Errorf("description: применимость должна быть «все классы», задано %v", a.Kinds)
 	}
 }
 
@@ -248,6 +248,9 @@ func expectedBundleKeys(t *testing.T) map[string]bool {
 		want["unit."+u.Code+".name"] = true
 		want["unit."+u.Code+".symbol"] = true
 	}
+	for _, c := range snap.Categories {
+		want["category."+c.Code] = true
+	}
 	for _, c := range snap.Conditions {
 		want["condition."+c.Code] = true
 	}
@@ -265,6 +268,12 @@ func expectedBundleKeys(t *testing.T) map[string]bool {
 	}
 	for _, m := range domain.Materials() {
 		want["material."+m.Code] = true
+	}
+	for _, s := range domain.Subclasses() {
+		want["subclass."+s.Code] = true
+	}
+	for _, a := range domain.Adjustments() {
+		want["adjustment."+a.Code] = true
 	}
 	for _, f := range domain.DesignationFieldCodes() {
 		want["field."+f] = true

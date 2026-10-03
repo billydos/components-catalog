@@ -110,6 +110,84 @@ func TestMaterials(t *testing.T) {
 	}
 }
 
+// Единый словарь подклассов: отображения букв систем сходятся к кодам,
+// обратных расщеплений нет (03 §2; выверка — 07 §4).
+func TestSubclasses(t *testing.T) {
+	gost := map[rune]string{
+		'Т': "bjt", 'П': "fet", 'Д': "rectifier", 'Ц': "rectifier",
+		'С': "zener", 'В': "varicap", 'А': "detector", 'И': "tunnel",
+		'Г': "generator", 'Л': "led", 'Ф': "photo",
+	}
+	for sym, code := range gost {
+		got, ok := domain.GostSubclassBySymbol(sym)
+		if !ok || got != code {
+			t.Errorf("gost %c: %q,%v", sym, got, ok)
+		}
+	}
+	pro := map[rune]string{
+		'C': "bjt", 'D': "bjt", 'F': "bjt", 'L': "bjt", 'S': "bjt", 'U': "bjt",
+		'A': "signal", 'B': "varicap", 'E': "tunnel", 'H': "magnetic",
+		'P': "photo", 'Q': "led", 'X': "multiplier", 'Y': "rectifier", 'Z': "zener",
+	}
+	for sym, code := range pro {
+		got, ok := domain.ProSubclassByLetter(sym)
+		if !ok || got != code {
+			t.Errorf("pro %c: %q,%v", sym, got, ok)
+		}
+	}
+	jis := map[rune]string{
+		'A': "bjt", 'B': "bjt", 'C': "bjt", 'D': "bjt",
+		'J': "fet", 'K': "fet", 'H': "ujt", 'T': "avalanche",
+		'F': "thyristor", 'M': "triac", 'E': "rectifier", 'R': "rectifier",
+		'S': "signal", 'Z': "zener", 'V': "varicap", 'G': "gunn", 'Q': "led",
+	}
+	for sym, code := range jis {
+		got, ok := domain.JisSubclassByLetter(sym)
+		if !ok || got != code {
+			t.Errorf("jis %c: %q,%v", sym, got, ok)
+		}
+	}
+	if _, ok := domain.SubclassByCode("bjt"); !ok {
+		t.Error("bjt отсутствует в словаре подклассов")
+	}
+	if _, ok := domain.SubclassByCode("copper"); ok {
+		t.Error("copper отсутствует в словаре подклассов")
+	}
+	if got := len(domain.Subclasses()); got != 18 {
+		t.Errorf("словарь подклассов: %d записей", got)
+	}
+}
+
+// Словарь способов подстройки и отображения семейств/подклассов
+// резисторных и конденсаторных грамматик.
+func TestAdjustments(t *testing.T) {
+	for code, want := range map[string]string{
+		"fixed": "fixed", "variable": "variable", "preset": "preset",
+	} {
+		a, ok := domain.AdjustmentByCode(code)
+		if !ok || a.Code != want {
+			t.Errorf("словарь подстройки: %q → %+v", code, a)
+		}
+	}
+	if _, ok := domain.AdjustmentByCode("tunable"); ok {
+		t.Error("tunable отсутствует в словаре подстройки")
+	}
+	for family, want := range map[string]string{
+		"С": "fixed", "СП": "variable", "Р": "fixed", "РП": "variable", "НР": "fixed",
+	} {
+		if got := domain.ResistorFamilyAdjustment(family); got != want {
+			t.Errorf("семейство %s: %q, ожидалось %q", family, got, want)
+		}
+	}
+	for prefix, want := range map[string]string{
+		"К": "fixed", "КТ": "preset", "КП": "variable", "КН": "fixed", "КС": "fixed",
+	} {
+		if got := domain.CapacitorPrefixAdjustment(prefix); got != want {
+			t.Errorf("подкласс %s: %q, ожидалось %q", prefix, got, want)
+		}
+	}
+}
+
 // Поля разбора: поиск по коду и текстовое представление.
 func TestParsedDesignationFields(t *testing.T) {
 	p, err := domain.ParseDesignation("КТ315Б")
@@ -133,12 +211,13 @@ func TestParsedDesignationFields(t *testing.T) {
 }
 
 // Реестр полей разбора: разряды и полнота. Фильтры и сортировка поиска
-// (REST/CLI) используют реестр домена — состав обязан быть синхронен
-// полям, которые создают парсеры.
+// (REST/CLI) используют реестр домена — состав обязан покрывать поля,
+// которые создают парсеры, и классификационные поля секции fields.
 func TestDesignationFieldRegistry(t *testing.T) {
 	for code, numeric := range map[string]bool{
 		"material": false, "subclass": false, "letters": false,
 		"prefix": false, "family": false, "series": false,
+		"adjustment": false, "category": false,
 		"assembly": true, "feature": true, "dev_number": true,
 		"modification": true, "chip": true, "junctions": true,
 		"group": true, "power": true,
@@ -172,5 +251,47 @@ func TestDesignationFieldRegistry(t *testing.T) {
 				t.Errorf("%s: поле %s: реестр numeric=%v, разбор IsNum=%v", d, f.Name, n, f.IsNum)
 			}
 		}
+	}
+}
+
+// Таблица возможностей парсеров: система способна установить поле сама
+// (секция fields его не принимает) — состав закреплён против реальных
+// разборов; классификационные поля применимы по классам.
+func TestParserFieldSets(t *testing.T) {
+	parserOwned := map[string]map[string]bool{
+		"КТ315Б":  {"material": true, "subclass": true, "assembly": true, "category": false, "adjustment": false},
+		"С2-33Н":  {"adjustment": true, "category": false, "material": false},
+		"К10-17Б": {"adjustment": true, "category": false, "material": false},
+		"BC547B":  {"material": true, "subclass": true, "category": false, "adjustment": false, "assembly": false},
+		"2N2222A": {"junctions": true, "material": false, "subclass": false, "assembly": false, "category": false},
+		"2SA1015": {"subclass": true, "material": false, "adjustment": false, "category": false},
+		"МЛТ-0.5": {"series": true, "material": false, "subclass": false, "adjustment": false, "category": false},
+	}
+	for d, fields := range parserOwned {
+		p, err := domain.ParseDesignation(d)
+		if err != nil {
+			t.Fatalf("%s: %v", d, err)
+		}
+		for field, want := range fields {
+			if got := domain.ParserFieldKnown(p.System, p.Kind, field); got != want {
+				t.Errorf("%s (%s/%s): поле %s: ParserFieldKnown=%v, ожидалось %v",
+					d, p.System, p.Kind, field, got, want)
+			}
+		}
+	}
+	if domain.ClassificationFieldAppliesTo("material", domain.KindResistor) {
+		t.Error("material неприменим к резисторам")
+	}
+	if !domain.ClassificationFieldAppliesTo("material", domain.KindTransistor) {
+		t.Error("material применим к транзисторам")
+	}
+	if !domain.ClassificationFieldAppliesTo("adjustment", domain.KindCapacitor) {
+		t.Error("adjustment применим к конденсаторам")
+	}
+	if !domain.ClassificationFieldAppliesTo("category", domain.KindResistor) {
+		t.Error("category применим ко всем классам")
+	}
+	if domain.ClassificationFieldAppliesTo("dev_number", domain.KindTransistor) {
+		t.Error("dev_number — не классификационное поле")
 	}
 }

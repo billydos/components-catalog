@@ -51,6 +51,12 @@ func fieldDisplayValue(lang i18n.Language, f domain.Field) string {
 		// Значение словаря материалов — стабильный код (D9); отображается
 		// названием локали, расширения без записи в бандле — кодом.
 		return i18n.MaterialName(lang, f.Text)
+	case "subclass":
+		return i18n.SubclassName(lang, f.Text)
+	case "adjustment":
+		return i18n.AdjustmentName(lang, f.Text)
+	case "category":
+		return i18n.CategoryName(lang, f.Text)
 	}
 	if f.IsNum {
 		return i18n.FormatNumber(lang, f.Num)

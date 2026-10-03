@@ -6,6 +6,7 @@ import (
 	"io"
 	"os"
 	"strconv"
+	"strings"
 	"text/tabwriter"
 
 	"github.com/billydos/components-catalog/internal/catalog"
@@ -239,12 +240,52 @@ func sectionOf(snap *catalog.Snapshot, group string) string {
 	return group
 }
 
+// canonicalizeFilter канонизирует значение словарного фильтра поиска
+// (material, subclass, adjustment, category): код либо отображаемое
+// название локали → стабильный код. Словарь category — каталожные коды
+// снимка базы команды (snap nil — фильтр category недопустим).
+func canonicalizeFilter(name, value string, snap *catalog.Snapshot) (string, error) {
+	switch name {
+	case "material":
+		if code, ok := i18n.MaterialCode(value); ok {
+			return code, nil
+		}
+		return value, domain.NewErrorf(domain.CodeValidationFailed,
+			domain.MsgUnknownMaterial, value)
+	case "subclass":
+		if code, ok := i18n.SubclassCode(value); ok {
+			return code, nil
+		}
+		return value, domain.NewErrorf(domain.CodeValidationFailed,
+			domain.MsgUnknownSubclass, value, strings.Join(domain.SubclassCodes(), ", "))
+	case "adjustment":
+		if code, ok := i18n.AdjustmentCode(value); ok {
+			return code, nil
+		}
+		return value, domain.NewErrorf(domain.CodeValidationFailed,
+			domain.MsgUnknownAdjust, value, strings.Join(domain.AdjustmentCodes(), ", "))
+	case "category":
+		if snap != nil {
+			if code, ok := i18n.CategoryCode(value, snap.CategoryCodes()); ok {
+				return code, nil
+			}
+			return value, domain.NewErrorf(domain.CodeValidationFailed,
+				domain.MsgUnknownCategory, value, strings.Join(snap.CategoryCodes(), ", "))
+		}
+	}
+	return value, nil
+}
+
 func runList(ctx context.Context, opts *options, pos []string, stdout, stderr io.Writer) int {
 	app, err := openApp(ctx, opts, false)
 	if err != nil {
 		return fail(stderr, opts.langOf(), err)
 	}
 	defer app.Close() //nolint:errcheck
+	snap, err := app.Snapshot(ctx)
+	if err != nil {
+		return fail(stderr, opts.langOf(), err)
+	}
 
 	query := service.SearchQuery{
 		Kind:   opts.kindFlagOf(),
@@ -253,19 +294,16 @@ func runList(ctx context.Context, opts *options, pos []string, stdout, stderr io
 		Limit:  opts.limit,
 		Offset: opts.offset,
 	}
-	for _, name := range []string{"material", "subclass", "series", "letters"} {
+	for _, name := range []string{"material", "subclass", "adjustment", "category", "series", "letters"} {
 		if v, ok := opts.texts[name]; ok {
-			if name == "material" {
-				// Фильтр материала: вход канонизируется к коду словаря
-				// (код либо отображаемое название локали — D9).
-				code, okCode := i18n.MaterialCode(v)
-				if !okCode {
-					return fail(stderr, opts.langOf(), domain.NewErrorf(domain.CodeValidationFailed,
-						domain.MsgUnknownMaterial, v))
-				}
-				v = code
+			// Словарные фильтры: вход канонизируется к коду словаря
+			// (код либо отображаемое название локали — D9; category —
+			// коды каталожного словаря этой базы).
+			code, err := canonicalizeFilter(name, v, snap)
+			if err != nil {
+				return fail(stderr, opts.langOf(), err)
 			}
-			query.Fields = append(query.Fields, service.FieldFilter{Field: name, Text: v})
+			query.Fields = append(query.Fields, service.FieldFilter{Field: name, Text: code})
 		}
 	}
 	for _, name := range []string{"junctions", "group", "number"} {

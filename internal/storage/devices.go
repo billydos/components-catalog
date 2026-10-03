@@ -456,6 +456,20 @@ VALUES (@id, @field, @text, @num)`,
 	return nil
 }
 
+// DeleteDesignationFields удаляет именованные поля разбора записи (замена
+// набора явных классификационных полей секцией fields; поля грамматики
+// парсера не затрагиваются).
+func (t *Tx) DeleteDesignationFields(ctx context.Context, deviceID int64, names []string) error {
+	for _, name := range names {
+		if _, err := t.exec(ctx,
+			`DELETE FROM device_designation_fields WHERE device_id = @id AND field = @field`,
+			map[string]any{"id": deviceID, "field": name}); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 // ReplaceAttributes заменяет значения атрибутов целиком (секция attributes).
 func (t *Tx) ReplaceAttributes(ctx context.Context, deviceID int64, rows []AttrRow) error {
 	if _, err := t.exec(ctx,

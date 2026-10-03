@@ -144,7 +144,7 @@
       "name": "КТ805А",                      // мощный npn; 2N3055 аналогом НЕ подтверждён (аналог 2N3055 — КТ729)
       "system": "gost",
       "attributes": {
-        "structure": "npn", "category": "низкочастотный мощный",
+        "structure": "npn", "description": "низкочастотный мощный",
         "datasheetUrl": "https://rudatasheet.ru/transistors/kt805/"
       },
       "parameters": [
@@ -212,18 +212,19 @@
       "name": "AD161",                       // германиевый npn мощной; комплемент — AD162 (pnp)
       "system": "pro",
       "attributes": {
-        "structure": "npn", "category": "низкочастотный мощной", "yearFrom": 1962,
+        "structure": "npn", "description": "низкочастотный мощной", "yearFrom": 1962,
         "datasheetUrl": "https://www.radiomuseum.org/tubes/tube_ad161.html"
       },
       "manufacturers": ["Valvo", "Telefunken", "Mullard", "Tesla"]
     },
 
-    // jedec: материал и категория не кодируются — задаются атрибутами.
+    // jedec: материал/подкласс/категория не кодируются — секцией fields.
     {
       "name": "2N2222A",
       "system": "jedec",
+      "fields": { "material": "si", "subclass": "bjt", "category": "general_purpose" },
       "attributes": {
-        "structure": "npn", "category": "универсальный", "package": "TO-18",
+        "structure": "npn", "description": "универсальный", "package": "TO-18",
         "datasheetUrl": "https://web.archive.org/web/20220331223626/https://www.st.com/resource/en/datasheet/CD00003223.pdf"
       },
       "manufacturers": ["ST", "Motorola", "Texas Instruments"],
@@ -246,8 +247,9 @@
     {
       "name": "2N3055",
       "system": "jedec",
+      "fields": { "material": "si", "subclass": "bjt", "category": "power" },
       "attributes": {
-        "structure": "npn", "category": "низкочастотный мощный", "package": "TO-3",
+        "structure": "npn", "description": "низкочастотный мощный", "package": "TO-3",
         "datasheetUrl": "https://www.st.com/resource/en/datasheet/cd00000895.pdf"
       },
       "manufacturers": ["ST", "onsemi", "Motorola", "RCA"],
@@ -270,8 +272,9 @@
     {
       "name": "2N3904",
       "system": "jedec",
+      "fields": { "material": "si", "subclass": "bjt", "category": "general_purpose" },
       "attributes": {
-        "structure": "npn", "category": "универсальный", "package": "TO-92",
+        "structure": "npn", "description": "универсальный", "package": "TO-92",
         "datasheetUrl": "https://www.mccsemi.com/pdf/Products/2N3904(TO-92).pdf"
       },
       "manufacturers": ["onsemi", "Motorola", "MCC"],
@@ -358,12 +361,13 @@
       ]
     },
 
-    // series: семейство из реестра series_families; материал и категория — атрибутами.
+    // series: семейство из реестра series_families; классификация — секцией fields.
     {
       "name": "МП39",                        // германиевый pnp; h21э нормирован только снизу (≥12) — в модель не ложится
       "system": "series",
+      "fields": { "material": "ge", "subclass": "bjt", "category": "audio" },
       "attributes": {
-        "structure": "pnp", "category": "низкочастотный",
+        "structure": "pnp", "description": "низкочастотный",
         "datasheetUrl": "https://elektrouzel.ru/reference/transistors/215-tranzistory-tipa-mp39-mp39b-mp40-mp40a-mp41-mp41a.html"
       },
       "manufacturers": ["Светлана (Ленинград)", "Кремний", "Планета (Великий Новгород)"],
@@ -385,8 +389,9 @@
     {
       "name": "МП41А",                       // h21э 50–100 (нормирован диапазоном, в отличие от МП39)
       "system": "series",
+      "fields": { "material": "ge", "subclass": "bjt", "category": "audio" },
       "attributes": {
-        "structure": "pnp", "category": "низкочастотный",
+        "structure": "pnp", "description": "низкочастотный",
         "datasheetUrl": "https://elektrouzel.ru/reference/transistors/215-tranzistory-tipa-mp39-mp39b-mp40-mp40a-mp41-mp41a.html"
       },
       "parameters": [
@@ -407,8 +412,9 @@
     {
       "name": "П214",                        // германиевый pnp мощной
       "system": "series",
+      "fields": { "material": "ge", "subclass": "bjt", "category": "power" },
       "attributes": {
-        "structure": "pnp", "category": "низкочастотный мощной",
+        "structure": "pnp", "description": "низкочастотный мощной",
         "datasheetUrl": "http://d-vt.ru/p214.html"
       },
       "parameters": [
@@ -432,8 +438,9 @@
     {
       "name": "TIP120",                      // составной (Дарлингтон); h21э ≥1000 (верхняя граница не нормируется)
       "system": "series",
+      "fields": { "material": "si", "subclass": "bjt", "category": "composite" },
       "attributes": {
-        "structure": "npn", "category": "составной", "package": "TO-220",
+        "structure": "npn", "description": "составной", "package": "TO-220",
         "datasheetUrl": "https://www.st.com/resource/en/datasheet/tip120.pdf"
       },
       "manufacturers": ["ST", "onsemi"],
@@ -455,8 +462,9 @@
     {
       "name": "MPSA42",                      // высоковольтный; h21э ≥40 (верхняя граница не нормируется)
       "system": "series",
+      "fields": { "material": "si", "subclass": "bjt", "category": "high_voltage" },
       "attributes": {
-        "structure": "npn", "category": "высоковольтный универсальный", "package": "TO-92",
+        "structure": "npn", "description": "высоковольтный универсальный", "package": "TO-92",
         "datasheetUrl": "https://www.onsemi.com/pub/Collateral/MPSA42-D.PDF"
       },
       "manufacturers": ["onsemi", "Philips"],
@@ -476,12 +484,13 @@
       ]
     },
 
-    // other: разбора нет, ключ system обязателен; классификация — атрибутами.
+    // other: разбора нет, ключ system обязателен; классификация — секцией fields.
     {
       "name": "IRF540",                      // МОП; атрибуция Vishay 91021
       "system": "other",
+      "fields": { "material": "si", "subclass": "fet", "category": "power" },
       "attributes": {
-        "structure": "n-канал", "category": "МОП мощный", "package": "TO-220AB",
+        "structure": "n-канал", "description": "МОП мощный", "package": "TO-220AB",
         "datasheetUrl": "https://www.vishay.com/docs/91021/irf540.pdf"
       },
       "manufacturers": ["Vishay Siliconix", "International Rectifier"],
@@ -497,8 +506,9 @@
     {
       "name": "MJE340",                      // высоковольтный драйверный
       "system": "other",
+      "fields": { "material": "si", "subclass": "bjt", "category": "high_voltage" },
       "attributes": {
-        "structure": "npn", "category": "высоковольтный универсальный", "package": "TO-126",
+        "structure": "npn", "description": "высоковольтный универсальный", "package": "TO-126",
         "datasheetUrl": "https://www.st.com/resource/en/datasheet/mje340.pdf"
       },
       "manufacturers": ["ST", "onsemi"],

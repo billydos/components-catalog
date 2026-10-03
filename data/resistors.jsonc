@@ -170,7 +170,7 @@
       "name": "РП1-46",                      // переменный подстроечный; числовые данные в доступных источниках отсутствуют
       "system": "ost",
       "attributes": {
-        "category": "переменный подстроечный",
+        "description": "переменный подстроечный",
         "datasheetUrl": "http://www.155la3.ru/rp1_46.htm"
       }
     },
@@ -179,6 +179,7 @@
     {
       "name": "МЛТ-0.5",                     // металлоплёночные лакированные теплостойкие
       "system": "series",
+      "fields": { "adjustment": "fixed" },
       "attributes": {
         "technology": "металлоплёночные", "tu": "ОЖ0.467.180ТУ", "yearFrom": 1964,
         "datasheetUrl": "https://www.radiolibrary.ru/reference/resistor/mlt-0_5.html"
@@ -203,6 +204,7 @@
     {
       "name": "ВС-0.5",                      // углеродистые высокостабильные; диапазон — по серии ВС
       "system": "series",
+      "fields": { "adjustment": "fixed" },
       "attributes": {
         "technology": "углеродистые",
         "datasheetUrl": "http://www.155la3.ru/vs.htm"
@@ -222,6 +224,7 @@
     {
       "name": "ПЭВ-10",                      // проволочные эмалированные влагостойкие
       "system": "series",
+      "fields": { "adjustment": "fixed" },
       "attributes": {
         "technology": "проволочные", "tu": "ОЖ0.467.576ТУ",
         "datasheetUrl": "https://eandc.ru/catalog/pev-10-10/"
@@ -247,6 +250,7 @@
     {
       "name": "CFR-25",                      // YAGEO углеродистые плёночные, осевые; 25 = 0,25 Вт
       "system": "other",
+      "fields": { "adjustment": "fixed" },
       "attributes": {
         "technology": "углеродистые",
         "datasheetUrl": "https://www.datasheetarchive.com/CFR-25-datasheet.html"

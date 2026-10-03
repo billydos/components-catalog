@@ -126,6 +126,45 @@ var bundleRu = map[string]string{
 	"material.other": "соединения прочих металлов",
 	"material.gaas":  "арсенид галлия",
 
+	// Подклассы приборов (domain.Subclasses).
+	"subclass.bjt":        "биполярный транзистор",
+	"subclass.fet":        "полевой транзистор",
+	"subclass.ujt":        "однопереходный транзистор",
+	"subclass.avalanche":  "лавинный транзистор",
+	"subclass.thyristor":  "тиристор",
+	"subclass.triac":      "симистор",
+	"subclass.rectifier":  "выпрямительный/универсальный диод",
+	"subclass.zener":      "стабилитрон",
+	"subclass.varicap":    "варикап",
+	"subclass.tunnel":     "туннельный диод",
+	"subclass.gunn":       "диод Ганна",
+	"subclass.generator":  "генераторный (шумовой) диод",
+	"subclass.led":        "светодиод",
+	"subclass.detector":   "СВЧ-диод (детекторный, смесительный)",
+	"subclass.signal":     "малосигнальный диод",
+	"subclass.multiplier": "диод-умножитель",
+	"subclass.magnetic":   "магниточувствительный диод",
+	"subclass.photo":      "фотоприёмник (фотодиод)",
+
+	// Способы подстройки номинала (domain.Adjustments).
+	"adjustment.fixed":    "постоянный",
+	"adjustment.variable": "переменный",
+	"adjustment.preset":   "подстроечный",
+
+	// Категории — стартовый словарь (seed.categories); расширения каталога
+	// данными отображаются кодом.
+	"category.general_purpose": "универсальный",
+	"category.power":           "мощный",
+	"category.high_voltage":    "высоковольтный",
+	"category.switching":       "переключательный",
+	"category.pulse":           "импульсный",
+	"category.rf":              "высокочастотный",
+	"category.audio":           "низкочастотный",
+	"category.lownoise":        "малошумящий",
+	"category.fast":            "быстрый",
+	"category.precision":       "прецизионный",
+	"category.composite":       "составной (Дарлингтон)",
+
 	// Условия (conditions).
 	"condition.Uke":            "напряжение коллектор-эмиттер",
 	"condition.Ukb":            "напряжение коллектор-база",
@@ -245,7 +284,7 @@ var bundleRu = map[string]string{
 	"param.leadPitch":  "шаг выводов",
 
 	// Атрибуты (attributes).
-	"attr.category":          "категория прибора",
+	"attr.description":       "описание (по справочнику)",
 	"attr.structure":         "структура (p-n-p / n-p-n, тип канала)",
 	"attr.polarized":         "полярный (электролитический)",
 	"attr.functionalChar":    "функциональная характеристика (закон изменения сопротивления)",
@@ -285,4 +324,6 @@ var bundleRu = map[string]string{
 	"field.series":       "семейство",
 	"field.power":        "мощность",
 	"field.family":       "семейство (буква)",
+	"field.adjustment":   "подстройка",
+	"field.category":     "категория",
 }

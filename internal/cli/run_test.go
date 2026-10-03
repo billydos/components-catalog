@@ -74,7 +74,7 @@ func TestParseWithoutDatabase(t *testing.T) {
 		t.Fatalf("код %d", code)
 	}
 	want := "КТ315Б: transistor (transistor), system GOST (gost)\n" +
-		"  material: silicon\n  subclass: Т\n  assembly: device\n" +
+		"  material: silicon\n  subclass: bipolar transistor\n  assembly: device\n" +
 		"  development number: 315\n  letters: Б\n"
 	if stdout != want {
 		t.Fatalf("вывод:\n got:  %q\n want: %q", stdout, want)
@@ -85,7 +85,7 @@ func TestParseWithoutDatabase(t *testing.T) {
 		t.Fatalf("код %d", code)
 	}
 	want = "КТ315Б: транзисторы (transistor), система ГОСТ (gost)\n" +
-		"  материал: кремний\n  подкласс: Т\n  сборка: прибор\n" +
+		"  материал: кремний\n  подкласс: биполярный транзистор\n  сборка: прибор\n" +
 		"  номер разработки: 315\n  буквы: Б\n"
 	if stdout != want {
 		t.Fatalf("вывод (ru):\n got:  %q\n want: %q", stdout, want)
@@ -168,6 +168,39 @@ func TestFullCycle(t *testing.T) {
 	if code != 0 || stderr != "" || !strings.Contains(stdout, "КТ315Б — transistor") ||
 		!strings.Contains(stdout, "Analogs: 2N3904") {
 		t.Fatalf("info: код %d, %q, %q", code, stdout, stderr)
+	}
+
+	// Сквозные словарные фильтры: подкласс (код и ru-название), категория.
+	stdout, stderr, code = run(t, "list", "--kind", "transistor", "--subclass", "bjt", "--db", db)
+	if code != 0 || stderr != "" {
+		t.Fatalf("list --subclass bjt: код %d, %q", code, stderr)
+	}
+	if !hasLine("КТ315Б", "transistor", "gost") || !hasLine("MJE340", "transistor", "other") {
+		t.Fatalf("list --subclass bjt: %q", stdout)
+	}
+	if hasLine("IRF540") {
+		t.Fatalf("list --subclass bjt: полевой транзистор в выборке: %q", stdout)
+	}
+	stdout, stderr, code = run(t, "list", "--kind", "transistor", "--subclass", "биполярный транзистор", "--db", db)
+	if code != 0 || !hasLine("КТ315Б") {
+		t.Fatalf("list --subclass (ru): код %d, %q, %q", code, stdout, stderr)
+	}
+	stdout, stderr, code = run(t, "list", "--kind", "transistor", "--category", "high_voltage", "--db", db)
+	if code != 0 || stderr != "" || !hasLine("MJE340") || hasLine("КТ315Б") {
+		t.Fatalf("list --category high_voltage: код %d, %q, %q", code, stdout, stderr)
+	}
+	_, stderr, code = run(t, "list", "--kind", "transistor", "--subclass", "bogus", "--db", db)
+	if code != 1 || !strings.HasPrefix(stderr, "Error: unknown subclass «bogus»") {
+		t.Fatalf("list --subclass bogus: код %d, %q", code, stderr)
+	}
+
+	// Карточка записи с явными полями: локализованные значения словарей.
+	stdout, stderr, code = run(t, "info", "MJE340", "--lang", "ru", "--db", db)
+	if code != 0 || stderr != "" ||
+		!strings.Contains(stdout, "материал: кремний") ||
+		!strings.Contains(stdout, "подкласс: биполярный транзистор") ||
+		!strings.Contains(stdout, "категория: высоковольтный") {
+		t.Fatalf("info MJE340 (ru): код %d, %q, %q", code, stdout, stderr)
 	}
 
 	stdout, stderr, code = run(t, "find", "КТ315Б", "--db", db)

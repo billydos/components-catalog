@@ -118,6 +118,7 @@ func parseCapacitorGost(s *scanner, _ Kind) (ParsedDesignation, error) {
 
 	fields := []Field{
 		TextField("prefix", prefix),
+		TextField("adjustment", CapacitorPrefixAdjustment(prefix)),
 		NumField("group", float64(group)),
 		NumField("dev_number", float64(devNumber)),
 	}
