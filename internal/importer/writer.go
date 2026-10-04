@@ -54,7 +54,7 @@ func (m *Importer) Export(ctx context.Context, w io.Writer, format Format, kind 
 		if len(records) == 0 {
 			continue
 		}
-		root.members = append(root.members, member{name: KindSection(k.Code), value: array(records...)})
+		root.members = append(root.members, member{name: catalog.KindSection(k.Code), value: array(records...)})
 	}
 
 	switch format {

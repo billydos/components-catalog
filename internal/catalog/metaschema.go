@@ -325,7 +325,8 @@ func containsKindRule(rows []KindRuleRef, r KindRuleRef) bool {
 // классы) существуют, enum непуст для enum-типа, text/enum без единиц,
 // наборы условий непусты и корректны, потолок положителен, порядок
 // неотрицателен, правило подходит уровню привязки, семейства series
-// не разбираются строгими системами.
+// не разбираются строгими системами, коды условий и имена секций групп
+// не совпадают с зарезервированными ключами формата наполнения.
 func validateMetaschema(out *Snapshot) []Problem {
 	var probs []Problem
 	for i := range out.Kinds {
@@ -384,6 +385,9 @@ func validateMetaschema(out *Snapshot) []Problem {
 			probs = append(probs, metaProblem(domain.MsgMetaSectionNoCode, "conditions"))
 			continue
 		}
+		if ValueKeyReserved(r.Code) {
+			probs = append(probs, metaProblem(domain.MsgMetaCondCodeReserved, r.Code))
+		}
 		if r.Unit != "" {
 			if _, ok := out.Unit(r.Unit); !ok {
 				probs = append(probs, metaProblem(domain.MsgMetaCondUnitMissing, r.Code, r.Unit))
@@ -398,6 +402,9 @@ func validateMetaschema(out *Snapshot) []Problem {
 		}
 		if r.SectionName == "" {
 			probs = append(probs, metaProblem(domain.MsgMetaGroupNoSection, r.Code))
+		}
+		if reservedSectionName(out.Kinds, r.SectionName) {
+			probs = append(probs, metaProblem(domain.MsgMetaGroupSectionReserved, r.Code, r.SectionName))
 		}
 		if r.SortOrder < 0 {
 			probs = append(probs, metaProblem(domain.MsgMetaGroupSortNegative, r.Code))

@@ -92,7 +92,7 @@ func TestPinDataKeysFromCatalog(t *testing.T) {
 	}
 	kinds := map[string]bool{}
 	for _, k := range snap.Kinds {
-		kinds[KindSection(k.Code)] = true
+		kinds[catalog.KindSection(k.Code)] = true
 	}
 	serviceKeys := map[string]bool{
 		"name": true, "system": true, "fields": true, "attributes": true,
@@ -180,7 +180,7 @@ func TestPinExportShapeFromCatalog(t *testing.T) {
 	}
 	kinds := map[string]bool{}
 	for _, k := range snap.Kinds {
-		kinds[KindSection(k.Code)] = true
+		kinds[catalog.KindSection(k.Code)] = true
 	}
 	serviceKeys := map[string]bool{
 		"name": true, "system": true, "fields": true, "attributes": true,

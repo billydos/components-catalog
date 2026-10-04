@@ -131,6 +131,21 @@ func TestMetaschemaViolations(t *testing.T) {
 		{"конфликт имени секции", catalog.Input{Groups: []catalog.GroupDef{
 			{Code: "extra", SectionName: "ratings", SortOrder: 40},
 		}}, "catalog: group «extra»: section name «ratings» is already used by group «limiting»"},
+		{"код условия — зарезервированный ключ значения", catalog.Input{Conditions: []catalog.ConditionDef{
+			{Code: "value"},
+		}}, "catalog: condition «value»: the code is reserved by the fill format"},
+		{"имя секции — служебный ключ записи", catalog.Input{Groups: []catalog.GroupDef{
+			{Code: "extra", SectionName: "attributes", SortOrder: 40},
+		}}, "catalog: group «extra»: section name «attributes» is reserved by the fill format"},
+		{"имя секции — метка исполнения", catalog.Input{Groups: []catalog.GroupDef{
+			{Code: "extra", SectionName: "label", SortOrder: 40},
+		}}, "catalog: group «extra»: section name «label» is reserved by the fill format"},
+		{"имя секции — секция класса корня", catalog.Input{Groups: []catalog.GroupDef{
+			{Code: "extra", SectionName: "transistors", SortOrder: 40},
+		}}, "catalog: group «extra»: section name «transistors» is reserved by the fill format"},
+		{"класс с секцией существующей группы", catalog.Input{Kinds: []catalog.KindDef{
+			{Code: "parameter"},
+		}}, "catalog: group «electrical»: section name «parameters» is reserved by the fill format"},
 		{"неизвестный класс семейства", catalog.Input{SeriesFamilies: []catalog.SeriesFamilyDef{
 			{Series: "XX", Kind: "thyristor"},
 		}}, "catalog: family «XX»: kind «thyristor» does not exist"},

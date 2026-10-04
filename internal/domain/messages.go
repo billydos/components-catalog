@@ -156,9 +156,11 @@ const (
 	MsgMetaFamilyKindMissing     MsgID = "meta_family_kind_missing"
 	MsgMetaFamilyStrictInvariant MsgID = "meta_family_strict_invariant"
 	MsgMetaCondUnitMissing       MsgID = "meta_cond_unit_missing"
+	MsgMetaCondCodeReserved      MsgID = "meta_cond_code_reserved"
 	MsgMetaGroupNoSection        MsgID = "meta_group_no_section"
 	MsgMetaGroupSortNegative     MsgID = "meta_group_sort_negative"
 	MsgMetaGroupSectionDup       MsgID = "meta_group_section_dup"
+	MsgMetaGroupSectionReserved  MsgID = "meta_group_section_reserved"
 	MsgMetaRuleUnknown           MsgID = "meta_rule_unknown"
 	MsgMetaKindRuleKindMissing   MsgID = "meta_kind_rule_kind_missing"
 	MsgMetaKindRuleUnknown       MsgID = "meta_kind_rule_unknown"
@@ -517,9 +519,11 @@ var msgRegistry = map[MsgID]struct{}{
 	MsgMetaFamilyKindMissing:          {},
 	MsgMetaFamilyStrictInvariant:      {},
 	MsgMetaCondUnitMissing:            {},
+	MsgMetaCondCodeReserved:           {},
 	MsgMetaGroupNoSection:             {},
 	MsgMetaGroupSortNegative:          {},
 	MsgMetaGroupSectionDup:            {},
+	MsgMetaGroupSectionReserved:       {},
 	MsgMetaRuleUnknown:                {},
 	MsgMetaKindRuleKindMissing:        {},
 	MsgMetaKindRuleUnknown:            {},

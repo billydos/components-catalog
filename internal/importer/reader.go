@@ -68,12 +68,9 @@ type reader struct {
 	issues []Issue
 }
 
-// KindSection — ключ секции корня для класса (формат наполнения:
-// transistors, diodes, resistors, capacitors — код класса с «s»).
-func KindSection(k domain.Kind) string { return string(k) + "s" }
-
 // kindBySection — класс по ключу секции корня (снимок задаёт реестр
-// классов; расширение каталога новыми классами расширяет и формат).
+// классов; расширение каталога новыми классами расширяет и формат;
+// ключи секций — общий реестр catalog.KindSection).
 func kindBySection(snap *catalog.Snapshot, section string) (domain.Kind, bool) {
 	if !strings.HasSuffix(section, "s") {
 		return "", false
@@ -89,7 +86,7 @@ func kindBySection(snap *catalog.Snapshot, section string) (domain.Kind, bool) {
 func rootKeys(snap *catalog.Snapshot) string {
 	parts := []string{"catalog"}
 	for _, k := range snap.Kinds {
-		parts = append(parts, KindSection(k.Code))
+		parts = append(parts, catalog.KindSection(k.Code))
 	}
 	return strings.Join(parts, ", ")
 }
@@ -211,14 +208,11 @@ func (r *reader) record(kind domain.Kind, v value, line, no int) (service.Device
 		return service.DeviceInput{}, false
 	}
 
-	// Допустимые ключи: name, system, fields, служебные секции и секции
-	// групп каталога (имена секций — из каталога, 05-work-plan.md задача 4.6).
-	serviceKeys := map[string]bool{
-		"name": true, "system": true, "fields": true, "attributes": true,
-		"manufacturers": true, "variants": true, "analogs": true,
-	}
+	// Допустимые ключи: служебные ключи записи (общий реестр с инвариантами
+	// метасхемы — internal/catalog/fillformat.go) и секции групп каталога
+	// (имена секций — из каталога, 05-work-plan.md задача 4.6).
 	for _, m := range v.members {
-		if serviceKeys[m.name] {
+		if catalog.RecordKeyReserved(m.name) {
 			continue
 		}
 		if _, ok := r.snap.GroupBySection(m.name); ok {
@@ -258,7 +252,7 @@ func (r *reader) record(kind domain.Kind, v value, line, no int) (service.Device
 	}
 
 	for _, m := range v.members {
-		if serviceKeys[m.name] {
+		if catalog.RecordKeyReserved(m.name) {
 			continue
 		}
 		if _, ok := r.snap.GroupBySection(m.name); !ok {
@@ -430,7 +424,6 @@ func (r *reader) parameterValue(rec *Record, section any, index int, v value) (c
 		return catalog.ParameterValue{}, false
 	}
 	pv := catalog.ParameterValue{}
-	known := map[string]bool{"parameter": true, "value": true, "min": true, "max": true, "text": true}
 	for _, m := range v.members {
 		if m.name == "parameter" {
 			if m.value.kind != kindString {
@@ -440,7 +433,7 @@ func (r *reader) parameterValue(rec *Record, section any, index int, v value) (c
 			pv.Parameter = strings.TrimSpace(m.value.str)
 			continue
 		}
-		if known[m.name] {
+		if catalog.ValueKeyReserved(m.name) {
 			if f, ok := r.numberKey(rec, where, m); ok {
 				switch m.name {
 				case "value":
