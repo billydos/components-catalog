@@ -76,6 +76,8 @@ var messageFormatsEn = map[string]string{
 	"expect_series_tail_digits":   "number in the family tail (up to 5 digits)",
 	"expect_series_tail":          "family tail (digits and letters)",
 	"expect_cap_group":            "two-digit group per the capacitor group table",
+	"expect_cap_prefix":           "capacitor subclass prefix (К, КТ, КП, КН, or КС)",
+	"expect_cap_subclass_group":   "group digit per the subclass table",
 	"expect_res_material_group_6": "material group digit 1–6",
 	"expect_res_material_group_2": "material group digit 1–2",
 

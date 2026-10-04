@@ -23,7 +23,7 @@
 | A2 | Высокий | `internal/domain`, `internal/cli` | Неизвестный `--kind`/`--system` — plain-error `fmt.Errorf`, выводится «Непредвиденная ошибка: » вместо «Ошибка: » (нарушение контракта AGENTS.md) | Да | исправлено |
 | B1 | Средний | `internal/storage/catalog_read.go` | `LoadSnapshot` — не «одно согласованное чтение»: 12+ раздельных SELECT из пула; снимок может смешать старые и новые определения и закэшироваться | По коду | не исправлено |
 | B2 | Средний | `internal/catalog/metaschema.go`, `internal/importer` | Метасхема не запрещает коды условий `value/min/max/text/parameter` и имена секций `name/system/fields/…` — они невыразимы в формате наполнения, round-trip искажается | Да (приём каталога) | не исправлено |
-| B3 | Средний | `internal/domain/parse_capacitor.go` | Сырые русские строки переданы как MsgID (D9): канонический en-рендер выдал бы русский текст; сейчас маскируется `systemMismatch` | По коду | не исправлено |
+| B3 | Средний | `internal/domain/parse_capacitor.go` | Сырые русские строки переданы как MsgID (D9): канонический en-рендер выдал бы русский текст; сейчас маскируется `systemMismatch` | По коду | исправлено |
 | B4 | Средний | `internal/importer/writer.go`, `internal/service/card.go` | Экспорт: N+1 (страница поиска → `GetByID` на запись, ~8 SELECT каждая) и O(группы×значения) на вариант карточки | По коду | не исправлено |
 | B5 | Средний | `internal/service/state.go` | `stateKey` — конкатенация произвольных строк (производители, note, label, коды атрибутов) без экранирования разделителей — возможен ложный `Skipped` | По коду | не исправлено |
 | B6 | Средний | `internal/storage/devices.go` | Гонка «SELECT-затем-INSERT» на PostgreSQL (`InsertDevice`, `ReplaceManufacturers`): параллельные писатели получают raw unique-violation вместо доменной ошибки | По коду | не исправлено |
@@ -121,7 +121,7 @@ sect.jsonc: … catalog extended          # группа с section "attributes"
 
 **Рекомендация:** ввести `MsgExpectCapPrefix` и `MsgExpectCapGroup` (константы + реестр + en/ru форматы одним изменением) и использовать их в двух вызовах. Заодно добавить в `internal/i18n/messages_test.go` невозможность паттерна: сырые строки в `fail`/`failToken` — code review или `go vet`-хук здесь не автоматизируется, поэтому достаточно констант.
 
-**Решено:** — .
+**Решено:** введены `MsgExpectCapPrefix` (`expect_cap_prefix`) и `MsgExpectCapSubclassGroup` (`expect_cap_subclass_group`) — константы, реестр и форматы en/ru одним изменением; для второго вызова имя отличается от рекомендованного в находке, потому что `MsgExpectCapGroup` уже занят фрагментом двузначной группы подкласса К (`parse_capacitor.go:87`). Русские тексты фрагментов сохранены дословно. Пин-тест `parse_capacitor_test.go` переведён с русских строк на канонический en-рендер и дополнен случаем отказа префикса (М3-8). Верификация: build/vet/gofmt/test — чисто; `./qa/scenarios.sh` — `ok=41 fail=0`.
 
 ### B4. Экспорт: N+1 на каждую запись и квадратичное сопоставление групп в карточке
 

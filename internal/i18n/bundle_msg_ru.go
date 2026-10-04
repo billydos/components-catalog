@@ -75,6 +75,8 @@ var messageFormatsRu = map[string]string{
 	"expect_series_tail_digits":   "число в хвосте семейства (до 5 цифр)",
 	"expect_series_tail":          "хвост семейства (число и буквы)",
 	"expect_cap_group":            "двузначная группа по таблице групп конденсаторов",
+	"expect_cap_prefix":           "префикс подкласса (К, КТ, КП, КН либо КС)",
+	"expect_cap_subclass_group":   "группа по таблице подкласса",
 	"expect_res_material_group_6": "группа по материалу 1–6",
 	"expect_res_material_group_2": "группа по материалу 1–2",
 

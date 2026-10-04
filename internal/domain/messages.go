@@ -87,6 +87,8 @@ const (
 	MsgExpectSeriesTailDigits  MsgID = "expect_series_tail_digits"
 	MsgExpectSeriesTail        MsgID = "expect_series_tail"
 	MsgExpectCapGroup          MsgID = "expect_cap_group"
+	MsgExpectCapPrefix         MsgID = "expect_cap_prefix"
+	MsgExpectCapSubclassGroup  MsgID = "expect_cap_subclass_group"
 	MsgExpectResMaterialGroup6 MsgID = "expect_res_material_group_6"
 	MsgExpectResMaterialGroup2 MsgID = "expect_res_material_group_2"
 
@@ -448,6 +450,8 @@ var msgRegistry = map[MsgID]struct{}{
 	MsgExpectSeriesTailDigits:         {},
 	MsgExpectSeriesTail:               {},
 	MsgExpectCapGroup:                 {},
+	MsgExpectCapPrefix:                {},
+	MsgExpectCapSubclassGroup:         {},
 	MsgExpectResMaterialGroup6:        {},
 	MsgExpectResMaterialGroup2:        {},
 	MsgEngineKindMissing:              {},

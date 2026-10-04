@@ -74,7 +74,7 @@ func parseCapacitorGost(s *scanner, _ Kind) (ParsedDesignation, error) {
 		prefix = "К"
 		s.i = 1
 	default:
-		return ParsedDesignation{}, s.fail("префикс подкласса (К, КТ, КП, КН либо КС)")
+		return ParsedDesignation{}, s.fail(MsgExpectCapPrefix)
 	}
 
 	// Группа: таблица по подклассу.
@@ -96,7 +96,7 @@ func parseCapacitorGost(s *scanner, _ Kind) (ParsedDesignation, error) {
 			hi = 2
 		}
 		var err error
-		group, err = readGroupDigit(s, "группа по таблице подкласса", 1, hi)
+		group, err = readGroupDigit(s, MsgExpectCapSubclassGroup, 1, hi)
 		if err != nil {
 			return ParsedDesignation{}, err
 		}
