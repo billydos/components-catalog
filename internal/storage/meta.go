@@ -155,8 +155,21 @@ func (d *DB) Revisions(ctx context.Context) (catalog, data int64, err error) {
 // CatalogRevision возвращает catalog_revision — проверка кэша каталога на
 // каждом обращении к сервисам (единственный SELECT schema_meta).
 func (d *DB) CatalogRevision(ctx context.Context) (int64, error) {
-	rev, _, err := d.Revisions(ctx)
-	return rev, err
+	return catalogRevision(ctx, d.reads)
+}
+
+// catalogRevision читает catalog_revision одним SELECT schema_meta —
+// из пула чтения или внутри транзакции чтения снимка каталога
+// (ревизия и определения — одно согласованное чтение).
+func catalogRevision(ctx context.Context, q queryer) (int64, error) {
+	var value string
+	err := q.QueryRowContext(ctx,
+		`SELECT value FROM schema_meta WHERE key = @key`,
+		sql.Named("key", metaCatalogRevision)).Scan(&value)
+	if err != nil {
+		return 0, err
+	}
+	return strconv.ParseInt(strings.TrimSpace(value), 10, 64)
 }
 
 // bumpRevision инкрементирует счётчик ревизий атомарно внутри транзакции

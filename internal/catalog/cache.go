@@ -11,7 +11,8 @@ import (
 // доставка строк: бизнес-правила в нём не живут.
 type Store interface {
 	// LoadSnapshot загружает полный снимок каталога (все определения
-	// одним согласованным чтением).
+	// одним согласованным чтением); Revision снимка читается тем же
+	// согласованным чтением и соответствует загруженным строкам.
 	LoadSnapshot(ctx context.Context) (*Snapshot, error)
 
 	// CatalogRevision возвращает текущее значение catalog_revision
@@ -42,7 +43,9 @@ func NewCache(store Store) *Cache {
 
 // Snapshot возвращает актуальный снимок каталога. Гонка «прочитали старую
 // ревизию — каталог применили — загрузили новый снимок» доброкачественна:
-// следующий вызов видит новую ревизию и перезагружает снимок.
+// следующий вызов видит новую ревизию и перезагружает снимок. Ревизия
+// кэшируется вместе со снимком из его же согласованного чтения, поэтому
+// кэш никогда не отвечает парой «снимок ≠ ревизия».
 func (c *Cache) Snapshot(ctx context.Context) (*Snapshot, error) {
 	rev, err := c.store.CatalogRevision(ctx)
 	if err != nil {
@@ -57,9 +60,8 @@ func (c *Cache) Snapshot(ctx context.Context) (*Snapshot, error) {
 	if err != nil {
 		return nil, err
 	}
-	snap.Revision = rev
 	c.snap = snap
-	c.rev = rev
+	c.rev = snap.Revision
 	c.ready = true
 	return c.snap, nil
 }

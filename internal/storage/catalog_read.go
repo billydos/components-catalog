@@ -8,47 +8,61 @@ import (
 	"github.com/billydos/components-catalog/internal/domain"
 )
 
-// LoadSnapshot загружает полный снимок каталога одним согласованным чтением
+// LoadSnapshot загружает полный снимок каталога одной транзакцией чтения
 // из пула чтения (транспорт каталога — docs/plan/01-architecture.md §2.2;
-// реализация catalog.Store). Порядок строк детерминирован (ORDER BY),
+// реализация catalog.Store). Все SELECT и чтение catalog_revision идут из
+// одного снапшота СУБД: конкурентный импорт каталога не может смешать в
+// снимке старые и новые определения, а Revision соответствует загруженным
+// строкам. Уровень REPEATABLE READ переносим: pgx задаёт его явно,
+// sqlite-драйвер игнорирует — WAL-транзакция чтения и так держит стабильный
+// снапшот на всё время транзакции. Порядок строк детерминирован (ORDER BY),
 // чтобы снимки одной базы были сравнимы.
 func (d *DB) LoadSnapshot(ctx context.Context) (*catalog.Snapshot, error) {
-	snap := &catalog.Snapshot{}
-	var err error
-	if snap.Kinds, err = d.loadKinds(ctx); err != nil {
+	tx, err := d.reads.BeginTx(ctx, &sql.TxOptions{Isolation: sql.LevelRepeatableRead})
+	if err != nil {
 		return nil, err
 	}
-	if snap.Systems, err = d.loadSystems(ctx); err != nil {
+	defer tx.Rollback() //nolint:errcheck — чтение без побочных эффектов
+
+	rev, err := catalogRevision(ctx, tx)
+	if err != nil {
 		return nil, err
 	}
-	if snap.SystemKinds, err = d.loadSystemKinds(ctx); err != nil {
+	snap := &catalog.Snapshot{Revision: rev}
+	if snap.Kinds, err = loadKinds(ctx, tx); err != nil {
 		return nil, err
 	}
-	if snap.SeriesFamilies, err = d.loadSeriesFamilies(ctx); err != nil {
+	if snap.Systems, err = loadSystems(ctx, tx); err != nil {
 		return nil, err
 	}
-	if snap.Units, err = d.loadUnits(ctx); err != nil {
+	if snap.SystemKinds, err = loadSystemKinds(ctx, tx); err != nil {
 		return nil, err
 	}
-	if snap.Categories, err = d.loadCategories(ctx); err != nil {
+	if snap.SeriesFamilies, err = loadSeriesFamilies(ctx, tx); err != nil {
 		return nil, err
 	}
-	if snap.Conditions, err = d.loadConditions(ctx); err != nil {
+	if snap.Units, err = loadUnits(ctx, tx); err != nil {
 		return nil, err
 	}
-	if snap.Groups, err = d.loadGroups(ctx); err != nil {
+	if snap.Categories, err = loadCategories(ctx, tx); err != nil {
 		return nil, err
 	}
-	if snap.Rules, err = d.loadRules(ctx); err != nil {
+	if snap.Conditions, err = loadConditions(ctx, tx); err != nil {
 		return nil, err
 	}
-	if snap.KindRules, err = d.loadKindRules(ctx); err != nil {
+	if snap.Groups, err = loadGroups(ctx, tx); err != nil {
 		return nil, err
 	}
-	if snap.Parameters, err = d.loadParameters(ctx); err != nil {
+	if snap.Rules, err = loadRules(ctx, tx); err != nil {
 		return nil, err
 	}
-	if snap.Attributes, err = d.loadAttributes(ctx); err != nil {
+	if snap.KindRules, err = loadKindRules(ctx, tx); err != nil {
+		return nil, err
+	}
+	if snap.Parameters, err = loadParameters(ctx, tx); err != nil {
+		return nil, err
+	}
+	if snap.Attributes, err = loadAttributeDefs(ctx, tx); err != nil {
 		return nil, err
 	}
 	return snap, nil
@@ -71,8 +85,8 @@ func nullableFloat(v sql.NullFloat64) *float64 {
 	return nil
 }
 
-func (d *DB) loadKinds(ctx context.Context) ([]catalog.KindDef, error) {
-	rows, err := d.query(ctx, `SELECT code FROM kinds ORDER BY code`, nil)
+func loadKinds(ctx context.Context, q queryer) ([]catalog.KindDef, error) {
+	rows, err := q.QueryContext(ctx, `SELECT code FROM kinds ORDER BY code`)
 	if err != nil {
 		return nil, err
 	}
@@ -88,9 +102,9 @@ func (d *DB) loadKinds(ctx context.Context) ([]catalog.KindDef, error) {
 	return out, rows.Err()
 }
 
-func (d *DB) loadSystems(ctx context.Context) ([]catalog.SystemDef, error) {
-	rows, err := d.query(ctx,
-		`SELECT code FROM designation_systems ORDER BY code`, nil)
+func loadSystems(ctx context.Context, q queryer) ([]catalog.SystemDef, error) {
+	rows, err := q.QueryContext(ctx,
+		`SELECT code FROM designation_systems ORDER BY code`)
 	if err != nil {
 		return nil, err
 	}
@@ -106,10 +120,10 @@ func (d *DB) loadSystems(ctx context.Context) ([]catalog.SystemDef, error) {
 	return out, rows.Err()
 }
 
-func (d *DB) loadSystemKinds(ctx context.Context) ([]catalog.SystemKindRef, error) {
-	rows, err := d.query(ctx, `
+func loadSystemKinds(ctx context.Context, q queryer) ([]catalog.SystemKindRef, error) {
+	rows, err := q.QueryContext(ctx, `
 SELECT system_code, kind_code FROM designation_system_kinds
-ORDER BY system_code, kind_code`, nil)
+ORDER BY system_code, kind_code`)
 	if err != nil {
 		return nil, err
 	}
@@ -125,10 +139,10 @@ ORDER BY system_code, kind_code`, nil)
 	return out, rows.Err()
 }
 
-func (d *DB) loadSeriesFamilies(ctx context.Context) ([]catalog.SeriesFamilyDef, error) {
-	rows, err := d.query(ctx, `
+func loadSeriesFamilies(ctx context.Context, q queryer) ([]catalog.SeriesFamilyDef, error) {
+	rows, err := q.QueryContext(ctx, `
 SELECT series, kind_code, tail_semantic FROM series_families
-ORDER BY series, kind_code`, nil)
+ORDER BY series, kind_code`)
 	if err != nil {
 		return nil, err
 	}
@@ -146,8 +160,8 @@ ORDER BY series, kind_code`, nil)
 	return out, rows.Err()
 }
 
-func (d *DB) loadUnits(ctx context.Context) ([]catalog.UnitDef, error) {
-	rows, err := d.query(ctx, `SELECT code FROM units ORDER BY code`, nil)
+func loadUnits(ctx context.Context, q queryer) ([]catalog.UnitDef, error) {
+	rows, err := q.QueryContext(ctx, `SELECT code FROM units ORDER BY code`)
 	if err != nil {
 		return nil, err
 	}
@@ -163,8 +177,8 @@ func (d *DB) loadUnits(ctx context.Context) ([]catalog.UnitDef, error) {
 	return out, rows.Err()
 }
 
-func (d *DB) loadCategories(ctx context.Context) ([]catalog.CategoryDef, error) {
-	rows, err := d.query(ctx, `SELECT code FROM categories ORDER BY code`, nil)
+func loadCategories(ctx context.Context, q queryer) ([]catalog.CategoryDef, error) {
+	rows, err := q.QueryContext(ctx, `SELECT code FROM categories ORDER BY code`)
 	if err != nil {
 		return nil, err
 	}
@@ -180,9 +194,9 @@ func (d *DB) loadCategories(ctx context.Context) ([]catalog.CategoryDef, error) 
 	return out, rows.Err()
 }
 
-func (d *DB) loadConditions(ctx context.Context) ([]catalog.ConditionDef, error) {
-	rows, err := d.query(ctx, `
-SELECT code, unit_code, allow_negative FROM conditions ORDER BY code`, nil)
+func loadConditions(ctx context.Context, q queryer) ([]catalog.ConditionDef, error) {
+	rows, err := q.QueryContext(ctx, `
+SELECT code, unit_code, allow_negative FROM conditions ORDER BY code`)
 	if err != nil {
 		return nil, err
 	}
@@ -202,10 +216,10 @@ SELECT code, unit_code, allow_negative FROM conditions ORDER BY code`, nil)
 	return out, rows.Err()
 }
 
-func (d *DB) loadGroups(ctx context.Context) ([]catalog.GroupDef, error) {
-	rows, err := d.query(ctx, `
+func loadGroups(ctx context.Context, q queryer) ([]catalog.GroupDef, error) {
+	rows, err := q.QueryContext(ctx, `
 SELECT code, section_name, sort_order FROM parameter_groups
-ORDER BY sort_order, code`, nil)
+ORDER BY sort_order, code`)
 	if err != nil {
 		return nil, err
 	}
@@ -221,9 +235,9 @@ ORDER BY sort_order, code`, nil)
 	return out, rows.Err()
 }
 
-func (d *DB) loadRules(ctx context.Context) ([]catalog.RuleDef, error) {
-	rows, err := d.query(ctx,
-		`SELECT code FROM validation_rules ORDER BY code`, nil)
+func loadRules(ctx context.Context, q queryer) ([]catalog.RuleDef, error) {
+	rows, err := q.QueryContext(ctx,
+		`SELECT code FROM validation_rules ORDER BY code`)
 	if err != nil {
 		return nil, err
 	}
@@ -239,10 +253,10 @@ func (d *DB) loadRules(ctx context.Context) ([]catalog.RuleDef, error) {
 	return out, rows.Err()
 }
 
-func (d *DB) loadKindRules(ctx context.Context) ([]catalog.KindRuleRef, error) {
-	rows, err := d.query(ctx, `
+func loadKindRules(ctx context.Context, q queryer) ([]catalog.KindRuleRef, error) {
+	rows, err := q.QueryContext(ctx, `
 SELECT kind_code, validation_rule FROM kind_validation_rules
-ORDER BY kind_code, validation_rule`, nil)
+ORDER BY kind_code, validation_rule`)
 	if err != nil {
 		return nil, err
 	}
@@ -258,11 +272,11 @@ ORDER BY kind_code, validation_rule`, nil)
 	return out, rows.Err()
 }
 
-func (d *DB) loadParameters(ctx context.Context) ([]catalog.ParameterDef, error) {
-	rows, err := d.query(ctx, `
+func loadParameters(ctx context.Context, q queryer) ([]catalog.ParameterDef, error) {
+	rows, err := q.QueryContext(ctx, `
 SELECT code, group_code, unit_code, value_type,
        value_ceiling, allow_negative, validation_rule, sort_order, is_active
-FROM parameters ORDER BY code`, nil)
+FROM parameters ORDER BY code`)
 	if err != nil {
 		return nil, err
 	}
@@ -289,7 +303,7 @@ FROM parameters ORDER BY code`, nil)
 		return nil, err
 	}
 
-	kinds, err := d.loadParameterKinds(ctx)
+	kinds, err := loadParameterKinds(ctx, q)
 	if err != nil {
 		return nil, err
 	}
@@ -300,7 +314,7 @@ FROM parameters ORDER BY code`, nil)
 			}
 		}
 	}
-	enums, err := d.loadParameterEnums(ctx)
+	enums, err := loadParameterEnums(ctx, q)
 	if err != nil {
 		return nil, err
 	}
@@ -311,7 +325,7 @@ FROM parameters ORDER BY code`, nil)
 			}
 		}
 	}
-	sets, err := d.loadConditionSets(ctx)
+	sets, err := loadConditionSets(ctx, q)
 	if err != nil {
 		return nil, err
 	}
@@ -325,10 +339,10 @@ FROM parameters ORDER BY code`, nil)
 	return out, nil
 }
 
-func (d *DB) loadParameterKinds(ctx context.Context) (map[string][]domain.Kind, error) {
-	rows, err := d.query(ctx, `
+func loadParameterKinds(ctx context.Context, q queryer) (map[string][]domain.Kind, error) {
+	rows, err := q.QueryContext(ctx, `
 SELECT parameter_code, kind_code FROM parameter_kinds
-ORDER BY parameter_code, kind_code`, nil)
+ORDER BY parameter_code, kind_code`)
 	if err != nil {
 		return nil, err
 	}
@@ -345,10 +359,10 @@ ORDER BY parameter_code, kind_code`, nil)
 	return out, rows.Err()
 }
 
-func (d *DB) loadParameterEnums(ctx context.Context) (map[string][]string, error) {
-	rows, err := d.query(ctx, `
+func loadParameterEnums(ctx context.Context, q queryer) (map[string][]string, error) {
+	rows, err := q.QueryContext(ctx, `
 SELECT parameter_code, value FROM parameter_enum_values
-ORDER BY parameter_code, value`, nil)
+ORDER BY parameter_code, value`)
 	if err != nil {
 		return nil, err
 	}
@@ -366,11 +380,11 @@ ORDER BY parameter_code, value`, nil)
 
 // loadConditionSets загружает наборы условий параметров с элементами;
 // возврат — по коду параметра, наборы и элементы упорядочены.
-func (d *DB) loadConditionSets(ctx context.Context) (map[string][]catalog.ConditionSet, error) {
-	rows, err := d.query(ctx, `
+func loadConditionSets(ctx context.Context, q queryer) (map[string][]catalog.ConditionSet, error) {
+	rows, err := q.QueryContext(ctx, `
 SELECT parameter_code, set_no, condition_code, mode, fixed_value
 FROM parameter_condition_set_items
-ORDER BY parameter_code, set_no, condition_code`, nil)
+ORDER BY parameter_code, set_no, condition_code`)
 	if err != nil {
 		return nil, err
 	}
@@ -401,11 +415,11 @@ ORDER BY parameter_code, set_no, condition_code`, nil)
 	return out, rows.Err()
 }
 
-func (d *DB) loadAttributes(ctx context.Context) ([]catalog.AttributeDef, error) {
-	rows, err := d.query(ctx, `
+func loadAttributeDefs(ctx context.Context, q queryer) ([]catalog.AttributeDef, error) {
+	rows, err := q.QueryContext(ctx, `
 SELECT code, "group", value_type, unit_code,
        validation_rule, sort_order, is_active
-FROM attributes ORDER BY code`, nil)
+FROM attributes ORDER BY code`)
 	if err != nil {
 		return nil, err
 	}
@@ -430,9 +444,9 @@ FROM attributes ORDER BY code`, nil)
 		return nil, err
 	}
 
-	rows2, err := d.query(ctx, `
+	rows2, err := q.QueryContext(ctx, `
 SELECT attribute_code, kind_code FROM attribute_kinds
-ORDER BY attribute_code, kind_code`, nil)
+ORDER BY attribute_code, kind_code`)
 	if err != nil {
 		return nil, err
 	}
@@ -454,9 +468,9 @@ ORDER BY attribute_code, kind_code`, nil)
 		return nil, err
 	}
 
-	rows3, err := d.query(ctx, `
+	rows3, err := q.QueryContext(ctx, `
 SELECT attribute_code, value FROM attribute_enum_values
-ORDER BY attribute_code, value`, nil)
+ORDER BY attribute_code, value`)
 	if err != nil {
 		return nil, err
 	}
