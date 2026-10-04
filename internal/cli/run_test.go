@@ -101,6 +101,27 @@ func TestParseWithoutDatabase(t *testing.T) {
 	}
 }
 
+func TestParseUnknownKindSystem(t *testing.T) {
+	// Неизвестные --kind/--system — ожидаемые ошибки валидации:
+	// префикс «Error: »/«Ошибка: », код выхода 1.
+	_, errOut, code := run(t, "parse", "КТ315Б", "--kind", "foo")
+	if code != 1 || errOut != "Error: unknown device kind «foo»\n" {
+		t.Fatalf("--kind foo: код %d, %q", code, errOut)
+	}
+	_, errOut, code = run(t, "parse", "КТ315Б", "--system", "bar")
+	if code != 1 || errOut != "Error: unknown designation system «bar»\n" {
+		t.Fatalf("--system bar: код %d, %q", code, errOut)
+	}
+	_, errOut, code = run(t, "parse", "КТ315Б", "--kind", "foo", "--lang", "ru")
+	if code != 1 || errOut != "Ошибка: неизвестный класс приборов «foo»\n" {
+		t.Fatalf("--kind foo ru: код %d, %q", code, errOut)
+	}
+	_, errOut, code = run(t, "parse", "КТ315Б", "--system", "bar", "--lang", "ru")
+	if code != 1 || errOut != "Ошибка: неизвестная система обозначений «bar»\n" {
+		t.Fatalf("--system bar ru: код %d, %q", code, errOut)
+	}
+}
+
 func TestUnknownFlag(t *testing.T) {
 	_, stderr, code := run(t, "list", "--bogus")
 	if code != 1 || !strings.HasPrefix(stderr, "Error: unknown flag «--bogus»") {

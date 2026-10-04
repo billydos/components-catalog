@@ -274,13 +274,22 @@ func TestParseForSystem(t *testing.T) {
 		t.Errorf("суффикс мощности gost/resistor: %v", err)
 	}
 
-	// Неизвестные коды системы/класса — непредвиденные ошибки значений.
+	// Неизвестные коды системы/класса — ожидаемые ошибки валидации
+	// (validation_failed, контракт CLI/REST для пользовательского ввода).
 	_, err = domain.ParseDesignationForSystem("КТ315Б", domain.System("x"), "")
-	if _, ok := domain.AsError(err); ok {
+	de, ok := domain.AsError(err)
+	if !ok || de.Code != domain.CodeValidationFailed {
 		t.Errorf("неизвестная system: %v", err)
 	}
+	if want := "unknown designation system «x»"; err.Error() != want {
+		t.Errorf("неизвестная system:\n got:  %s\n want: %s", err.Error(), want)
+	}
 	_, err = domain.ParseDesignationForSystem("КТ315Б", "", domain.Kind("x"))
-	if _, ok := domain.AsError(err); ok {
+	de, ok = domain.AsError(err)
+	if !ok || de.Code != domain.CodeValidationFailed {
 		t.Errorf("неизвестный класс: %v", err)
+	}
+	if want := "unknown device kind «x»"; err.Error() != want {
+		t.Errorf("неизвестный класс:\n got:  %s\n want: %s", err.Error(), want)
 	}
 }

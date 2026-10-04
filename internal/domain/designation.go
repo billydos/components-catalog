@@ -1,7 +1,6 @@
 package domain
 
 import (
-	"fmt"
 	"slices"
 	"strconv"
 	"strings"
@@ -450,7 +449,7 @@ type strictParser func(s *scanner, kind Kind) (ParsedDesignation, error)
 // либо автодетект; явный класс проверяется против результата.
 func parseDesignation(text string, system System, kind Kind) (ParsedDesignation, error) {
 	if kind != "" && !kind.IsValid() {
-		return ParsedDesignation{}, fmt.Errorf("unknown device kind %q", string(kind))
+		return ParsedDesignation{}, NewErrorf(CodeValidationFailed, MsgKindUnknown, string(kind))
 	}
 	canonical, err := Canonicalize(text)
 	if err != nil {
@@ -569,7 +568,7 @@ func parseWithSystem(scan func() *scanner, canonical string, system System, kind
 		}
 		return ParsedDesignation{Kind: kind, System: SystemOther, Designation: canonical}, nil
 	}
-	return ParsedDesignation{}, fmt.Errorf("unknown designation system %q", string(system))
+	return ParsedDesignation{}, NewErrorf(CodeValidationFailed, MsgSystemUnknown, string(system))
 }
 
 // runStrict прогоняет парсер явной системы, преобразуя синтаксические

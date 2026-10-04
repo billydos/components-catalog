@@ -20,7 +20,7 @@
 | ID | Приоритет | Область | Суть | Воспроизведено | Статус |
 |----|-----------|---------|------|----------------|--------|
 | A1 | Высокий | `qa/scenarios.sh` | 4 проверки сценария постоянно падают: утверждают русский вывод без `--lang ru`; скрипт и CI-шаг завершаются с кодом 1 | Да | исправлено |
-| A2 | Высокий | `internal/domain`, `internal/cli` | Неизвестный `--kind`/`--system` — plain-error `fmt.Errorf`, выводится «Непредвиденная ошибка: » вместо «Ошибка: » (нарушение контракта AGENTS.md) | Да | не исправлено |
+| A2 | Высокий | `internal/domain`, `internal/cli` | Неизвестный `--kind`/`--system` — plain-error `fmt.Errorf`, выводится «Непредвиденная ошибка: » вместо «Ошибка: » (нарушение контракта AGENTS.md) | Да | исправлено |
 | B1 | Средний | `internal/storage/catalog_read.go` | `LoadSnapshot` — не «одно согласованное чтение»: 12+ раздельных SELECT из пула; снимок может смешать старые и новые определения и закэшироваться | По коду | не исправлено |
 | B2 | Средний | `internal/catalog/metaschema.go`, `internal/importer` | Метасхема не запрещает коды условий `value/min/max/text/parameter` и имена секций `name/system/fields/…` — они невыразимы в формате наполнения, round-trip искажается | Да (приём каталога) | не исправлено |
 | B3 | Средний | `internal/domain/parse_capacitor.go` | Сырые русские строки переданы как MsgID (D9): канонический en-рендер выдал бы русский текст; сейчас маскируется `systemMismatch` | По коду | не исправлено |
@@ -75,7 +75,7 @@ $ catalogctl parse КТ315 --system bar --lang ru
 
 **Рекомендация:** в `parseDesignation` заменить оба `fmt.Errorf` на `domain.NewErrorf(domain.CodeValidationFailed, domain.MsgKindUnknown/…, …)` (при необходимости добавить `MsgSystemUnknown` в выбор мест, где он ещё не используется — константа уже существует). Добавить CLI-тест на `parse --kind foo` с утверждением префикса «Ошибка: » и кода.
 
-**Решено:** — (находка только зафиксирована).
+**Решено:** в `parseDesignation`/`parseWithSystem` оба `fmt.Errorf` заменены на `NewErrorf(CodeValidationFailed, MsgKindUnknown/MsgSystemUnknown, …)` — существующие константы и форматы en/ru, новых сообщений не потребовалось; импорт `fmt` из `designation.go` удалён. Тест `designation_test.go`, закреплявший старое поведение как «непредвиденную ошибку», перевёрнут: теперь утверждается `*domain.Error` с кодом `validation_failed` и канонический текст. Добавлен CLI-тест `TestParseUnknownKindSystem` (`--kind foo`/`--system bar`, en и ru: префикс, текст, код выхода 1). Верификация: build/vet/gofmt/test — чисто; `./qa/scenarios.sh` — `ok=41 fail=0`; воспроизведение находки даёт `Ошибка: неизвестный класс приборов «foo»`, exit 1.
 
 ---
 
