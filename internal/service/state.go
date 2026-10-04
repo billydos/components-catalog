@@ -2,10 +2,8 @@ package service
 
 import (
 	"context"
-	"fmt"
+	"slices"
 	"sort"
-	"strconv"
-	"strings"
 
 	"github.com/billydos/components-catalog/internal/catalog"
 	"github.com/billydos/components-catalog/internal/domain"
@@ -231,118 +229,157 @@ func normalizeAttrs(vals []catalog.AttributeValue) []catalog.AttributeValue {
 	return out
 }
 
-// sameState сравнивает состояния канонически (порядок значений внутри
-// секций и исполнений значим — он задаёт sort_order; атрибуты, условия,
-// производители и аналоги сравниваются как множества с сохранением
-// детерминированного порядка).
+// sameState сравнивает состояния канонически: порядок значений внутри
+// секций и исполнений значим (он задаёт sort_order); явные поля,
+// атрибуты, условия, производители и аналоги сравниваются как множества
+// (нормализуются сортировкой копий — равенство не зависит от порядка
+// чтения из БД). Числа сравниваются бит-точно (round-trip REAL; NaN
+// в значениях исключён валидацией).
 func sameState(a, b *deviceState) bool {
-	return stateKey(a) == stateKey(b)
+	return fieldsEqual(a.fields, b.fields) &&
+		attrsEqual(a.attributes, b.attributes) &&
+		groupValuesEqual(a.groupValues, b.groupValues) &&
+		variantsEqual(a.variants, b.variants) &&
+		manufacturersEqual(a.manufacturers, b.manufacturers) &&
+		analogsEqual(a.analogs, b.analogs)
 }
 
-// stateKey строит каноническое представление состояния для сравнения.
-func stateKey(st *deviceState) string {
-	var b strings.Builder
-	for _, f := range st.fields {
-		b.WriteString("F:")
-		b.WriteString(f.Name)
-		b.WriteString("=")
-		b.WriteString(f.String())
-		b.WriteString(";")
+// fieldsEqual — множества явных полей по имени.
+func fieldsEqual(a, b []domain.Field) bool {
+	if len(a) != len(b) {
+		return false
 	}
-	for _, a := range st.attributes {
-		b.WriteString("A:")
-		b.WriteString(a.Attribute)
-		b.WriteString("=")
-		b.WriteString(attrValueKey(a))
-		b.WriteString(";")
-	}
-	groups := make([]string, 0, len(st.groupValues))
-	for g := range st.groupValues {
-		groups = append(groups, g)
-	}
-	sort.Strings(groups)
-	for _, g := range groups {
-		b.WriteString("G:")
-		b.WriteString(g)
-		b.WriteString("{")
-		for _, v := range st.groupValues[g] {
-			b.WriteString(valueKey(v))
-			b.WriteString(",")
-		}
-		b.WriteString("}")
-	}
-	for i, v := range st.variants {
-		fmt.Fprintf(&b, "V%d:%s{", i, v.Label)
-		for _, val := range v.Values {
-			b.WriteString(valueKey(val))
-			b.WriteString(",")
-		}
-		b.WriteString("}")
-	}
-	for _, m := range st.manufacturers {
-		b.WriteString("M:")
-		b.WriteString(m)
-		b.WriteString(";")
-	}
-	for _, a := range st.analogs {
-		b.WriteString("N:")
-		b.WriteString(a.Designation)
-		b.WriteString("|")
-		b.WriteString(a.Note)
-		b.WriteString(";")
-	}
-	return b.String()
+	ac, bc := append([]domain.Field(nil), a...), append([]domain.Field(nil), b...)
+	sort.SliceStable(ac, func(i, j int) bool { return ac[i].Name < ac[j].Name })
+	sort.SliceStable(bc, func(i, j int) bool { return bc[i].Name < bc[j].Name })
+	return slices.Equal(ac, bc)
 }
 
-func attrValueKey(a catalog.AttributeValue) string {
-	switch {
-	case a.Text != nil:
-		return "t:" + *a.Text
-	case a.Num != nil:
-		return "n:" + numKey(*a.Num)
-	case a.Bool != nil:
-		if *a.Bool {
-			return "b:1"
-		}
-		return "b:0"
+// attrsEqual — множества значений атрибутов по коду.
+func attrsEqual(a, b []catalog.AttributeValue) bool {
+	if len(a) != len(b) {
+		return false
 	}
-	return "-"
-}
-
-func valueKey(v stateValue) string {
-	var b strings.Builder
-	b.WriteString(v.Parameter)
-	b.WriteString("(")
-	appendNum := func(name string, f *float64) {
-		if f != nil {
-			b.WriteString(name)
-			b.WriteString("=")
-			b.WriteString(numKey(*f))
-			b.WriteString(",")
+	ac, bc := append([]catalog.AttributeValue(nil), a...), append([]catalog.AttributeValue(nil), b...)
+	sort.SliceStable(ac, func(i, j int) bool { return ac[i].Attribute < ac[j].Attribute })
+	sort.SliceStable(bc, func(i, j int) bool { return bc[i].Attribute < bc[j].Attribute })
+	for i := range ac {
+		if !attrEqual(ac[i], bc[i]) {
+			return false
 		}
 	}
-	appendNum("x", v.Exact)
-	appendNum("i", v.Min)
-	appendNum("a", v.Max)
-	if v.Text != nil {
-		b.WriteString("t=")
-		b.WriteString(*v.Text)
-		b.WriteString(",")
-	}
-	conds := make([]string, 0, len(v.Conditions))
-	for _, c := range v.Conditions {
-		conds = append(conds, c.Condition+"="+numKey(c.Value))
-	}
-	sort.Strings(conds)
-	b.WriteString(strings.Join(conds, ";"))
-	b.WriteString(")")
-	return b.String()
+	return true
 }
 
-// numKey — каноническая запись числа (бит-точное сравнение после
-// round-trip REAL; NaN в значениях исключён валидацией).
-func numKey(f float64) string {
-	return strconv.FormatFloat(f, 'g', -1, 64)
+func attrEqual(a, b catalog.AttributeValue) bool {
+	return a.Attribute == b.Attribute &&
+		strPtrEqual(a.Text, b.Text) &&
+		numPtrEqual(a.Num, b.Num) &&
+		boolPtrEqual(a.Bool, b.Bool)
+}
+
+// groupValuesEqual — сравнение по группам каталога; порядок значений
+// внутри группы значим (sort_order).
+func groupValuesEqual(a, b map[string][]stateValue) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for g, av := range a {
+		bv, ok := b[g]
+		if !ok || !valuesEqual(av, bv) {
+			return false
+		}
+	}
+	return true
+}
+
+// variantsEqual — порядок исполнений значим (sort_order).
+func variantsEqual(a, b []stateVariant) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i := range a {
+		if a[i].Label != b[i].Label || !valuesEqual(a[i].Values, b[i].Values) {
+			return false
+		}
+	}
+	return true
+}
+
+// valuesEqual — порядок значений значим (sort_order).
+func valuesEqual(a, b []stateValue) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i := range a {
+		if !valueEqual(a[i], b[i]) {
+			return false
+		}
+	}
+	return true
+}
+
+func valueEqual(a, b stateValue) bool {
+	return a.Parameter == b.Parameter &&
+		numPtrEqual(a.Exact, b.Exact) &&
+		numPtrEqual(a.Min, b.Min) &&
+		numPtrEqual(a.Max, b.Max) &&
+		strPtrEqual(a.Text, b.Text) &&
+		condsEqual(a.Conditions, b.Conditions)
+}
+
+// condsEqual — множества условий по коду.
+func condsEqual(a, b []catalog.ConditionValue) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	ac, bc := append([]catalog.ConditionValue(nil), a...), append([]catalog.ConditionValue(nil), b...)
+	sort.SliceStable(ac, func(i, j int) bool { return ac[i].Condition < ac[j].Condition })
+	sort.SliceStable(bc, func(i, j int) bool { return bc[i].Condition < bc[j].Condition })
+	return slices.Equal(ac, bc)
+}
+
+// manufacturersEqual — множества имён производителей.
+func manufacturersEqual(a, b []string) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	ac, bc := append([]string(nil), a...), append([]string(nil), b...)
+	sort.Strings(ac)
+	sort.Strings(bc)
+	return slices.Equal(ac, bc)
+}
+
+// analogsEqual — множества исходящих ссылок по обозначению.
+func analogsEqual(a, b []stateAnalog) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	ac, bc := append([]stateAnalog(nil), a...), append([]stateAnalog(nil), b...)
+	sort.SliceStable(ac, func(i, j int) bool { return ac[i].Designation < ac[j].Designation })
+	sort.SliceStable(bc, func(i, j int) bool { return bc[i].Designation < bc[j].Designation })
+	return slices.Equal(ac, bc)
+}
+
+func strPtrEqual(a, b *string) bool {
+	if a == nil || b == nil {
+		return a == b
+	}
+	return *a == *b
+}
+
+func numPtrEqual(a, b *float64) bool {
+	if a == nil || b == nil {
+		return a == b
+	}
+	return *a == *b
+}
+
+func boolPtrEqual(a, b *bool) bool {
+	if a == nil || b == nil {
+		return a == b
+	}
+	return *a == *b
 }
 
 // toCatalogDevice собирает запись для валидации движком (Section значений —
