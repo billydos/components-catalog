@@ -26,7 +26,7 @@ ok_if() { # ok_if <условие-команда...> — статус для che
   "$@"
 }
 
-contains() { printf '%s' "$1" | grep -qF "$2"; }
+contains() { grep -qF "$2" <<<"$1"; }
 
 TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT
@@ -96,7 +96,7 @@ cli_suite() {
   check "parse: JEDEC" $(ok_if contains "$out" "jedec"; echo $?)
 
   rc=0
-  out="$("$CTL" parse 2222 2>&1)" || rc=$?
+  out="$("$CTL" parse --lang ru 2222 2>&1)" || rc=$?
   check "parse: неверное обозначение — «Ошибка: », код 1" \
     $([ $rc -eq 1 ] && contains "$out" "Ошибка: "; echo $?)
 
@@ -118,7 +118,7 @@ cli_suite() {
   check "delete: удаление с каскадом" $(ok_if contains "$out" "удалено"; echo $?)
 
   rc=0
-  out="$("$CTL" info КД522А "${db[@]}" 2>&1)" || rc=$?
+  out="$("$CTL" info --lang ru КД522А "${db[@]}" 2>&1)" || rc=$?
   check "delete: запись отсутствует, код 1" \
     $([ $rc -eq 1 ] && contains "$out" "не найдена"; echo $?)
 
@@ -127,11 +127,11 @@ cli_suite() {
 
   printf '{ broken json' > "$TMP/broken.jsonc"
   rc=0
-  out="$("$CTL" import "$TMP/broken.jsonc" "${db[@]}" 2>&1)" || rc=$?
+  out="$("$CTL" import --lang ru "$TMP/broken.jsonc" "${db[@]}" 2>&1)" || rc=$?
   check "import: битый файл — «Ошибка: », код 1" \
     $([ $rc -eq 1 ] && contains "$out" "Ошибка: "; echo $?)
 
-  out="$("$CTL" catalog list "${db[@]}" 2>&1)"
+  out="$("$CTL" catalog list --lang ru "${db[@]}" 2>&1)"
   check "catalog list: справка из каталога" \
     $(ok_if contains "$out" "Параметры:" && contains "$out" "h21e"; echo $?)
 }
