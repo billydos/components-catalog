@@ -138,6 +138,11 @@
       "parameters": [
         { "parameter": "Cnom", "min": 2.2, "max": 2200000 },  // 2,2 пФ – 2,2 мкФ (по группам ТКЕ)
         { "parameter": "Dop", "max": 80 },                    // ±5…±20 %; +80/−20 % (Н90)
+        { "parameter": "TKE", "text": "М47" },                // многозначный enum: группы типа
+        { "parameter": "TKE", "text": "М1500" },
+        { "parameter": "TKE", "text": "Н20" },
+        { "parameter": "TKE", "text": "Н50" },
+        { "parameter": "TKE", "text": "Н90" },
         { "parameter": "Unom", "value": 50 },                 // Н90 — 40 В
         { "parameter": "Tgd", "max": 3.5 },                   // сегнетокерамика; М47/М1500 — ≤0,15 %
         { "parameter": "Riz", "min": 4000000000 },
@@ -328,6 +333,7 @@
       "parameters": [
         { "parameter": "Cnom", "min": 100000, "max": 100000 },  // 0,1 мкФ — единичный номинал кода
         { "parameter": "Dop", "max": 10 },
+        { "parameter": "TKE", "text": "X7R" },                // код заказа R7: −55…+125 °C, ±15 %
         { "parameter": "Unom", "value": 50 },
         { "parameter": "opTempMin", "value": -55 },
         { "parameter": "opTempMax", "value": 125 }

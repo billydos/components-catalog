@@ -113,7 +113,8 @@ func TestSeedRulesPin(t *testing.T) {
 }
 
 // Enum ТКЕ — выверенная таблица (03 §6.8, 07 §6): нормируемый и
-// ненормируемый ряды, варианты написания — отдельные значения.
+// ненормируемый ряды, варианты написания — отдельные значения;
+// международные коды EIA (класс 1 и класс 2, 07 §6/S9).
 func TestSeedTKEEnum(t *testing.T) {
 	snap, probs := catalog.ApplyCatalog(nil, seed.Catalog())
 	if len(probs) != 0 {
@@ -127,6 +128,7 @@ func TestSeedTKEEnum(t *testing.T) {
 		"П100", "П120", "П60", "П33", "МП0", "М33", "М47", "М75",
 		"М150", "М220", "М330", "М470", "М750", "М700", "М1500", "М1300", "М2200",
 		"Н10", "Н20", "Н30", "Н50", "Н70", "Н90",
+		"C0G", "NP0", "U2J", "X5R", "X6S", "X7R", "X7S", "X8R", "Y5V", "Z5U",
 	}
 	if !slices.Equal(p.EnumValues, want) {
 		t.Fatalf("ТКЕ:\n got:  %v\n want: %v", p.EnumValues, want)

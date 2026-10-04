@@ -312,6 +312,10 @@ func parameters() []catalog.ParameterDef {
 				"М150", "М220", "М330", "М470", "М750", "М700", "М1500", "М1300", "М2200",
 				// Ненормируемый (сегнетокерамика), %.
 				"Н10", "Н20", "Н30", "Н50", "Н70", "Н90",
+				// Международные коды EIA RS-198: класс 1 — линейный ТКЕ
+				// (10⁻⁶/°C), класс 2 — буква нижней границы диапазона +
+				// цифра верхней + буква предела изменения ёмкости (S9).
+				"C0G", "NP0", "U2J", "X5R", "X6S", "X7R", "X7S", "X8R", "Y5V", "Z5U",
 			}},
 		{Code: "Unom", Group: "electrical", Unit: "V",
 			ValueType: catalog.ValueExact, SortOrder: 390, Active: true, Kinds: []domain.Kind{domain.KindCapacitor}},

@@ -211,7 +211,7 @@ func TestValueShapes(t *testing.T) {
 			"parameter «TKE»: value type enum does not allow key value"},
 		{"enum вне списка", domain.KindCapacitor,
 			catalog.ParameterValue{Parameter: "TKE", Section: "parameters", Text: s("Н80")},
-			"parameter «TKE»: value «Н80» is not among the allowed ones (П100, П120, П60, П33, МП0, М33, М47, М75, М150, М220, М330, М470, М750, М700, М1500, М1300, М2200, Н10, Н20, Н30, Н50, Н70, Н90)"},
+			"parameter «TKE»: value «Н80» is not among the allowed ones (П100, П120, П60, П33, МП0, М33, М47, М75, М150, М220, М330, М470, М750, М700, М1500, М1300, М2200, Н10, Н20, Н30, Н50, Н70, Н90, C0G, NP0, U2J, X5R, X6S, X7R, X7S, X8R, Y5V, Z5U)"},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {

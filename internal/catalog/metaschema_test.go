@@ -309,7 +309,7 @@ func TestApplyCatalogUpsert(t *testing.T) {
 		updated.EnumValues = []string{"МП0"}
 		catalog.ApplyCatalog(snap, catalog.Input{Parameters: []catalog.ParameterDef{updated}})
 		got, _ := snap.Parameter("TKE")
-		if len(got.EnumValues) != 23 {
+		if len(got.EnumValues) != 33 {
 			t.Fatalf("исходный снимок изменён: %d значений", len(got.EnumValues))
 		}
 	})
