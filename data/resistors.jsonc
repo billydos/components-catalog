@@ -188,6 +188,8 @@
       "parameters": [
         { "parameter": "Rnom", "min": 1, "max": 5100000 },         // 1 Ом – 5,1 МОм
         { "parameter": "Dop", "max": 10 },                         // ±2; ±5; ±10 %
+        { "parameter": "nominalRow", "text": "E24" },              // ряды номиналов: E24 при ±5/±10 %,
+        { "parameter": "nominalRow", "text": "E96" },              // E96 при ±2 %
         { "parameter": "TKS", "max": 1200 },
         { "parameter": "Ush", "max": 5 }
       ],

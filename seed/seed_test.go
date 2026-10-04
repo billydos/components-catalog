@@ -19,7 +19,7 @@ func TestSeedAppliesCleanly(t *testing.T) {
 		}
 		t.Fatal("стартовый каталог не проходит метасхему")
 	}
-	if len(snap.Parameters) != 76 || len(snap.Attributes) != 17 ||
+	if len(snap.Parameters) != 77 || len(snap.Attributes) != 17 ||
 		len(snap.Units) != 23 || len(snap.Conditions) != 17 {
 		t.Fatalf("состав каталога: параметры %d, атрибуты %d, единицы %d, условия %d",
 			len(snap.Parameters), len(snap.Attributes), len(snap.Units), len(snap.Conditions))
@@ -133,6 +133,30 @@ func TestSeedTKEEnum(t *testing.T) {
 	}
 	if p.Unit != "" || p.ValueType != catalog.ValueEnum {
 		t.Fatalf("TKE: тип %s, единица %q", string(p.ValueType), p.Unit)
+	}
+}
+
+// Enum номинальных рядов — ГОСТ 28884-90 / МЭК 60063 (03 §6.5,
+// 07 §11): параметр многозначный в записи (серия может выпускаться
+// в нескольких рядах по градациям допуска).
+func TestSeedNominalRowEnum(t *testing.T) {
+	snap, probs := catalog.ApplyCatalog(nil, seed.Catalog())
+	if len(probs) != 0 {
+		t.Fatalf("проблемы применения сидов: %v", probs)
+	}
+	p, ok := snap.Parameter("nominalRow")
+	if !ok {
+		t.Fatal("nominalRow отсутствует")
+	}
+	want := []string{"E3", "E6", "E12", "E24", "E48", "E96", "E192"}
+	if !slices.Equal(p.EnumValues, want) {
+		t.Fatalf("номинальные ряды:\n got:  %v\n want: %v", p.EnumValues, want)
+	}
+	if p.Unit != "" || p.ValueType != catalog.ValueEnum {
+		t.Fatalf("nominalRow: тип %s, единица %q", string(p.ValueType), p.Unit)
+	}
+	if !p.AppliesTo(domain.KindResistor) || !p.AppliesTo(domain.KindCapacitor) || p.AppliesTo(domain.KindTransistor) {
+		t.Errorf("nominalRow: применимость %v", p.Kinds)
 	}
 }
 

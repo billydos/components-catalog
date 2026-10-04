@@ -227,11 +227,12 @@ var bundleEn = map[string]string{
 	"param.Lambda": "peak emission wavelength",
 
 	// Параметры: резисторы — electrical.
-	"param.Rnom": "nominal resistance (series range)",
-	"param.Dop":  "tolerance",
-	"param.TKS":  "temperature coefficient of resistance (TCR)",
-	"param.Ush":  "intrinsic noise level, µV/V",
-	"param.Riz":  "insulation resistance",
+	"param.Rnom":       "nominal resistance (series range)",
+	"param.Dop":        "tolerance",
+	"param.nominalRow": "nominal value series (E series)",
+	"param.TKS":        "temperature coefficient of resistance (TCR)",
+	"param.Ush":        "intrinsic noise level, µV/V",
+	"param.Riz":        "insulation resistance",
 
 	// Параметры: конденсаторы — electrical.
 	"param.Cnom":      "nominal capacitance (series range)",

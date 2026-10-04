@@ -402,6 +402,24 @@ func TestConditionSets(t *testing.T) {
 			t.Fatalf(" got: %v", messages(probs))
 		}
 	})
+	t.Run("многозначный enum", func(t *testing.T) {
+		txt := func(s string) *string { return &s }
+		d := catalog.Device{
+			Kind: domain.KindResistor, System: domain.SystemGost, Designation: "С2-33Н",
+			Values: []catalog.ParameterValue{
+				{Parameter: "nominalRow", Section: "parameters", Text: txt("E24")},
+				{Parameter: "nominalRow", Section: "parameters", Text: txt("E96")},
+			},
+		}
+		if probs := e.ValidateDevice(&d); len(probs) != 0 {
+			t.Fatalf(" got: %v", messages(probs))
+		}
+		d.Values[1].Text = txt("E24")
+		probs := e.ValidateDevice(&d)
+		if len(probs) != 1 || probs[0].Message != "parameter «nominalRow»: duplicate value with the same conditions" {
+			t.Fatalf(" got: %v", messages(probs))
+		}
+	})
 	t.Run("Ikbo при двух температурах", func(t *testing.T) {
 		d := catalog.Device{
 			Kind: domain.KindTransistor, System: domain.SystemGost,

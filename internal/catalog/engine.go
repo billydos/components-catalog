@@ -212,7 +212,7 @@ func (e *Engine) validateValues(kind domain.Kind, vals []ParameterValue) []Probl
 		}
 		probs = append(probs, checkValueShape(p, v)...)
 		probs = append(probs, e.checkValueConditions(p, v)...)
-		key := valueKey(v)
+		key := valueKey(p, v)
 		if seen[key] {
 			probs = append(probs, Problemf(domain.CodeValidationFailed, domain.MsgEngineParamDuplicate, p.Code))
 		} else {
@@ -468,13 +468,18 @@ func (e *Engine) kindAllowsVariants(kind domain.Kind) bool {
 
 // valueKey — канонический ключ значения для контроля дубликатов
 // «параметр + одинаковые условия» (docs/plan/02-database.md §2.3).
-func valueKey(v *ParameterValue) string {
+// Enum-параметры многозначны (ряды номиналов): ключ включает значение.
+func valueKey(p *ParameterDef, v *ParameterValue) string {
 	parts := make([]string, 0, len(v.Conditions))
 	for _, c := range v.Conditions {
 		parts = append(parts, c.Condition+"="+strconv.FormatFloat(c.Value, 'g', -1, 64))
 	}
 	slices.Sort(parts)
-	return v.Parameter + "|" + strings.Join(parts, ";")
+	key := v.Parameter + "|" + strings.Join(parts, ";")
+	if p.ValueType == ValueEnum && v.Text != nil {
+		key += "|" + *v.Text
+	}
+	return key
 }
 
 // formatNum — компактная запись числа для сообщений (целое — без точки).

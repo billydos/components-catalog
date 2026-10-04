@@ -282,12 +282,18 @@ func parameters() []catalog.ParameterDef {
 		{Code: "Lambda", Group: "electrical", Unit: "nm",
 			ValueType: catalog.ValueRange, SortOrder: 310, Active: true, Kinds: di},
 
-		// Резисторы — электрические параметры (§6.5); Dop и Riz применимы
-		// также к конденсаторам (D7).
+		// Резисторы — электрические параметры (§6.5); Dop, nominalRow и Riz
+		// применимы также к конденсаторам (D7).
 		{Code: "Rnom", Group: "electrical", Unit: "ohm",
 			ValueType: catalog.ValueRange, SortOrder: 320, Active: true, Kinds: re},
 		{Code: "Dop", Group: "electrical", Unit: "pct",
 			ValueType: catalog.ValueAtMost, SortOrder: 330, Active: true, Kinds: reCa},
+		{Code: "nominalRow", Group: "electrical",
+			ValueType: catalog.ValueEnum, SortOrder: 335, Active: true, Kinds: reCa,
+			EnumValues: []string{
+				// Ряды предпочтительных величин (ГОСТ 28884-90 / МЭК 60063).
+				"E3", "E6", "E12", "E24", "E48", "E96", "E192",
+			}},
 		{Code: "TKS", Group: "electrical", Unit: "ppm_per_degC",
 			ValueType: catalog.ValueAtMost, SortOrder: 340, Active: true, Kinds: re},
 		{Code: "Ush", Group: "electrical",

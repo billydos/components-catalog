@@ -575,7 +575,9 @@
       "system": "series",
       "parameters": [
         { "parameter": "Rnom", "min": 1, "max": 5100000 },
-        { "parameter": "Dop", "max": 20 },
+        { "parameter": "Dop", "max": 10 },                        // ±2; ±5; ±10 %
+        { "parameter": "nominalRow", "text": "E24" },             // ряды номиналов: E24 при ±5/±10 %,
+        { "parameter": "nominalRow", "text": "E96" },             // E96 при ±2 %
         { "parameter": "TKS", "max": 1200 },
         { "parameter": "Riz", "min": 10000000000 }
       ],
