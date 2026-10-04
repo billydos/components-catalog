@@ -580,9 +580,9 @@ func emitJSONCompact(b *strings.Builder, v value) {
 	}
 }
 
-// writeYAMLTree пишет дерево в блочном YAML: строки и ключи — всегда
-// в двойных кавычках (экранирование JSON-подмножества допустимо в YAML),
-// числа — как есть.
+// writeYAMLTree пишет дерево в блочном YAML: ключи и plain-безопасные
+// строки — без кавычек, прочие строки — в двойных кавычках (экранирование
+// JSON-подмножества допустимо в YAML), числа/bool/null — как есть.
 func writeYAMLTree(w io.Writer, v value) error {
 	var b strings.Builder
 	emitYAMLValue(&b, v, 0)
@@ -591,6 +591,51 @@ func writeYAMLTree(w io.Writer, v value) error {
 }
 
 func yamlPad(indent int) string { return strings.Repeat("  ", indent) }
+
+// yamlPlain — допустимость строки как plain-скаляра YAML: без кавычек
+// читается обратно строкой (не числом, не bool, не null) совместимыми
+// парсерами. Первый символ — буква, цифра или подчёркивание, прочие
+// символы — также точка и дефис (внутри); литералы true/false/null и
+// слова YAML 1.1 yes/no/on/off/y/n (в любом регистре), записи,
+// разбираемые как числа (включая 0x/0b/0o и знак), и nan/inf остаются
+// в кавычках.
+func yamlPlain(s string) bool {
+	if s == "" {
+		return false
+	}
+	for i := 0; i < len(s); i++ {
+		c := s[i]
+		switch {
+		case c >= 'a' && c <= 'z', c >= 'A' && c <= 'Z', c >= '0' && c <= '9', c == '_':
+		case c == '.' || c == '-':
+			if i == 0 {
+				return false
+			}
+		default:
+			return false
+		}
+	}
+	if _, err := strconv.ParseFloat(s, 64); err == nil {
+		return false
+	}
+	if _, err := strconv.ParseInt(s, 0, 64); err == nil {
+		return false
+	}
+	switch strings.ToLower(s) {
+	case "y", "n", "yes", "no", "on", "off", "true", "false", "null":
+		return false
+	}
+	return true
+}
+
+// yamlScalar — скаляр YAML: plain-безопасные строки — без кавычек,
+// прочее — JSON-текст (допустим в YAML в двойных кавычках).
+func yamlScalar(v value) string {
+	if v.kind == kindString && yamlPlain(v.str) {
+		return v.str
+	}
+	return jsonScalar(v)
+}
 
 // emitYAMLValue — значение на своих строках с отступом indent
 // (объект/массив), скаляр — «значение» без перевода строки.
@@ -621,17 +666,17 @@ func emitYAMLValue(b *strings.Builder, v value, indent int) {
 				b.WriteString(yamlPad(indent) + "-\n")
 				emitYAMLValue(b, item, indent+1)
 			default:
-				b.WriteString(yamlPad(indent) + "- " + jsonScalar(item) + "\n")
+				b.WriteString(yamlPad(indent) + "- " + yamlScalar(item) + "\n")
 			}
 		}
 	default:
-		b.WriteString(jsonScalar(v) + "\n")
+		b.WriteString(yamlScalar(v) + "\n")
 	}
 }
 
 // emitYAMLMember — «ключ:» с продолжением значения.
 func emitYAMLMember(b *strings.Builder, m member, indent int) {
-	b.WriteString(jsonScalar(str(m.name)))
+	b.WriteString(yamlScalar(str(m.name)))
 	b.WriteByte(':')
 	switch m.value.kind {
 	case kindObject:
@@ -650,7 +695,7 @@ func emitYAMLMember(b *strings.Builder, m member, indent int) {
 		emitYAMLValue(b, m.value, indent+1)
 	default:
 		b.WriteByte(' ')
-		b.WriteString(jsonScalar(m.value))
+		b.WriteString(yamlScalar(m.value))
 		b.WriteByte('\n')
 	}
 }

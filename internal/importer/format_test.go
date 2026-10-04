@@ -1,6 +1,7 @@
 package importer
 
 import (
+	"bytes"
 	"strings"
 	"testing"
 
@@ -161,6 +162,93 @@ func TestParseYAMLSyntaxError(t *testing.T) {
 	}
 	if !strings.Contains(de.Message, "the file is not valid YAML") {
 		t.Fatalf("текст без указания формата: %q", de.Message)
+	}
+}
+
+func TestYAMLPlainAdmission(t *testing.T) {
+	cases := []struct {
+		s    string
+		want bool
+	}{
+		{"name", true},
+		{"general_purpose", true},
+		{"2N2222A", true},
+		{"pct_per_degC", true},
+		{"a-b.c", true},
+		{"", false},
+		{"КТ315Б", false},
+		{"1.5", false},
+		{"1e5", false},
+		{"0x1A", false},
+		{"0b101", false},
+		{"1_0", false},
+		{"-5", false},
+		{".inf", false},
+		{"inf", false},
+		{"nan", false},
+		{"true", false},
+		{"Null", false},
+		{"yes", false},
+		{"off", false},
+		{"Y", false},
+		{"n", false},
+		{"a b", false},
+	}
+	for _, tc := range cases {
+		if got := yamlPlain(tc.s); got != tc.want {
+			t.Errorf("yamlPlain(%q) = %v, ожидалось %v", tc.s, got, tc.want)
+		}
+	}
+}
+
+func TestWriteYAMLPlainScalars(t *testing.T) {
+	root := object(
+		pair("transistors", array(object(
+			pair("name", str("2N2222A")),
+			pair("system", str("jedec")),
+			pair("note", str("КТ315Б")),
+			pair("fields", object(
+				pair("category", str("general_purpose")),
+				pair("material", str("si")),
+				pair("verdict", str("yes")),
+				pair("empty", str("")),
+			)),
+		))),
+	)
+	var buf bytes.Buffer
+	if err := writeYAMLTree(&buf, root); err != nil {
+		t.Fatalf("запись: %v", err)
+	}
+	want := "transistors:\n" +
+		"  - name: 2N2222A\n" +
+		"    system: jedec\n" +
+		"    note: \"КТ315Б\"\n" +
+		"    fields:\n" +
+		"      category: general_purpose\n" +
+		"      material: si\n" +
+		"      verdict: \"yes\"\n" +
+		"      empty: \"\"\n"
+	if buf.String() != want {
+		t.Fatalf("стиль yaml:\n%s\nожидался:\n%s", buf.String(), want)
+	}
+	// Round-trip стиля: эмиттер читается собственным парсером без потерь.
+	back, err := parseYAML(buf.Bytes())
+	if err != nil {
+		t.Fatalf("повторный разбор: %v", err)
+	}
+	sec, _ := back.has("transistors")
+	name, _ := sec.items[0].has("name")
+	if name.kind != kindString || name.str != "2N2222A" {
+		t.Fatalf("plain-строка потеряна: %+v", name)
+	}
+	fields, _ := sec.items[0].has("fields")
+	verdict, _ := fields.has("verdict")
+	if verdict.kind != kindString || verdict.str != "yes" {
+		t.Fatalf("экранированный литерал прочитан не строкой: %+v", verdict)
+	}
+	empty, _ := fields.has("empty")
+	if empty.kind != kindString || empty.str != "" {
+		t.Fatalf("пустая строка потеряна: %+v", empty)
 	}
 }
 
