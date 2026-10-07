@@ -1,7 +1,7 @@
 * text=auto
 
 # Исходники и текстовые данные — всегда LF
-*.go text diff=go
+*.go text diff=go eol=lf
 *.md text
 *.json text
 *.jsonc text
