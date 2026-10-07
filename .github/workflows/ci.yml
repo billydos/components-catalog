@@ -5,7 +5,8 @@ on:
   - pull_request
 
 jobs:
-  check:
+  qa-linux:
+    name: QA (linux, SQLite + PostgreSQL, load)
     runs-on: ubuntu-latest
     services:
       postgres:
@@ -22,6 +23,7 @@ jobs:
           --health-retries 10
     env:
       CATALOG_TEST_POSTGRES_DSN: postgres://postgres:postgres@localhost:5432/catalog_test
+      CATALOG_QA_SCALE: "10000"
     steps:
       - name: Checkout
         uses: actions/checkout@v5
@@ -29,21 +31,30 @@ jobs:
         uses: actions/setup-go@v6
         with:
           go-version-file: go.mod
-      - name: Build
-        run: go build ./...
-      - name: Vet
-        run: go vet ./...
-      - name: Gofmt
-        run: |
-          files="$(gofmt -l .)"
-          if [ -n "$files" ]; then
-            echo "Файлы требуют gofmt:"
-            echo "$files"
-            exit 1
-          fi
-      - name: Test
-        run: go test ./...
-      - name: QA scenarios (SQLite + PostgreSQL)
-        run: ./qa/scenarios.sh
-      - name: Load estimate (SQLite, 10^4)
-        run: CATALOG_QA_SCALE=10000 go test ./qa -run TestLoad -v -timeout 30m
+      - name: QA (build, vet, gofmt, test, scenarios, load)
+        run: go run ./qa/runner
+      - name: Upload QA report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: qa-report-linux
+          path: qa/reports/*.log
+
+  qa-windows:
+    name: QA (windows, SQLite)
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+      - name: Setup Go
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+      - name: QA (build, vet, gofmt, test, scenarios)
+        run: go run ./qa/runner
+      - name: Upload QA report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: qa-report-windows
+          path: qa/reports/*.log

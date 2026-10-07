@@ -119,10 +119,13 @@ mux.Handle("/api/v1/", httpapi.New(app, httpapi.Config{
 
 ```bash
 go build ./... && go vet ./... && gofmt -l . && go test ./...
-./qa/scenarios.sh   # сквозные сценарии CLI+REST; PostgreSQL — через CATALOG_TEST_POSTGRES_DSN
+go run ./qa/runner     # кроссплатформенный QA: статика + сценарии CLI/REST, отчёт qa/reports/*.log
 ```
 
-CI (`.github/workflows/ci.yml`) выполняет то же самое плюс сквозные сценарии на обеих СУБД и нагрузочную прикидку (`qa/load_test.go`, масштаб — `CATALOG_QA_SCALE`).
+Прогонщик QA работает на Linux, macOS и Windows (SQLite всегда;
+PostgreSQL — через `CATALOG_TEST_POSTGRES_DSN`; нагрузочная прикидка —
+`-scale`/`CATALOG_QA_SCALE`). CI (`.github/workflows/ci.yml`) выполняет
+его на Linux со службой PostgreSQL и прикидкой 10⁴ и на Windows.
 
 ## Производительность
 

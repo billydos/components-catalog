@@ -243,3 +243,24 @@ func ddlFor(d Dialect) []string {
 	}
 	return out
 }
+
+// TableNames — имена каталожных таблиц модуля, выведенные из DDL
+// (ddlStatements): единый источник для очистки одноразовых баз —
+// qa/runner использует напрямую, internal/testutil — копией,
+// синхронизированной пин-тестом (импорт storage в testutil запрещён:
+// тесты storage импортируют testutil). DROP — с CASCADE, порядок не важен.
+func TableNames() []string {
+	const prefix = "CREATE TABLE IF NOT EXISTS "
+	out := make([]string, 0, len(ddlStatements))
+	for _, s := range ddlStatements {
+		if !strings.HasPrefix(s, prefix) {
+			continue
+		}
+		name := strings.TrimPrefix(s, prefix)
+		if i := strings.IndexByte(name, ' '); i >= 0 {
+			name = name[:i]
+		}
+		out = append(out, name)
+	}
+	return out
+}

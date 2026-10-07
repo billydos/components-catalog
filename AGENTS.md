@@ -10,7 +10,7 @@
 go build ./... && go vet ./... && gofmt -l . && go test ./...
 ```
 
-`gofmt -l .` обязан быть пуст. CI (`.github/workflows/ci.yml`) выполняет то же самое, плюс сквозные сценарии `./qa/scenarios.sh` (SQLite всегда, PostgreSQL по `CATALOG_TEST_POSTGRES_DSN`) и нагрузочную прикидку `qa/load_test.go` (`CATALOG_QA_SCALE=10000`). Локальный прогон интеграционных тестов на PostgreSQL — задать `CATALOG_TEST_POSTGRES_DSN` (без переменной нога пропускается).
+`gofmt -l .` обязан быть пуст. CI (`.github/workflows/ci.yml`) прогоняет кроссплатформенный QA-прогонщик `go run ./qa/runner` (Linux со службой PostgreSQL и Windows на SQLite): статические проверки, сквозные сценарии CLI/REST на обеих СУБД, нагрузочную прикидку при `CATALOG_QA_SCALE`; отчёт прогона — структурный лог `qa/reports/*.log` (формат `qa-log/1`). Локальный прогон интеграционных тестов на PostgreSQL — задать `CATALOG_TEST_POSTGRES_DSN` (без переменной нога пропускается).
 
 ## Слои и зависимости
 
@@ -23,7 +23,7 @@ go build ./... && go vet ./... && gofmt -l . && go test ./...
 - `internal/httpapi`, `internal/cli` — тонкие транспорты над `service`: разбор запросов/аргументов и вывод, без бизнес-логики.
 - `internal/testutil` — общий код интеграционных тестов: доступ к локальному PostgreSQL (`CATALOG_TEST_POSTGRES_DSN`) и очистка одноразовой базы; только из `_test.go`.
 
-Корневые пакеты: `seed` — стартовый каталог (единицы, условия, группы, параметры, атрибуты, правила, реестры `domain`); применяется `service` на пустую базу при открытии, состав закреплён пин-тестами `seed/seed_test.go` против реестров `internal/domain` и `internal/catalog`. `qa` — сквозные сценарии CLI/REST (`scenarios.sh`), нагрузочная прикидка (`load_test.go`), отчёты прогонов — `qa/reports/`.
+Корневые пакеты: `seed` — стартовый каталог (единицы, условия, группы, параметры, атрибуты, правила, реестры `domain`); применяется `service` на пустую базу при открытии, состав закреплён пин-тестами `seed/seed_test.go` против реестров `internal/domain` и `internal/catalog`. `qa` — кроссплатформенный прогонщик QA `qa/runner` (Go, без sh/bat: сборка, статика, сценарии CLI/REST на SQLite/PostgreSQL, структурный отчёт `qa-log/1`), нагрузочная прикидка (`load_test.go`), отчёты прогонов — `qa/reports/`.
 
 Направление зависимостей: `domain` ← `catalog`/`storage` ← `service` ← `importer`/`httpapi`/`cli`; `seed` — над `domain`/`catalog`, потребитель — `service`; `i18n` — отдельно от внутренних слоёв (зависит только от кодов-строк), локали не проникают в `domain`/`catalog`/`storage`/`service`. Не пропускать слои: SQL не поднимается выше `storage`, разбор форматов не выходит из `importer`, бизнес-правила не живут в транспортах.
 

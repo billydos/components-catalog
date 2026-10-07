@@ -23,8 +23,11 @@ func PostgresDSN(t *testing.T) string {
 	return dsn
 }
 
-// catalogTables — таблицы модуля в порядке, обратном зависимостям
-// (docs/plan/02-database.md §2).
+// catalogTables — таблицы модуля для очистки одноразовой тестовой базы
+// PostgreSQL между прогонами (схема создаётся заново EnsureCreated).
+// Список — копия storage.TableNames() (выводится из DDL): импорт storage
+// здесь запрещён (тесты storage импортируют testutil — цикл), синхронность
+// с DDL закреплена пин-тестом tables_test.go.
 var catalogTables = []string{
 	"device_analogs",
 	"device_manufacturers",
@@ -48,6 +51,7 @@ var catalogTables = []string{
 	"parameter_groups",
 	"conditions",
 	"units",
+	"categories",
 	"series_families",
 	"designation_system_kinds",
 	"designation_systems",

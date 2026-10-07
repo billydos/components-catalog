@@ -2,6 +2,7 @@
 /catalogctl
 /cmd/catalogctl/catalogctl
 /qa/restsrv/restsrv
+/qa/runner/runner
 
 # Артефакты тестов и профилирования Go
 *.test
