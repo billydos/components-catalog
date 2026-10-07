@@ -34,9 +34,9 @@ const (
 
 // TestLoad — нагрузочная прикидка (этап 7.1). Запуск явный:
 //
-//	CATALOG_QA_SCALE=10000 go test ./qa -run TestLoad -v -timeout 30m
+//	CATALOG_QA_SCALE=10000 go test ./qa -run TestLoad -count=1 -v -timeout 30m
 //	CATALOG_QA_DIALECT=postgres CATALOG_TEST_POSTGRES_DSN=postgres://… \
-//	  CATALOG_QA_SCALE=10000 go test ./qa -run TestLoad -v -timeout 30m
+//	  CATALOG_QA_SCALE=10000 go test ./qa -run TestLoad -count=1 -v -timeout 30m
 //
 // Без CATALOG_QA_SCALE тест пропускается (обычный `go test ./...`
 // нагрузочной прикидки не выполняет). Генерируется NDJSON-файл синтетических

@@ -171,13 +171,16 @@ func gofmtCheck(ctx context.Context, r *report, root string) {
 
 // loadPhase — нагрузочная прикидка (qa/load_test.go): запуск боевым
 // `go test` с масштабом; строки измерений попадают в отчёт заметками.
+// -count=1 отключает кэш результатов go test: прикидка — измерение,
+// кэшированная реплика с теми же переменными окружения выдаёт старые
+// медианы за нулевое время (база одноразовая — повторного прогона нет).
 func loadPhase(ctx context.Context, r *report, root string, scale int) {
 	r.section("phase: load")
 	r.kv("scale", strconv.Itoa(scale))
 	ctx, cancel := context.WithTimeout(ctx, loadTimeout)
 	defer cancel()
-	cmd := exec.CommandContext(ctx, "go", "test", "./qa", "-run", "TestLoad", "-v",
-		"-timeout", "30m")
+	cmd := exec.CommandContext(ctx, "go", "test", "./qa", "-run", "TestLoad",
+		"-count=1", "-v", "-timeout", "30m")
 	cmd.Dir = root
 	// Наследованное значение CATALOG_QA_SCALE заменяется явным масштабом
 	// прогона (дубликаты записей окружения неоднозначны).
