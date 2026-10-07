@@ -19,6 +19,7 @@ coverage*.txt
 
 # Логи
 *.log
+!qa/reports/*.log
 
 # Локальное окружение
 .env
