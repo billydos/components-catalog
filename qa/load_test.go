@@ -43,6 +43,11 @@ const (
 // транзисторов JEDEC (2N#### с суффиксами) с параметрами, условиями и
 // атрибутами; импорт идёт боевым путём (importer), измерения — сервисным
 // слоем (REST добавляет лишь сериализацию).
+//
+// База sqlite — одноразовый каталог qa/tmp внутри репозитория: на реальном
+// диске, а не в каталоге ОС (часть систем держит /tmp в tmpfs — памяти,
+// и прикидка импорта перестала бы касаться диска вовсе). Явный CATALOG_QA_DB
+// задаёт путь файла и сохраняет его после прогона.
 func TestLoad(t *testing.T) {
 	scaleStr := os.Getenv("CATALOG_QA_SCALE")
 	if scaleStr == "" {
@@ -57,14 +62,11 @@ func TestLoad(t *testing.T) {
 		dialect = "sqlite"
 	}
 	dsn := os.Getenv("CATALOG_QA_DB")
-	if dsn == "" {
-		dsn = filepath.Join(t.TempDir(), "load.db")
-	}
 	if dialect == "postgres" {
 		dsn = testutil.PostgresDSN(t)
 		testutil.DropAllTables(t, dsn)
-	} else if os.Getenv("CATALOG_QA_DB") == "" {
-		t.Cleanup(func() { os.Remove(dsn) }) //nolint:errcheck — временная база прогона
+	} else if dsn == "" {
+		dsn = filepath.Join(loadDBDir(t), "load.db")
 	}
 
 	ctx := context.Background()
@@ -108,8 +110,12 @@ func TestLoad(t *testing.T) {
 	if rep.Added != scale {
 		t.Fatalf("импорт: added %d записей, ожидалось %d", rep.Added, scale)
 	}
-	t.Logf("диалект=%s записей=%d импорт=%v (%.0f записей/с)", dialect, scale, importTime,
-		float64(scale)/importTime.Seconds())
+	dbLabel := dsn
+	if dialect == "postgres" {
+		dbLabel = "postgres" // DSN может содержать учётные данные — не печатается
+	}
+	t.Logf("диалект=%s база=%s записей=%d импорт=%v (%.0f записей/с)",
+		dialect, dbLabel, scale, importTime, float64(scale)/importTime.Seconds())
 
 	// Опорные записи для измерений карточки.
 	page, err := app.Services().Devices.Search(ctx, service.SearchQuery{
@@ -236,6 +242,48 @@ func TestLoad(t *testing.T) {
 		}
 		return nil
 	})
+}
+
+// loadDBDir — одноразовый каталог базы нагрузки: qa/tmp внутри корня
+// модуля. База прикидки обязана лежать на реальном диске: каталог ОС
+// по умолчанию (TMPDIR, /tmp) на части систем — tmpfs в памяти, и
+// измерение импорта перестаёт касаться диска. Каталог удаляется по
+// завершении теста вместе с файлами WAL/SHM; уцелевший после сбоя
+// остаток можно снять вручную — git каталог игнорирует.
+func loadDBDir(t *testing.T) string {
+	t.Helper()
+	root, err := moduleRoot()
+	if err != nil {
+		t.Fatalf("каталог базы нагрузки: %v", err)
+	}
+	base := filepath.Join(root, "qa", "tmp")
+	if err := os.MkdirAll(base, 0o755); err != nil {
+		t.Fatalf("каталог базы нагрузки: %v", err)
+	}
+	dir, err := os.MkdirTemp(base, "load-")
+	if err != nil {
+		t.Fatalf("каталог базы нагрузки: %v", err)
+	}
+	t.Cleanup(func() { os.RemoveAll(dir) }) //nolint:errcheck — одноразовый каталог прогона
+	return dir
+}
+
+// moduleRoot — корень модуля (каталог с go.mod) от текущего каталога вверх.
+func moduleRoot() (string, error) {
+	dir, err := os.Getwd()
+	if err != nil {
+		return "", err
+	}
+	for {
+		if _, err := os.Stat(filepath.Join(dir, "go.mod")); err == nil {
+			return dir, nil
+		}
+		parent := filepath.Dir(dir)
+		if parent == dir {
+			return "", fmt.Errorf("go.mod не найден от %s", dir)
+		}
+		dir = parent
+	}
 }
 
 // writeLoadDataset пишет NDJSON-датасет синтетических транзисторов JEDEC:

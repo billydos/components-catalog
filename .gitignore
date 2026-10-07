@@ -17,6 +17,9 @@ coverage*.txt
 *.sqlite
 *.sqlite3
 
+# Одноразовые данные прогонов QA (база нагрузки — реальный диск, не OS-temp)
+/qa/tmp/
+
 # Логи
 *.log
 !qa/reports/*.log
