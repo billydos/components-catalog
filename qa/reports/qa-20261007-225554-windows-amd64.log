@@ -2,21 +2,21 @@
 format: qa-log/1
 
 [environment]
-started: 2026-10-07T22:02:38+04:00
+started: 2026-10-07T22:55:54+04:00
 host: DESKTOP-90LI4A7
-os: linux (AlmaLinux 10.2 (Lavender Lion))
+os: windows (Windows 10 Pro for Workstations 22H2)
 arch: amd64
-kernel: 6.18.40.1-microsoft-standard-WSL2
-cpu: AMD Ryzen 7 7700X 8-Core Processor
+kernel: NT 19045.7725
+cpu: AMD Ryzen 7 7700X 8-Core Processor             
 cores: 16
-memory: 15.5 GiB
-go: go1.26.7 (Red Hat 1.26.7-2.el10_2.alma.1)
+memory: 31.7 GiB
+go: go1.27.1
 module: github.com/billydos/components-catalog
-commit: 6ff2bf62a901f4cdacbd0fab9045f2e49052c4fb
+commit: 7c8de9f0805f140fe8a24357b8819d613ddbfd11
 worktree: dirty
 postgres_driver: github.com/jackc/pgx/v5 v5.11.0
 sqlite_driver: modernc.org/sqlite v1.60.1
-repo_root: /home/server-admin/repo/components-catalog
+repo_root: D:\Users\artem\repo\components-catalog
 note  нога PostgreSQL опущена: CATALOG_TEST_POSTGRES_DSN / -postgres-dsn не заданы
 sqlite_server: SQLite 3.53.4
 
@@ -32,10 +32,10 @@ ok   static/test — go test ./...
 
 [phase: cli sqlite]
 ok   cli/init — init: база инициализирована
-ok   cli/import/transistors — import: data/transistors.jsonc
-ok   cli/import/diodes — import: data/diodes.jsonc
-ok   cli/import/resistors — import: data/resistors.jsonc
-ok   cli/import/capacitors — import: data/capacitors.jsonc
+ok   cli/import/transistors — import: data\transistors.jsonc
+ok   cli/import/diodes — import: data\diodes.jsonc
+ok   cli/import/resistors — import: data\resistors.jsonc
+ok   cli/import/capacitors — import: data\capacitors.jsonc
 ok   cli/idempotent — повторный импорт — без изменений и отказов
 ok   cli/count — count: записи выборки
 ok   cli/list-substr — list: подстрока обозначения и фильтр класса
@@ -79,22 +79,22 @@ ok   rest/suggest — GET /suggest: автодополнение по префи
 ok   rest/route-404 — неизвестный маршрут — 404
 
 [phase: load]
-scale: 10000
-note  load_test.go:111: диалект=sqlite записей=10000 импорт=33.112301735s (302 записей/с)
-note  load_test.go:149: поиск: подstring обозначения               p50=2.0147ms       цель≤100ms  ok
-note  load_test.go:149: поиск: фильтры полей                       p50=21.3299ms      цель≤100ms  ok
-note  load_test.go:149: поиск: параметрические фильтры             p50=18.705201ms    цель≤100ms  ok
-note  load_test.go:149: поиск: параметрический фильтр (селективный) p50=19.7574ms      цель≤100ms  ok
-note  load_test.go:149: поиск: фильтр атрибута                     p50=5.2137ms       цель≤100ms  ok
-note  load_test.go:149: карточка: по стабильному id                p50=127.8µs        цель≤20ms  ok
-note  load_test.go:149: карточка: по ключу (kind, designation)     p50=130.7µs        цель≤20ms  ok
-note  load_test.go:149: suggest: префикс                           p50=414.7µs        цель≤100ms  ok
-ok   load/run — go test ./qa -run TestLoad (масштаб 10000)
+scale: 100000
+note  load_test.go:111: диалект=sqlite записей=100000 импорт=6m56.1974257s (240 записей/с)
+note  load_test.go:149: поиск: подstring обозначения               p50=15.4388ms      цель≤100ms  ok
+note  load_test.go:149: поиск: фильтры полей                       p50=315.9647ms     цель≤100ms  ПРЕВЫШЕНИЕ
+note  load_test.go:149: поиск: параметрические фильтры             p50=212.377ms      цель≤100ms  ПРЕВЫШЕНИЕ
+note  load_test.go:149: поиск: параметрический фильтр (селективный) p50=178.6608ms     цель≤100ms  ПРЕВЫШЕНИЕ
+note  load_test.go:149: поиск: фильтр атрибута                     p50=77.1949ms      цель≤100ms  ok
+note  load_test.go:149: карточка: по стабильному id                p50=0s             цель≤20ms  ok
+note  load_test.go:149: карточка: по ключу (kind, designation)     p50=0s             цель≤20ms  ok
+note  load_test.go:149: suggest: префикс                           p50=2.9973ms       цель≤100ms  ok
+ok   load/run — go test ./qa -run TestLoad (масштаб 100000)
 
 [summary]
 checks: 51
 passed: 51
 failed: 0
-finished: 2026-10-07T22:02:43+04:00
-duration: 5s
+finished: 2026-10-07T22:55:57+04:00
+duration: 3s
 verdict: PASS
