@@ -205,8 +205,9 @@ func (a *API) handleCreate(w *responseWriter, r *http.Request, _ map[string]stri
 		a.writeDomainErr(w, r, err, false)
 		return
 	}
-	if outcome == service.OutcomeSkipped {
-		// Гонка создания между проверкой и применением: запись уже есть.
+	if outcome != service.OutcomeAdded {
+		// Запись появилась между проверкой Get и применением (гонка
+		// создания) — существующий (kind, designation) отвечает 409.
 		a.writeError(w, r, http.StatusConflict, domain.CodeAlreadyExists,
 			domain.MsgApiAlreadyExists, p.Designation)
 		return
