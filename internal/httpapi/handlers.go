@@ -1,6 +1,7 @@
 package httpapi
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -286,7 +287,11 @@ func (a *API) handleDelete(w *responseWriter, r *http.Request, params map[string
 func (a *API) readRecordBody(w *responseWriter, r *http.Request) (service.DeviceInput, error) {
 	data, err := io.ReadAll(http.MaxBytesReader(w, r.Body, maxBodyBytes))
 	if err != nil {
-		return service.DeviceInput{}, domain.NewErrorf(domain.CodeInvalidImportFile, domain.MsgApiBodyTooLarge)
+		var tooLarge *http.MaxBytesError
+		if errors.As(err, &tooLarge) {
+			return service.DeviceInput{}, domain.NewErrorf(domain.CodeInvalidImportFile, domain.MsgApiBodyTooLarge)
+		}
+		return service.DeviceInput{}, domain.NewErrorf(domain.CodeInvalidImportFile, domain.MsgApiBodyRead)
 	}
 	snap, err := a.app.Snapshot(r.Context())
 	if err != nil {

@@ -309,6 +309,7 @@ const (
 	MsgApiMethodNotAllowed    MsgID = "api_method_not_allowed"
 	MsgApiPanic               MsgID = "api_panic"
 	MsgApiBodyTooLarge        MsgID = "api_body_too_large"
+	MsgApiBodyRead            MsgID = "api_body_read"
 	MsgApiCardNotFound        MsgID = "api_card_not_found"
 	MsgApiIdNotFound          MsgID = "api_id_not_found"
 	MsgApiAlreadyExists       MsgID = "api_already_exists"
@@ -664,6 +665,7 @@ var msgRegistry = map[MsgID]struct{}{
 	MsgApiMethodNotAllowed:            {},
 	MsgApiPanic:                       {},
 	MsgApiBodyTooLarge:                {},
+	MsgApiBodyRead:                    {},
 	MsgApiCardNotFound:                {},
 	MsgApiIdNotFound:                  {},
 	MsgApiAlreadyExists:               {},

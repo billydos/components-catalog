@@ -280,6 +280,7 @@ var messageFormatsEn = map[string]string{
 	// Транспортные сообщения REST (internal/httpapi).
 	"api_already_exists":       "record «%[1]s» already exists",
 	"api_bad_id":               "path parameter id: an integer is expected",
+	"api_body_read":            "failed to read the request body",
 	"api_body_too_large":       "request body exceeds the allowed size",
 	"api_bool_attr_filter":     "attribute filter «%[1]s»: boolean attributes are not supported in filters",
 	"api_card_not_found":       "record «%[1]s» not found",

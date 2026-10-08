@@ -279,6 +279,7 @@ var messageFormatsRu = map[string]string{
 	// Транспортные сообщения REST (internal/httpapi).
 	"api_already_exists":       "запись «%[1]s» уже существует",
 	"api_bad_id":               "параметр пути id: ожидается целое число",
+	"api_body_read":            "не удалось прочитать тело запроса",
 	"api_body_too_large":       "тело запроса превышает допустимый размер",
 	"api_bool_attr_filter":     "фильтр атрибута «%[1]s»: логические атрибуты не поддерживаются в фильтрах",
 	"api_card_not_found":       "запись «%[1]s» не найдена",

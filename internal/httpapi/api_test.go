@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"log/slog"
@@ -826,6 +827,46 @@ func TestInternalError(t *testing.T) {
 	if status != http.StatusInternalServerError || eb.Code != "internal_error" ||
 		eb.Message != "internal request processing error" {
 		t.Fatalf("internal error: %d %+v", status, eb)
+	}
+}
+
+// errReader отдаёт начало тела и «обрывается» — модель разрыва соединения
+// при чтении тела (не превышение лимита).
+type errReader struct {
+	data string
+}
+
+func (r *errReader) Read(p []byte) (int, error) {
+	n := copy(p, r.data)
+	r.data = r.data[n:]
+	if len(r.data) == 0 {
+		return n, errors.New("обрыв соединения")
+	}
+	return n, nil
+}
+
+// Тело сверх лимита и обрыв чтения различаются: обрыв соединения — не
+// «тело слишком большое».
+func TestReadRecordBodyReadErrors(t *testing.T) {
+	app, _ := newTestAPI(t, Config{})
+	api := New(app, Config{})
+	read := func(body io.Reader) error {
+		req := httptest.NewRequest(http.MethodPost, apiPrefix+"/components", body)
+		rw := &responseWriter{ResponseWriter: httptest.NewRecorder(), status: http.StatusOK}
+		_, err := api.readRecordBody(rw, req)
+		return err
+	}
+
+	err := read(bytes.NewReader(make([]byte, maxBodyBytes+1)))
+	if de, ok := domain.AsError(err); !ok || de.Code != domain.CodeInvalidImportFile ||
+		de.MsgID != domain.MsgApiBodyTooLarge {
+		t.Fatalf("тело сверх лимита: %+v", err)
+	}
+
+	err = read(&errReader{data: `{"name":"ГТ109Г"`})
+	if de, ok := domain.AsError(err); !ok || de.Code != domain.CodeInvalidImportFile ||
+		de.MsgID != domain.MsgApiBodyRead {
+		t.Fatalf("обрыв чтения тела: %+v", err)
 	}
 }
 
