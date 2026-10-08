@@ -2,9 +2,7 @@ package importer
 
 import (
 	"context"
-	"fmt"
 	"io"
-	"strings"
 
 	"github.com/billydos/components-catalog/internal/catalog"
 	"github.com/billydos/components-catalog/internal/domain"
@@ -431,17 +429,4 @@ func issueFromError(rec Record, err error) Issue {
 	}
 	iss.Record = rec.Input.Name
 	return iss
-}
-
-// Summary — строка итога прогона для CLI (контракт вывода).
-func (r *Report) Summary() string {
-	var b strings.Builder
-	fmt.Fprintf(&b, "записей: %d, добавлено: %d, обновлено: %d, без изменений: %d", r.Records, r.Added, r.Updated, r.Skipped)
-	if r.Rejected > 0 {
-		fmt.Fprintf(&b, ", отвергнуто: %d", r.Rejected)
-	}
-	if r.CatalogApplied {
-		b.WriteString(", каталог расширен")
-	}
-	return b.String()
 }

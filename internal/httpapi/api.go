@@ -64,11 +64,13 @@ const apiPrefix = "/api/v1"
 // заведомо меньше; превышение — 400, а не неограниченное чтение.
 const maxBodyBytes = 8 << 20
 
-// route — маршрут: метод, шаблон пути (литеральные сегменты и «{параметр}»)
-// и operationId спецификации (совпадение закреплено тестом).
+// route — маршрут: метод, шаблон пути (литеральные сегменты и «{параметр}»),
+// предразобранные сегменты шаблона и operationId спецификации (совпадение
+// закреплено тестом).
 type route struct {
 	method  string
 	pattern string
+	segs    []string
 	op      string
 	handler func(a *API, w *responseWriter, r *http.Request, params map[string]string)
 }
@@ -86,6 +88,12 @@ var routes = []route{
 	{method: http.MethodPut, pattern: apiPrefix + "/components/{kind}/{designation}", op: "components_put", handler: (*API).handlePut},
 	{method: http.MethodDelete, pattern: apiPrefix + "/components/{kind}/{designation}", op: "components_delete", handler: (*API).handleDelete},
 	{method: http.MethodGet, pattern: apiPrefix + "/suggest", op: "suggest", handler: (*API).handleSuggest},
+}
+
+func init() {
+	for i := range routes {
+		routes[i].segs = splitPath(routes[i].pattern)
+	}
 }
 
 // activeRoutes — маршруты с учётом конфигурации (suggest отключаемый).
@@ -221,16 +229,16 @@ func splitPath(path string) []string {
 	return out
 }
 
-// matchRoute сопоставляет сегменты пути с шаблоном маршрута; параметры —
-// раскодированные сегменты URL (обозначения с «/» прямым путём не
-// адресуются — docs/plan/04-module-functionality.md §2).
+// matchRoute сопоставляет сегменты пути с шаблоном маршрута (сегменты
+// шаблона предразобраны в routes); параметры — раскодированные сегменты
+// URL (обозначения с «/» прямым путём не адресуются —
+// docs/plan/04-module-functionality.md §2).
 func matchRoute(rt route, segments []string) (map[string]string, bool) {
-	pattern := splitPath(rt.pattern)
-	if len(pattern) != len(segments) {
+	if len(rt.segs) != len(segments) {
 		return nil, false
 	}
 	var params map[string]string
-	for i, seg := range pattern {
+	for i, seg := range rt.segs {
 		if strings.HasPrefix(seg, "{") && strings.HasSuffix(seg, "}") {
 			if params == nil {
 				params = make(map[string]string, 2)

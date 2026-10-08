@@ -21,9 +21,9 @@ func PrintError(w io.Writer, lang i18n.Language, err error) {
 	if err == nil {
 		return
 	}
-	prefix := i18n.Message(lang, "cli_unexpected_prefix")
+	prefix := i18n.Message(lang, string(domain.MsgCliUnexpectedPrefix))
 	if _, ok := domain.AsError(err); ok {
-		prefix = i18n.Message(lang, "cli_err_prefix")
+		prefix = i18n.Message(lang, string(domain.MsgCliErrPrefix))
 	}
 	fmt.Fprintln(w, prefix+errorString(lang, err))
 }

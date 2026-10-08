@@ -10,16 +10,14 @@ import (
 // объёмы), конкатенация файлов и частичный догрузочный импорт. Пустые
 // строки и строки из пробелов пропускаются; комментариев нет.
 type ndjsonScanner struct {
-	sc    *bufio.Scanner
-	line  int // номер последней прочитанной строки
-	eof   bool
-	empty bool // файл без единой сущности
+	sc   *bufio.Scanner
+	line int // номер последней прочитанной строки
 }
 
 func newNDJSONScanner(r io.Reader) *ndjsonScanner {
 	sc := bufio.NewScanner(r)
 	sc.Buffer(make([]byte, 0, 64*1024), 16*1024*1024) // до 16 МБ на строку
-	return &ndjsonScanner{sc: sc, empty: true}
+	return &ndjsonScanner{sc: sc}
 }
 
 // next возвращает следующую непустую строку файла с её номером; ok = false
@@ -30,10 +28,8 @@ func (s *ndjsonScanner) next() (line []byte, number int, ok bool, err error) {
 		if isEmptyLine(s.sc.Bytes()) {
 			continue
 		}
-		s.empty = false
 		return s.sc.Bytes(), s.line, true, nil
 	}
-	s.eof = true
 	return nil, s.line, false, s.sc.Err()
 }
 

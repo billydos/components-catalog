@@ -155,11 +155,7 @@ VALUES (@code, @group, @unit, @vtype, @ceiling, @neg, @rule, @sort, @active)`,
 		}
 		for _, k := range r.Kinds {
 			if err := t.insertIfAbsent(ctx,
-				`INSERT INTO parameter_kinds(parameter_code, kind_code)
-SELECT @code, @kind
-WHERE NOT EXISTS (
-    SELECT 1 FROM parameter_kinds
-    WHERE parameter_code = @code AND kind_code = @kind)`,
+				`INSERT INTO parameter_kinds(parameter_code, kind_code) VALUES (@code, @kind)`,
 				map[string]any{"code": r.Code, "kind": string(k)}); err != nil {
 				return err
 			}
@@ -229,11 +225,7 @@ VALUES (@code, @group, @vtype, @unit, @rule, @sort, @active)`,
 		}
 		for _, k := range r.Kinds {
 			if err := t.insertIfAbsent(ctx,
-				`INSERT INTO attribute_kinds(attribute_code, kind_code)
-SELECT @code, @kind
-WHERE NOT EXISTS (
-    SELECT 1 FROM attribute_kinds
-    WHERE attribute_code = @code AND kind_code = @kind)`,
+				`INSERT INTO attribute_kinds(attribute_code, kind_code) VALUES (@code, @kind)`,
 				map[string]any{"code": r.Code, "kind": string(k)}); err != nil {
 				return err
 			}

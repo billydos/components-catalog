@@ -30,10 +30,10 @@ func printParsed(w io.Writer, lang i18n.Language, p domain.ParsedDesignation) {
 	if s := p.System; s.IsValid() {
 		systemName = i18n.SystemName(lang, string(s))
 	}
-	fmt.Fprintln(w, i18n.Message(lang, "cli_parse_head",
+	fmt.Fprintln(w, i18n.Message(lang, string(domain.MsgCliParseHead),
 		p.Designation, kindName, string(p.Kind), systemName, string(p.System)))
 	for _, f := range p.Fields {
-		fmt.Fprintln(w, i18n.Message(lang, "cli_field_line",
+		fmt.Fprintln(w, i18n.Message(lang, string(domain.MsgCliFieldLine),
 			fieldDisplayName(lang, f.Name), fieldDisplayValue(lang, f)))
 	}
 }
@@ -44,9 +44,9 @@ func fieldDisplayValue(lang i18n.Language, f domain.Field) string {
 	switch f.Name {
 	case "assembly":
 		if f.IsNum && f.Num != 0 {
-			return i18n.Message(lang, "cli_assembly_value")
+			return i18n.Message(lang, string(domain.MsgCliAssemblyValue))
 		}
-		return i18n.Message(lang, "cli_device_value")
+		return i18n.Message(lang, string(domain.MsgCliDeviceValue))
 	case "material":
 		// Значение словаря материалов — стабильный код (D9); отображается
 		// названием локали, расширения без записи в бандле — кодом.
@@ -71,10 +71,10 @@ func fieldDisplayValue(lang i18n.Language, f domain.Field) string {
 func printCard(w io.Writer, lang i18n.Language, c *service.Card, snap *catalog.Snapshot) {
 	fmt.Fprintf(w, "%s — %s; id %d\n",
 		c.Designation, i18n.KindName(lang, string(c.Kind)), c.ID)
-	fmt.Fprintln(w, i18n.Message(lang, "cli_system_line",
+	fmt.Fprintln(w, i18n.Message(lang, string(domain.MsgCliSystemLine),
 		i18n.SystemName(lang, string(c.System)), string(c.System)))
 	for _, f := range c.Fields {
-		fmt.Fprintln(w, i18n.Message(lang, "cli_field_line",
+		fmt.Fprintln(w, i18n.Message(lang, string(domain.MsgCliFieldLine),
 			fieldDisplayName(lang, f.Name), fieldDisplayValue(lang, f)))
 	}
 
@@ -90,7 +90,7 @@ func printCard(w io.Writer, lang i18n.Language, c *service.Card, snap *catalog.S
 	}
 	if len(c.Attributes) > 0 {
 		section()
-		fmt.Fprintln(w, i18n.Message(lang, "cli_h_attrs"))
+		fmt.Fprintln(w, i18n.Message(lang, string(domain.MsgCliHAttrs)))
 		for _, a := range c.Attributes {
 			value := ""
 			switch {
@@ -103,7 +103,7 @@ func printCard(w io.Writer, lang i18n.Language, c *service.Card, snap *catalog.S
 			}
 			// Код атрибута не повторяется: назначение — ключ файла
 			// наполнения, выводится catalog list; карточка — чтение.
-			fmt.Fprintln(w, i18n.Message(lang, "cli_field_line",
+			fmt.Fprintln(w, i18n.Message(lang, string(domain.MsgCliFieldLine),
 				i18n.AttributeName(lang, a.Code), value))
 		}
 	}
@@ -119,9 +119,9 @@ func printCard(w io.Writer, lang i18n.Language, c *service.Card, snap *catalog.S
 		section()
 		label := v.Label
 		if label == "" {
-			label = i18n.Message(lang, "cli_no_label")
+			label = i18n.Message(lang, string(domain.MsgCliNoLabel))
 		}
-		fmt.Fprintln(w, i18n.Message(lang, "cli_variant_head", label))
+		fmt.Fprintln(w, i18n.Message(lang, string(domain.MsgCliVariantHead), label))
 		for _, g := range v.Groups {
 			fmt.Fprintf(w, "  %s:\n", i18n.GroupName(lang, g.Code))
 			for _, val := range g.Values {
@@ -132,7 +132,7 @@ func printCard(w io.Writer, lang i18n.Language, c *service.Card, snap *catalog.S
 	}
 	if len(c.Manufacturers) > 0 {
 		section()
-		fmt.Fprintln(w, i18n.Message(lang, "cli_manufacturers", joinParts(c.Manufacturers)))
+		fmt.Fprintln(w, i18n.Message(lang, string(domain.MsgCliManufacturers), joinParts(c.Manufacturers)))
 	}
 	if len(c.Analogs) > 0 {
 		section()
@@ -144,7 +144,7 @@ func printCard(w io.Writer, lang i18n.Language, c *service.Card, snap *catalog.S
 			}
 			parts = append(parts, a.Designation)
 		}
-		fmt.Fprintln(w, i18n.Message(lang, "cli_analogs", joinParts(parts)))
+		fmt.Fprintln(w, i18n.Message(lang, string(domain.MsgCliAnalogs), joinParts(parts)))
 	}
 	if len(c.Backlinks) > 0 {
 		section()
@@ -156,7 +156,7 @@ func printCard(w io.Writer, lang i18n.Language, c *service.Card, snap *catalog.S
 			}
 			parts = append(parts, b.Designation)
 		}
-		fmt.Fprintln(w, i18n.Message(lang, "cli_backlinks", joinParts(parts)))
+		fmt.Fprintln(w, i18n.Message(lang, string(domain.MsgCliBacklinks), joinParts(parts)))
 	}
 }
 
@@ -183,9 +183,9 @@ func valueWithConditions(lang i18n.Language, v service.CardValue, snap *catalog.
 	case v.Min != nil && v.Max != nil:
 		value = i18n.FormatValue(lang, v.Unit, *v.Min) + "–" + i18n.FormatValue(lang, v.Unit, *v.Max)
 	case v.Min != nil:
-		value = i18n.Message(lang, "cli_at_least", i18n.FormatValue(lang, v.Unit, *v.Min))
+		value = i18n.Message(lang, string(domain.MsgCliAtLeast), i18n.FormatValue(lang, v.Unit, *v.Min))
 	case v.Max != nil:
-		value = i18n.Message(lang, "cli_at_most", i18n.FormatValue(lang, v.Unit, *v.Max))
+		value = i18n.Message(lang, string(domain.MsgCliAtMost), i18n.FormatValue(lang, v.Unit, *v.Max))
 	case v.Text != nil:
 		value = *v.Text
 	}
@@ -200,5 +200,5 @@ func valueWithConditions(lang i18n.Language, v service.CardValue, snap *catalog.
 		}
 		conds = append(conds, fmt.Sprintf("%s=%s%s", c.Condition, i18n.FormatNumber(lang, c.Value), unit))
 	}
-	return ": " + value + i18n.Message(lang, "cli_cond_at", joinParts(conds))
+	return ": " + value + i18n.Message(lang, string(domain.MsgCliCondAt), joinParts(conds))
 }

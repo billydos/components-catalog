@@ -27,7 +27,7 @@ func runInit(ctx context.Context, opts *options, pos []string, stdout, stderr io
 	}
 	defer app.Close() //nolint:errcheck — закрытие при выходе
 	_, dsn := opts.dsnOf()
-	fmt.Fprintf(stdout, "%s\n", i18n.Message(opts.langOf(), "cli_db_initialized", dsn, appDialect(opts)))
+	fmt.Fprintf(stdout, "%s\n", i18n.Message(opts.langOf(), string(domain.MsgCliDbInitialized), dsn, appDialect(opts)))
 	return 0
 }
 
@@ -93,11 +93,11 @@ func runAdd(ctx context.Context, opts *options, pos []string, stdout, stderr io.
 func outcomeText(lang i18n.Language, o service.Outcome) string {
 	switch o {
 	case service.OutcomeAdded:
-		return i18n.Message(lang, "cli_outcome_added")
+		return i18n.Message(lang, string(domain.MsgCliOutcomeAdded))
 	case service.OutcomeUpdatedExisting:
-		return i18n.Message(lang, "cli_outcome_updated")
+		return i18n.Message(lang, string(domain.MsgCliOutcomeUpdated))
 	default:
-		return i18n.Message(lang, "cli_outcome_skipped")
+		return i18n.Message(lang, string(domain.MsgCliOutcomeSkipped))
 	}
 }
 
@@ -204,30 +204,30 @@ func runCatalogList(ctx context.Context, opts *options, stdout, stderr io.Writer
 		return fail(stderr, opts.langOf(), err)
 	}
 	lang := opts.langOf()
-	fmt.Fprintln(stdout, i18n.Message(lang, "cli_h_kinds"))
+	fmt.Fprintln(stdout, i18n.Message(lang, string(domain.MsgCliHKinds)))
 	for _, k := range snap.Kinds {
 		fmt.Fprintf(stdout, "  %s — %s\n", k.Code, i18n.KindName(lang, string(k.Code)))
 	}
-	fmt.Fprintln(stdout, i18n.Message(lang, "cli_h_systems"))
+	fmt.Fprintln(stdout, i18n.Message(lang, string(domain.MsgCliHSystems)))
 	for _, s := range snap.Systems {
 		fmt.Fprintf(stdout, "  %s — %s\n", s.Code, i18n.SystemName(lang, string(s.Code)))
 	}
-	fmt.Fprintln(stdout, i18n.Message(lang, "cli_h_groups"))
+	fmt.Fprintln(stdout, i18n.Message(lang, string(domain.MsgCliHGroups)))
 	for _, g := range snap.Groups {
-		fmt.Fprintln(stdout, i18n.Message(lang, "cli_group_line", g.SectionName, i18n.GroupName(lang, g.Code), g.Code))
+		fmt.Fprintln(stdout, i18n.Message(lang, string(domain.MsgCliGroupLine), g.SectionName, i18n.GroupName(lang, g.Code), g.Code))
 	}
-	fmt.Fprintln(stdout, i18n.Message(lang, "cli_h_params"))
+	fmt.Fprintln(stdout, i18n.Message(lang, string(domain.MsgCliHParams)))
 	for _, p := range snap.Parameters {
 		unit := p.Unit
 		if unit == "" {
 			unit = "—"
 		}
-		fmt.Fprintln(stdout, i18n.Message(lang, "cli_param_line",
+		fmt.Fprintln(stdout, i18n.Message(lang, string(domain.MsgCliParamLine),
 			p.Code, i18n.ParameterName(lang, p.Code), sectionOf(snap, p.Group), string(p.ValueType), unit))
 	}
-	fmt.Fprintln(stdout, i18n.Message(lang, "cli_h_attrs"))
+	fmt.Fprintln(stdout, i18n.Message(lang, string(domain.MsgCliHAttrs)))
 	for _, a := range snap.Attributes {
-		fmt.Fprintln(stdout, i18n.Message(lang, "cli_attr_list_line",
+		fmt.Fprintln(stdout, i18n.Message(lang, string(domain.MsgCliAttrListLine),
 			a.Code, i18n.AttributeName(lang, a.Code), string(a.Type)))
 	}
 	return 0
@@ -377,12 +377,12 @@ func runFind(ctx context.Context, opts *options, pos []string, stdout, stderr io
 		if err != nil {
 			return fail(stderr, opts.langOf(), err)
 		}
-		fmt.Fprintf(stdout, "%s\n", i18n.Message(opts.langOf(), "cli_find_suggestion",
+		fmt.Fprintf(stdout, "%s\n", i18n.Message(opts.langOf(), string(domain.MsgCliFindSuggestion),
 			pos[0], res.Suggestion.Designation))
 		printCard(stdout, opts.langOf(), res.Suggestion, snap)
 		return 1
 	}
-	fmt.Fprintf(stdout, "%s\n", i18n.Message(opts.langOf(), "cli_find_not_found", pos[0]))
+	fmt.Fprintf(stdout, "%s\n", i18n.Message(opts.langOf(), string(domain.MsgCliFindNotFound), pos[0]))
 	return 1
 }
 
@@ -408,7 +408,7 @@ func runDelete(ctx context.Context, opts *options, pos []string, stdout, stderr 
 				exit = 1
 				continue
 			}
-			fmt.Fprintf(stdout, "%s\n", i18n.Message(opts.langOf(), "cli_delete_dry_run", arg))
+			fmt.Fprintf(stdout, "%s\n", i18n.Message(opts.langOf(), string(domain.MsgCliDeleteDryRun), arg))
 			continue
 		}
 		deleted, err := app.Services().Devices.Delete(ctx, opts.kindFlagOf(), arg)
@@ -422,7 +422,7 @@ func runDelete(ctx context.Context, opts *options, pos []string, stdout, stderr 
 			exit = 1
 			continue
 		}
-		fmt.Fprintf(stdout, "%s\n", i18n.Message(opts.langOf(), "cli_deleted", arg))
+		fmt.Fprintf(stdout, "%s\n", i18n.Message(opts.langOf(), string(domain.MsgCliDeleted), arg))
 	}
 	return exit
 }
@@ -489,18 +489,18 @@ func exportFormat(opts *options) (importer.Format, error) {
 func printReport(stdout, stderr io.Writer, lang i18n.Language, rep *importer.Report) int {
 	head := ""
 	if rep.DryRun {
-		head = i18n.Message(lang, "cli_dry_run_head")
+		head = i18n.Message(lang, string(domain.MsgCliDryRunHead))
 	}
-	summary := i18n.Message(lang, "import_summary", rep.Records, rep.Added, rep.Updated, rep.Skipped)
+	summary := i18n.Message(lang, string(domain.MsgImportSummary), rep.Records, rep.Added, rep.Updated, rep.Skipped)
 	if rep.Rejected > 0 {
-		summary += i18n.Message(lang, "import_summary_rejected", rep.Rejected)
+		summary += i18n.Message(lang, string(domain.MsgImportSummaryRejected), rep.Rejected)
 	}
 	if rep.CatalogApplied {
-		summary += i18n.Message(lang, "import_summary_catalog")
+		summary += i18n.Message(lang, string(domain.MsgImportSummaryCatalog))
 	}
 	fmt.Fprintf(stdout, "%s%s: %s\n", head, rep.Name, summary)
 	for _, issue := range rep.Issues {
-		fmt.Fprintf(stderr, "%s\n", i18n.Message(lang, "cli_issue_line", issueString(lang, issue)))
+		fmt.Fprintf(stderr, "%s\n", i18n.Message(lang, string(domain.MsgCliIssueLine), issueString(lang, issue)))
 	}
 	if rep.HasIssues() {
 		return 1
@@ -514,13 +514,13 @@ func issueString(lang i18n.Language, iss importer.Issue) string {
 	msg := i18n.Message(lang, string(iss.MsgID), iss.Args...)
 	switch {
 	case iss.Record != "" && iss.Line > 0:
-		return i18n.Message(lang, "import_issue_record_line", iss.Record, iss.Line, msg)
+		return i18n.Message(lang, string(domain.MsgImportIssueRecordLine), iss.Record, iss.Line, msg)
 	case iss.Record != "":
-		return i18n.Message(lang, "import_issue_record", iss.Record, msg)
+		return i18n.Message(lang, string(domain.MsgImportIssueRecord), iss.Record, msg)
 	case iss.Line > 0:
-		return i18n.Message(lang, "import_issue_line", iss.Line, msg)
+		return i18n.Message(lang, string(domain.MsgImportIssueLine), iss.Line, msg)
 	case iss.No > 0:
-		return i18n.Message(lang, "import_issue_no", iss.No, msg)
+		return i18n.Message(lang, string(domain.MsgImportIssueNo), iss.No, msg)
 	}
 	return msg
 }
