@@ -89,8 +89,9 @@ func (m *Importer) ExportCatalog(ctx context.Context, w io.Writer, format Format
 	}
 }
 
-// exportKindRecords собирает деревья записей класса (пагинация поиска,
-// карточка — по стабильному id).
+// exportKindRecords собирает деревья записей класса: страницы поиска
+// (порядок (kind, designation)) + пакетная загрузка карточек страницы —
+// одно чтение на дочернюю таблицу, без обращений на каждую запись.
 func (m *Importer) exportKindRecords(ctx context.Context, snap *catalog.Snapshot,
 	kind domain.Kind) ([]value, error) {
 	var out []value
@@ -103,14 +104,17 @@ func (m *Importer) exportKindRecords(ctx context.Context, snap *catalog.Snapshot
 		if err != nil {
 			return nil, err
 		}
+		ids := make([]int64, 0, len(page.Items))
 		for _, item := range page.Items {
-			card, found, err := m.app.Services().Devices.GetByID(ctx, item.ID)
-			if err != nil {
-				return nil, err
-			}
-			if !found { // параллельное удаление — запись уже не выгружается
-				continue
-			}
+			ids = append(ids, item.ID)
+		}
+		// Порядок карточек — по порядку id входа (порядок страницы поиска);
+		// параллельно удалённые записи пропускаются.
+		cards, err := m.app.Services().Devices.GetByIDs(ctx, ids)
+		if err != nil {
+			return nil, err
+		}
+		for _, card := range cards {
 			// Разбор обозначения над реестром семейств каталога — как при
 			// импорте: явные классификационные поля = хранимые минус
 			// продукты парсера (round-trip секции fields).

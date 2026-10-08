@@ -4,6 +4,8 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"fmt"
+	"strings"
 
 	"github.com/billydos/components-catalog/internal/domain"
 )
@@ -82,10 +84,6 @@ func (d *DB) FindDevice(ctx context.Context, kind domain.Kind, designation strin
 	return findDevice(ctx, d.reads, kind, designation)
 }
 
-func (d *DB) FindDeviceByID(ctx context.Context, id int64) (*DeviceRow, error) {
-	return findDeviceByID(ctx, d.reads, id)
-}
-
 // FindDeviceAnyKind ищет запись по обозначению без фильтра классом
 // (разрешение аналогов, find).
 func (d *DB) FindDeviceAnyKind(ctx context.Context, designation string) (*DeviceRow, error) {
@@ -101,13 +99,6 @@ func findDevice(ctx context.Context, q queryer, kind domain.Kind, designation st
 SELECT id, kind_code, system_code, designation FROM devices
 WHERE kind_code = @kind AND designation = @designation`,
 		named(map[string]any{"kind": string(kind), "designation": designation})...)
-	return scanDevice(row)
-}
-
-func findDeviceByID(ctx context.Context, q queryer, id int64) (*DeviceRow, error) {
-	row := q.QueryRowContext(ctx, `
-SELECT id, kind_code, system_code, designation FROM devices WHERE id = @id`,
-		named(map[string]any{"id": id})...)
 	return scanDevice(row)
 }
 
@@ -172,10 +163,6 @@ WHERE device_id = @id ORDER BY field`,
 	return out, rows.Err()
 }
 
-func (d *DB) LoadAttributes(ctx context.Context, deviceID int64) ([]AttrRow, error) {
-	return loadAttributes(ctx, d.reads, deviceID)
-}
-
 func (t *Tx) LoadAttributes(ctx context.Context, deviceID int64) ([]AttrRow, error) {
 	return loadAttributes(ctx, t.tx, deviceID)
 }
@@ -218,10 +205,6 @@ WHERE device_id = @id ORDER BY attribute_code`,
 // loadValues — все значения параметров устройства (тип в целом и исполнения)
 // с условиями; порядок детерминирован: сначала данные типа, затем значения
 // вариантов по (variant_id, sort_order, id); условия — по коду.
-func (d *DB) LoadValues(ctx context.Context, deviceID int64) ([]ValueRow, error) {
-	return loadValues(ctx, d.reads, deviceID)
-}
-
 func (t *Tx) LoadValues(ctx context.Context, deviceID int64) ([]ValueRow, error) {
 	return loadValues(ctx, t.tx, deviceID)
 }
@@ -289,10 +272,6 @@ ORDER BY (CASE WHEN pv.variant_id IS NULL THEN 0 ELSE 1 END),
 	return out, rows.Err()
 }
 
-func (d *DB) LoadVariants(ctx context.Context, deviceID int64) ([]VariantRow, error) {
-	return loadVariants(ctx, d.reads, deviceID)
-}
-
 func (t *Tx) LoadVariants(ctx context.Context, deviceID int64) ([]VariantRow, error) {
 	return loadVariants(ctx, t.tx, deviceID)
 }
@@ -348,10 +327,6 @@ WHERE dm.device_id = @id ORDER BY m.name`,
 	return out, rows.Err()
 }
 
-func (d *DB) LoadOutgoingAnalogs(ctx context.Context, deviceID int64) ([]AnalogRow, error) {
-	return loadOutgoingAnalogs(ctx, d.reads, deviceID)
-}
-
 func (t *Tx) LoadOutgoingAnalogs(ctx context.Context, deviceID int64) ([]AnalogRow, error) {
 	return loadOutgoingAnalogs(ctx, t.tx, deviceID)
 }
@@ -381,29 +356,289 @@ ORDER BY t.designation`,
 	return out, rows.Err()
 }
 
-// LoadBacklinks — встречные ссылки («кто указал запись аналогом»), индекс
-// по analog_device_id (docs/plan/02-database.md §3).
-func (d *DB) LoadBacklinks(ctx context.Context, deviceID int64) ([]BacklinkRow, error) {
+// Пакетное чтение карточек: по одному SELECT с device_id IN (…) на таблицу,
+// группировка по записям — в Go (образец — loadSearchFields); порядок строк
+// внутри записи — как у одиночных загрузчиков.
+
+// FindDevicesByIDs — записи по списку стабильных id (параллельно удалённые
+// в результате отсутствуют; порядок строк — по id).
+func (d *DB) FindDevicesByIDs(ctx context.Context, ids []int64) ([]*DeviceRow, error) {
+	if len(ids) == 0 {
+		return nil, nil
+	}
+	args := make(map[string]any, len(ids))
 	rows, err := d.query(ctx, `
-SELECT a.device_id, s.kind_code, s.designation, s.system_code, a.note
-FROM device_analogs a
-JOIN devices s ON s.id = a.device_id
-WHERE a.analog_device_id = @id
-ORDER BY s.designation`,
-		map[string]any{"id": deviceID})
+SELECT id, kind_code, system_code, designation FROM devices
+WHERE id IN `+inList("id", ids, args)+` ORDER BY id`, args)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var out []BacklinkRow
+	var out []*DeviceRow
 	for rows.Next() {
-		var r BacklinkRow
+		var r DeviceRow
+		if err := rows.Scan(&r.ID, &r.Kind, &r.System, &r.Designation); err != nil {
+			return nil, err
+		}
+		out = append(out, &r)
+	}
+	return out, rows.Err()
+}
+
+// LoadFieldsByIDs — поля разбора обозначений по списку записей.
+func (d *DB) LoadFieldsByIDs(ctx context.Context, ids []int64) (map[int64][]domain.Field, error) {
+	if len(ids) == 0 {
+		return nil, nil
+	}
+	args := make(map[string]any, len(ids))
+	rows, err := d.query(ctx, `
+SELECT device_id, field, text_value, num_value FROM device_designation_fields
+WHERE device_id IN `+inList("id", ids, args)+` ORDER BY device_id, field`, args)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := make(map[int64][]domain.Field, len(ids))
+	for rows.Next() {
+		var id int64
+		var name string
+		var text sql.NullString
+		var num sql.NullFloat64
+		if err := rows.Scan(&id, &name, &text, &num); err != nil {
+			return nil, err
+		}
+		switch {
+		case text.Valid:
+			out[id] = append(out[id], domain.TextField(name, text.String))
+		case num.Valid:
+			out[id] = append(out[id], domain.NumField(name, num.Float64))
+		default:
+			out[id] = append(out[id], domain.TextField(name, ""))
+		}
+	}
+	return out, rows.Err()
+}
+
+// LoadAttributesByIDs — значения атрибутов по списку записей.
+func (d *DB) LoadAttributesByIDs(ctx context.Context, ids []int64) (map[int64][]AttrRow, error) {
+	if len(ids) == 0 {
+		return nil, nil
+	}
+	args := make(map[string]any, len(ids))
+	rows, err := d.query(ctx, `
+SELECT device_id, attribute_code, text_value, num_value, bool_value
+FROM device_attribute_values
+WHERE device_id IN `+inList("id", ids, args)+` ORDER BY device_id, attribute_code`, args)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := make(map[int64][]AttrRow, len(ids))
+	for rows.Next() {
+		var id int64
+		var r AttrRow
+		var text sql.NullString
+		var num sql.NullFloat64
+		var b sql.NullInt64
+		if err := rows.Scan(&id, &r.Attribute, &text, &num, &b); err != nil {
+			return nil, err
+		}
+		if text.Valid {
+			s := text.String
+			r.Text = &s
+		}
+		if num.Valid {
+			f := num.Float64
+			r.Num = &f
+		}
+		if b.Valid {
+			v := b.Int64 != 0
+			r.Bool = &v
+		}
+		out[id] = append(out[id], r)
+	}
+	return out, rows.Err()
+}
+
+// LoadValuesByIDs — все значения параметров (тип в целом и исполнения)
+// с условиями по списку записей; порядок строк внутри записи — как у
+// LoadValues.
+func (d *DB) LoadValuesByIDs(ctx context.Context, ids []int64) (map[int64][]ValueRow, error) {
+	if len(ids) == 0 {
+		return nil, nil
+	}
+	args := make(map[string]any, len(ids))
+	rows, err := d.query(ctx, `
+SELECT pv.device_id, pv.id, pv.variant_id, pv.parameter_code, pv.value_exact, pv.value_min,
+       pv.value_max, pv.value_text, pvc.condition_code, pvc.value
+FROM parameter_values pv
+LEFT JOIN parameter_value_conditions pvc ON pvc.parameter_value_id = pv.id
+WHERE pv.device_id IN `+inList("id", ids, args)+`
+ORDER BY pv.device_id, (CASE WHEN pv.variant_id IS NULL THEN 0 ELSE 1 END),
+         pv.variant_id, pv.sort_order, pv.id, pvc.condition_code`, args)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := make(map[int64][]ValueRow, len(ids))
+	pos := make(map[int64]int) // parameter_values.id → индекс в out[device_id]
+	for rows.Next() {
+		var devID, id int64
+		var variant sql.NullInt64
+		var parameter string
+		var exact, minv, maxv sql.NullFloat64
+		var text sql.NullString
+		var condCode sql.NullString
+		var condValue sql.NullFloat64
+		if err := rows.Scan(&devID, &id, &variant, &parameter, &exact, &minv, &maxv, &text,
+			&condCode, &condValue); err != nil {
+			return nil, err
+		}
+		idx, ok := pos[id]
+		if !ok {
+			vr := ValueRow{Value: ParamValue{Parameter: parameter}}
+			if variant.Valid {
+				vid := variant.Int64
+				vr.VariantID = &vid
+			}
+			if exact.Valid {
+				f := exact.Float64
+				vr.Value.Exact = &f
+			}
+			if minv.Valid {
+				f := minv.Float64
+				vr.Value.Min = &f
+			}
+			if maxv.Valid {
+				f := maxv.Float64
+				vr.Value.Max = &f
+			}
+			if text.Valid {
+				s := text.String
+				vr.Value.Text = &s
+			}
+			out[devID] = append(out[devID], vr)
+			pos[id] = len(out[devID]) - 1
+			idx = pos[id]
+		}
+		if condCode.Valid && condValue.Valid {
+			slice := out[devID]
+			slice[idx].Value.Conditions = append(slice[idx].Value.Conditions,
+				Cond{Code: condCode.String, Value: condValue.Float64})
+		}
+	}
+	return out, rows.Err()
+}
+
+// LoadVariantsByIDs — исполнения по списку записей.
+func (d *DB) LoadVariantsByIDs(ctx context.Context, ids []int64) (map[int64][]VariantRow, error) {
+	if len(ids) == 0 {
+		return nil, nil
+	}
+	args := make(map[string]any, len(ids))
+	rows, err := d.query(ctx, `
+SELECT device_id, id, label, sort_order FROM device_variants
+WHERE device_id IN `+inList("id", ids, args)+` ORDER BY device_id, sort_order, id`, args)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := make(map[int64][]VariantRow, len(ids))
+	for rows.Next() {
+		var id int64
+		var r VariantRow
+		var label sql.NullString
+		if err := rows.Scan(&id, &r.ID, &label, &r.SortOrder); err != nil {
+			return nil, err
+		}
+		r.Label = nullableStr(label)
+		out[id] = append(out[id], r)
+	}
+	return out, rows.Err()
+}
+
+// LoadManufacturersByIDs — производители по списку записей.
+func (d *DB) LoadManufacturersByIDs(ctx context.Context, ids []int64) (map[int64][]string, error) {
+	if len(ids) == 0 {
+		return nil, nil
+	}
+	args := make(map[string]any, len(ids))
+	rows, err := d.query(ctx, `
+SELECT dm.device_id, m.name FROM manufacturers m
+JOIN device_manufacturers dm ON dm.manufacturer_id = m.id
+WHERE dm.device_id IN `+inList("id", ids, args)+` ORDER BY dm.device_id, m.name`, args)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := make(map[int64][]string, len(ids))
+	for rows.Next() {
+		var id int64
+		var name string
+		if err := rows.Scan(&id, &name); err != nil {
+			return nil, err
+		}
+		out[id] = append(out[id], name)
+	}
+	return out, rows.Err()
+}
+
+// LoadOutgoingAnalogsByIDs — исходящие ссылки-аналоги по списку записей.
+func (d *DB) LoadOutgoingAnalogsByIDs(ctx context.Context, ids []int64) (map[int64][]AnalogRow, error) {
+	if len(ids) == 0 {
+		return nil, nil
+	}
+	args := make(map[string]any, len(ids))
+	rows, err := d.query(ctx, `
+SELECT a.device_id, a.analog_device_id, t.designation, t.system_code, a.note
+FROM device_analogs a
+JOIN devices t ON t.id = a.analog_device_id
+WHERE a.device_id IN `+inList("id", ids, args)+` ORDER BY a.device_id, t.designation`, args)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := make(map[int64][]AnalogRow, len(ids))
+	for rows.Next() {
+		var id int64
+		var r AnalogRow
 		var note sql.NullString
-		if err := rows.Scan(&r.SourceID, &r.Kind, &r.Designation, &r.System, &note); err != nil {
+		if err := rows.Scan(&id, &r.TargetID, &r.Designation, &r.System, &note); err != nil {
 			return nil, err
 		}
 		r.Note = nullableStr(note)
-		out = append(out, r)
+		out[id] = append(out[id], r)
+	}
+	return out, rows.Err()
+}
+
+// LoadBacklinksByIDs — встречные ссылки («кто указал запись аналогом») по
+// списку записей, индекс по analog_device_id (docs/plan/02-database.md §3).
+func (d *DB) LoadBacklinksByIDs(ctx context.Context, ids []int64) (map[int64][]BacklinkRow, error) {
+	if len(ids) == 0 {
+		return nil, nil
+	}
+	args := make(map[string]any, len(ids))
+	rows, err := d.query(ctx, `
+SELECT a.analog_device_id, a.device_id, s.kind_code, s.designation, s.system_code, a.note
+FROM device_analogs a
+JOIN devices s ON s.id = a.device_id
+WHERE a.analog_device_id IN `+inList("id", ids, args)+`
+ORDER BY a.analog_device_id, s.designation`, args)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := make(map[int64][]BacklinkRow, len(ids))
+	for rows.Next() {
+		var id int64
+		var r BacklinkRow
+		var note sql.NullString
+		if err := rows.Scan(&id, &r.SourceID, &r.Kind, &r.Designation, &r.System, &note); err != nil {
+			return nil, err
+		}
+		r.Note = nullableStr(note)
+		out[id] = append(out[id], r)
 	}
 	return out, rows.Err()
 }
@@ -436,19 +671,35 @@ SELECT id FROM devices WHERE kind_code = @kind AND designation = @designation`,
 }
 
 // InsertDesignationFields записывает поля разбора обозначения; поля,
-// уже существующие у записи (параллельный писатель), не затрагиваются.
+// уже существующие у записи (параллельный писатель), не затрагиваются —
+// конфликт уникальности (device_id, field) подавляется атомарно. Вставка
+// многострочная: число операторов не зависит от числа полей.
 func (t *Tx) InsertDesignationFields(ctx context.Context, deviceID int64, fields []domain.Field) error {
-	for _, f := range fields {
-		var text, num any
-		if f.IsNum {
-			num = f.Num
-		} else {
-			text = f.Text
-		}
-		if _, _, err := t.InsertIfAbsentReturningID(ctx, `
+	const chunk = 100 // аргументов в операторе ≤ 3·100 + 1 — в пределах лимита sqlite
+	for start := 0; start < len(fields); start += chunk {
+		end := min(start+chunk, len(fields))
+		var sb strings.Builder
+		sb.WriteString(`
 INSERT INTO device_designation_fields(device_id, field, text_value, num_value)
-VALUES (@id, @field, @text, @num)`,
-			map[string]any{"id": deviceID, "field": f.Name, "text": text, "num": num}); err != nil {
+VALUES `)
+		args := make(map[string]any, (end-start)*3+1)
+		args["id"] = deviceID
+		for i := start; i < end; i++ {
+			if i > start {
+				sb.WriteString(", ")
+			}
+			f := fields[i]
+			fmt.Fprintf(&sb, "(@id, @f%d, @t%d, @n%d)", i, i, i)
+			args[fmt.Sprintf("f%d", i)] = f.Name
+			if f.IsNum {
+				args[fmt.Sprintf("t%d", i)] = nil
+				args[fmt.Sprintf("n%d", i)] = f.Num
+			} else {
+				args[fmt.Sprintf("t%d", i)] = f.Text
+				args[fmt.Sprintf("n%d", i)] = nil
+			}
+		}
+		if _, err := t.exec(ctx, sb.String()+" ON CONFLICT DO NOTHING", args); err != nil {
 			return err
 		}
 	}
@@ -511,43 +762,113 @@ WHERE device_id = @id AND variant_id IS NULL
 }
 
 // InsertValues вставляет значения параметров в контексте типа (variantID =
-// nil) либо исполнения; порядок среза — sort_order.
+// nil) либо исполнения; порядок среза — sort_order. Значения без условий
+// идут многострочной вставкой (id строк не нужен), значения с условиями —
+// построчно (id нужен для условий), условия одного значения — одной
+// многострочной вставкой.
 func (t *Tx) InsertValues(ctx context.Context, deviceID int64, variantID *int64, values []ParamValue) error {
+	plain := make([]int, 0, len(values))
 	for i, v := range values {
-		var exact, minv, maxv, text any
-		if v.Exact != nil {
-			exact = *v.Exact
+		if len(v.Conditions) == 0 {
+			plain = append(plain, i)
 		}
-		if v.Min != nil {
-			minv = *v.Min
+	}
+	if err := t.insertPlainValues(ctx, deviceID, variantID, values, plain); err != nil {
+		return err
+	}
+	for i, v := range values {
+		if len(v.Conditions) == 0 {
+			continue
 		}
-		if v.Max != nil {
-			maxv = *v.Max
-		}
-		if v.Text != nil {
-			text = *v.Text
-		}
-		id, err := t.InsertReturningID(ctx, `
-INSERT INTO parameter_values(device_id, variant_id, parameter_code,
-    value_exact, value_min, value_max, value_text, sort_order)
-VALUES (@device, @variant, @code, @exact, @min, @max, @text, @sort)`,
-			map[string]any{
-				"device": deviceID, "variant": variantID, "code": v.Parameter,
-				"exact": exact, "min": minv, "max": maxv, "text": text, "sort": i,
-			})
+		id, err := t.insertValueRow(ctx, deviceID, variantID, v, i)
 		if err != nil {
 			return err
 		}
-		for _, c := range v.Conditions {
-			if _, err := t.exec(ctx, `
-INSERT INTO parameter_value_conditions(parameter_value_id, condition_code, value)
-VALUES (@id, @code, @value)`,
-				map[string]any{"id": id, "code": c.Code, "value": c.Value}); err != nil {
-				return err
-			}
+		if err := t.insertValueConditions(ctx, id, v.Conditions); err != nil {
+			return err
 		}
 	}
 	return nil
+}
+
+// insertPlainValues — многострочная вставка значений без условий по списку
+// их индексов (чанки ограничивают число аргументов оператора).
+func (t *Tx) insertPlainValues(ctx context.Context, deviceID int64, variantID *int64,
+	values []ParamValue, idx []int) error {
+	const chunk = 50 // аргументов в операторе ≤ 6·50 + 2 — в пределах лимита sqlite
+	for start := 0; start < len(idx); start += chunk {
+		end := min(start+chunk, len(idx))
+		var sb strings.Builder
+		sb.WriteString(`
+INSERT INTO parameter_values(device_id, variant_id, parameter_code,
+    value_exact, value_min, value_max, value_text, sort_order)
+VALUES `)
+		args := make(map[string]any, (end-start)*6+2)
+		args["device"] = deviceID
+		args["variant"] = variantID
+		for j := start; j < end; j++ {
+			if j > start {
+				sb.WriteString(", ")
+			}
+			i := idx[j]
+			v := values[i]
+			fmt.Fprintf(&sb, "(@device, @variant, @p%d, @e%d, @m%d, @x%d, @t%d, @s%d)", i, i, i, i, i, i)
+			args[fmt.Sprintf("p%d", i)] = v.Parameter
+			args[fmt.Sprintf("e%d", i)] = optValue(v.Exact)
+			args[fmt.Sprintf("m%d", i)] = optValue(v.Min)
+			args[fmt.Sprintf("x%d", i)] = optValue(v.Max)
+			args[fmt.Sprintf("t%d", i)] = optValue(v.Text)
+			args[fmt.Sprintf("s%d", i)] = i
+		}
+		if _, err := t.exec(ctx, sb.String(), args); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// insertValueRow — одно значение с возвратом сгенерированного id (метод
+// диалекта — план 02 §4).
+func (t *Tx) insertValueRow(ctx context.Context, deviceID int64, variantID *int64,
+	v ParamValue, sort int) (int64, error) {
+	return t.InsertReturningID(ctx, `
+INSERT INTO parameter_values(device_id, variant_id, parameter_code,
+    value_exact, value_min, value_max, value_text, sort_order)
+VALUES (@device, @variant, @code, @exact, @min, @max, @text, @sort)`,
+		map[string]any{
+			"device": deviceID, "variant": variantID, "code": v.Parameter,
+			"exact": optValue(v.Exact), "min": optValue(v.Min), "max": optValue(v.Max),
+			"text": optValue(v.Text), "sort": sort,
+		})
+}
+
+// insertValueConditions — условия одного значения одной многострочной
+// вставкой.
+func (t *Tx) insertValueConditions(ctx context.Context, id int64, conds []Cond) error {
+	var sb strings.Builder
+	sb.WriteString(`
+INSERT INTO parameter_value_conditions(parameter_value_id, condition_code, value)
+VALUES `)
+	args := make(map[string]any, len(conds)*2+1)
+	args["id"] = id
+	for j, c := range conds {
+		if j > 0 {
+			sb.WriteString(", ")
+		}
+		fmt.Fprintf(&sb, "(@id, @c%d, @v%d)", j, j)
+		args[fmt.Sprintf("c%d", j)] = c.Code
+		args[fmt.Sprintf("v%d", j)] = c.Value
+	}
+	_, err := t.exec(ctx, sb.String(), args)
+	return err
+}
+
+// optValue — значение-указатель как аргумент вставки: nil — NULL.
+func optValue[T any](v *T) any {
+	if v == nil {
+		return nil
+	}
+	return *v
 }
 
 // DeleteVariants удаляет исполнения записи вместе с их значениями (каскад

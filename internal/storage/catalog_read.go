@@ -303,15 +303,19 @@ FROM parameters ORDER BY code`)
 		return nil, err
 	}
 
+	// Индекс кодов параметров: применимость, enum и наборы условий
+	// сливаются со списком одним поиском на строку.
+	idx := make(map[string]int, len(out))
+	for i := range out {
+		idx[out[i].Code] = i
+	}
 	kinds, err := loadParameterKinds(ctx, q)
 	if err != nil {
 		return nil, err
 	}
 	for code, k := range kinds {
-		for i := range out {
-			if out[i].Code == code {
-				out[i].Kinds = append(out[i].Kinds, k...)
-			}
+		if i, ok := idx[code]; ok {
+			out[i].Kinds = append(out[i].Kinds, k...)
 		}
 	}
 	enums, err := loadParameterEnums(ctx, q)
@@ -319,10 +323,8 @@ FROM parameters ORDER BY code`)
 		return nil, err
 	}
 	for code, v := range enums {
-		for i := range out {
-			if out[i].Code == code {
-				out[i].EnumValues = append(out[i].EnumValues, v...)
-			}
+		if i, ok := idx[code]; ok {
+			out[i].EnumValues = append(out[i].EnumValues, v...)
 		}
 	}
 	sets, err := loadConditionSets(ctx, q)
@@ -330,10 +332,8 @@ FROM parameters ORDER BY code`)
 		return nil, err
 	}
 	for code, ss := range sets {
-		for i := range out {
-			if out[i].Code == code {
-				out[i].ConditionSets = ss
-			}
+		if i, ok := idx[code]; ok {
+			out[i].ConditionSets = ss
 		}
 	}
 	return out, nil
@@ -444,6 +444,13 @@ FROM attributes ORDER BY code`)
 		return nil, err
 	}
 
+	// Индекс кодов атрибутов: применимость и enum сливаются со списком
+	// одним поиском на строку.
+	idx := make(map[string]int, len(out))
+	for i := range out {
+		idx[out[i].Code] = i
+	}
+
 	rows2, err := q.QueryContext(ctx, `
 SELECT attribute_code, kind_code FROM attribute_kinds
 ORDER BY attribute_code, kind_code`)
@@ -457,10 +464,8 @@ ORDER BY attribute_code, kind_code`)
 		if err := rows2.Scan(&code, &kind); err != nil {
 			return nil, err
 		}
-		for i := range out {
-			if out[i].Code == code {
-				out[i].Kinds = append(out[i].Kinds, kind)
-			}
+		if i, ok := idx[code]; ok {
+			out[i].Kinds = append(out[i].Kinds, kind)
 		}
 	}
 	rows2.Close()
@@ -480,10 +485,8 @@ ORDER BY attribute_code, value`)
 		if err := rows3.Scan(&code, &value); err != nil {
 			return nil, err
 		}
-		for i := range out {
-			if out[i].Code == code {
-				out[i].EnumValues = append(out[i].EnumValues, value)
-			}
+		if i, ok := idx[code]; ok {
+			out[i].EnumValues = append(out[i].EnumValues, value)
 		}
 	}
 	return out, rows3.Err()

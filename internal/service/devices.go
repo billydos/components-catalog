@@ -411,11 +411,14 @@ func (s *DeviceService) Get(ctx context.Context, kind domain.Kind, designation s
 	if dev == nil {
 		return nil, false, nil
 	}
-	card, err := s.buildCard(ctx, snap, dev)
+	cards, err := s.buildCards(ctx, snap, []int64{dev.ID})
 	if err != nil {
 		return nil, false, err
 	}
-	return card, true, nil
+	if len(cards) == 0 {
+		return nil, false, nil
+	}
+	return cards[0], true, nil
 }
 
 // GetByID возвращает карточку по стабильному id записи.
@@ -424,18 +427,26 @@ func (s *DeviceService) GetByID(ctx context.Context, id int64) (*Card, bool, err
 	if err != nil {
 		return nil, false, err
 	}
-	dev, err := s.app.db.FindDeviceByID(ctx, id)
+	cards, err := s.buildCards(ctx, snap, []int64{id})
 	if err != nil {
 		return nil, false, err
 	}
-	if dev == nil {
+	if len(cards) == 0 {
 		return nil, false, nil
 	}
-	card, err := s.buildCard(ctx, snap, dev)
+	return cards[0], true, nil
+}
+
+// GetByIDs возвращает карточки по списку стабильных id пакетным чтением
+// дочерних таблиц (экспорт — без запросов на каждую запись): порядок
+// результата — по порядку id входа, параллельно удалённые записи
+// пропускаются.
+func (s *DeviceService) GetByIDs(ctx context.Context, ids []int64) ([]*Card, error) {
+	snap, err := s.app.cache.Snapshot(ctx)
 	if err != nil {
-		return nil, false, err
+		return nil, err
 	}
-	return card, true, nil
+	return s.buildCards(ctx, snap, ids)
 }
 
 // Delete удаляет запись (каскад из devices по всем дочерним таблицам,

@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"path/filepath"
+	"reflect"
 	"slices"
 	"testing"
 
@@ -163,6 +164,7 @@ func runSuite(t *testing.T, factory configFactory) {
 	t.Run("variant filters", func(t *testing.T) { suiteVariantFilters(t, factory) })
 	t.Run("analogs", func(t *testing.T) { suiteAnalogs(t, factory) })
 	t.Run("find", func(t *testing.T) { suiteFind(t, factory) })
+	t.Run("get by ids", func(t *testing.T) { suiteGetByIDs(t, factory) })
 	t.Run("search", func(t *testing.T) { suiteSearch(t, factory) })
 	t.Run("search validation", func(t *testing.T) { suiteSearchValidation(t, factory) })
 	t.Run("delete cascade", func(t *testing.T) { suiteDeleteCascade(t, factory) })
@@ -658,6 +660,70 @@ func suiteFind(t *testing.T, factory configFactory) {
 	res, err = svc.Find(ctx, "", "2N2222A")
 	if err != nil || res.Found == nil {
 		t.Fatalf("find jedec: err=%v found=%v", err, res.Found)
+	}
+}
+
+// suiteGetByIDs — пакетная выборка карточек по списку id: порядок
+// результата — по порядку входа, отсутствующие записи пропускаются,
+// карточка эквивалентна одиночному Get.
+func suiteGetByIDs(t *testing.T, factory configFactory) {
+	ctx := context.Background()
+	app := openSuiteApp(t, factory)
+	svc := app.Services().Devices
+	seedTransistors(t, svc)
+
+	page, err := svc.Search(ctx, SearchQuery{Kind: domain.KindTransistor, Limit: 200})
+	if err != nil {
+		t.Fatalf("поиск: %v", err)
+	}
+	if len(page.Items) < 3 {
+		t.Fatalf("записей в поиске: %d, ожидалось не меньше 3", len(page.Items))
+	}
+	ids := make([]int64, len(page.Items))
+	for i, item := range page.Items {
+		ids[i] = item.ID
+	}
+
+	// Вход — обратный порядок с несуществующим id в середине: результат
+	// следует порядку входа и пропускает отсутствующие записи.
+	input := make([]int64, 0, len(ids)+1)
+	for i := len(ids) - 1; i >= 0; i-- {
+		input = append(input, ids[i])
+		if i == len(ids)/2 {
+			input = append(input, 1<<40)
+		}
+	}
+	cards, err := svc.GetByIDs(ctx, input)
+	if err != nil {
+		t.Fatalf("get by ids: %v", err)
+	}
+	if len(cards) != len(page.Items) {
+		t.Fatalf("карточек: %d, ожидалось %d", len(cards), len(page.Items))
+	}
+	for i, card := range cards {
+		want := page.Items[len(page.Items)-1-i]
+		if card.ID != want.ID || card.Designation != want.Designation {
+			t.Fatalf("карточка %d: %s (id %d), ожидалась %s (id %d)",
+				i, card.Designation, card.ID, want.Designation, want.ID)
+		}
+	}
+
+	// Карточка пакетной выборки эквивалентна одиночной (поля, группы,
+	// атрибуты, производители).
+	single, ok, err := svc.Get(ctx, domain.KindTransistor, page.Items[0].Designation)
+	if err != nil || !ok {
+		t.Fatalf("get %s: ok=%v err=%v", page.Items[0].Designation, ok, err)
+	}
+	if !reflect.DeepEqual(cards[len(cards)-1], single) {
+		t.Fatalf("пакетная карточка %s отличается от одиночной:\n%+v\n%+v",
+			single.Designation, cards[len(cards)-1], single)
+	}
+
+	if cards, err = svc.GetByIDs(ctx, nil); err != nil || len(cards) != 0 {
+		t.Fatalf("пустой список: карточек %d (err %v), ожидалось 0", len(cards), err)
+	}
+	if cards, err = svc.GetByIDs(ctx, []int64{1 << 40}); err != nil || len(cards) != 0 {
+		t.Fatalf("несуществующий id: карточек %d (err %v), ожидалось 0", len(cards), err)
 	}
 }
 

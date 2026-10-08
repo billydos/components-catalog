@@ -3,6 +3,8 @@ package storage
 import (
 	"context"
 	"path/filepath"
+	"reflect"
+	"slices"
 	"sync"
 	"testing"
 	"time"
@@ -348,6 +350,210 @@ func TestConcurrentDeviceWriters(t *testing.T) {
 			got, err := db.LoadFields(ctx, results[0].id)
 			if err != nil || len(got) != 1 || got[0].Name != "group" {
 				t.Fatalf("поля записи: %v (err %v), ожидалось одно поле group", got, err)
+			}
+		})
+	}
+}
+
+// TestBatchDeviceReads — пакетные читатели карточек возвращают те же
+// данные, что и одиночные загрузчики, и пропускают отсутствующие id;
+// многострочная InsertValues сохраняет порядок и условия значений (в том
+// числе за границей чанка). Обе СУБД.
+func TestBatchDeviceReads(t *testing.T) {
+	for _, dialect := range []string{"sqlite", "postgres"} {
+		t.Run(dialect, func(t *testing.T) {
+			db := openDevicesDB(t, dialect)
+			ctx := context.Background()
+
+			tx, err := db.Begin(ctx)
+			if err != nil {
+				t.Fatalf("begin: %v", err)
+			}
+			for _, q := range []string{
+				`INSERT INTO parameter_groups(code, section_name, sort_order) VALUES ('grp', 'params', 0)`,
+				`INSERT INTO parameters(code, group_code, value_type, sort_order) VALUES ('vp', 'grp', 'exact', 0), ('vt', 'grp', 'text', 1)`,
+				`INSERT INTO conditions(code) VALUES ('temp')`,
+				`INSERT INTO attributes(code, value_type, sort_order) VALUES ('a1', 'number', 0)`,
+			} {
+				if _, err := tx.exec(ctx, q, nil); err != nil {
+					t.Fatalf("сид %q: %v", q, err)
+				}
+			}
+			idA, _, err := tx.InsertDevice(ctx, "resistor", "gost", "DEV-A")
+			if err != nil {
+				t.Fatalf("вставка A: %v", err)
+			}
+			idB, _, err := tx.InsertDevice(ctx, "resistor", "gost", "DEV-B")
+			if err != nil {
+				t.Fatalf("вставка B: %v", err)
+			}
+			if err := tx.InsertDesignationFields(ctx, idA, []domain.Field{
+				domain.TextField("group", "1"), domain.NumField("dev_number", 42),
+			}); err != nil {
+				t.Fatalf("поля A: %v", err)
+			}
+			a1 := 3.5
+			if err := tx.ReplaceAttributes(ctx, idA, []AttrRow{{Attribute: "a1", Num: &a1}}); err != nil {
+				t.Fatalf("атрибуты A: %v", err)
+			}
+			exact1, exact2, exact3 := 1.5, 2.5, 3.5
+			textVal := "abc"
+			if err := tx.InsertValues(ctx, idA, nil, []ParamValue{
+				{Parameter: "vp", Exact: &exact1, Conditions: []Cond{{Code: "temp", Value: 25}}},
+				{Parameter: "vt", Text: &textVal},
+			}); err != nil {
+				t.Fatalf("значения типа A: %v", err)
+			}
+			vid1, err := tx.InsertVariant(ctx, idA, "5%", 0)
+			if err != nil {
+				t.Fatalf("исполнение 1: %v", err)
+			}
+			if err := tx.InsertValues(ctx, idA, &vid1, []ParamValue{{Parameter: "vp", Exact: &exact2}}); err != nil {
+				t.Fatalf("значения исполнения 1: %v", err)
+			}
+			vid2, err := tx.InsertVariant(ctx, idA, "10%", 1)
+			if err != nil {
+				t.Fatalf("исполнение 2: %v", err)
+			}
+			if err := tx.InsertValues(ctx, idA, &vid2, []ParamValue{
+				{Parameter: "vp", Exact: &exact3, Conditions: []Cond{{Code: "temp", Value: 125}}},
+			}); err != nil {
+				t.Fatalf("значения исполнения 2: %v", err)
+			}
+			if err := tx.ReplaceManufacturers(ctx, idA, []string{"Ореол", "МЗПП"}); err != nil {
+				t.Fatalf("производители A: %v", err)
+			}
+			if err := tx.ReplaceAnalogs(ctx, idA, []AnalogRow{
+				{TargetID: idB, Designation: "DEV-B", System: "gost", Note: "замена"},
+			}); err != nil {
+				t.Fatalf("аналоги A: %v", err)
+			}
+			if err := tx.ReplaceAnalogs(ctx, idB, []AnalogRow{
+				{TargetID: idA, Designation: "DEV-A", System: "gost"},
+			}); err != nil {
+				t.Fatalf("аналоги B: %v", err)
+			}
+			// 120 значений без условий — два чанка многострочной вставки;
+			// порядок и sort_order обязаны сохраниться.
+			idC, _, err := tx.InsertDevice(ctx, "resistor", "gost", "DEV-C")
+			if err != nil {
+				t.Fatalf("вставка C: %v", err)
+			}
+			bulk := make([]ParamValue, 120)
+			for i := range bulk {
+				v := float64(i)
+				bulk[i] = ParamValue{Parameter: "vp", Exact: &v}
+			}
+			if err := tx.InsertValues(ctx, idC, nil, bulk); err != nil {
+				t.Fatalf("значения C: %v", err)
+			}
+			if err := tx.Commit(); err != nil {
+				t.Fatalf("commit: %v", err)
+			}
+
+			const missing = 1 << 40
+			devs, err := db.FindDevicesByIDs(ctx, []int64{idB, missing, idA})
+			if err != nil {
+				t.Fatalf("записи по id: %v", err)
+			}
+			if len(devs) != 2 || devs[0].ID != idA || devs[1].ID != idB {
+				t.Fatalf("записи по id: %+v, ожидались A и B по порядку id", devs)
+			}
+
+			fieldsBy, err := db.LoadFieldsByIDs(ctx, []int64{idA, idB, missing})
+			if err != nil {
+				t.Fatalf("поля по id: %v", err)
+			}
+			attrsBy, err := db.LoadAttributesByIDs(ctx, []int64{idA, idB})
+			if err != nil {
+				t.Fatalf("атрибуты по id: %v", err)
+			}
+			valuesBy, err := db.LoadValuesByIDs(ctx, []int64{idA, idC})
+			if err != nil {
+				t.Fatalf("значения по id: %v", err)
+			}
+			variantsBy, err := db.LoadVariantsByIDs(ctx, []int64{idA, idB})
+			if err != nil {
+				t.Fatalf("исполнения по id: %v", err)
+			}
+			manufsBy, err := db.LoadManufacturersByIDs(ctx, []int64{idA, idB})
+			if err != nil {
+				t.Fatalf("производители по id: %v", err)
+			}
+			analogsBy, err := db.LoadOutgoingAnalogsByIDs(ctx, []int64{idA, idB})
+			if err != nil {
+				t.Fatalf("аналоги по id: %v", err)
+			}
+			backBy, err := db.LoadBacklinksByIDs(ctx, []int64{idA, idB})
+			if err != nil {
+				t.Fatalf("встречные ссылки по id: %v", err)
+			}
+
+			// Одиночные загрузчики — эталон содержимого (чтение в транзакции).
+			rtx, err := db.Begin(ctx)
+			if err != nil {
+				t.Fatalf("begin чтения: %v", err)
+			}
+			defer rtx.Rollback() //nolint:errcheck — чтение без побочных эффектов
+			for _, id := range []int64{idA, idB} {
+				wantFields, err := rtx.LoadFields(ctx, id)
+				if err != nil {
+					t.Fatalf("поля записи %d: %v", id, err)
+				}
+				if got := fieldsBy[id]; !slices.Equal(got, wantFields) {
+					t.Fatalf("поля записи %d: %+v, ожидалось %+v", id, got, wantFields)
+				}
+				wantAttrs, err := rtx.LoadAttributes(ctx, id)
+				if err != nil {
+					t.Fatalf("атрибуты записи %d: %v", id, err)
+				}
+				if got := attrsBy[id]; !reflect.DeepEqual(got, wantAttrs) {
+					t.Fatalf("атрибуты записи %d: %+v, ожидалось %+v", id, got, wantAttrs)
+				}
+				wantValues, err := rtx.LoadValues(ctx, id)
+				if err != nil {
+					t.Fatalf("значения записи %d: %v", id, err)
+				}
+				if got := valuesBy[id]; !reflect.DeepEqual(got, wantValues) {
+					t.Fatalf("значения записи %d: %+v, ожидалось %+v", id, got, wantValues)
+				}
+				wantVariants, err := rtx.LoadVariants(ctx, id)
+				if err != nil {
+					t.Fatalf("исполнения записи %d: %v", id, err)
+				}
+				if got := variantsBy[id]; !slices.Equal(got, wantVariants) {
+					t.Fatalf("исполнения записи %d: %+v, ожидалось %+v", id, got, wantVariants)
+				}
+				wantManufs, err := rtx.LoadManufacturers(ctx, id)
+				if err != nil {
+					t.Fatalf("производители записи %d: %v", id, err)
+				}
+				if got := manufsBy[id]; !slices.Equal(got, wantManufs) {
+					t.Fatalf("производители записи %d: %+v, ожидалось %+v", id, got, wantManufs)
+				}
+				wantAnalogs, err := rtx.LoadOutgoingAnalogs(ctx, id)
+				if err != nil {
+					t.Fatalf("аналоги записи %d: %v", id, err)
+				}
+				if got := analogsBy[id]; !slices.Equal(got, wantAnalogs) {
+					t.Fatalf("аналоги записи %d: %+v, ожидалось %+v", id, got, wantAnalogs)
+				}
+			}
+			wantBackA := []BacklinkRow{{SourceID: idB, Kind: "resistor", Designation: "DEV-B", System: "gost"}}
+			if got := backBy[idA]; !slices.Equal(got, wantBackA) {
+				t.Fatalf("встречные ссылки A: %+v, ожидалось %+v", got, wantBackA)
+			}
+			wantBackB := []BacklinkRow{{SourceID: idA, Kind: "resistor", Designation: "DEV-A", System: "gost", Note: "замена"}}
+			if got := backBy[idB]; !slices.Equal(got, wantBackB) {
+				t.Fatalf("встречные ссылки B: %+v, ожидалось %+v", got, wantBackB)
+			}
+			if got := valuesBy[idC]; len(got) != len(bulk) {
+				t.Fatalf("значения записи C: %d строк, ожидалось %d", len(got), len(bulk))
+			}
+			for i, vr := range valuesBy[idC] {
+				if vr.VariantID != nil || vr.Value.Parameter != "vp" || *vr.Value.Exact != float64(i) {
+					t.Fatalf("значение %d записи C: %+v — порядок либо sort_order нарушены", i, vr.Value)
+				}
 			}
 		})
 	}

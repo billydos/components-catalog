@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"strings"
 )
 
 // Config — конфигурация открытия хранилища (docs/plan/01-architecture.md §2.3):
@@ -150,6 +151,19 @@ func named(args map[string]any) []any {
 		out = append(out, sql.Named(k, v))
 	}
 	return out
+}
+
+// inList — список «(@p0, @p1, …)» для условия IN по идентификаторам:
+// именованные аргументы дописываются в args (пакетное чтение дочерних
+// таблиц по списку записей).
+func inList(prefix string, ids []int64, args map[string]any) string {
+	parts := make([]string, len(ids))
+	for i, id := range ids {
+		name := fmt.Sprintf("%s%d", prefix, i)
+		parts[i] = "@" + name
+		args[name] = id
+	}
+	return "(" + strings.Join(parts, ", ") + ")"
 }
 
 // Чтение вне транзакций — только из пула чтения.
