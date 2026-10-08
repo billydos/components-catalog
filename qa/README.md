@@ -18,6 +18,8 @@
 ```
 go run ./qa/runner                                        # SQLite
 CATALOG_TEST_POSTGRES_DSN=postgres://… go run ./qa/runner # + PostgreSQL
+CATALOG_QA_DIALECT=postgres CATALOG_TEST_POSTGRES_DSN=postgres://… \
+    go run ./qa/runner                                    # только PostgreSQL
 go run ./qa/runner -scale 10000                           # + нагрузочная прикидка
 go run ./qa/runner -report qa/reports/x.log -keep         # свой отчёт, не удалять временный каталог
 ```
@@ -25,7 +27,10 @@ go run ./qa/runner -report qa/reports/x.log -keep         # свой отчёт,
 Ключи: `-report` (путь файла отчёта; по умолчанию
 `qa/reports/qa-<дата>-<goos>-<goarch>.log`), `-postgres-dsn`
 (DSN PostgreSQL; по умолчанию `CATALOG_TEST_POSTGRES_DSN`, пусто — нога
-опущена), `-reset-postgres`, `-scale` (по умолчанию
+опущена), `-reset-postgres`, `-dialect` (единственная нога прогона:
+`sqlite | postgres`, переносятся сценарии и нагрузочная прикидка; по
+умолчанию `CATALOG_QA_DIALECT`, пусто — все доступные ноги; `postgres`
+без DSN — отказ до прогона), `-scale` (по умолчанию
 `CATALOG_QA_SCALE`; 0 — фаза опущена), `-keep`.
 
 Сброс PostgreSQL деструктивен (DROP таблиц модуля) и ограждён: база из
@@ -40,9 +45,11 @@ env-конвенции `CATALOG_TEST_POSTGRES_DSN` — одноразовая п
 Код выхода: 0 — PASS, 1 — есть отказы проверок, 2 — прогон не начат
 (не найден корень модуля, не открыт отчёт).
 
-CI (`.github/workflows/ci.yml`): Linux-нога со службой PostgreSQL 16
-и прикидкой 10⁴, Windows-нога на SQLite — кроссплатформенность
-проверяется каждым пушем; авто-отчёты выгружаются артефактами сборки.
+CI (`.github/workflows/ci.yml`): три джобы — Linux на SQLite, Linux со
+службой PostgreSQL 16 и Windows на SQLite, каждая с прикидкой 10⁴
+(`CATALOG_QA_SCALE=10000`, `CATALOG_QA_DIALECT` задаёт единственную ногу
+джобы) — кроссплатформенность и обе СУБД проверяются каждым пушем;
+авто-отчёты выгружаются артефактами сборки.
 
 ## Фазы прогона
 
@@ -50,11 +57,15 @@ CI (`.github/workflows/ci.yml`): Linux-нога со службой PostgreSQL 1
 2. **build** — сборка `catalogctl` и `qa/restsrv` во временный каталог.
 3. **static** — `go build ./...`, `go vet ./...`, `gofmt -l .` (обязан
    быть пуст), `go test ./...` — полный контур проверки AGENTS.md.
+   При заданном DSN PostgreSQL `go test` идёт с `-p 1`: одноразовая база
+   одна на все пакеты, параллельные пакеты конфликтуют на DROP/CREATE
+   таблиц (deadlock 40P01, гонка создания системных типов 23505).
    Отказ фазы не прерывает прогон (итог — в отчёте).
 4. **cli / rest по ногам** — SQLite всегда; PostgreSQL при заданном DSN
    (одноразовая база очищается прогонщиком перед ногой по ограждённым
    правилам — см. «Запуск»; абсолютные проверки `count` не зависят от
-   остатков прошлых прогонов).
+   остатков прошлых прогонов); `-dialect` оставляет единственную
+   указанную ногу.
    Сценарии CLI: init, импорт выверенной выборки `data/`, идемпотентность,
    round-trip экспорта (ndjson по классу, yaml полностью), list с
    фильтрами класса/системы/подстроки, info (карточка, матрица исполнений),
@@ -142,7 +153,8 @@ verdict: PASS
 ошибки корректности (отказы импорта).
 
 Переменные прикидки: `CATALOG_QA_SCALE` (число записей),
-`CATALOG_QA_DIALECT` (sqlite по умолчанию), `CATALOG_QA_DB` (путь файла
+`CATALOG_QA_DIALECT` (sqlite по умолчанию; заданная — единственная нога
+и прогона целиком), `CATALOG_QA_DB` (путь файла
 sqlite), `CATALOG_QA_STRICT=1`. Масштаб 10⁵ — ручной прогон по мере
 надобности (в аналитический отчёт). База прикидки по умолчанию —
 одноразовый каталог `qa/tmp/load-*` внутри репозитория (игнорируется

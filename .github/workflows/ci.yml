@@ -5,8 +5,30 @@ on:
   - pull_request
 
 jobs:
-  qa-linux:
-    name: QA (linux, SQLite + PostgreSQL, load)
+  qa-linux-sqlite:
+    name: QA (linux, SQLite, load x10000)
+    runs-on: ubuntu-latest
+    env:
+      CATALOG_QA_SCALE: "10000"
+      CATALOG_QA_DIALECT: sqlite
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+      - name: Setup Go
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+      - name: QA (build, vet, gofmt, test, scenarios, load)
+        run: go run ./qa/runner
+      - name: Upload QA report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: qa-report-linux-sqlite
+          path: qa/reports/*.log
+
+  qa-linux-postgres:
+    name: QA (linux, PostgreSQL, load x10000)
     runs-on: ubuntu-latest
     services:
       postgres:
@@ -24,6 +46,7 @@ jobs:
     env:
       CATALOG_TEST_POSTGRES_DSN: postgres://postgres:postgres@localhost:5432/catalog_test
       CATALOG_QA_SCALE: "10000"
+      CATALOG_QA_DIALECT: postgres
     steps:
       - name: Checkout
         uses: actions/checkout@v5
@@ -37,12 +60,15 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: qa-report-linux
+          name: qa-report-linux-postgres
           path: qa/reports/*.log
 
   qa-windows:
-    name: QA (windows, SQLite)
+    name: QA (windows, SQLite, load x10000)
     runs-on: windows-latest
+    env:
+      CATALOG_QA_SCALE: "10000"
+      CATALOG_QA_DIALECT: sqlite
     steps:
       - name: Checkout
         uses: actions/checkout@v5
@@ -50,7 +76,7 @@ jobs:
         uses: actions/setup-go@v6
         with:
           go-version-file: go.mod
-      - name: QA (build, vet, gofmt, test, scenarios)
+      - name: QA (build, vet, gofmt, test, scenarios, load)
         run: go run ./qa/runner
       - name: Upload QA report
         if: always()

@@ -143,18 +143,28 @@ func buildBinaries(ctx context.Context, r *report, root, tmp string) (ctl, srv s
 // staticPhase — статические проверки репозитория: go build/vet, gofmt,
 // go test (полный контур AGENTS.md «Проверка»). `go test` запускается без
 // CATALOG_QA_SCALE: TestLoad — прерогатива выделенной фазы load, наследование
-// переменной гоняло бы прикидку дважды.
-func staticPhase(ctx context.Context, r *report, root string) {
+// переменной гоняло бы прикидку дважды. При postgres-ноге go test идёт
+// с -p 1: одноразовая база CATALOG_TEST_POSTGRES_DSN одна на все пакеты,
+// параллельные пакеты конфликтуют на DROP/CREATE таблиц (deadlock 40P01,
+// гонка создания системных типов 23505); пакеты последовательны — тесты
+// внутри пакета и так последовательны.
+func staticPhase(ctx context.Context, r *report, root string, opts runOptions) {
 	r.section("phase: static")
 	res := runCmd(ctx, root, staticTimeout, "go", "build", "./...")
 	r.check("static/build", "go build ./...", res.code == 0, envDetails(res, 20)...)
 	res = runCmd(ctx, root, staticTimeout, "go", "vet", "./...")
 	r.check("static/vet", "go vet ./...", res.code == 0, envDetails(res, 30)...)
 	gofmtCheck(ctx, r, root)
+	testArgs := []string{"test"}
+	if opts.postgresDSN != "" {
+		testArgs = append(testArgs, "-p", "1")
+	}
+	testArgs = append(testArgs, "./...")
 	res = runCmdEnv(ctx, root, staticTimeout,
 		envWithout(os.Environ(), "CATALOG_QA_SCALE"),
-		"go", "test", "./...")
-	r.check("static/test", "go test ./...", res.code == 0, envDetails(res, 60)...)
+		"go", testArgs...)
+	r.check("static/test", "go "+strings.Join(testArgs, " "),
+		res.code == 0, envDetails(res, 60)...)
 }
 
 // gofmtCheck — gofmt -l . обязан быть пуст (путь к gofmt — из GOROOT).
@@ -176,18 +186,23 @@ func gofmtCheck(ctx context.Context, r *report, root string) {
 // кэшированная реплика с теми же переменными окружения выдаёт старые
 // результаты измерений за нулевое время (база одноразовая — повторного
 // прогона нет).
-func loadPhase(ctx context.Context, r *report, root string, scale int) {
+func loadPhase(ctx context.Context, r *report, root string, opts runOptions) {
 	r.section("phase: load")
-	r.kv("scale", strconv.Itoa(scale))
+	r.kv("scale", strconv.Itoa(opts.scale))
 	ctx, cancel := context.WithTimeout(ctx, loadTimeout)
 	defer cancel()
 	cmd := exec.CommandContext(ctx, "go", "test", "./qa", "-run", "TestLoad",
 		"-count=1", "-v", "-timeout", "30m")
 	cmd.Dir = root
-	// Наследованное значение CATALOG_QA_SCALE заменяется явным масштабом
-	// прогона (дубликаты записей окружения неоднозначны).
-	cmd.Env = append(envWithout(os.Environ(), "CATALOG_QA_SCALE"),
-		"CATALOG_QA_SCALE="+strconv.Itoa(scale))
+	// Наследованное CATALOG_QA_SCALE/CATALOG_QA_DIALECT заменяется явными
+	// значениями прогона (дубликаты записей окружения неоднозначны);
+	// -dialect переносится и на нагрузочную прикидку.
+	env := append(envWithout(os.Environ(), "CATALOG_QA_SCALE", "CATALOG_QA_DIALECT"),
+		"CATALOG_QA_SCALE="+strconv.Itoa(opts.scale))
+	if opts.dialect != "" {
+		env = append(env, "CATALOG_QA_DIALECT="+opts.dialect)
+	}
+	cmd.Env = env
 	var buf bytes.Buffer
 	cmd.Stdout, cmd.Stderr = &buf, &buf
 	runErr := cmd.Run()
@@ -204,6 +219,6 @@ func loadPhase(ctx context.Context, r *report, root string, scale int) {
 			r.note(l)
 		}
 	}
-	r.check("load/run", "go test ./qa -run TestLoad (масштаб "+strconv.Itoa(scale)+")",
+	r.check("load/run", "go test ./qa -run TestLoad (масштаб "+strconv.Itoa(opts.scale)+")",
 		res.code == 0, envDetails(res, 40)...)
 }

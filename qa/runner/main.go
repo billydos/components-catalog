@@ -30,6 +30,8 @@ func main() {
 			"DSN PostgreSQL для ноги postgres (по умолчанию CATALOG_TEST_POSTGRES_DSN; пусто — нога опущена)")
 		resetPostgres = flag.Bool("reset-postgres", false,
 			"очистить таблицы модуля в базе -postgres-dsn перед ногой (флаг явно подтверждает одноразовость базы; env-конвенция CATALOG_TEST_POSTGRES_DSN чистится всегда)")
+		dialect = flag.String("dialect", envDialect(),
+			"прогнать только одну ногу: sqlite | postgres (по умолчанию CATALOG_QA_DIALECT; пусто — все доступные)")
 		scale = flag.Int("scale", envScale(), "масштаб нагрузочной прикидки, записей (0 — фаза опущена)")
 		keep  = flag.Bool("keep", false, "не удалять временный каталог прогона (диагностика)")
 	)
@@ -38,9 +40,33 @@ func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
+	switch *dialect {
+	case "", "sqlite", "postgres":
+	default:
+		fmt.Fprintf(os.Stderr, "runner: неизвестный диалект %q (sqlite | postgres)\n", *dialect)
+		os.Exit(2)
+	}
+
 	root, err := findRepoRoot()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "runner: %v\n", err)
+		os.Exit(2)
+	}
+
+	opts := runOptions{dialect: *dialect, scale: *scale, keep: *keep}
+	// DSN из env — конвенция одноразовой базы (как в internal/testutil):
+	// сброс автоматический. DSN из флага — явное указание произвольной
+	// базы: сброс только с отдельного подтверждения -reset-postgres,
+	// без него нога идёт как есть (грязная база падает на проверках
+	// видимым образом — безопасный отказ вместо разрушения данных).
+	opts.postgresDSN = *postgresDSN
+	opts.resetPostgres = *resetPostgres
+	if opts.postgresDSN == "" {
+		opts.postgresDSN = os.Getenv("CATALOG_TEST_POSTGRES_DSN")
+		opts.resetPostgres = true
+	}
+	if opts.dialect == "postgres" && opts.postgresDSN == "" {
+		fmt.Fprintf(os.Stderr, "runner: диалект postgres требует -postgres-dsn / CATALOG_TEST_POSTGRES_DSN\n")
 		os.Exit(2)
 	}
 
@@ -55,19 +81,6 @@ func main() {
 		os.Exit(2)
 	}
 
-	opts := runOptions{scale: *scale, keep: *keep}
-	// DSN из env — конвенция одноразовой базы (как в internal/testutil):
-	// сброс автоматический. DSN из флага — явное указание произвольной
-	// базы: сброс только с отдельного подтверждения -reset-postgres,
-	// без него нога идёт как есть (грязная база падает на проверках
-	// видимым образом — безопасный отказ вместо разрушения данных).
-	opts.postgresDSN = *postgresDSN
-	opts.resetPostgres = *resetPostgres
-	if opts.postgresDSN == "" {
-		opts.postgresDSN = os.Getenv("CATALOG_TEST_POSTGRES_DSN")
-		opts.resetPostgres = true
-	}
-
 	run(ctx, r, root, opts)
 	verdict := r.finish()
 	fmt.Printf("отчёт: %s (%s)\n", path, verdict)
@@ -78,6 +91,7 @@ func main() {
 
 // runOptions — параметры прогона.
 type runOptions struct {
+	dialect       string // "" | sqlite | postgres — фильтр ноги сценариев и нагрузки
 	postgresDSN   string
 	resetPostgres bool
 	scale         int
@@ -102,6 +116,9 @@ func run(ctx context.Context, r *report, root string, opts runOptions) {
 		r.note("нога PostgreSQL опущена: CATALOG_TEST_POSTGRES_DSN / -postgres-dsn не заданы")
 	}
 	r.kv("sqlite_server", sqliteVersion())
+	if opts.dialect != "" {
+		r.kv("dialect", opts.dialect)
+	}
 
 	tmp, err := os.MkdirTemp("", "catalog-qa-")
 	if err != nil {
@@ -119,10 +136,12 @@ func run(ctx context.Context, r *report, root string, opts runOptions) {
 	if !ok {
 		return
 	}
-	staticPhase(ctx, r, root)
+	staticPhase(ctx, r, root, opts)
 
 	legs := []leg{{name: "sqlite", dbArgs: []string{"--db", filepath.Join(tmp, "qa.db")}}}
-	if opts.postgresDSN != "" {
+	// Нога postgres — только когда не исключена -dialect sqlite: сброс
+	// базы деструктивен, исключённая нога не должна его выполнять.
+	if opts.postgresDSN != "" && opts.dialect != "sqlite" {
 		r.section("phase: prepare")
 		if opts.resetPostgres {
 			if resetPostgres(ctx, r, opts.postgresDSN) {
@@ -143,6 +162,18 @@ func run(ctx context.Context, r *report, root string, opts runOptions) {
 				},
 			})
 		}
+	} else if opts.postgresDSN != "" {
+		r.note("нога PostgreSQL исключена: -dialect sqlite (база не сбрасывается)")
+	}
+	// -dialect — единственная нога прогона (остальные исключаются).
+	if opts.dialect != "" {
+		filtered := make([]leg, 0, 1)
+		for _, l := range legs {
+			if l.name == opts.dialect {
+				filtered = append(filtered, l)
+			}
+		}
+		legs = filtered
 	}
 	for _, l := range legs {
 		cliSuite(ctx, r, ctl, root, tmp, l)
@@ -150,7 +181,7 @@ func run(ctx context.Context, r *report, root string, opts runOptions) {
 	}
 
 	if opts.scale > 0 {
-		loadPhase(ctx, r, root, opts.scale)
+		loadPhase(ctx, r, root, opts)
 	}
 }
 
@@ -171,6 +202,10 @@ func findRepoRoot() (string, error) {
 		dir = parent
 	}
 }
+
+// envDialect — фильтр ноги прогона из CATALOG_QA_DIALECT ("" — все
+// доступные; конвенция общей переменной с qa/load_test.go).
+func envDialect() string { return os.Getenv("CATALOG_QA_DIALECT") }
 
 // envScale — масштаб нагрузочной прикидки из CATALOG_QA_SCALE (0 — не задан).
 func envScale() int {
