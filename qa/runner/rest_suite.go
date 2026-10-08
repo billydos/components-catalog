@@ -232,11 +232,12 @@ func searchFirstID(ctx context.Context, c restClient) string {
 	return fmt.Sprintf("%d", page.Items[0].ID)
 }
 
-// detail — детали HTTP-проверки: статус и фрагмент тела.
+// detail — детали HTTP-проверки: статус и фрагмент тела; обрезка — по границе
+// рун (обозначения в телах кириллические, байтовая обрезка порвала бы символ).
 func detail(status int, body string) []string {
 	d := fmt.Sprintf("status=%d", status)
-	if len(body) > 300 {
-		body = body[:300] + "…"
+	if rs := []rune(body); len(rs) > 300 {
+		body = string(rs[:300]) + "…"
 	}
 	if body = strings.TrimSpace(body); body != "" {
 		d += ", body: " + body

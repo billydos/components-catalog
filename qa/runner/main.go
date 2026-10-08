@@ -88,6 +88,14 @@ type runOptions struct {
 // (кроме сбоя сборки бинарников — сценарии невозможны).
 func run(ctx context.Context, r *report, root string, opts runOptions) {
 	writeEnvSection(r, root)
+	if opts.scale == 0 {
+		// envScale молча возвращает 0 на нераспознанном значении — фаза load
+		// опускается; причина фиксируется заметкой (прямой `go test` в том же
+		// окружении падает с явной ошибкой разбора).
+		if v := os.Getenv("CATALOG_QA_SCALE"); v != "" && v != "0" {
+			r.note("CATALOG_QA_SCALE=" + v + " не распознана — фаза load опущена (масштаб 0)")
+		}
+	}
 	if opts.postgresDSN != "" {
 		r.kv("postgres_server", pgVersion(ctx, opts.postgresDSN))
 	} else {
