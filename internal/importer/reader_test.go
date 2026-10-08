@@ -198,6 +198,40 @@ func TestReadDocumentValueConditions(t *testing.T) {
 	}
 }
 
+// Числовой токен с непредставимым текстом (выход за диапазон float64,
+// YAML .inf/.nan) — одна проблема значения; ветки вызова не добавляют
+// вторую («unknown key»/повтор «must be a number»).
+func TestReadDocumentUnparseableNumber(t *testing.T) {
+	root, snap := parseDoc(t, `{
+		"transistors": [
+			{
+				"name": "КТ315Б",
+				"parameters": [
+					{ "parameter": "h21e", "min": 1e999 },
+					{ "parameter": "h21e", "Uke": 1e999 }
+				]
+			}
+		]
+	}`)
+	doc, issues := ReadDocument(root, snap)
+	if len(doc.Records) != 0 || doc.Rejected != 1 {
+		t.Fatalf("записи: %d, rejected: %d (ожидалось 0/1)", len(doc.Records), doc.Rejected)
+	}
+	got := issueMessages(issues)
+	want := []string{
+		`record «КТ315Б»: section «parameters», value no. 1: key "min" must be a number`,
+		`record «КТ315Б»: section «parameters», value no. 2: key "Uke" must be a number`,
+	}
+	if len(got) != len(want) {
+		t.Fatalf("проблем: %d, ожидалось %d: %v", len(got), len(want), got)
+	}
+	for i, w := range want {
+		if got[i] != w {
+			t.Errorf("проблема %d: %q, ожидалась %q", i+1, got[i], w)
+		}
+	}
+}
+
 func TestReadDocumentVariantsAndAnalogs(t *testing.T) {
 	root, snap := parseDoc(t, `{
 		"capacitors": [

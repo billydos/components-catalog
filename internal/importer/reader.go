@@ -434,7 +434,8 @@ func (r *reader) parameterValue(rec *Record, section any, index int, v value) (c
 			continue
 		}
 		if catalog.ValueKeyReserved(m.name) {
-			if f, ok := r.numberKey(rec, where, m); ok {
+			f, ok, reported := r.numberKey(rec, where, m)
+			if ok {
 				switch m.name {
 				case "value":
 					pv.Exact = &f
@@ -445,21 +446,27 @@ func (r *reader) parameterValue(rec *Record, section any, index int, v value) (c
 				}
 				continue
 			}
-			if m.name == "text" && m.value.kind == kindString {
-				s := strings.TrimSpace(m.value.str)
-				pv.Text = &s
-				continue
+			if reported {
+				return catalog.ParameterValue{}, false
 			}
 			if m.name == "text" {
+				if m.value.kind == kindString {
+					s := strings.TrimSpace(m.value.str)
+					pv.Text = &s
+					continue
+				}
 				r.recFail(rec, domain.MsgImportValueTextString, where)
-			} else {
-				r.recFail(rec, domain.MsgImportValueKeyNumber, where, m.name)
+				return catalog.ParameterValue{}, false
 			}
+			r.recFail(rec, domain.MsgImportValueKeyNumber, where, m.name)
 			return catalog.ParameterValue{}, false
 		}
 		// Прочие ключи — коды условий измерения (число); известность кода
 		// и комбинацию условий проверяет движок.
-		f, ok := r.numberKey(rec, where, m)
+		f, ok, reported := r.numberKey(rec, where, m)
+		if reported {
+			return catalog.ParameterValue{}, false
+		}
 		if !ok {
 			r.recFail(rec, domain.MsgImportValueUnknownKey, where, m.name)
 			return catalog.ParameterValue{}, false
@@ -474,17 +481,18 @@ func (r *reader) parameterValue(rec *Record, section any, index int, v value) (c
 }
 
 // numberKey — числовое значение ключа (целые и дробные, текст числа из
-// формата без преобразований точности).
-func (r *reader) numberKey(rec *Record, where any, m member) (float64, bool) {
+// формата без преобразований точности); reported = true — проблема уже
+// записана (текст числа непредставим), вызывающая ветка не дублирует её.
+func (r *reader) numberKey(rec *Record, where any, m member) (f float64, ok bool, reported bool) {
 	if m.value.kind != kindNumber {
-		return 0, false
+		return 0, false, false
 	}
 	f, err := strconv.ParseFloat(m.value.num, 64)
 	if err != nil {
 		r.recFail(rec, domain.MsgImportValueKeyNumber, where, m.name)
-		return 0, false
+		return 0, false, true
 	}
-	return f, true
+	return f, true, false
 }
 
 // variant читает исполнение: метка + секции групп (те же, что у записи).
