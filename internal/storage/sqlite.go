@@ -18,10 +18,11 @@ type sqliteDialect struct{}
 
 func (sqliteDialect) Name() string { return "sqlite" }
 
-func (sqliteDialect) AutoIncSQL() string {
-	// AUTOINCREMENT — осознанный запрет переиспользования id после удаления:
-	// id — стабильная внешняя ссылка (FK, REST). Не «оптимизировать».
-	return "PRIMARY KEY AUTOINCREMENT"
+// RewriteDDL подставляет авто-PK: AUTOINCREMENT — осознанный запрет
+// переиспользования id после удаления: id — стабильная внешняя ссылка
+// (FK, REST). Не «оптимизировать».
+func (sqliteDialect) RewriteDDL(stmt string) string {
+	return strings.ReplaceAll(stmt, autoIncToken, "PRIMARY KEY AUTOINCREMENT")
 }
 
 func (d sqliteDialect) InsertReturningID(ctx context.Context, tx *sql.Tx, query string, args []any) (int64, error) {

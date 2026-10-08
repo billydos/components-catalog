@@ -342,7 +342,7 @@ func TestStats(t *testing.T) {
 		t.Fatalf("статус: %d", status)
 	}
 	st := decode[statsJSON](t, body)
-	if st.SchemaVersion != 4 || st.Total != 4 || st.Kinds["transistor"] != 2 || st.Kinds["capacitor"] != 1 {
+	if st.SchemaVersion != 5 || st.Total != 4 || st.Kinds["transistor"] != 2 || st.Kinds["capacitor"] != 1 {
 		t.Fatalf("статистика: %+v", st)
 	}
 	if st.CatalogRevision == 0 || st.DataRevision == 0 {

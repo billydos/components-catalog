@@ -147,9 +147,9 @@ func (d *DB) CatalogRevision(ctx context.Context) (int64, error) {
 // (ревизия и определения — одно согласованное чтение).
 func catalogRevision(ctx context.Context, q queryer) (int64, error) {
 	var value string
-	err := q.QueryRowContext(ctx,
+	err := queryRowContext(ctx, q,
 		`SELECT value FROM schema_meta WHERE key = @key`,
-		sql.Named("key", metaCatalogRevision)).Scan(&value)
+		map[string]any{"key": metaCatalogRevision}).Scan(&value)
 	if err != nil {
 		return 0, err
 	}

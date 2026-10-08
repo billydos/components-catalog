@@ -61,7 +61,7 @@ go build ./... && go vet ./... && gofmt -l . && go test ./...
 
 ## Переносимость DML
 
-- Только `database/sql` + `sql.Named` (`@имя`). Переносимые конструкции: `LIMIT/OFFSET`, производные таблицы, `INSERT … SELECT`, `EXISTS`, `INSERT … ON CONFLICT DO NOTHING` (атомарное подавление конфликта уникальности при параллельных писателях postgres; возврат id — метод диалекта `InsertIfAbsentReturningID`).
+- Только `database/sql` с позиционными аргументами: текст DML — `@имя`-плейсхолдеры, перезапись в `$n` — единая точка `internal/storage/db.go` (`positional` + хелперы `query`/`queryRow`/`exec` и методы диалекта; pgx stdlib имена `@имя` не поддерживает). Переносимые конструкции: `LIMIT/OFFSET`, производные таблицы, `INSERT … SELECT`, `EXISTS`, `INSERT … ON CONFLICT DO NOTHING` (атомарное подавление конфликта уникальности при параллельных писателях postgres; возврат id — метод диалекта `InsertIfAbsentReturningID`, таблицы без суррогатного id — переносимый `Tx.InsertIfAbsent`).
 - Булевы значения — INTEGER 0/1; NULL — «не задано»; без JSON-функций СУБД и диалектных типов.
 - Всё диалектозависимое (DDL и PK, получение id после вставки, открытие и пулы соединений) — только в `Dialect` (sqlite/postgres) внутри `internal/storage`.
 - Весь DML — только в явных транзакциях записи (SQLite: одно выделенное соединение записи, WAL, busy_timeout); вне транзакций — только SELECT из пула чтения.

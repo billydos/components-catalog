@@ -29,7 +29,8 @@ const defaultBusyTimeoutMs = 5000
 
 // Dialect — диалектозависимая часть хранилища (docs/plan/02-database.md §4):
 // открытие и пулы, определение авто-PK в DDL, получение id после вставки.
-// Всё прочее — переносимый DML на database/sql + sql.Named (@имя).
+// Всё прочее — переносимый DML на database/sql: текст с @имя-плейсхолдерами
+// переписывается в позиционные $n (positional).
 type Dialect interface {
 	// Name возвращает код диалекта ("sqlite" | "postgres").
 	Name() string
@@ -37,9 +38,11 @@ type Dialect interface {
 	// Open открывает пулы соединений по конфигурации.
 	Open(ctx context.Context, cfg Config) (*pools, error)
 
-	// AutoIncSQL возвращает определение авто-PK колонки id
-	// (sqlite: PRIMARY KEY AUTOINCREMENT; postgres: IDENTITY).
-	AutoIncSQL() string
+	// RewriteDDL подставляет в переносимый оператор DDL определения
+	// диалекта: авто-PK колонок id (sqlite: INTEGER PRIMARY KEY
+	// AUTOINCREMENT; postgres: IDENTITY) и точный целочисленный тип
+	// (postgres: INTEGER → BIGINT — паритет диапазона int64 со sqlite).
+	RewriteDDL(stmt string) string
 
 	// InsertReturningID выполняет INSERT внутри транзакции и возвращает
 	// сгенерированный id (sqlite: last_insert_rowid() того же соединения;
@@ -141,21 +144,104 @@ type queryer interface {
 	QueryRowContext(ctx context.Context, query string, args ...any) *sql.Row
 }
 
-// named — собирает именованные аргументы (@имя) из отображения.
-func named(args map[string]any) []any {
-	if len(args) == 0 {
-		return nil
+// positional переписывает @имя-плейсхолдеры запроса в позиционные $n
+// (нумерация — по первому появлению имени) и собирает аргументы в порядке
+// нумерации. $n понимают оба драйвера: pgx — нативно (его путь database/sql
+// имена @имя-аргументов отбрасывает, текст запроса не переписывает),
+// modernc/sqlite связывает $NNN с аргументом NNN. Повторное имя — один
+// параметр. Строковые литералы '...' (кавычка внутри удваивается) и
+// комментарии -- пропускаются; имя без значения не переписывается — ошибка
+// связывания укажет его (баг кода, не пользовательский ввод); ключи без
+// плейсхолдера игнорируются.
+func positional(query string, args map[string]any) (string, []any) {
+	if !strings.ContainsRune(query, '@') {
+		return query, nil
 	}
-	out := make([]any, 0, len(args))
-	for k, v := range args {
-		out = append(out, sql.Named(k, v))
+	var sb strings.Builder
+	nums := make(map[string]int, len(args))
+	vals := make([]any, 0, len(args))
+	for i := 0; i < len(query); {
+		switch c := query[i]; {
+		case c == '\'':
+			j := i + 1
+			for j < len(query) {
+				if query[j] == '\'' {
+					if j+1 < len(query) && query[j+1] == '\'' {
+						j += 2
+						continue
+					}
+					j++
+					break
+				}
+				j++
+			}
+			sb.WriteString(query[i:j])
+			i = j
+		case c == '-' && i+1 < len(query) && query[i+1] == '-':
+			j := strings.IndexByte(query[i:], '\n')
+			if j < 0 {
+				sb.WriteString(query[i:])
+				i = len(query)
+			} else {
+				sb.WriteString(query[i : i+j+1])
+				i += j + 1
+			}
+		case c == '@' && i+1 < len(query) && isIdentStart(query[i+1]):
+			j := i + 1
+			for j < len(query) && isIdentChar(query[j]) {
+				j++
+			}
+			name := query[i+1 : j]
+			if v, ok := args[name]; ok {
+				n, seen := nums[name]
+				if !seen {
+					n = len(vals) + 1
+					nums[name] = n
+					vals = append(vals, v)
+				}
+				fmt.Fprintf(&sb, "$%d", n)
+			} else {
+				sb.WriteString(query[i:j])
+			}
+			i = j
+		default:
+			sb.WriteByte(c)
+			i++
+		}
 	}
-	return out
+	return sb.String(), vals
+}
+
+func isIdentStart(c byte) bool {
+	return c == '_' || c >= 'a' && c <= 'z' || c >= 'A' && c <= 'Z'
+}
+
+func isIdentChar(c byte) bool {
+	return isIdentStart(c) || c >= '0' && c <= '9'
+}
+
+// queryContext — общий путь SELECT пула чтения и транзакции.
+func queryContext(ctx context.Context, q queryer, query string, args map[string]any) (*sql.Rows, error) {
+	s, vals := positional(query, args)
+	return q.QueryContext(ctx, s, vals...)
+}
+
+// queryRowContext — общий путь SELECT … LIMIT 1 пула чтения и транзакции.
+func queryRowContext(ctx context.Context, q queryer, query string, args map[string]any) *sql.Row {
+	s, vals := positional(query, args)
+	return q.QueryRowContext(ctx, s, vals...)
+}
+
+// execContext — общий путь DML внутри транзакции записи.
+func execContext(ctx context.Context, tx *sql.Tx, query string, args map[string]any) (sql.Result, error) {
+	s, vals := positional(query, args)
+	return tx.ExecContext(ctx, s, vals...)
 }
 
 // inList — список «(@p0, @p1, …)» для условия IN по идентификаторам:
 // именованные аргументы дописываются в args (пакетное чтение дочерних
-// таблиц по списку записей).
+// таблиц по списку записей); перезапись в позиционные аргументы — общая
+// точка positional.
 func inList(prefix string, ids []int64, args map[string]any) string {
 	parts := make([]string, len(ids))
 	for i, id := range ids {
@@ -169,37 +255,56 @@ func inList(prefix string, ids []int64, args map[string]any) string {
 // Чтение вне транзакций — только из пула чтения.
 
 func (d *DB) query(ctx context.Context, q string, args map[string]any) (*sql.Rows, error) {
-	return d.reads.QueryContext(ctx, q, named(args)...)
+	return queryContext(ctx, d.reads, q, args)
 }
 
 func (d *DB) queryRow(ctx context.Context, q string, args map[string]any) *sql.Row {
-	return d.reads.QueryRowContext(ctx, q, named(args)...)
+	return queryRowContext(ctx, d.reads, q, args)
 }
 
 // Чтение внутри транзакции записи — то же соединение.
 
 func (t *Tx) query(ctx context.Context, q string, args map[string]any) (*sql.Rows, error) {
-	return t.tx.QueryContext(ctx, q, named(args)...)
+	return queryContext(ctx, t.tx, q, args)
 }
 
 func (t *Tx) queryRow(ctx context.Context, q string, args map[string]any) *sql.Row {
-	return t.tx.QueryRowContext(ctx, q, named(args)...)
+	return queryRowContext(ctx, t.tx, q, args)
 }
 
 // exec выполняет DML внутри транзакции.
 func (t *Tx) exec(ctx context.Context, q string, args map[string]any) (sql.Result, error) {
-	return t.tx.ExecContext(ctx, q, named(args)...)
+	return execContext(ctx, t.tx, q, args)
 }
 
 // InsertReturningID — вставка с возвратом сгенерированного id (метод
 // диалекта; сигнатура зафиксирована планом — docs/plan/02-database.md §4).
 func (t *Tx) InsertReturningID(ctx context.Context, query string, args map[string]any) (int64, error) {
-	return t.dialect.InsertReturningID(ctx, t.tx, query, named(args))
+	q, vals := positional(query, args)
+	return t.dialect.InsertReturningID(ctx, t.tx, q, vals)
 }
 
 // InsertIfAbsentReturningID — вставка с атомарным подавлением конфликта
 // уникальности и возвратом сгенерированного id (метод диалекта —
-// docs/plan/02-database.md §4).
+// docs/plan/02-database.md §4); для таблиц с суррогатным id.
 func (t *Tx) InsertIfAbsentReturningID(ctx context.Context, query string, args map[string]any) (int64, bool, error) {
-	return t.dialect.InsertIfAbsentReturningID(ctx, t.tx, query, named(args))
+	q, vals := positional(query, args)
+	return t.dialect.InsertIfAbsentReturningID(ctx, t.tx, q, vals)
+}
+
+// InsertIfAbsent — вставка с атомарным подавлением конфликта уникальности
+// для таблиц без суррогатного id (составной PK: связи производителей,
+// атрибуты, аналоги): inserted=false — строка уже есть (вставлена
+// конкурирующей транзакцией). ON CONFLICT DO NOTHING и RowsAffected
+// переносимы, RETURNING не используется.
+func (t *Tx) InsertIfAbsent(ctx context.Context, query string, args map[string]any) (bool, error) {
+	res, err := execContext(ctx, t.tx, query+" ON CONFLICT DO NOTHING", args)
+	if err != nil {
+		return false, err
+	}
+	n, err := res.RowsAffected()
+	if err != nil {
+		return false, err
+	}
+	return n > 0, nil
 }

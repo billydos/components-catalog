@@ -95,20 +95,20 @@ func (t *Tx) FindDevice(ctx context.Context, kind domain.Kind, designation strin
 }
 
 func findDevice(ctx context.Context, q queryer, kind domain.Kind, designation string) (*DeviceRow, error) {
-	row := q.QueryRowContext(ctx, `
+	row := queryRowContext(ctx, q, `
 SELECT id, kind_code, system_code, designation FROM devices
 WHERE kind_code = @kind AND designation = @designation`,
-		named(map[string]any{"kind": string(kind), "designation": designation})...)
+		map[string]any{"kind": string(kind), "designation": designation})
 	return scanDevice(row)
 }
 
 func findDeviceAnyKind(ctx context.Context, q queryer, designation string) (*DeviceRow, error) {
-	row := q.QueryRowContext(ctx, `
+	row := queryRowContext(ctx, q, `
 SELECT id, kind_code, system_code, designation FROM devices
 WHERE designation = @designation
 ORDER BY kind_code
 LIMIT 1`,
-		named(map[string]any{"designation": designation})...)
+		map[string]any{"designation": designation})
 	return scanDevice(row)
 }
 
@@ -135,10 +135,10 @@ func (t *Tx) LoadFields(ctx context.Context, deviceID int64) ([]domain.Field, er
 }
 
 func loadFields(ctx context.Context, q queryer, deviceID int64) ([]domain.Field, error) {
-	rows, err := q.QueryContext(ctx, `
+	rows, err := queryContext(ctx, q, `
 SELECT field, text_value, num_value FROM device_designation_fields
 WHERE device_id = @id ORDER BY field`,
-		named(map[string]any{"id": deviceID})...)
+		map[string]any{"id": deviceID})
 	if err != nil {
 		return nil, err
 	}
@@ -168,10 +168,10 @@ func (t *Tx) LoadAttributes(ctx context.Context, deviceID int64) ([]AttrRow, err
 }
 
 func loadAttributes(ctx context.Context, q queryer, deviceID int64) ([]AttrRow, error) {
-	rows, err := q.QueryContext(ctx, `
+	rows, err := queryContext(ctx, q, `
 SELECT attribute_code, text_value, num_value, bool_value FROM device_attribute_values
 WHERE device_id = @id ORDER BY attribute_code`,
-		named(map[string]any{"id": deviceID})...)
+		map[string]any{"id": deviceID})
 	if err != nil {
 		return nil, err
 	}
@@ -210,7 +210,7 @@ func (t *Tx) LoadValues(ctx context.Context, deviceID int64) ([]ValueRow, error)
 }
 
 func loadValues(ctx context.Context, q queryer, deviceID int64) ([]ValueRow, error) {
-	rows, err := q.QueryContext(ctx, `
+	rows, err := queryContext(ctx, q, `
 SELECT pv.id, pv.variant_id, pv.parameter_code, pv.value_exact, pv.value_min,
        pv.value_max, pv.value_text, pvc.condition_code, pvc.value
 FROM parameter_values pv
@@ -218,7 +218,7 @@ LEFT JOIN parameter_value_conditions pvc ON pvc.parameter_value_id = pv.id
 WHERE pv.device_id = @id
 ORDER BY (CASE WHEN pv.variant_id IS NULL THEN 0 ELSE 1 END),
          pv.variant_id, pv.sort_order, pv.id, pvc.condition_code`,
-		named(map[string]any{"id": deviceID})...)
+		map[string]any{"id": deviceID})
 	if err != nil {
 		return nil, err
 	}
@@ -277,10 +277,10 @@ func (t *Tx) LoadVariants(ctx context.Context, deviceID int64) ([]VariantRow, er
 }
 
 func loadVariants(ctx context.Context, q queryer, deviceID int64) ([]VariantRow, error) {
-	rows, err := q.QueryContext(ctx, `
+	rows, err := queryContext(ctx, q, `
 SELECT id, label, sort_order FROM device_variants
 WHERE device_id = @id ORDER BY sort_order, id`,
-		named(map[string]any{"id": deviceID})...)
+		map[string]any{"id": deviceID})
 	if err != nil {
 		return nil, err
 	}
@@ -307,11 +307,11 @@ func (t *Tx) LoadManufacturers(ctx context.Context, deviceID int64) ([]string, e
 }
 
 func loadManufacturers(ctx context.Context, q queryer, deviceID int64) ([]string, error) {
-	rows, err := q.QueryContext(ctx, `
+	rows, err := queryContext(ctx, q, `
 SELECT m.name FROM manufacturers m
 JOIN device_manufacturers dm ON dm.manufacturer_id = m.id
 WHERE dm.device_id = @id ORDER BY m.name`,
-		named(map[string]any{"id": deviceID})...)
+		map[string]any{"id": deviceID})
 	if err != nil {
 		return nil, err
 	}
@@ -332,13 +332,13 @@ func (t *Tx) LoadOutgoingAnalogs(ctx context.Context, deviceID int64) ([]AnalogR
 }
 
 func loadOutgoingAnalogs(ctx context.Context, q queryer, deviceID int64) ([]AnalogRow, error) {
-	rows, err := q.QueryContext(ctx, `
+	rows, err := queryContext(ctx, q, `
 SELECT a.analog_device_id, t.designation, t.system_code, a.note
 FROM device_analogs a
 JOIN devices t ON t.id = a.analog_device_id
 WHERE a.device_id = @id
 ORDER BY t.designation`,
-		named(map[string]any{"id": deviceID})...)
+		map[string]any{"id": deviceID})
 	if err != nil {
 		return nil, err
 	}
@@ -740,7 +740,7 @@ func (t *Tx) ReplaceAttributes(ctx context.Context, deviceID int64, rows []AttrR
 		if r.Bool != nil {
 			b = boolInt(*r.Bool)
 		}
-		if _, _, err := t.InsertIfAbsentReturningID(ctx, `
+		if _, err := t.InsertIfAbsent(ctx, `
 INSERT INTO device_attribute_values(device_id, attribute_code, text_value, num_value, bool_value)
 VALUES (@id, @code, @text, @num, @bool)`,
 			map[string]any{"id": deviceID, "code": r.Attribute, "text": text, "num": num, "bool": b}); err != nil {
@@ -904,7 +904,7 @@ func (t *Tx) ReplaceManufacturers(ctx context.Context, deviceID int64, names []s
 		if err != nil {
 			return err
 		}
-		if _, _, err := t.InsertIfAbsentReturningID(ctx, `
+		if _, err := t.InsertIfAbsent(ctx, `
 INSERT INTO device_manufacturers(device_id, manufacturer_id)
 VALUES (@id, @mid)`,
 			map[string]any{"id": deviceID, "mid": mid}); err != nil {
@@ -944,7 +944,7 @@ func (t *Tx) ReplaceAnalogs(ctx context.Context, deviceID int64, targets []Analo
 		return err
 	}
 	for _, a := range targets {
-		if _, _, err := t.InsertIfAbsentReturningID(ctx, `
+		if _, err := t.InsertIfAbsent(ctx, `
 INSERT INTO device_analogs(device_id, analog_device_id, note)
 VALUES (@id, @target, @note)`,
 			map[string]any{"id": deviceID, "target": a.TargetID, "note": nilIfEmpty(a.Note)}); err != nil {
