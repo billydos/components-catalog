@@ -154,3 +154,26 @@ func TestPositionalIDsRoundtrip(t *testing.T) {
 		t.Fatalf("аргументы: %v", vals)
 	}
 }
+
+// TestWithJitDisabled — jit=off дописывается к DSN в его форме (URL,
+// ключевая), явный jit= в DSN не перекрывается.
+func TestWithJitDisabled(t *testing.T) {
+	cases := []struct {
+		name string
+		dsn  string
+		want string
+	}{
+		{"URL без запроса", "postgres://h/db", "postgres://h/db?jit=off"},
+		{"URL с запросом", "postgres://h/db?sslmode=disable", "postgres://h/db?sslmode=disable&jit=off"},
+		{"ключевая форма", "host=h port=5432", "host=h port=5432 jit=off"},
+		{"явный jit=on сохраняется", "postgres://h/db?jit=on", "postgres://h/db?jit=on"},
+		{"явный jit=off не дублируется", "host=h jit=off", "host=h jit=off"},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			if got := withJitDisabled(c.dsn); got != c.want {
+				t.Fatalf("DSN: %q, ожидался %q", got, c.want)
+			}
+		})
+	}
+}

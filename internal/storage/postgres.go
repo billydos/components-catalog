@@ -51,8 +51,38 @@ func (postgresDialect) InsertIfAbsentReturningID(ctx context.Context, tx *sql.Tx
 	return id, true, nil
 }
 
+// appendDSNParam дописывает параметр к DSN в его форме: URL
+// (postgres://…) — в строку запроса, ключевая (host=… port=…) — через
+// пробел. pgx передаёт неизвестные ему параметры серверу в стартовом
+// пакете — значение действует на каждое соединение пула без
+// дополнительного round-trip.
+func appendDSNParam(dsn, param string) string {
+	if strings.Contains(dsn, "://") {
+		sep := "?"
+		if strings.Contains(dsn, "?") {
+			sep = "&"
+		}
+		return dsn + sep + param
+	}
+	return dsn + " " + param
+}
+
+// withJitDisabled дописывает к DSN runtime-параметр jit=off, если jit
+// не задан явно (docs/plan/02-database.md §4). Нагрузка модуля — короткие
+// точечные запросы; оценка стоимости плана параметрического поиска,
+// раздутая коррелированными EXISTS вариантной семантики, переваливает за
+// jit_threshold (100 тыс.), и LLVM-компиляция стоит на слабых CPU сотни
+// мс при десятках мс выполнения (измерения — qa/reports). Явный jit= в
+// DSN не перекрывается.
+func withJitDisabled(dsn string) string {
+	if strings.Contains(dsn, "jit=") {
+		return dsn
+	}
+	return appendDSNParam(dsn, "jit=off")
+}
+
 func (postgresDialect) Open(ctx context.Context, cfg Config) (*pools, error) {
-	db, err := sql.Open("pgx", cfg.DSN)
+	db, err := sql.Open("pgx", withJitDisabled(cfg.DSN))
 	if err != nil {
 		return nil, err
 	}

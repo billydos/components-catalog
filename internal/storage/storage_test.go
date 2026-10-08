@@ -184,3 +184,37 @@ func TestPostgres(t *testing.T) {
 		t.Fatalf("ревизии: catalog=%d data=%d err=%v", cat, data, err)
 	}
 }
+
+// TestPostgresJitDisabled — postgres-соединения пула открываются с
+// runtime-параметром jit=off (docs/plan/02-database.md §4): короткие
+// точечные запросы модуля не платят LLVM-компиляцию планов; явный jit=
+// в DSN сохраняется. Проверяется сессионное значение GUC на соединении
+// из пула (стартовый пакет, не ALTER DATABASE).
+func TestPostgresJitDisabled(t *testing.T) {
+	dsn := testutil.PostgresDSN(t)
+	ctx := context.Background()
+	cases := []struct {
+		name string
+		dsn  string
+		want string
+	}{
+		{"по умолчанию — off", dsn, "off"},
+		{"явный jit=on в DSN сохраняется", appendDSNParam(dsn, "jit=on"), "on"},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			db, err := Open(ctx, Config{Dialect: "postgres", DSN: c.dsn})
+			if err != nil {
+				t.Fatalf("open: %v", err)
+			}
+			defer db.Close() //nolint:errcheck — тестовое соединение
+			var jit string
+			if err := db.queryRow(ctx, "SHOW jit", nil).Scan(&jit); err != nil {
+				t.Fatalf("SHOW jit: %v", err)
+			}
+			if jit != c.want {
+				t.Fatalf("jit=%s, ожидалось %s", jit, c.want)
+			}
+		})
+	}
+}
