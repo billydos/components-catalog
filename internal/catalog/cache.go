@@ -29,10 +29,25 @@ type Store interface {
 type Cache struct {
 	store Store
 
-	mu    sync.Mutex
-	snap  *Snapshot
-	rev   int64
-	ready bool
+	mu      sync.Mutex
+	snap    *Snapshot
+	rev     int64
+	ready   bool
+	loading *loadFlight
+}
+
+// loadFlight — однократная загрузка снимка (single-flight): грузит первый
+// обратившийся, остальные ждут закрытия done и читают res (запись res —
+// до close, потому видима каждому дождавшемуся).
+type loadFlight struct {
+	done chan struct{}
+	res  loadResult
+}
+
+// loadResult — результат однократной загрузки снимка.
+type loadResult struct {
+	snap *Snapshot
+	err  error
 }
 
 // NewCache создаёт кэш каталога над транспортом; первый Snapshot(ctx)
@@ -41,29 +56,58 @@ func NewCache(store Store) *Cache {
 	return &Cache{store: store}
 }
 
-// Snapshot возвращает актуальный снимок каталога. Гонка «прочитали старую
-// ревизию — каталог применили — загрузили новый снимок» доброкачественна:
-// следующий вызов видит новую ревизию и перезагружает снимок. Ревизия
-// кэшируется вместе со снимком из его же согласованного чтения, поэтому
-// кэш никогда не отвечает парой «снимок ≠ ревизия».
+// Snapshot возвращает актуальный снимок каталога. Загрузку ведёт один
+// вызов (single-flight): параллельные читатели не блокируются мьютексом
+// на время загрузки, а ждут её результата; дождавшийся при несовпадении
+// ревизии перечитывает её и повторяет цикл (снимок мог быть загружен
+// до свежей записи каталога). Гонка «прочитали старую ревизию — каталог
+// применили — загрузили новый снимок» доброкачественна: следующий вызов
+// видит новую ревизию и перезагружает снимок. Ревизия кэшируется вместе
+// со снимком из его же согласованного чтения, поэтому кэш никогда не
+// отвечает парой «снимок ≠ ревизия».
 func (c *Cache) Snapshot(ctx context.Context) (*Snapshot, error) {
-	rev, err := c.store.CatalogRevision(ctx)
-	if err != nil {
-		return nil, err
+	for {
+		rev, err := c.store.CatalogRevision(ctx)
+		if err != nil {
+			return nil, err
+		}
+		c.mu.Lock()
+		if c.ready && c.rev == rev {
+			snap := c.snap
+			c.mu.Unlock()
+			return snap, nil
+		}
+		if c.loading == nil {
+			fl := &loadFlight{done: make(chan struct{})}
+			c.loading = fl
+			c.mu.Unlock()
+			snap, err := c.store.LoadSnapshot(ctx)
+			if err != nil {
+				fl.res = loadResult{err: err}
+			} else {
+				fl.res = loadResult{snap: snap}
+				c.mu.Lock()
+				c.snap = snap
+				c.rev = snap.Revision
+				c.ready = true
+				c.mu.Unlock()
+			}
+			c.mu.Lock()
+			c.loading = nil
+			c.mu.Unlock()
+			close(fl.done)
+			if err != nil {
+				return nil, err
+			}
+			return snap, nil
+		}
+		fl := c.loading
+		c.mu.Unlock()
+		<-fl.done
+		if fl.res.err != nil {
+			return nil, fl.res.err
+		}
 	}
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	if c.ready && c.rev == rev {
-		return c.snap, nil
-	}
-	snap, err := c.store.LoadSnapshot(ctx)
-	if err != nil {
-		return nil, err
-	}
-	c.snap = snap
-	c.rev = snap.Revision
-	c.ready = true
-	return c.snap, nil
 }
 
 // Invalidate сбрасывает кэш (следующий Snapshot загружает снимок заново).
