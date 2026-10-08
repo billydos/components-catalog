@@ -16,14 +16,13 @@ const (
 	metaSchemaVersion   = "schema_version"
 	metaCatalogRevision = "catalog_revision"
 	metaDataRevision    = "data_revision"
-	pgUniqueViolation   = "23505" // postgres: конфликт PK (гонка создания)
 )
 
 // EnsureCreated выполняет полный DDL (CREATE … IF NOT EXISTS) и записывает
 // schema_version, catalog_revision и data_revision, если их ещё нет
-// (docs/plan/02-database.md §5). Гонка-безопасна: вставка меты —
-// INSERT … SELECT … WHERE NOT EXISTS, конфликт PK трактуется как
-// проигранная гонка с перечитыванием версии. Возвращает true, если база
+// (docs/plan/02-database.md §5). Гонка-безопасна: вставка меты подавляет
+// конфликт уникальности атомарно (ON CONFLICT DO NOTHING) — конкурентное
+// создание той же меты ошибки не даёт. Возвращает true, если база
 // создана этим вызовом (мета была вставлена).
 func (d *DB) EnsureCreated(ctx context.Context) (bool, error) {
 	tx, err := d.Begin(ctx)
@@ -46,13 +45,10 @@ func (d *DB) EnsureCreated(ctx context.Context) (bool, error) {
 		res, err := tx.exec(ctx, `
 INSERT INTO schema_meta(key, value)
 SELECT @key, @value
-WHERE NOT EXISTS (SELECT 1 FROM schema_meta WHERE key = @key)`,
+WHERE NOT EXISTS (SELECT 1 FROM schema_meta WHERE key = @key)
+ON CONFLICT DO NOTHING`,
 			map[string]any{"key": key, "value": value})
 		if err != nil {
-			if isPKConflict(err) {
-				// Гонка создания: мета уже есть — версия проверится ниже.
-				continue
-			}
 			return false, err
 		}
 		if n, _ := res.RowsAffected(); n > 0 && key == metaSchemaVersion {
@@ -66,18 +62,6 @@ WHERE NOT EXISTS (SELECT 1 FROM schema_meta WHERE key = @key)`,
 		return false, err
 	}
 	return created, nil
-}
-
-// isPKConflict сообщает, является ли ошибка конфликтом уникальности
-// (проигранная гонка создания — docs/plan/02-database.md §5.1).
-func isPKConflict(err error) bool {
-	if err == nil {
-		return false
-	}
-	msg := err.Error()
-	return strings.Contains(msg, "UNIQUE constraint failed") ||
-		strings.Contains(msg, pgUniqueViolation) ||
-		strings.Contains(msg, "duplicate key value")
 }
 
 // CheckSchema читает schema_meta.schema_version и сверяет с версией модуля

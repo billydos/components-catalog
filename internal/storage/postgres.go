@@ -3,6 +3,7 @@ package storage
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"time"
 
 	_ "github.com/jackc/pgx/v5/stdlib" // драйвер регистрируется как "pgx"
@@ -25,6 +26,18 @@ func (postgresDialect) InsertReturningID(ctx context.Context, tx *sql.Tx, query 
 		return 0, err
 	}
 	return id, nil
+}
+
+func (postgresDialect) InsertIfAbsentReturningID(ctx context.Context, tx *sql.Tx, query string, args []any) (int64, bool, error) {
+	var id int64
+	err := tx.QueryRowContext(ctx, query+" ON CONFLICT DO NOTHING RETURNING id", args...).Scan(&id)
+	if errors.Is(err, sql.ErrNoRows) {
+		return 0, false, nil
+	}
+	if err != nil {
+		return 0, false, err
+	}
+	return id, true, nil
 }
 
 func (postgresDialect) Open(ctx context.Context, cfg Config) (*pools, error) {

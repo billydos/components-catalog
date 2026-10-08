@@ -36,6 +36,21 @@ func (d sqliteDialect) InsertReturningID(ctx context.Context, tx *sql.Tx, query 
 	return id, nil
 }
 
+func (d sqliteDialect) InsertIfAbsentReturningID(ctx context.Context, tx *sql.Tx, query string, args []any) (int64, bool, error) {
+	res, err := tx.ExecContext(ctx, query+" ON CONFLICT DO NOTHING", args...)
+	if err != nil {
+		return 0, false, err
+	}
+	if n, _ := res.RowsAffected(); n == 0 {
+		return 0, false, nil
+	}
+	var id int64
+	if err := tx.QueryRowContext(ctx, "SELECT last_insert_rowid()").Scan(&id); err != nil {
+		return 0, false, err
+	}
+	return id, true, nil
+}
+
 // isMemoryDSN сообщает, адресует ли DSN базу в памяти.
 func isMemoryDSN(dsn string) bool {
 	if dsn == ":memory:" {

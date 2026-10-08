@@ -44,6 +44,15 @@ type Dialect interface {
 	// сгенерированный id (sqlite: last_insert_rowid() того же соединения;
 	// postgres: INSERT … RETURNING id).
 	InsertReturningID(ctx context.Context, tx *sql.Tx, query string, args []any) (int64, error)
+
+	// InsertIfAbsentReturningID выполняет INSERT внутри транзакции,
+	// атомарно подавляя конфликт уникальности (ON CONFLICT DO NOTHING),
+	// и возвращает сгенерированный id. inserted=false — строка уже есть:
+	// либо существовала, либо вставлена конкурирующей транзакцией
+	// (postgres: писатели параллельны — общий пул соединений); id в этом
+	// случае возвращает SELECT вызывающего кода. Ошибки уникальности
+	// не возникает — транзакция остаётся рабочей в обоих диалектах.
+	InsertIfAbsentReturningID(ctx context.Context, tx *sql.Tx, query string, args []any) (id int64, inserted bool, err error)
 }
 
 // pools — соединения хранилища: пул чтения и соединение записи.
@@ -172,4 +181,11 @@ func (t *Tx) exec(ctx context.Context, q string, args map[string]any) (sql.Resul
 // диалекта; сигнатура зафиксирована планом — docs/plan/02-database.md §4).
 func (t *Tx) InsertReturningID(ctx context.Context, query string, args map[string]any) (int64, error) {
 	return t.dialect.InsertReturningID(ctx, t.tx, query, named(args))
+}
+
+// InsertIfAbsentReturningID — вставка с атомарным подавлением конфликта
+// уникальности и возвратом сгенерированного id (метод диалекта —
+// docs/plan/02-database.md §4).
+func (t *Tx) InsertIfAbsentReturningID(ctx context.Context, query string, args map[string]any) (int64, bool, error) {
+	return t.dialect.InsertIfAbsentReturningID(ctx, t.tx, query, named(args))
 }

@@ -410,34 +410,33 @@ ORDER BY s.designation`,
 
 // Запись (только внутри транзакции).
 
-// InsertDevice вставляет запись, если её нет (INSERT … SELECT … WHERE NOT
-// EXISTS), и возвращает id вместе с признаком вставки.
+// InsertDevice вставляет запись, если её нет, и возвращает id вместе
+// с признаком вставки. Вставка атомарно подавляет конфликт уникальности
+// (kind_code, designation): параллельный писатель (postgres — общий пул
+// соединений; sqlite-писатель один) успел вставить то же обозначение —
+// вставки не происходит, id перечитывается по ключу.
 func (t *Tx) InsertDevice(ctx context.Context, kind domain.Kind, system domain.System, designation string) (int64, bool, error) {
-	res, err := t.exec(ctx, `
+	id, inserted, err := t.InsertIfAbsentReturningID(ctx, `
 INSERT INTO devices(kind_code, system_code, designation)
-SELECT @kind, @system, @designation
-WHERE NOT EXISTS (
-    SELECT 1 FROM devices
-    WHERE kind_code = @kind AND designation = @designation)`,
+VALUES (@kind, @system, @designation)`,
 		map[string]any{"kind": string(kind), "system": string(system), "designation": designation})
 	if err != nil {
 		return 0, false, err
 	}
-	created := false
-	if n, _ := res.RowsAffected(); n > 0 {
-		created = true
+	if inserted {
+		return id, true, nil
 	}
-	row := t.queryRow(ctx, `
+	err = t.queryRow(ctx, `
 SELECT id FROM devices WHERE kind_code = @kind AND designation = @designation`,
-		map[string]any{"kind": string(kind), "designation": designation})
-	var id int64
-	if err := row.Scan(&id); err != nil {
+		map[string]any{"kind": string(kind), "designation": designation}).Scan(&id)
+	if err != nil {
 		return 0, false, err
 	}
-	return id, created, nil
+	return id, false, nil
 }
 
-// InsertDesignationFields записывает поля разбора обозначения.
+// InsertDesignationFields записывает поля разбора обозначения; поля,
+// уже существующие у записи (параллельный писатель), не затрагиваются.
 func (t *Tx) InsertDesignationFields(ctx context.Context, deviceID int64, fields []domain.Field) error {
 	for _, f := range fields {
 		var text, num any
@@ -446,7 +445,7 @@ func (t *Tx) InsertDesignationFields(ctx context.Context, deviceID int64, fields
 		} else {
 			text = f.Text
 		}
-		if _, err := t.exec(ctx, `
+		if _, _, err := t.InsertIfAbsentReturningID(ctx, `
 INSERT INTO device_designation_fields(device_id, field, text_value, num_value)
 VALUES (@id, @field, @text, @num)`,
 			map[string]any{"id": deviceID, "field": f.Name, "text": text, "num": num}); err != nil {
@@ -470,7 +469,9 @@ func (t *Tx) DeleteDesignationFields(ctx context.Context, deviceID int64, names 
 	return nil
 }
 
-// ReplaceAttributes заменяет значения атрибутов целиком (секция attributes).
+// ReplaceAttributes заменяет значения атрибутов целиком (секция attributes);
+// значения, вставленные параллельным писателем в той же записи и не видимые
+// DELETE этого вызова, сохраняются.
 func (t *Tx) ReplaceAttributes(ctx context.Context, deviceID int64, rows []AttrRow) error {
 	if _, err := t.exec(ctx,
 		`DELETE FROM device_attribute_values WHERE device_id = @id`,
@@ -488,7 +489,7 @@ func (t *Tx) ReplaceAttributes(ctx context.Context, deviceID int64, rows []AttrR
 		if r.Bool != nil {
 			b = boolInt(*r.Bool)
 		}
-		if _, err := t.exec(ctx, `
+		if _, _, err := t.InsertIfAbsentReturningID(ctx, `
 INSERT INTO device_attribute_values(device_id, attribute_code, text_value, num_value, bool_value)
 VALUES (@id, @code, @text, @num, @bool)`,
 			map[string]any{"id": deviceID, "code": r.Attribute, "text": text, "num": num, "bool": b}); err != nil {
@@ -568,7 +569,9 @@ VALUES (@id, @label, @sort)`,
 
 // ReplaceManufacturers заменяет список производителей целиком: связи
 // пересоздаются, недостающие строки manufacturers создаются, производители
-// без единой связи удаляются (чистка сирот).
+// без единой связи удаляются (чистка сирот). Создание строки производителя
+// атомарно подавляет конфликт уникальности имени: параллельный писатель
+// успел вставить то же имя — id перечитывается по имени.
 func (t *Tx) ReplaceManufacturers(ctx context.Context, deviceID int64, names []string) error {
 	if _, err := t.exec(ctx,
 		`DELETE FROM device_manufacturers WHERE device_id = @id`,
@@ -576,24 +579,13 @@ func (t *Tx) ReplaceManufacturers(ctx context.Context, deviceID int64, names []s
 		return err
 	}
 	for _, name := range names {
-		var mid int64
-		err := t.queryRow(ctx,
-			`SELECT id FROM manufacturers WHERE name = @name`,
-			map[string]any{"name": name}).Scan(&mid)
-		if errors.Is(err, sql.ErrNoRows) {
-			mid, err = t.InsertReturningID(ctx,
-				`INSERT INTO manufacturers(name) VALUES (@name)`,
-				map[string]any{"name": name})
-		}
+		mid, err := t.manufacturerID(ctx, name)
 		if err != nil {
 			return err
 		}
-		if _, err := t.exec(ctx, `
+		if _, _, err := t.InsertIfAbsentReturningID(ctx, `
 INSERT INTO device_manufacturers(device_id, manufacturer_id)
-SELECT @id, @mid
-WHERE NOT EXISTS (
-    SELECT 1 FROM device_manufacturers
-    WHERE device_id = @id AND manufacturer_id = @mid)`,
+VALUES (@id, @mid)`,
 			map[string]any{"id": deviceID, "mid": mid}); err != nil {
 			return err
 		}
@@ -601,8 +593,29 @@ WHERE NOT EXISTS (
 	return t.deleteOrphanManufacturers(ctx)
 }
 
+// manufacturerID возвращает id производителя по имени, создавая строку при
+// отсутствии; конкурентное создание той же строки подавляется (проигранная
+// гонка), id перечитывается по имени.
+func (t *Tx) manufacturerID(ctx context.Context, name string) (int64, error) {
+	id, inserted, err := t.InsertIfAbsentReturningID(ctx,
+		`INSERT INTO manufacturers(name) VALUES (@name)`,
+		map[string]any{"name": name})
+	if err != nil {
+		return 0, err
+	}
+	if inserted {
+		return id, nil
+	}
+	err = t.queryRow(ctx,
+		`SELECT id FROM manufacturers WHERE name = @name`,
+		map[string]any{"name": name}).Scan(&id)
+	return id, err
+}
+
 // ReplaceAnalogs заменяет исходящие ссылки-аналоги целиком (встречные
-// ссылки других записей не затрагиваются — D8).
+// ссылки других записей не затрагиваются — D8); ссылки, вставленные
+// параллельным писателем в той же записи и не видимые DELETE этого вызова,
+// сохраняются.
 func (t *Tx) ReplaceAnalogs(ctx context.Context, deviceID int64, targets []AnalogRow) error {
 	if _, err := t.exec(ctx,
 		`DELETE FROM device_analogs WHERE device_id = @id`,
@@ -610,7 +623,7 @@ func (t *Tx) ReplaceAnalogs(ctx context.Context, deviceID int64, targets []Analo
 		return err
 	}
 	for _, a := range targets {
-		if _, err := t.exec(ctx, `
+		if _, _, err := t.InsertIfAbsentReturningID(ctx, `
 INSERT INTO device_analogs(device_id, analog_device_id, note)
 VALUES (@id, @target, @note)`,
 			map[string]any{"id": deviceID, "target": a.TargetID, "note": nilIfEmpty(a.Note)}); err != nil {

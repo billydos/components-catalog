@@ -255,8 +255,11 @@ WHERE NOT EXISTS (
 }
 
 // upsert выполняет обновление строки по ключу, а при отсутствии изменения —
-// вставку (порядок UPDATE-then-INSERT переносим; конкуренция писателей
-// отсутствует по построению: одна точка записи).
+// вставку. Порядок UPDATE-then-INSERT переносим; писатели параллельны
+// только на postgres (sqlite — одно выделенное соединение записи), поэтому
+// вставка атомарно подавляет конфликт уникальности (ON CONFLICT DO NOTHING):
+// подавленная вставка — строка создана конкурирующей транзакцией, и
+// обновление повторяется по закоммиченной строке.
 func (t *Tx) upsert(ctx context.Context, update, insert string, args map[string]any) error {
 	res, err := t.exec(ctx, update, args)
 	if err != nil {
@@ -265,13 +268,24 @@ func (t *Tx) upsert(ctx context.Context, update, insert string, args map[string]
 	if n, _ := res.RowsAffected(); n > 0 {
 		return nil
 	}
-	_, err = t.exec(ctx, insert, args)
-	return err
+	res, err = t.exec(ctx, insert+" ON CONFLICT DO NOTHING", args)
+	if err != nil {
+		return fmt.Errorf("хранилище: каталог: %w", err)
+	}
+	if n, _ := res.RowsAffected(); n > 0 {
+		return nil
+	}
+	if _, err := t.exec(ctx, update, args); err != nil {
+		return fmt.Errorf("хранилище: каталог: %w", err)
+	}
+	return nil
 }
 
-// insertIfAbsent выполняет вставку связи, если её ещё нет.
+// insertIfAbsent выполняет вставку связи, если её ещё нет; конкурентная
+// вставка той же строки подавляется атомарно (ON CONFLICT DO NOTHING —
+// параллельный писатель postgres).
 func (t *Tx) insertIfAbsent(ctx context.Context, query string, args map[string]any) error {
-	_, err := t.exec(ctx, query, args)
+	_, err := t.exec(ctx, query+" ON CONFLICT DO NOTHING", args)
 	return err
 }
 
