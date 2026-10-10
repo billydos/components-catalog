@@ -1,0 +1,39 @@
+# Сборочные артефакты
+/catalogctl
+/cmd/catalogctl/catalogctl
+/qa/restsrv/restsrv
+/qa/runner/runner
+
+# Артефакты тестов и профилирования Go
+*.test
+*.prof
+*.out
+coverage*.txt
+
+# Файлы баз данных SQLite и соседние WAL/SHM
+*.db
+*.db-shm
+*.db-wal
+*.sqlite
+*.sqlite3
+
+# Одноразовые данные прогонов QA (база нагрузки — реальный диск, не OS-temp)
+/qa/tmp/
+
+# Логи
+*.log
+!qa/reports/*.log
+
+# Локальное окружение
+.env
+.env.*
+
+# Локальная Go-разработка
+go.work
+go.work.sum
+
+# Редакторы и ОС
+.idea/
+.vscode/
+*.swp
+.DS_Store

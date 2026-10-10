@@ -1,0 +1,307 @@
+# 02. Архитектура базы данных
+
+## 1. Принципы
+
+1. **Каталог — данные** (D1): определения параметров, атрибутов, условий, единиц и групп — таблицы; расширение каталога не меняет схему и не требует правки кода.
+2. **Значения — EAV** (D2): строка на значение параметра, строка на условие измерения, ключ-значение для атрибутов и полей обозначения. Новое условие/атрибут — вставка строк.
+3. **Переносимость SQLite ⇄ PostgreSQL** (D3): `database/sql` с позиционными аргументами; текст DML пишется с `@имя`-плейсхолдерами и переписывается в `$n` в единой точке (`positional` в `internal/storage/db.go`; имена аргументов путь database/sql драйвера pgx отбрасывает, текст запроса он не переписывает; `$n` понимают оба драйвера — pgx нативно, modernc/sqlite связывает `$NNN` с аргументом NNN); только переносимые конструкции (`LIMIT/OFFSET`, производные таблицы, `INSERT ... SELECT`, `EXISTS`); типы — INTEGER/REAL/TEXT; булевы — INTEGER 0/1; «не задано» — NULL. Без JSON-функций и диалектных типов.
+4. **Без миграций** (D5): схема создаётся целиком (`EnsureCreated`); версия схемы фиксируется в `schema_meta`; при несовпадении с ожидаемой версией модуля — ошибка `schema_version_mismatch` с указанием, что базу нужно пересоздать импортом.
+5. **Структурные ограничения — в БД, семантические — в приложении**: FK, NOT NULL, UNIQUE, типы и 0/1-проверки — в DDL; правила значений (границы, потолки, комбинации условий, enum-составы, межполевые правила) — движок валидации по данным каталога. CHECK-ограничения из каталога не генерируются (каталог — данные, DDL не знает их содержимого).
+6. **Id-колонки**: INTEGER PK с автогенерацией без переиспользования (SQLite `AUTOINCREMENT`, PostgreSQL `BIGINT … IDENTITY` — INTEGER переписывается диалектом в BIGINT: диапазон int64, паритет со sqlite) — id — стабильная внешняя ссылка (FK, REST); переиспользование id после удаления запрещено намеренно, не «оптимизировать».
+7. **Обозначение — точный ключ**: `UNIQUE(kind, designation)`; тождество записи — сравнение строк, без составных NULL-безопасных предикатов.
+
+## 2. Состав таблиц
+
+### 2.1. Служебные
+
+```
+schema_meta(key TEXT PRIMARY KEY, value TEXT NOT NULL)
+    -- schema_version — версия схемы модуля; catalog_revision — счётчик изменений каталога
+    -- (для ETag REST); data_revision — счётчик изменений устройств (для ETag)
+```
+
+### 2.2. Каталог (определения — данные; языконезависимые коды — D9)
+
+Текстовые колонки (названия, описания, символы единиц) в каталожных таблицах отсутствуют (схема v2): отображаемые строки — бандлы `internal/i18n` (канонический язык en), в БД — только коды и структурные метаданные.
+
+```
+kinds(code TEXT PRIMARY KEY)
+    -- сиды: transistor, diode, resistor, capacitor; расширяемо (тиристоры и др.)
+    -- отображаемое название — i18n: kind.<код>
+
+designation_systems(code TEXT PRIMARY KEY)
+    -- системы обозначений: сиды — gost, ost, pro, jedec, jis, series, other
+    -- (03-data-model.md §1.2); расширение — вставкой строк
+    -- название и пояснение — i18n: system.<код> / system.<код>.description
+
+designation_system_kinds(system_code TEXT NOT NULL
+                             REFERENCES designation_systems(code) ON DELETE CASCADE,
+                         kind_code TEXT NOT NULL REFERENCES kinds(code) ON DELETE CASCADE,
+                         PRIMARY KEY (system_code, kind_code))
+    -- применимость систем к классам (03-data-model.md §1.1); проверяется метасхемой
+
+series_families(series TEXT NOT NULL, kind_code TEXT NOT NULL REFERENCES kinds(code),
+                tail_semantic TEXT NULL,
+                PRIMARY KEY (series, kind_code))
+    -- реестр семейств для system = series (семейства вне строгих ГОСТ + мировые дом-номера);
+    -- tail_semantic = 'power' — хвост-число есть мощность, Вт (МЛТ-0.5, ПЭВ-10),
+    -- NULL — общий слабый разбор хвоста (число/буквы); реестр — данные;
+    -- расшифровка семейства — i18n: family.<семейство>
+
+units(code TEXT PRIMARY KEY)
+    -- канонические единицы; коды — латиница (locale-neutral): V, mV, mA, uA, A, MHz,
+    -- dB, pct, W, mW, ohm, pF, ps, ns, us, degC, degC_per_W, ppm_per_degC,
+    -- pct_per_degC, g, mm, nm, mcd (см. 03-data-model.md §3);
+    -- название и символ — i18n: unit.<код>.name / unit.<код>.symbol
+
+categories(code TEXT PRIMARY KEY)
+    -- словарь категорий — значений классификационного поля category
+    -- (секция fields формата наполнения; применение/характеристика прибора,
+    -- ортогонально подклассу); словарь — данные каталога (расширяется секцией
+    -- catalog без правки кода); отображаемое название — i18n: category.<код>,
+    -- расширения без записи в бандле отображаются кодом (D9)
+
+conditions(code TEXT PRIMARY KEY,
+           unit_code TEXT NULL REFERENCES units(code),
+           allow_negative INTEGER NOT NULL DEFAULT 0)
+    -- условия измерения/контекста значения: Uke «напряжение коллектор-эмиттер, V»,
+    -- freq «частота, MHz», pulse_duration «длительность импульса, us» …
+    -- unit_code NULL — безразмерное условие; allow_negative = 1 (temp) — значению
+    -- условия разрешено быть неположительным, по умолчанию условия положительны;
+    -- ключ условия в файле наполнения — код (отдельной колонки нет);
+    -- отображаемое название — i18n: condition.<код>
+
+parameter_groups(code TEXT PRIMARY KEY, section_name TEXT NOT NULL,
+                 sort_order INTEGER NOT NULL)
+    -- группа параметров + имя секции файла наполнения и REST:
+    --   electrical / «parameters»
+    --   limiting   / «ratings»
+    --   dimensional/ «dimensions»
+    -- section_name — ключ формата и REST (ASCII), не отображаемый текст;
+    -- отображаемое название группы — i18n: group.<код>; порядок — sort_order
+
+parameters(code TEXT PRIMARY KEY,
+           group_code TEXT NOT NULL REFERENCES parameter_groups(code),
+           unit_code TEXT NULL REFERENCES units(code),
+           value_type TEXT NOT NULL                          -- exact | at_least | at_most |
+                                                              -- range | text | enum
+           value_ceiling REAL NULL,                          -- потолок значения (например, %)
+           allow_negative INTEGER NOT NULL DEFAULT 0,        -- 1 — значению разрешено быть
+                                                              -- неположительным (температурные
+                                                              -- пределы), по умолчанию > 0
+           validation_rule TEXT NULL REFERENCES validation_rules(code),
+           sort_order INTEGER NOT NULL, is_active INTEGER NOT NULL DEFAULT 1)
+    -- отображаемое название параметра — i18n: param.<код>
+
+parameter_kinds(parameter_code TEXT NOT NULL REFERENCES parameters(code) ON DELETE CASCADE,
+                kind_code TEXT NOT NULL REFERENCES kinds(code) ON DELETE CASCADE,
+                PRIMARY KEY (parameter_code, kind_code))
+    -- применимость параметра к классам (D7): пустой набор = «все классы», включая
+    -- добавленные в будущем; непустой — явный список (Dop: resistor + capacitor);
+    -- значение неприменимого параметра у записи — ошибка валидации
+    -- (parameter_not_applicable); ключ параметра в файле — код (внутри объекта
+    -- значения по ключу "parameter")
+
+parameter_enum_values(parameter_code TEXT NOT NULL REFERENCES parameters(code) ON DELETE CASCADE,
+                      value TEXT NOT NULL, PRIMARY KEY (parameter_code, value))
+    -- допустимые значения для value_type = enum (ТКЕ: Н90, М47, П33 …)
+
+parameter_condition_sets(parameter_code TEXT NOT NULL REFERENCES parameters(code) ON DELETE CASCADE,
+                         set_no INTEGER NOT NULL, PRIMARY KEY (parameter_code, set_no))
+    -- альтернативные наборы условий: значение корректно, если подходит хотя бы один набор
+
+parameter_condition_set_items(parameter_code TEXT NOT NULL, set_no INTEGER NOT NULL,
+                              condition_code TEXT NOT NULL REFERENCES conditions(code),
+                              mode TEXT NOT NULL,             -- required | optional
+                              fixed_value REAL NULL,          -- условие-константа (Esr:
+                                                              -- freq = 0.1 МГц): при заданном
+                                                              -- значении mode = required,
+                                                              -- значение в файле можно опустить
+                                                              -- либо задать равным fixed_value
+                              PRIMARY KEY (parameter_code, set_no, condition_code),
+                              FOREIGN KEY (parameter_code, set_no)
+                                  REFERENCES parameter_condition_sets(parameter_code, set_no)
+                                  ON DELETE CASCADE)
+    -- семантика набора: required — обязательны, optional — допустимы, остальные — запрещены
+    -- (допустимые комбинации условий как данные); набор может состоять и из одних
+    -- optional (Tgd с опциональной temp); fixed_value допустим только при mode = required
+
+attributes(code TEXT PRIMARY KEY,
+           group TEXT NULL,
+           value_type TEXT NOT NULL,                           -- text | bool | int | number | enum
+           unit_code TEXT NULL REFERENCES units(code),
+           validation_rule TEXT NULL REFERENCES validation_rules(code),
+           sort_order INTEGER NOT NULL, is_active INTEGER NOT NULL DEFAULT 1)
+    -- отображаемое название атрибута — i18n: attr.<код>
+
+attribute_kinds(attribute_code TEXT NOT NULL REFERENCES attributes(code) ON DELETE CASCADE,
+                kind_code TEXT NOT NULL REFERENCES kinds(code) ON DELETE CASCADE,
+                PRIMARY KEY (attribute_code, kind_code))
+    -- применимость атрибута к классам (D7): пустой набор = «все классы»,
+    -- непустой — явный список (polarized: capacitor; structure: transistor + diode);
+    -- ключ атрибута в секции attributes файла — код
+
+attribute_enum_values(attribute_code TEXT NOT NULL REFERENCES attributes(code) ON DELETE CASCADE,
+                      value TEXT NOT NULL, PRIMARY KEY (attribute_code, value))
+
+validation_rules(code TEXT PRIMARY KEY)
+    -- именованные код-валидаторы (межполевые правила); реестр реализаций — в internal/catalog;
+    -- привязка — данными (в parameters.validation_rule / attributes.validation_rule);
+    -- unknown правило в данных — ошибка импорта каталога (громко, не молча);
+    -- строка — якорь FK привязок; описание правила — i18n: rule.<код>
+
+kind_validation_rules(kind_code TEXT NOT NULL REFERENCES kinds(code) ON DELETE CASCADE,
+                      validation_rule TEXT NOT NULL
+                          REFERENCES validation_rules(code) ON DELETE CASCADE,
+                      PRIMARY KEY (kind_code, validation_rule))
+    -- правила, проверяемые для записи класса в целом (например, матрица исполнений
+    -- электролитических конденсаторов), когда привязка к отдельному параметру бессмысленна
+```
+
+### 2.3. Устройства и данные
+
+```
+devices(id PK, kind_code TEXT NOT NULL REFERENCES kinds(code),
+        system_code TEXT NOT NULL REFERENCES designation_systems(code),
+        designation TEXT NOT NULL,
+        UNIQUE (kind_code, designation))
+    -- designation — каноническая строка парсера (точный ключ внутри класса);
+    -- system_code — система обозначений записи (gost/ost/pro/jedec/jis/series/other),
+    -- фильтр и разбор
+
+device_designation_fields(device_id NOT NULL REFERENCES devices(id) ON DELETE CASCADE,
+                           field TEXT NOT NULL,                -- состав — по системе
+                                                             -- (03-data-model.md §2):
+                                                             -- gost-полупроводники:
+                                                             --   material, subclass, assembly,
+                                                             --   feature, dev_number, letters,
+                                                             --   modification, chip
+                                                             -- pro: material, subclass,
+                                                             --   dev_number, letters
+                                                             -- jedec: junctions, dev_number,
+                                                             --   letters
+                                                             -- jis: junctions, subclass,
+                                                             --   dev_number, letters
+                                                             -- gost-резисторы: family, group,
+                                                             --   dev_number, letters
+                                                             -- gost-конденсаторы: prefix,
+                                                             --   group, dev_number, letters
+                                                             -- series: series, dev_number,
+                                                             --   letters, power
+                           text_value TEXT NULL, num_value REAL NULL,
+                           PRIMARY KEY (device_id, field))
+    -- разложение обозначения для фильтрации/вывода; поле всегда одно из пары значений
+    -- (текст или число); заполнение — при создании записи парсером; сама система —
+    -- колонка devices.system_code, не поле; текстовые значения — нормативные
+    -- элементы обозначения (subclass, letters) либо коды словаря (material:
+    -- si, ge… — D9; отображаемые названия — бандлы internal/i18n)
+
+device_attribute_values(device_id NOT NULL REFERENCES devices(id) ON DELETE CASCADE,
+                        attribute_code TEXT NOT NULL REFERENCES attributes(code),
+                        text_value TEXT NULL, num_value REAL NULL, bool_value INTEGER NULL,
+                        PRIMARY KEY (device_id, attribute_code),
+                        CHECK (bool_value IS NULL OR bool_value IN (0, 1)))
+    -- одно значение на атрибут (замена целиком при записи секции)
+
+device_variants(id PK,
+                device_id NOT NULL REFERENCES devices(id) ON DELETE CASCADE,
+                label TEXT NULL,             -- метка исполнения для карточки: «160 В», «0.125 Вт»
+                sort_order INTEGER NOT NULL DEFAULT 0)
+    -- исполнение типа: матрица «номинал × напряжение → габариты/масса» электролитических
+    -- конденсаторов, ряды мощностей резисторов. Для транзисторов/диодов не используется
+    -- (раздельность записей уже задаётся буквой классификации в обозначении)
+
+parameter_values(id PK,
+                 device_id NOT NULL REFERENCES devices(id) ON DELETE CASCADE,
+                 variant_id NULL REFERENCES device_variants(id) ON DELETE CASCADE,
+                 parameter_code TEXT NOT NULL REFERENCES parameters(code),
+                 value_exact REAL NULL,      -- для value_type = exact (предельные данные)
+                 value_min REAL NULL, value_max REAL NULL,   -- границы
+                 value_text TEXT NULL,       -- для text/enum
+                 sort_order INTEGER NOT NULL DEFAULT 0)
+    -- строка на значение: variant_id NULL — данные типа в целом (ТКЕ, tg δ, допуски),
+    -- иначе — данные исполнения (Unom=160 и Cnom=1…10 и diameter=8 в одном варианте);
+    -- один параметр при нескольких наборах условий = несколько строк
+    -- (например, «Ikbo при 25 °C и при 85 °C» — две строки одного параметра);
+    -- enum-параметры допускают несколько строк и при одних условиях —
+    -- многозначный словарь (ряды номиналов, 07-r1-verification.md §11)
+
+parameter_value_conditions(parameter_value_id NOT NULL
+                              REFERENCES parameter_values(id) ON DELETE CASCADE,
+                           condition_code TEXT NOT NULL REFERENCES conditions(code),
+                           value REAL NOT NULL,
+                           PRIMARY KEY (parameter_value_id, condition_code))
+
+manufacturers(id PK, name TEXT NOT NULL UNIQUE)
+
+device_manufacturers(device_id NOT NULL REFERENCES devices(id) ON DELETE CASCADE,
+                      manufacturer_id NOT NULL REFERENCES manufacturers(id) ON DELETE CASCADE,
+                      PRIMARY KEY (device_id, manufacturer_id))
+
+device_analogs(device_id NOT NULL REFERENCES devices(id) ON DELETE CASCADE,
+               analog_device_id NOT NULL REFERENCES devices(id) ON DELETE CASCADE,
+               note TEXT NULL,
+               PRIMARY KEY (device_id, analog_device_id),
+               CHECK (device_id <> analog_device_id))
+    -- направленные ссылки-аналоги (D8): device_id — запись-владелец ссылки (секция
+    -- analogs этой записи), analog_device_id — аналог; note — характер замены именно
+    -- в этом направлении (A→B и B→A — две независимые ссылки, могут существовать
+    -- одновременно с разными note); ссылки между записями одного класса; несколько
+    -- исходящих ссылок у записи — норма; карточка показывает исходящие («аналоги»)
+    -- и встречные («кто ссылается») — встречные выбираются индексом по
+    -- analog_device_id; автоподбор аналогов — вне модуля (бэкэнд-потребитель)
+```
+
+Уникальность значений параметров на уровне БД сознательно не навязывается (дубль «параметр + одинаковые условия» возможен физически, отсекается движком валидации при записи через сервисы; прямой доступ к БД — вне контракта).
+
+## 3. Индексы
+
+| Индекс | Назначение |
+|--------|-----------|
+| `devices (kind_code, designation)` UNIQUE | точный поиск, `find` |
+| `devices (system_code)` | фильтр/подсчёт по системе обозначений (в т.ч. совместно с `kind_code`) |
+| `device_designation_fields (field, text_value)`, `(field, num_value)` | фильтры списка: материал, подкласс, серия, группа, номер… |
+| `device_attribute_values (attribute_code, text_value)`, `(attribute_code, num_value)` | фильтры по атрибутам |
+| `parameter_values (parameter_code, value_min)`, `(parameter_code, value_max)` | фильтры-диапазоны по параметрам (например, h21e ≥ 50) |
+| `parameter_values (parameter_code, value_exact)` | фильтры-равенства по точным значениям (например, `Unom = 25`) |
+| `parameter_values (parameter_code, value_text)` | фильтры-равенства по enum/текстовым значениям (например, `TKE = М47`) |
+| `parameter_values (device_id)` | карточка устройства |
+| `parameter_values (variant_id)` | группировка значений по исполнению (карточка-матрица, вариантные фильтры) |
+| `device_variants (device_id)` | сборка карточки: исполнения записи |
+| `manufacturers (name)` UNIQUE | поиск производителя при привязке |
+| `device_analogs (analog_device_id)` | обратная сторона пары аналогов (карточка: «у кого аналог») |
+
+Полнотекстового поиска в первом релизе нет: `search` — префикс/подстрока по `designation` (`LIKE` с escape, переносимо) + фильтры. Регистронезависимость — нормализация к верхнему регистру на входе (канонизация обозначения), `LIKE` по канонической строке.
+
+## 4. Диалекты
+
+| Элемент | SQLite (modernc.org/sqlite) | PostgreSQL (pgx/v5 stdlib) |
+|---------|------------------------------|-----------------------------|
+| Соединение | файл; пул чтения (несколько соединений, размер из конфигурации) + одно выделенное соединение записи; на каждом соединении `PRAGMA foreign_keys = ON`, WAL, `busy_timeout`; весь DML — только в транзакциях соединения записи, вне транзакций — только SELECT из пула чтения; снимок каталога — одной транзакцией чтения из пула чтения (стабильный WAL-снапшот, уровень изоляции драйвером игнорируется) | DSN, единый пул (`MaxOpen/MaxIdle/ConnMaxLifetime` из конфигурации); соединения открываются с runtime-параметром `jit=off` (дописывается в DSN, явный `jit=` не перекрывается): нагрузка модуля — короткие точечные запросы, а оценка стоимости плана параметрического поиска, раздутая коррелированными `EXISTS` вариантной семантики, включает LLVM-JIT — на слабых CPU компиляция стоит сотни мс при десятках мс выполнения (измерения — `qa/reports/`); снимок каталога — транзакцией чтения REPEATABLE READ |
+| PK с автогенерацией | `INTEGER PRIMARY KEY AUTOINCREMENT` | `BIGINT GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY` |
+| id после вставки | `last_insert_rowid()` после вставки в том же соединении | `INSERT … RETURNING id` |
+| id после вставки без конфликта | `INSERT … ON CONFLICT DO NOTHING`; конфликт (строки нет) — по `RowsAffected`, id — `last_insert_rowid()` | `INSERT … ON CONFLICT DO NOTHING RETURNING id`; конфликт — нет строки (`inserted=false`) |
+| Плейсхолдеры | `@имя` в тексте DML → `$n` (`positional`, единственный путь для обоих диалектов); modernc/sqlite связывает `$NNN` с аргументом NNN | то же: pgx — `$n` нативно; путь database/sql драйвера pgx имена `@имя`-аргументов отбрасывает, текст запроса не переписывает |
+| DDL | единый переносимый текст (INTEGER/REAL/TEXT) | тот же текст; `RewriteDDL` диалекта подставляет PK и переписывает `INTEGER → BIGINT`, `REAL → DOUBLE PRECISION` (sqlite хранит int64/float64 — postgres INTEGER/REAL уже́ не паритет: диапазон id и бит-точность значений) |
+
+`INSERT … RETURNING` непереносим — получение id обёрнуто в метод диалекта (`InsertReturning`); сигнатура фиксируется на этапе 3.
+
+Писатели параллельны только на postgres (sqlite — одно выделенное соединение записи); конфликт уникальности при вставке подавляется атомарно (`ON CONFLICT DO NOTHING`, поведение обоих диалектов совпадает — подавленная вставка не является ошибкой, транзакция остаётся рабочей). Метод диалекта `InsertIfAbsentReturningID` возвращает id и признак вставки: `inserted=false` — строка уже есть (вставлена конкурирующей транзакцией), id перечитывает вызывающий код; так обрабатываются вставка устройства и создание производителей. Для таблиц с составным PK и без суррогатного id (связи производителей, атрибуты, аналоги записи) используется переносимый `Tx.InsertIfAbsent` — тот же признак вставки по `RowsAffected`, без `RETURNING` (postgres-ветка `InsertIfAbsentReturningID` дописывает `RETURNING id` — колонки id у этих таблиц нет) — параллельные писатели не получают ошибок уникальности.
+
+## 5. Версия схемы и сидирование (без миграций)
+
+1. `EnsureCreated` выполняет полный DDL (`CREATE … IF NOT EXISTS`) и записывает `schema_version = N` (N — константа модуля, инкрементируется при любом изменении DDL) и `catalog_revision = 1`, `data_revision = 1`; вставка меты — `INSERT … SELECT … WHERE NOT EXISTS` с атомарным подавлением конфликта уникальности (`ON CONFLICT DO NOTHING`) — конкурентное создание той же меты ошибки не даёт.
+2. Если база уже существует: читается `schema_version`; несовпадение — `*domain.Error{Code: schema_version_mismatch}` с текстом «база данных создана другой версией модуля (N ≠ M); пересоздайте её: удалите файл/базу и выполните import»; продолжение работы запрещено — тихая порча данных исключена. Отсутствие таблицы `schema_meta` (не инициализированная база, файл другой программы, повреждённая база) — отдельный код `database_not_initialized` с текстом «база данных не инициализирована или не является базой модуля; выполните init (CLI) или EnsureCreated».
+3. **Сиды каталога** (`seed/`, формат — та же секция `catalog` файла наполнения: только коды и структурные поля, D9): единицы (латинские коды), условия, группы, именованные правила, системы обозначений и применимость к классам, реестры семейств (`series_families`), стартовые каталоги параметров/атрибутов четырёх классов (`03-data-model.md`). Применяются при `EnsureCreated` на пустую базу; содержимое каталога — данные, поэтому его эволюция не требует изменения `schema_version` (новый параметр/семейство — строки). Отображаемые названия сидов — бандлы `internal/i18n`; полнота бандлов для всех кодов сидов закреплена пин-тестами (`seed/seed_test.go`).
+4. Каталог может расширяться файлом наполнения (секция `catalog`) или экспортироваться целиком (`catalog export`); импорт каталога — **upsert по коду**: вставка новой строки либо обновление полей существующей (enum-значения, наборы условий и применимость `parameter_kinds`/`attribute_kinds` замещаются целиком); удаление строк каталога файлом не поддерживается — только деактивация (`is_active = 0`); round-trip идемпотентен (экспорт включает все строки, включая сиды; ключей имён/описаний формат не несёт — D9); валидация метасхемы при импорте (единицы/условия/enum существуют, наборы условий корректны, правила известны).
+5. Изменение `catalog_revision`/`data_revision` — атомарным инкрементом (`UPDATE … SET value = value + 1`) по одному разу в каждой транзакции, меняющей каталог/устройства (корректно при конкурентных записях; upsert с исходом `Skipped` ничего не меняет и не инкрементирует); REST отдаёт их в `ETag`. Снимок каталога (`LoadSnapshot`) читается одной транзакцией чтения вместе с `catalog_revision` — кэш не получает пару «определения из одного состояния, ревизия из другого»: ревизия быстрой проверки используется только для решения о перезагрузке, а кэш хранит ревизию из того же чтения, что и снимок.
+
+## 6. Жизненный цикл записи
+
+- `Upsert` — транзакция: разбор обозначения (класс + система + канонизация) → вставка устройства «если нет» (`ON CONFLICT DO NOTHING`, подавленная вставка — id перечитывается по `(kind, designation)`) либо поиск по `(kind, designation)`; строится слитое состояние записи (вход + текущие секции по правилам слияния) и канонически сравнивается с текущим — совпадение даёт исход `Skipped` без записи в БД и без инкремента ревизий; иначе применяются секции: атрибуты — REPLACE-семантика по строкам, параметры группы — delete+insert значений с условиями, секция `variants` — полная замена исполнений вместе с их значениями, производители (секция `manufacturers`) — полная замена связей + чистка сирот `manufacturers` (NOT IN по `device_manufacturers`), аналоги — полная замена исходящих ссылок (разрешение обозначений в пределах класса; встречные ссылки других записей не затрагиваются — D8); ни одна секция не применяется частично при ошибке в любой (защита от частичного стирания). Параллельные писатели одной и той же записи (postgres) ошибок уникальности не получают: вставки устройства, производителей, связей и строк секций подавляют конфликт; строка, вставленная конкурентом после DELETE этой транзакции, сохраняет его значения.
+- `Delete` — каскад из `devices` (FK ON DELETE CASCADE, включая обе стороны `device_analogs`) + чистка сирот производителей.
+- `Get/Card` — устройство + система + поля обозначения + атрибуты + значения параметров с условиями + аналоги (исходящие и встречные) + производители; сборка группами каталога.
+
+## 7. Совместимость данных и форматов
+
+Совместимость с базами и файлами сторонних/прежних справочников не требуется и не гарантируется: единственная гарантия совместимости модуля — REST/Go API и версия схемы `schema_meta`. Преемственность на уровне эргономики — семантика секций, имена команд CLI, структура записи наполнения. Перенос внешних выборок данных (если потребуется) выполняется конвертацией в формат наполнения — задача этапа 6 плана работ, не контракт модуля.

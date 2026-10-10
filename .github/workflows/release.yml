@@ -1,0 +1,107 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    name: Verify (tag on main, build, vet, gofmt, test)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - name: Setup Go
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+      - name: Tag commit is on main
+        run: |
+          git fetch origin main
+          git merge-base --is-ancestor "$GITHUB_SHA" origin/main
+      - name: Build and vet
+        run: go build ./... && go vet ./...
+      - name: Gofmt
+        run: test -z "$(gofmt -l .)"
+      - name: Test
+        run: go test ./...
+
+  build:
+    name: Build catalogctl (${{ matrix.goos }}/${{ matrix.goarch }})
+    needs: [check]
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - { goos: linux, goarch: amd64 }
+          - { goos: linux, goarch: arm64 }
+          - { goos: windows, goarch: amd64 }
+          - { goos: windows, goarch: arm64 }
+          - { goos: darwin, goarch: amd64 }
+          - { goos: darwin, goarch: arm64 }
+    env:
+      CGO_ENABLED: "0"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+      - name: Setup Go
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+      - name: Build
+        env:
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+        run: |
+          mkdir -p dist
+          bin=catalogctl
+          if [ "$GOOS" = windows ]; then bin=catalogctl.exe; fi
+          go build -trimpath -ldflags "-s -w" -o "dist/$bin" ./cmd/catalogctl
+      - name: Package (tar.gz)
+        if: matrix.goos != 'windows'
+        run: tar -czf "dist/catalogctl-${{ matrix.goos }}-${{ matrix.goarch }}.tar.gz" -C dist catalogctl
+      - name: Package (zip)
+        if: matrix.goos == 'windows'
+        run: |
+          cd dist
+          zip -q "catalogctl-${{ matrix.goos }}-${{ matrix.goarch }}.zip" catalogctl.exe
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          if-no-files-found: error
+          name: catalogctl-${{ matrix.goos }}-${{ matrix.goarch }}
+          path: dist/catalogctl-*
+
+  publish:
+    name: Publish GitHub Release
+    needs: [build]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Download build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: dist
+          pattern: catalogctl-*
+          merge-multiple: true
+      - name: Checksums
+        run: cd dist && sha256sum catalogctl-* > checksums.txt
+      - name: Create release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1 || \
+            gh release create "$GITHUB_REF_NAME" --verify-tag --title "$GITHUB_REF_NAME" --generate-notes
+          gh release upload "$GITHUB_REF_NAME" \
+            dist/checksums.txt \
+            dist/catalogctl-*.tar.gz \
+            dist/catalogctl-*.zip \
+            --clobber

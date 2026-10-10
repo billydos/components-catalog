@@ -1,0 +1,23 @@
+* text=auto
+
+# Исходники и текстовые данные — всегда LF
+*.go text diff=go eol=lf
+*.md text
+*.json text
+*.jsonc text
+*.ndjson text
+*.yaml text
+*.yml text
+*.sh text eol=lf
+go.mod text
+go.sum text
+
+# Двоичные файлы
+*.pdf binary
+*.png binary
+*.jpg binary
+*.db binary
+*.db-shm binary
+*.db-wal binary
+*.sqlite binary
+*.sqlite3 binary

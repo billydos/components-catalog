@@ -1,0 +1,507 @@
+{
+  // Диоды: выверенное наполнение этапа 6 (план работ 6.3); источники по
+  // каждой записи — код [S…] — и конфликты: docs/plan/08-data-verification.md §2.
+  // Единицы — канонические (мкА, мА, нс, мкд).
+  "diodes": [
+    // gost (ГОСТ 10862-64): подкласс кодируется обозначением.
+    {
+      "name": "КДС111В",                     // сборка из двух выпрямительных диодов, общий катод
+      "system": "gost",
+      "attributes": {
+        "description": "выпрямительная сборка", "tu": "3.362.145ТУ",
+        "datasheetUrl": "https://eandc.ru/catalog/detail.php?ID=8815"
+      },
+      "parameters": [
+        { "parameter": "Upr", "max": 1.2, "Ipr": 100 },
+        { "parameter": "Iobr", "max": 3, "Uobr": 300 }
+      ],
+      "ratings": [
+        { "parameter": "UobrMax", "value": 300 },
+        { "parameter": "IprMax", "value": 200 },
+        { "parameter": "TempMin", "value": -60 },
+        { "parameter": "TempMax", "value": 85 }
+      ]
+    },
+    {
+      "name": "КС168А",                      // стабилитрон 6,8 В: напряжение — в двух последних цифрах номера
+      "system": "gost",
+      "attributes": {
+        "description": "стабилитрон", "package": "КД-4-1", "tu": "СМ3.362.812ТУ",
+        "datasheetUrl": "http://www.club155.ru/datasheet/KS168A"
+      },
+      "parameters": [
+        { "parameter": "Ust", "min": 6.12, "max": 7.48, "Ist": 10 },
+        { "parameter": "Rdiff", "max": 28, "Ist": 10 },
+        { "parameter": "TkUst", "max": 0.06, "Ist": 10 }
+      ],
+      "ratings": [
+        { "parameter": "Pmax", "value": 300 },
+        { "parameter": "IstMin", "value": 3 },
+        { "parameter": "IstMax", "value": 45 },
+        { "parameter": "TempMin", "value": -60 },
+        { "parameter": "TempMax", "value": 125 }
+      ]
+    },
+    {
+      "name": "АЛ307Б",                      // светодиод красный; Iv нормирован снизу (≥0,9 мкд) — диапазон в модель не ложится
+      "system": "gost",
+      "attributes": {
+        "description": "светодиод", "tu": "аА0.336.076ТУ",
+        "datasheetUrl": "https://kazus.ru/post/3200032-al307"
+      },
+      "parameters": [
+        { "parameter": "Upr", "max": 2, "Ipr": 10 },
+        { "parameter": "Lambda", "min": 666, "max": 666 }        // λmax
+      ],
+      "ratings": [
+        { "parameter": "UobrMax", "value": 2 },
+        { "parameter": "IprMax", "value": 20 },
+        { "parameter": "TempMin", "value": -60 },
+        { "parameter": "TempMax", "value": 70 }
+      ]
+    },
+    {
+      "name": "КД522А",                      // импульсный; trr и Cд без условий нормировки — не сохраняются
+      "system": "gost",
+      "attributes": {
+        "description": "импульсный",
+        "datasheetUrl": "https://kazus.ru/post/2686850-kd522a"
+      },
+      "parameters": [
+        { "parameter": "Upr", "max": 1.1, "Ipr": 100 },
+        { "parameter": "Iobr", "max": 2, "Uobr": 30 }
+      ],
+      "ratings": [
+        { "parameter": "UobrMax", "value": 30 },
+        { "parameter": "IprMax", "value": 100 },
+        { "parameter": "TempMin", "value": -55 },
+        { "parameter": "TempMax", "value": 85 },
+        { "parameter": "TempJunctionMax", "value": 125 }
+      ]
+    },
+    {
+      "name": "АЛС324Б1",                    // семисегментный индикатор, высота знака 7,5 мм, красный; С — сборка (разбор), 1 — модернизация
+      "system": "gost",
+      "attributes": {
+        "description": "одноразрядный семисегментный индикатор, высота знака 7,5 мм",
+        "package": "КИ504",
+        "datasheetUrl": "https://www.chipdip.ru/product/als324b1-indikator-semisegmentnyy-34368"
+      },
+      "parameters": [
+        { "parameter": "Iv", "min": 0.15, "max": 0.45, "Ipr": 20 },
+        { "parameter": "Lambda", "min": 655, "max": 670 }
+        // Uпр 2,5 В и Iпр.имп 300 мА: в источниках нет различимых условий нормировки (ток, tи/Q) — не сохраняются
+      ],
+      "ratings": [
+        { "parameter": "UobrMax", "value": 5 },
+        { "parameter": "IprMax", "value": 25 },
+        { "parameter": "Pmax", "value": 500 },
+        { "parameter": "TempMin", "value": -60 },
+        { "parameter": "TempMax", "value": 70 }
+      ]
+    },
+    {
+      "name": "АЛС333Б1",                    // семисегментный индикатор, высота знака 12 мм, красный
+      "system": "gost",
+      "attributes": {
+        "description": "одноразрядный семисегментный индикатор, высота знака 12 мм",
+        "package": "КИ504",
+        "datasheetUrl": "https://static.chipdip.ru/lib/063/DOC000063875.pdf"
+      },
+      "parameters": [
+        { "parameter": "Lambda", "min": 650, "max": 670 }
+        // Iv нормирован только снизу (≥0,2 мкд @ 20 мА); Uпр 2 В и Iпр.имп 200 мА — без различимых условий — не сохраняются
+      ],
+      "ratings": [
+        { "parameter": "UobrMax", "value": 5 },
+        { "parameter": "IprMax", "value": 25 },
+        { "parameter": "Pmax", "value": 400 }
+      ]
+    },
+    {
+      "name": "КЦ402А",                      // мостовая сборка: однофазный мост из четырёх выпрямительных диодов
+      "system": "gost",
+      "attributes": {
+        "description": "мостовая выпрямительная сборка (однофазный мост)",
+        "package": "КЦ402",
+        "datasheetUrl": "https://www.chipdip.ru/product/kts402a-diodnyy-most-odnofaznyy-1a-600v-sztp-29169"
+      },
+      "manufacturers": ["СЗТП"],
+      "parameters": [
+        { "parameter": "Upr", "max": 4, "Ipr": 1000 }
+        // Iобр 125 мкА: в источнике не приведены условия нормировки — не сохраняется
+      ],
+      "ratings": [
+        { "parameter": "UobrMax", "value": 600 },
+        { "parameter": "IprMax", "value": 1000 },
+        { "parameter": "TempMin", "value": -40 },
+        { "parameter": "TempMax", "value": 85 }
+      ]
+    },
+    {
+      "name": "КЦ407А",                      // мостовая сборка: однофазный мост, выводной корпус
+      "system": "gost",
+      "attributes": {
+        "description": "мостовая выпрямительная сборка (однофазный мост)",
+        "package": "КЦ407",
+        "datasheetUrl": "https://static.chipdip.ru/lib/909/DOC018909433.pdf"
+      },
+      "manufacturers": ["ПО Днепр"],
+      "parameters": [
+        { "parameter": "Upr", "max": 2.5, "Ipr": 200 }
+        // trr 5 мкс и Iпр.имп 2 А: без условий нормировки — не сохраняются
+      ],
+      "ratings": [
+        { "parameter": "UobrMax", "value": 400 },
+        { "parameter": "IprMax", "value": 500 },
+        { "parameter": "TempMin", "value": -60 },
+        { "parameter": "TempMax", "value": 85 }
+      ]
+    },
+
+    // pro (PRO ELECTRON): материал и класс — первые две буквы.
+    {
+      "name": "AA119",                       // A германий; класс без буквы — старая регистрация
+      "system": "pro",
+      "attributes": {
+        "description": "универсальный (германиевый)", "package": "DO-7",
+        "datasheetUrl": "https://www.fabian.com.mt/en/featured/webshop/9216/germanium-diode-35ma-30v-aa119.htm"
+      },
+      "manufacturers": ["Telefunken"],
+      "parameters": [ { "parameter": "Upr", "max": 2.2, "Ipr": 10 } ],
+      "ratings": [
+        { "parameter": "UobrMax", "value": 30 },
+        { "parameter": "IprMax", "value": 35 }
+      ]
+    },
+    {
+      "name": "BY133",                       // Y мощный выпрямитель; VRRM 1300 В
+      "system": "pro",
+      "attributes": {
+        "description": "выпрямительный",
+        "datasheetUrl": "https://diotec.com/en/product/BY133.html"
+      },
+      "manufacturers": ["Diotec", "Philips", "Tesla"],
+      "parameters": [
+        { "parameter": "Upr", "max": 1.3, "Ipr": 1000 },
+        { "parameter": "Iobr", "max": 5, "Uobr": 1300 },
+        { "parameter": "Cn", "max": 15, "Uobr": 4 }
+      ],
+      "ratings": [
+        { "parameter": "UobrMax", "value": 1300 },
+        { "parameter": "IprMax", "value": 1000 },
+        { "parameter": "TempMin", "value": -50 },
+        { "parameter": "TempMax", "value": 175 }
+      ]
+    },
+    {
+      "name": "BZX85C5V1",                   // стабилитрон 5,1 В ±5 %; тест-ток в доступных источниках не приведён — Ust/Rdiff не сохраняются
+      "system": "pro",
+      "attributes": {
+        "description": "стабилитрон",
+        "datasheetUrl": "https://www.soselectronic.com/en/products/vishay-semiconductors/bzx-85-c-5v1-bzx85c5v1-tap-14206"
+      },
+      "manufacturers": ["Vishay", "onsemi", "Fairchild"],
+      "ratings": [
+        { "parameter": "Pmax", "value": 1300 },
+        { "parameter": "TempMax", "value": 175 }
+      ]
+    },
+    {
+      "name": "BAV99",                       // сборка из двух малосигнальных диодов, последовательное включение
+      "system": "pro",
+      "fields": { "assembly": 1 },
+      "attributes": {
+        "description": "сборка: два малосигнальных диода с последовательным включением",
+        "package": "SOT-23",
+        "datasheetUrl": "https://diotec.com/en/product/BAV99.html"
+      },
+      "manufacturers": ["Diotec", "Nexperia"],
+      "parameters": [
+        { "parameter": "Upr", "max": 0.855, "Ipr": 10 },
+        { "parameter": "Upr", "max": 1.25, "Ipr": 150 },
+        { "parameter": "Iobr", "max": 1, "Uobr": 75 },
+        { "parameter": "trr", "max": 4, "Ipr": 10 }        // IF=10 мА, IR 10→1 мА (Diotec)
+      ],
+      "ratings": [
+        { "parameter": "UobrMax", "value": 85 },
+        { "parameter": "IprMax", "value": 215 },           // одна нагруженная диода, TA=25 °C (Diotec)
+        { "parameter": "Pmax", "value": 350 },
+        { "parameter": "TempMin", "value": -55 },
+        { "parameter": "TempJunctionMax", "value": 150 }
+      ]
+    },
+    {
+      "name": "BAT54S",                      // сборка из двух диодов Шоттки, последовательное включение; S — суффикс схемы
+      "system": "pro",
+      "fields": { "assembly": 1 },
+      "attributes": {
+        "description": "сборка: два диода Шоттки с последовательным включением",
+        "package": "SOT-23",
+        "datasheetUrl": "https://diotec.com/en/product/BAT54S.html"
+      },
+      "manufacturers": ["Diotec", "Nexperia"],
+      "parameters": [
+        { "parameter": "Upr", "max": 0.32, "Ipr": 1 },
+        { "parameter": "Upr", "max": 0.4, "Ipr": 10 },
+        { "parameter": "Iobr", "max": 2, "Uobr": 25 },
+        { "parameter": "trr", "max": 5, "Ipr": 10 }
+      ],
+      "ratings": [
+        { "parameter": "UobrMax", "value": 30 },
+        { "parameter": "IprMax", "value": 200 },           // на диод, DC (Diotec)
+        { "parameter": "Pmax", "value": 290 },
+        { "parameter": "TempMin", "value": -55 },
+        { "parameter": "TempJunctionMax", "value": 150 }
+      ]
+    },
+
+    // jedec: 1N — один переход; категория — атрибутом.
+    {
+      "name": "1N4148",
+      "system": "jedec",
+      "fields": { "material": "si", "subclass": "signal", "category": "pulse" },
+      "attributes": {
+        "description": "импульсный",
+        "datasheetUrl": "https://en.wikipedia.org/wiki/1N4148"
+      },
+      "manufacturers": ["Fairchild", "Vishay"],
+      "parameters": [
+        { "parameter": "Upr", "max": 1, "Ipr": 10 },
+        { "parameter": "Iobr", "max": 0.025, "Uobr": 20 },
+        { "parameter": "trr", "max": 4, "Ipr": 10 }
+      ],
+      "ratings": [
+        { "parameter": "UobrMax", "value": 100 },
+        { "parameter": "IprMax", "value": 300 },
+        { "parameter": "Pmax", "value": 500 }
+      ]
+    },
+    {
+      "name": "1N4007",
+      "system": "jedec",
+      "fields": { "material": "si", "subclass": "rectifier" },
+      "attributes": {
+        "description": "выпрямительный",
+        "datasheetUrl": "https://diotec.com/en/product/1N4007.html"
+      },
+      "manufacturers": ["Diotec", "Fairchild"],
+      "parameters": [
+        { "parameter": "Upr", "max": 1.1, "Ipr": 1000 },
+        { "parameter": "Iobr", "max": 5, "Uobr": 1000 },
+        { "parameter": "Cn", "max": 15, "Uobr": 4 }
+      ],
+      "ratings": [
+        { "parameter": "UobrMax", "value": 1000 },
+        { "parameter": "IprMax", "value": 1000 },
+        { "parameter": "TempMin", "value": -50 },
+        { "parameter": "TempMax", "value": 175 }
+      ],
+      "analogs": ["Д226"]                    // замена 1N4007 советским Д226 — с запасом проверять по режимам
+    },
+    {
+      "name": "1N5408",
+      "system": "jedec",
+      "fields": { "material": "si", "subclass": "rectifier" },
+      "attributes": {
+        "description": "выпрямительный",
+        "datasheetUrl": "https://diotec.com/en/product/1N5408.html"
+      },
+      "manufacturers": ["Diotec"],
+      "parameters": [
+        { "parameter": "Upr", "max": 1.2, "Ipr": 3000 },
+        { "parameter": "Iobr", "max": 5, "Uobr": 1000 }
+      ],
+      "ratings": [
+        { "parameter": "UobrMax", "value": 1000 },
+        { "parameter": "IprMax", "value": 3000 },
+        { "parameter": "TempMin", "value": -50 },
+        { "parameter": "TempMax", "value": 175 }
+      ]
+    },
+
+    // jis (JIS/EIAJ): 1S — диод; S сигнальный, R выпрямительный.
+    {
+      "name": "1SS352",                      // параметры с неполными условиями нормировки не сохраняются
+      "system": "jis",
+      "attributes": {
+        "description": "имульсный", "package": "SOD-323",
+        "datasheetUrl": "https://datasheet4u.com/datasheets/Toshiba-Semiconductor/1SS352/96169"
+      },
+      "manufacturers": ["Toshiba"],
+      "ratings": [
+        { "parameter": "UobrMax", "value": 80 },
+        { "parameter": "IprMax", "value": 100 },
+        { "parameter": "Pmax", "value": 200 },
+        { "parameter": "TempMax", "value": 125 }
+      ]
+    },
+    {
+      "name": "1SR154-400",                  // ROHM классифицирует как стандартный (не быстрый) выпрямитель
+      "system": "jis",
+      "attributes": {
+        "description": "выпрямительный",
+        "datasheetUrl": "https://www.rohm.com/products/diodes/rectifier-diodes/standard/1sr154-400-product"
+      },
+      "manufacturers": ["ROHM"],
+      "parameters": [
+        { "parameter": "Upr", "max": 1.1, "Ipr": 1000 },
+        { "parameter": "Iobr", "max": 10, "Uobr": 400 }
+      ],
+      "ratings": [
+        { "parameter": "UobrMax", "value": 400 },
+        { "parameter": "IprMax", "value": 1000 },
+        { "parameter": "TempMin", "value": -55 },
+        { "parameter": "TempMax", "value": 150 }
+      ]
+    },
+
+    // series: советские семейства вне строгого ГОСТ; категория — атрибутом.
+    {
+      "name": "Д226",
+      "system": "series",
+      "fields": { "material": "si", "subclass": "rectifier" },
+      "attributes": {
+        "description": "выпрямительный",
+        "datasheetUrl": "https://kazus.ru/post/2686188-d226"
+      },
+      "parameters": [
+        { "parameter": "Upr", "max": 1, "Ipr": 300 },
+        { "parameter": "Iobr", "max": 50, "Uobr": 400 }
+      ],
+      "ratings": [
+        { "parameter": "UobrMax", "value": 400 },
+        { "parameter": "IprMax", "value": 300 },
+        { "parameter": "TempMin", "value": -60 },
+        { "parameter": "TempMax", "value": 80 }
+      ],
+      "analogs": [ { "name": "1N4007", "note": "замена с запасом по напряжению и току" } ]
+    },
+    {
+      "name": "Д814А",                       // стабилитрон 7–8,5 В
+      "system": "series",
+      "fields": { "material": "si", "subclass": "zener" },
+      "attributes": {
+        "description": "стабилитрон",
+        "datasheetUrl": "http://www.club155.ru/datasheet/D814A"
+      },
+      "parameters": [
+        { "parameter": "Ust", "min": 7, "max": 8.5, "Ist": 5 },
+        { "parameter": "Rdiff", "max": 6, "Ist": 5 },
+        { "parameter": "TkUst", "max": 0.07, "Ist": 5 }
+      ],
+      "ratings": [
+        { "parameter": "Pmax", "value": 340 },
+        { "parameter": "IstMin", "value": 3 },
+        { "parameter": "IstMax", "value": 40 },
+        { "parameter": "TempMax", "value": 125 }
+      ]
+    },
+    {
+      "name": "Д2Б",                         // германиевый точечный
+      "system": "series",
+      "fields": { "material": "ge", "subclass": "rectifier" },
+      "attributes": {
+        "description": "универсальный (германиевый точечный)",
+        "datasheetUrl": "https://www.radiolibrary.ru/reference/diod/d2b.html"
+      },
+      "parameters": [
+        { "parameter": "Upr", "max": 1, "Ipr": 5 },
+        { "parameter": "Iobr", "max": 100, "Uobr": 10 },
+        { "parameter": "trr", "max": 3000, "Ipr": 10 }
+      ],
+      "ratings": [
+        { "parameter": "UobrMax", "value": 10 },
+        { "parameter": "IprMax", "value": 16 },
+        { "parameter": "TempMax", "value": 70 }
+      ]
+    },
+
+    // other: фирменные имена; ключ system обязателен.
+    {
+      "name": "UF4007",                      // ультрабыстрый 1000 В; условия trr — по вторичному источнику
+      "system": "other",
+      "fields": { "material": "si", "subclass": "rectifier", "category": "fast" },
+      "attributes": {
+        "description": "выпрямительный ультрабыстрый",
+        "datasheetUrl": "https://diotec.com/en/product/UF4007.html"
+      },
+      "manufacturers": ["Diotec", "Vishay", "onsemi"],
+      "parameters": [
+        { "parameter": "Upr", "max": 1.7, "Ipr": 1000 },
+        { "parameter": "Iobr", "max": 5, "Uobr": 1000 },
+        { "parameter": "trr", "max": 75, "Ipr": 500 }
+      ],
+      "ratings": [
+        { "parameter": "UobrMax", "value": 1000 },
+        { "parameter": "IprMax", "value": 1000 },
+        { "parameter": "TempMin", "value": -50 },
+        { "parameter": "TempMax", "value": 175 }
+      ]
+    },
+    {
+      "name": "KBP206G",                     // мостовая сборка из четырёх диодов, однофазный мост в корпусе KBP
+      "system": "other",
+      "fields": { "material": "si", "subclass": "rectifier", "assembly": 1 },
+      "attributes": {
+        "description": "мостовая выпрямительная сборка (однофазный мост)",
+        "package": "KBP",
+        "datasheetUrl": "https://diotec.com/en/product/KBP206G.html"
+      },
+      "manufacturers": ["Diotec"],
+      "parameters": [
+        { "parameter": "Upr", "max": 1.1, "Ipr": 2000 },   // на диод (Diotec)
+        { "parameter": "Iobr", "max": 5, "Uobr": 600 }
+      ],
+      "ratings": [
+        { "parameter": "UobrMax", "value": 600 },
+        { "parameter": "IprMax", "value": 2000 },          // с вынужденным охлаждением TC=100 °C; свободностояще 1,2 А @ TA=50 °C
+        { "parameter": "TempMin", "value": -50 },
+        { "parameter": "TempMax", "value": 150 }
+      ]
+    },
+    {
+      "name": "HDSP-311E",                   // семисегментный индикатор 10,16 мм, красный, общий анод (Broadcom)
+      "system": "other",
+      "fields": { "subclass": "led", "assembly": 1 },
+      "attributes": {
+        "description": "одноразрядный семисегментный индикатор, высота знака 10,16 мм, общий анод",
+        "datasheetUrl": "https://docs.broadcom.com/doc/AV02-3585EN"
+      },
+      "manufacturers": ["Broadcom"],
+      "parameters": [
+        { "parameter": "Upr", "max": 2.5, "Ipr": 20 }      // на сегмент
+        // Iv ≥2,0 мкд @ 10 мА (только снизу); λp/λd — типические — не сохраняются
+      ],
+      "ratings": [
+        { "parameter": "UobrMax", "value": 5 },            // на сегмент
+        { "parameter": "IprMax", "value": 25 },            // на сегмент
+        { "parameter": "Pmax", "value": 62.5 },            // на сегмент
+        { "parameter": "TempMin", "value": -40 },
+        { "parameter": "TempMax", "value": 85 }
+      ]
+    },
+    {
+      "name": "SA08-11EWA",                  // семисегментный индикатор 20,32 мм, высокоэффективный красный, общий анод (Kingbright)
+      "system": "other",
+      "fields": { "subclass": "led", "assembly": 1 },
+      "attributes": {
+        "description": "одноразрядный семисегментный индикатор, высота знака 20,32 мм, общий анод",
+        "datasheetUrl": "https://www.kingbrightusa.com/images/catalog/SPEC/SA08-11EWA.pdf"
+      },
+      "manufacturers": ["Kingbright"],
+      "parameters": [
+        { "parameter": "Upr", "max": 2.3, "Ipr": 10 },     // на сегмент
+        { "parameter": "Iobr", "max": 10, "Uobr": 5 }
+        // Iv ≥3600 мкд @ 10 мА (только снизу); λp 627 нм — типическое — не сохраняются
+      ],
+      "ratings": [
+        { "parameter": "UobrMax", "value": 5 },
+        { "parameter": "IprMax", "value": 30 },            // на сегмент, DC
+        { "parameter": "TempMin", "value": -40 },
+        { "parameter": "TempMax", "value": 85 },
+        { "parameter": "TempJunctionMax", "value": 125 }
+      ]
+    }
+  ]
+}

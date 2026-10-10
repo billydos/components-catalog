@@ -1,0 +1,725 @@
+openapi: 3.1.0
+jsonSchemaDialect: "https://json-schema.org/draft/2020-12/schema"
+info:
+  title: components-catalog REST API
+  version: 0.1.0
+  description: |
+    Встраиваемый справочник электронных компонентов: REST /api/v1 — тонкий
+    транспорт над сервисным слоем Go-библиотеки. Аутентификация,
+    авторизация и лимитирование — на стороне сайта, монтирующего хендлер
+    (защищённые маршруты — на усмотрение сайта). Транспорт: JSON, UTF-8.
+
+    Ошибки — модель `{"code", "message"}`: `code` —
+    машиночитаемый латиницей snake_case, `message` — текст сообщения
+    из каталога модуля по локали запроса (en — канонический, ru — бандл;
+    Accept-Language). Статусы: 400 (неверный запрос),
+    404 (не найдено), 409 (конфликт), 422 (семантика записи),
+    500 (внутренняя ошибка).
+
+    Локализация (D9): база модуля языконезависима — кодовые поля ответов
+    (kind, system, unit, parameter, attribute, section) всегда канонические.
+    Отображаемые поля (`name`, `kind_name`, `system_name`, описания, имена
+    и символы единиц в /catalog) заполняются по локали запроса из бандлов
+    модуля; локаль — заголовок Accept-Language (q-значения, базовый подтег),
+    по умолчанию и при неподдерживаемом языке — en (поддерживаются en, ru).
+
+    Семантика секций тела записи (attributes, секции групп, manufacturers,
+    variants, analogs): отсутствует/null — не менять (для POST — не задано),
+    задана — заменить целиком, `[]`/`{}` — очистить, ошибка в любом
+    значении — запись не применяется вовсе.
+servers: []
+tags:
+  - name: catalog
+    description: Справочники модуля (классы, каталог).
+  - name: components
+    description: "Записи приборов: поиск, карточка, запись, удаление."
+  - name: service
+    description: Служебные данные (статистика, автодополнение).
+paths:
+  /api/v1/kinds:
+    get:
+      tags: [catalog]
+      operationId: kinds
+      summary: Классы приборов
+      parameters:
+        - $ref: "#/components/parameters/AcceptLanguage"
+      responses:
+        "200":
+          description: Классы приборов (name — по локали запроса).
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/KindsResponse"}
+        "500":
+          $ref: "#/components/responses/InternalError"
+  /api/v1/catalog:
+    get:
+      tags: [catalog]
+      operationId: catalog
+      summary: Снимок каталога
+      description: |
+        Параметры, атрибуты, условия, единицы, группы, системы обозначений
+        и семейства — для построения форм и фильтров. Ключи полей повторяют
+        формат наполнения (snake_case по колонкам каталожных таблиц);
+        отображаемые строки (name, описания, имена и символы единиц) —
+        по локали запроса (D9).
+        ETag — по catalog_revision: снимок кэшируется до смены каталога.
+      parameters:
+        - $ref: "#/components/parameters/AcceptLanguage"
+      responses:
+        "200":
+          description: Снимок каталога.
+          headers:
+            ETag:
+              description: Сильный ETag вида "catalog-<catalog_revision>".
+              schema: {type: string}
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/CatalogSnapshot"}
+        "304":
+          description: Снимок не менялся (If-None-Match).
+          headers:
+            ETag:
+              schema: {type: string}
+        "500":
+          $ref: "#/components/responses/InternalError"
+  /api/v1/stats:
+    get:
+      tags: [service]
+      operationId: stats
+      summary: Количество записей, версия схемы, ревизии
+      responses:
+        "200":
+          description: Агрегаты модуля.
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/Stats"}
+        "500":
+          $ref: "#/components/responses/InternalError"
+  /api/v1/components:
+    get:
+      tags: [components]
+      operationId: components_list
+      summary: Поиск записей
+      description: |
+        Подстрока обозначения, система, фильтры полей/атрибутов/параметров,
+        сортировка, пагинация. Ответ — список с обозначением, классом,
+        системой и ключевыми полями; ETag — по data_revision и канонической
+        строке запроса (разные фильтры/сортировки — разные ETag). Повтор
+        любого параметра запроса — 400 validation_failed.
+
+        Помимо перечисленных параметров допустимы:
+
+        * фильтры полей обозначения — код поля как имя параметра:
+          текстовые `material`, `subclass`, `letters`, `prefix`, `family`,
+          `series`; числовые `junctions`, `group`, `dev_number`, `assembly`,
+          `feature`, `modification`, `chip`, `power` (равенство);
+          значение `material` — стабильный код словаря (`si`, `ge`,
+          `ga`, `in`, `sic`, `other`, `gaas`; D9) либо отображаемое
+          название локали (канонизируется); прочие текстовые поля —
+          нормативные элементы обозначения;
+        * `attr.<код>=<значение>` — фильтр по атрибуту (текст либо число
+          по типу атрибута; логические атрибуты не фильтруются);
+        * `par.<код>.min=`, `par.<код>.max=`, `par.<код>.exact=` — границы
+          численного параметра; `par.<код>.text=` либо `par.<код>=<текст>` —
+          текст/enum.
+
+        Вариантные параметрические фильтры применяются в пределах одного
+        исполнения. Фильтр по параметру/атрибуту, неприменимому к классу
+        запроса, — 400 parameter_not_applicable/attribute_not_applicable.
+        Неизвестный параметр запроса — 400 validation_failed.
+      parameters:
+        - {name: kind, in: query, schema: {type: string}, description: "Класс приборов (transistor, diode, resistor, capacitor)."}
+        - {name: system, in: query, schema: {type: string}, description: "Система обозначений (gost, ost, pro, jedec, jis, series, other)."}
+        - {name: q, in: query, schema: {type: string}, description: "Подстрока обозначения (регистр не важен)."}
+        - {name: sort, in: query, schema: {type: string}, description: "Ключи сортировки через запятую, «-» — убывание (designation, id либо код поля разбора). К любому порядку добавляется финальный (kind, designation)."}
+        - {name: limit, in: query, schema: {type: integer, minimum: 1, maximum: 200, default: 50}, description: "Размер страницы (≤ 200)."}
+        - {name: offset, in: query, schema: {type: integer, minimum: 0, default: 0}, description: "Смещение страницы."}
+      responses:
+        "200":
+          description: Страница результатов.
+          headers:
+            ETag:
+              description: |
+                Сильный ETag вида "data-<data_revision>-<hash>": hash —
+                хэш канонической строки запроса (имена параметров
+                отсортированы, пары name=value через «&»).
+              schema: {type: string}
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/SearchPage"}
+        "304":
+          description: Данные не менялись (If-None-Match).
+          headers:
+            ETag:
+              schema: {type: string}
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "500":
+          $ref: "#/components/responses/InternalError"
+    post:
+      tags: [components]
+      operationId: components_create
+      summary: Создание записи
+      description: |
+        Тело — запись наполнения: строка-обозначение либо объект
+        «name/system + секции». Класс определяется автодетектом по
+        обозначению; для системы other создание адресуется PUT с классом
+        в пути. Существующий (kind, designation) — 409 already_exists
+        без изменения записи (создание атомарно, гонка параллельных
+        POST не применяет секции к чужой записи).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: "#/components/schemas/DeviceRecord"}
+      responses:
+        "201":
+          description: Запись создана.
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/UpsertResponse"}
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          description: Редкая гонка — запись удалена между применением
+            и чтением карточки для ответа.
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/Error"}
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/Unprocessable"
+        "500":
+          $ref: "#/components/responses/InternalError"
+  /api/v1/components/id/{id}:
+    get:
+      tags: [components]
+      operationId: components_by_id
+      summary: Карточка по стабильному id
+      description: Обозначения, содержащие «/» (MIL-имена), адресуются
+        этим путём или поиском — прямой путь для них не гарантируется.
+      parameters:
+        - {name: id, in: path, required: true, schema: {type: integer, format: int64}}
+      responses:
+        "200":
+          description: Карточка записи.
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/Card"}
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+  /api/v1/components/{kind}/{designation}:
+    get:
+      tags: [components]
+      operationId: components_get
+      summary: Карточка записи
+      description: |
+        Обозначение + система + поля разбора, атрибуты, значения параметров
+        по группам с условиями, исполнения-варианты (матрица «номинал ×
+        напряжение → габариты/масса»), аналоги (исходящие и встречные),
+        производители. Обозначение в пути URL-кодируется.
+      parameters:
+        - {$ref: "#/components/parameters/Kind"}
+        - {$ref: "#/components/parameters/Designation"}
+        - $ref: "#/components/parameters/AcceptLanguage"
+      responses:
+        "200":
+          description: Карточка записи.
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/Card"}
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+    put:
+      tags: [components]
+      operationId: components_put
+      summary: Upsert записи с семантикой секций
+      description: |
+        Тело — запись наполнения (name/system + секции); name обязан
+        совпадать с designation пути (иначе 422 designation_mismatch).
+        Класс задаётся путём (переопределяет автодетект — способ создания
+        записей системы other). Исходы: Added (создана),
+        UpdatedExisting (обновлена), Skipped (слитое состояние совпадает —
+        записи в БД и инкремента ревизий нет).
+      parameters:
+        - {$ref: "#/components/parameters/Kind"}
+        - {$ref: "#/components/parameters/Designation"}
+        - $ref: "#/components/parameters/AcceptLanguage"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: "#/components/schemas/DeviceRecord"}
+      responses:
+        "200":
+          description: Запись применена.
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/UpsertResponse"}
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          description: Редкая гонка — запись удалена между применением
+            и чтением карточки для ответа.
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/Error"}
+        "422":
+          $ref: "#/components/responses/Unprocessable"
+        "500":
+          $ref: "#/components/responses/InternalError"
+    delete:
+      tags: [components]
+      operationId: components_delete
+      summary: Удаление записи (каскад)
+      parameters:
+        - {$ref: "#/components/parameters/Kind"}
+        - {$ref: "#/components/parameters/Designation"}
+        - $ref: "#/components/parameters/AcceptLanguage"
+      responses:
+        "204":
+          description: Запись удалена.
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+  /api/v1/suggest:
+    get:
+      tags: [service]
+      operationId: suggest
+      summary: Автодополнение по префиксу обозначения
+      description: Отключаем конфигурацией модуля — хендлер не монтируется
+        (404 при отключении).
+      parameters:
+        - {name: q, in: query, required: true, schema: {type: string}, description: "Префикс обозначения."}
+        - {name: kind, in: query, schema: {type: string}, description: "Класс приборов."}
+        - {name: limit, in: query, schema: {type: integer, minimum: 1, maximum: 50, default: 10}}
+      responses:
+        "200":
+          description: Подсказки.
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/SuggestResponse"}
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "500":
+          $ref: "#/components/responses/InternalError"
+components:
+  parameters:
+    Kind:
+      name: kind
+      in: path
+      required: true
+      description: Код класса приборов.
+      schema: {type: string}
+    Designation:
+      name: designation
+      in: path
+      required: true
+      description: URL-кодированное обозначение.
+      schema: {type: string}
+    AcceptLanguage:
+      name: Accept-Language
+      in: header
+      required: false
+      description: "Локаль отображаемых строк ответа (D9): q-значения, базовый подтег; поддерживаются en, ru; по умолчанию en."
+      schema: {type: string, examples: ["ru", "en-US,en;q=0.8"]}
+  responses:
+    BadRequest:
+      description: Неверный запрос (параметры/путь/синтаксис тела).
+      content:
+        application/json:
+          schema: {$ref: "#/components/schemas/Error"}
+    NotFound:
+      description: Не найдено.
+      content:
+        application/json:
+          schema: {$ref: "#/components/schemas/Error"}
+    Conflict:
+      description: Конфликт (запись уже существует).
+      content:
+        application/json:
+          schema: {$ref: "#/components/schemas/Error"}
+    Unprocessable:
+      description: Семантическая ошибка записи/обозначения.
+      content:
+        application/json:
+          schema: {$ref: "#/components/schemas/Error"}
+    InternalError:
+      description: Внутренняя ошибка.
+      content:
+        application/json:
+          schema: {$ref: "#/components/schemas/Error"}
+  schemas:
+    Error:
+      type: object
+      required: [code, message]
+      properties:
+        code:
+          type: string
+          description: Машиночитаемый код (латиница snake_case).
+          examples: [validation_failed]
+        message:
+          type: string
+          description: Текст сообщения по локали запроса (Accept-Language;
+            en — канонический).
+    KindDef:
+      type: object
+      required: [code, name]
+      properties:
+        code: {type: string}
+        name: {type: string}
+    KindsResponse:
+      type: object
+      required: [kinds]
+      properties:
+        kinds:
+          type: array
+          items: {$ref: "#/components/schemas/KindDef"}
+    Field:
+      type: object
+      required: [name]
+      properties:
+        name: {type: string}
+        text: {type: string}
+        num: {type: number}
+    Condition:
+      type: object
+      required: [condition, value]
+      properties:
+        condition: {type: string, description: Код условия измерения.}
+        value: {type: number}
+    CardAttribute:
+      type: object
+      required: [code, name]
+      properties:
+        code: {type: string}
+        name: {type: string}
+        text: {type: string}
+        num: {type: number}
+        bool: {type: boolean}
+    CardValue:
+      type: object
+      required: [parameter, name]
+      properties:
+        parameter: {type: string}
+        name: {type: string}
+        unit: {type: string, description: Код канонической единицы.}
+        exact: {type: number}
+        min: {type: number}
+        max: {type: number}
+        text: {type: string}
+        conditions:
+          type: array
+          items: {$ref: "#/components/schemas/Condition"}
+    CardGroup:
+      type: object
+      required: [code, section, name, values]
+      properties:
+        code: {type: string}
+        section: {type: string, description: Имя секции файла наполнения.}
+        name: {type: string}
+        values:
+          type: array
+          items: {$ref: "#/components/schemas/CardValue"}
+    CardVariant:
+      type: object
+      required: [label, groups]
+      properties:
+        label: {type: string}
+        groups:
+          type: array
+          items: {$ref: "#/components/schemas/CardGroup"}
+    CardLink:
+      type: object
+      required: [kind, system, designation]
+      properties:
+        kind: {type: string}
+        system: {type: string}
+        designation: {type: string}
+        note: {type: string}
+    Card:
+      type: object
+      required: [id, kind, kind_name, system, system_name, designation, fields, attributes, groups, variants, manufacturers, analogs, backlinks]
+      properties:
+        id: {type: integer, format: int64}
+        kind: {type: string}
+        kind_name: {type: string}
+        system: {type: string}
+        system_name: {type: string}
+        designation: {type: string}
+        fields:
+          type: array
+          items: {$ref: "#/components/schemas/Field"}
+        attributes:
+          type: array
+          items: {$ref: "#/components/schemas/CardAttribute"}
+        groups:
+          type: array
+          items: {$ref: "#/components/schemas/CardGroup"}
+        variants:
+          type: array
+          items: {$ref: "#/components/schemas/CardVariant"}
+        manufacturers:
+          type: array
+          items: {type: string}
+        analogs:
+          type: array
+          items: {$ref: "#/components/schemas/CardLink"}
+        backlinks:
+          type: array
+          items: {$ref: "#/components/schemas/CardLink"}
+    Outcome:
+      type: string
+      enum: [Added, UpdatedExisting, Skipped]
+    UpsertResponse:
+      type: object
+      required: [outcome, card]
+      properties:
+        outcome: {$ref: "#/components/schemas/Outcome"}
+        card: {$ref: "#/components/schemas/Card"}
+    SearchItem:
+      type: object
+      required: [id, kind, system, designation, fields]
+      properties:
+        id: {type: integer, format: int64}
+        kind: {type: string}
+        system: {type: string}
+        designation: {type: string}
+        fields:
+          type: array
+          items: {$ref: "#/components/schemas/Field"}
+    SearchPage:
+      type: object
+      required: [items, total, limit, offset]
+      properties:
+        items:
+          type: array
+          items: {$ref: "#/components/schemas/SearchItem"}
+        total: {type: integer, description: Общее число записей под фильтрами.}
+        limit: {type: integer}
+        offset: {type: integer}
+    Suggestion:
+      type: object
+      required: [kind, system, designation]
+      properties:
+        kind: {type: string}
+        system: {type: string}
+        designation: {type: string}
+    SuggestResponse:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items: {$ref: "#/components/schemas/Suggestion"}
+    Stats:
+      type: object
+      required: [schema_version, catalog_revision, data_revision, total, kinds]
+      properties:
+        schema_version: {type: integer}
+        catalog_revision: {type: integer, format: int64}
+        data_revision: {type: integer, format: int64}
+        total: {type: integer}
+        kinds:
+          type: object
+          additionalProperties: {type: integer}
+          description: Количество записей по кодам классов.
+    DeviceRecord:
+      description: |
+        Запись наполнения: строка-обозначение либо объект «name/system +
+        секции». Секции групп — единые списки объектов {parameter, значение,
+        условия}; условия — соседние ключи по кодам. Отсутствует/null —
+        не менять, задана — заменить целиком, []/{} — очистить.
+      oneOf:
+        - type: string
+        - type: object
+          required: [name]
+          properties:
+            name: {type: string, description: Обозначение.}
+            system: {type: string, description: "Система обозначений; обязателен для other."}
+            attributes:
+              type: object
+              description: "Код атрибута → значение (строка/число/логическое)."
+            manufacturers:
+              type: array
+              items: {type: string}
+            variants:
+              type: array
+              items: {$ref: "#/components/schemas/DeviceVariant"}
+            analogs:
+              type: array
+              items:
+                oneOf:
+                  - type: string
+                  - type: object
+                    required: [name]
+                    properties:
+                      name: {type: string}
+                      note: {type: string}
+    DeviceVariant:
+      type: object
+      properties:
+        label: {type: string}
+    UnitDef:
+      type: object
+      required: [code, name, symbol]
+      properties:
+        code: {type: string}
+        name: {type: string}
+        symbol: {type: string}
+    ConditionDef:
+      type: object
+      required: [code, name, allow_negative]
+      properties:
+        code: {type: string}
+        name: {type: string}
+        unit: {type: string}
+        allow_negative: {type: boolean}
+    GroupDef:
+      type: object
+      required: [code, section, name, sort_order]
+      properties:
+        code: {type: string}
+        section: {type: string}
+        name: {type: string}
+        sort_order: {type: integer}
+    ConditionSetItem:
+      type: object
+      required: [condition, mode]
+      properties:
+        condition: {type: string}
+        mode: {type: string, enum: [required, optional]}
+        fixed_value: {type: number}
+    ConditionSet:
+      type: object
+      required: [no, items]
+      properties:
+        no: {type: integer}
+        items:
+          type: array
+          items: {$ref: "#/components/schemas/ConditionSetItem"}
+    ParameterDef:
+      type: object
+      required: [code, group, name, value_type, allow_negative, sort_order, is_active, kinds, enum_values, condition_sets]
+      properties:
+        code: {type: string}
+        group: {type: string}
+        name: {type: string}
+        unit: {type: string}
+        value_type: {type: string, enum: [exact, at_least, at_most, range, text, enum]}
+        ceiling: {type: number}
+        allow_negative: {type: boolean}
+        validation_rule: {type: string}
+        sort_order: {type: integer}
+        is_active: {type: boolean}
+        kinds:
+          type: array
+          items: {type: string}
+          description: Пусто — применим ко всем классам.
+        enum_values:
+          type: array
+          items: {type: string}
+        condition_sets:
+          type: array
+          items: {$ref: "#/components/schemas/ConditionSet"}
+    AttributeDef:
+      type: object
+      required: [code, name, type, sort_order, is_active, kinds, enum_values]
+      properties:
+        code: {type: string}
+        name: {type: string}
+        group: {type: string}
+        type: {type: string, enum: [text, bool, int, number, enum]}
+        unit: {type: string}
+        validation_rule: {type: string}
+        sort_order: {type: integer}
+        is_active: {type: boolean}
+        kinds:
+          type: array
+          items: {type: string}
+        enum_values:
+          type: array
+          items: {type: string}
+    SystemDef:
+      type: object
+      required: [code, name]
+      properties:
+        code: {type: string}
+        name: {type: string}
+        description: {type: string}
+    SystemKindRef:
+      type: object
+      required: [system, kind]
+      properties:
+        system: {type: string}
+        kind: {type: string}
+    SeriesFamily:
+      type: object
+      required: [series, kind]
+      properties:
+        series: {type: string}
+        kind: {type: string}
+        name: {type: string}
+        tail_semantic: {type: string, enum: ["", power]}
+    RuleDef:
+      type: object
+      required: [code, description]
+      properties:
+        code: {type: string}
+        description: {type: string}
+    KindRuleRef:
+      type: object
+      required: [kind, rule]
+      properties:
+        kind: {type: string}
+        rule: {type: string}
+    CatalogSnapshot:
+      type: object
+      required: [revision, kinds, systems, system_kinds, series_families, units, conditions, groups, parameters, attributes, rules, kind_rules]
+      properties:
+        revision: {type: integer, format: int64, description: catalog_revision.}
+        kinds:
+          type: array
+          items: {$ref: "#/components/schemas/KindDef"}
+        systems:
+          type: array
+          items: {$ref: "#/components/schemas/SystemDef"}
+        system_kinds:
+          type: array
+          items: {$ref: "#/components/schemas/SystemKindRef"}
+        series_families:
+          type: array
+          items: {$ref: "#/components/schemas/SeriesFamily"}
+        units:
+          type: array
+          items: {$ref: "#/components/schemas/UnitDef"}
+        conditions:
+          type: array
+          items: {$ref: "#/components/schemas/ConditionDef"}
+        groups:
+          type: array
+          items: {$ref: "#/components/schemas/GroupDef"}
+        parameters:
+          type: array
+          items: {$ref: "#/components/schemas/ParameterDef"}
+        attributes:
+          type: array
+          items: {$ref: "#/components/schemas/AttributeDef"}
+        rules:
+          type: array
+          items: {$ref: "#/components/schemas/RuleDef"}
+        kind_rules:
+          type: array
+          items: {$ref: "#/components/schemas/KindRuleRef"}

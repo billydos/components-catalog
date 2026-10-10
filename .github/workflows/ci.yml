@@ -1,0 +1,113 @@
+name: CI
+
+on:
+  - push
+  - pull_request
+
+jobs:
+  qa-linux-sqlite:
+    name: QA (linux, SQLite, load x10000)
+    runs-on: ubuntu-latest
+    env:
+      CATALOG_QA_SCALE: "10000"
+      CATALOG_QA_DIALECT: sqlite
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+      - name: Setup Go
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+      - name: QA report marker
+        run: touch "$RUNNER_TEMP/qa-report.marker"
+      - name: QA (build, vet, gofmt, test, scenarios, load)
+        run: go run ./qa/runner
+      - name: Collect current QA report
+        if: always()
+        run: |
+          mkdir -p qa-artifact
+          find qa/reports -maxdepth 1 -name '*.log' -newer "$RUNNER_TEMP/qa-report.marker" -exec cp -t qa-artifact/ {} +
+      - name: Upload QA report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          if-no-files-found: ignore
+          name: qa-report-linux-sqlite
+          path: qa-artifact/*.log
+
+  qa-linux-postgres:
+    name: QA (linux, PostgreSQL, load x10000)
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: catalog_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      CATALOG_TEST_POSTGRES_DSN: postgres://postgres:postgres@localhost:5432/catalog_test
+      CATALOG_QA_SCALE: "10000"
+      CATALOG_QA_DIALECT: postgres
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+      - name: Setup Go
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+      - name: QA report marker
+        run: touch "$RUNNER_TEMP/qa-report.marker"
+      - name: QA (build, vet, gofmt, test, scenarios, load)
+        run: go run ./qa/runner
+      - name: Collect current QA report
+        if: always()
+        run: |
+          mkdir -p qa-artifact
+          find qa/reports -maxdepth 1 -name '*.log' -newer "$RUNNER_TEMP/qa-report.marker" -exec cp -t qa-artifact/ {} +
+      - name: Upload QA report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          if-no-files-found: ignore
+          name: qa-report-linux-postgres
+          path: qa-artifact/*.log
+
+  qa-windows:
+    name: QA (windows, SQLite, load x10000)
+    runs-on: windows-latest
+    env:
+      CATALOG_QA_SCALE: "10000"
+      CATALOG_QA_DIALECT: sqlite
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+      - name: Setup Go
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+      - name: QA report marker
+        run: New-Item -Path "$env:RUNNER_TEMP/qa-report.marker" -ItemType File | Out-Null
+      - name: QA (build, vet, gofmt, test, scenarios, load)
+        run: go run ./qa/runner
+      - name: Collect current QA report
+        if: always()
+        run: |
+          New-Item -ItemType Directory -Force qa-artifact | Out-Null
+          $marker = Get-Item "$env:RUNNER_TEMP/qa-report.marker"
+          Get-ChildItem qa/reports -Filter *.log |
+            Where-Object { $_.LastWriteTime -gt $marker.LastWriteTime } |
+            Copy-Item -Destination qa-artifact
+      - name: Upload QA report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          if-no-files-found: ignore
+          name: qa-report-windows
+          path: qa-artifact/*.log
