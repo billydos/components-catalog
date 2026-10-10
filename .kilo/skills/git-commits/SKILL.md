@@ -1,88 +1,94 @@
 ---
 name: git-commits
-description: Составление сообщений коммитов git: формат Conventional Commits type(scope) с заголовком и телом на английском, вывод type/scope из диффа и структуры репозитория, правила атомарности и чеклист перед git commit. Не зависит от проекта; использовать при подготовке, написании или проверке commit messages в любом репозитории.
+description: Writing git commit messages: Conventional Commits type(scope) format with English header and body, deriving type/scope from the diff and repository structure, atomicity rules and a pre-commit checklist. Project-independent; use when preparing, writing, or reviewing commit messages in any repository.
 ---
 
-# Коммиты git (git-commits)
+# Git commits (git-commits)
 
-Сообщения коммитов — на английском, формат Conventional Commits. Заголовок пишется вручную по диффу, а не копируется из вывода команд.
+Commit messages are written in English using the Conventional Commits format. The header is written manually from the diff, not copied from command output.
 
-## Заголовок
+## Header
 
 ```
 type(scope): short imperative summary
 ```
 
-- Описание — английский императив, со строчной буквы, без точки в конце: `add`, `fix`, `support`, не `added`/`fixes`.
-- Длина до 50 символов — цель, 72 — жёсткий потолок (вместе с `type(scope): `).
-- Ломающее изменение — `!` после type/scope (`feat!:` или `feat(api)!:`) и обязательная строка `BREAKING CHANGE: ...` в подвале.
+- Summary in English imperative, lowercase, no trailing period: `add`, `fix`, `support`, not `added`/`fixes`.
+- Length up to 50 characters is the target, 72 is a hard limit (including `type(scope): `).
+- Breaking change — `!` after type/scope (`feat!:` or `feat(api)!:`) plus a mandatory `BREAKING CHANGE: ...` line in the footer.
 
-### type — характер изменения
+### type — nature of the change
 
-| type | когда |
+| type | when |
 |---|---|
-| `feat` | новая функциональность (команда CLI, эндпоинт API, формат данных) |
-| `fix` | исправление ошибки (падение, неверный разбор, некорректное поведение) |
-| `docs` | только документация |
-| `refactor` | перестройка кода без изменения поведения |
-| `test` | только тесты |
-| `perf` | ускорение без изменения поведения |
-| `build` | манифесты зависимостей, сборочная обвязка |
-| `ci` | конфигурации CI |
-| `style` | только форматирование, пробелы, переносы |
-| `chore` | обслуживание: служебные файлы, скрипты, данные |
-| `revert` | откат предыдущего коммита |
+| `feat` | new functionality (CLI command, API endpoint, data format) |
+| `fix` | bug fix (crash, incorrect parsing, wrong behavior) |
+| `docs` | documentation only |
+| `refactor` | code restructuring without behavior change |
+| `test` | tests only |
+| `perf` | speedup without behavior change |
+| `build` | dependency manifests, build tooling |
+| `ci` | CI configurations |
+| `style` | formatting, whitespace, line breaks only |
+| `chore` | maintenance: auxiliary files, scripts, data |
+| `revert` | rollback of a previous commit |
 
-### scope — часть репозитория по путям диффа
+### scope — part of the repository by diff paths
 
-Scope не фиксирован, выводится из структуры конкретного репозитория:
+Scope is not fixed; it is derived from the structure of the specific repository:
 
-1. Правила проекта приоритетнее: проверить AGENTS.md, CONTRIBUTING, соседние скиллы — там может быть закреплён список scope.
-2. Нет своих правил — согласоваться с историей (`git log --oneline -20`) и использовать уже встречающиеся scope.
-3. Нет истории и правил — брать осмысленные части репозитория из путей диффа: верхнеуровневые каталоги, пакеты, модули, компоненты.
+1. Project rules take priority: check AGENTS.md, CONTRIBUTING, neighboring skills — a scope list may be pinned there.
+2. No project rules — align with history and reuse scopes already encountered there: `git log --oneline -20` globally, or `git log --oneline -20 -- <path>` scoped to the touched area.
+3. No history and no rules — take meaningful parts of the repository from the diff paths: top-level directories, packages, modules, components.
 
-Затронуто несколько частей — берётся доминирующая; нет доминирующей — scope опускается. Один коммит с четырьмя scope — сигнал, что изменение не атомарно.
+Multiple parts affected — take the dominant one; no dominant part — omit the scope. One commit needing four scopes is a signal the change is not atomic.
 
-## Тело
+## Body
 
-- Отвечает «что и почему», а не «как»: «как» видно из диффа.
-- Перенос ~72 символа, абзацы разделять пустой строкой.
-- Обязательно, когда: меняется контракт (API, формат данных, коды ошибок, локализация), меняется схема хранения или требуется миграция, причина нетривиальна (обход особенности инструмента, обновление зависимости), затронуто несколько частей репозитория.
-- Подвал (после пустой строки): `BREAKING CHANGE: описание`, `Closes #N`, `Co-authored-by: Name <email>`.
+- Answers "what and why", not "how": the "how" is visible from the diff.
+- Wrap at ~72 characters, separate paragraphs with a blank line.
+- Required when:
+  - a contract changes (API, data format, error codes, localization);
+  - the storage schema changes or a migration is required;
+  - the reason is non-trivial (working around a tool quirk, updating a dependency);
+  - multiple parts of the repository are affected.
+- Footer (after a blank line): `BREAKING CHANGE: description`, `Closes #N`, `Co-authored-by: Name <email>`.
+- Match the repository's trailer conventions (`Co-authored-by` vs `Signed-off-by`, issue refs) — check them against its history before use.
 
-## Правила построения
+## Core rules
 
-1. **Атомарность** — одно смысловое изменение на коммит: код + его тесты вместе; рефакторинг отдельно от изменения поведения; правка форматирования (`style`) отдельно от `feat`/`fix`; документация отдельно, если она не является частью изменения.
-2. **Staged — осознанно**: stage конкретными путями, перед коммитом просмотреть `git diff --cached`; не пользоваться вслепую `git add -A`.
-3. **Не коммитить никогда**: секреты и ключи, временные и служебные файлы, артефакты из `.gitignore`.
-4. **Коммит — только по явной просьбе пользователя**; сообщения черновиком не предлагать без запроса.
-5. Не amend/force-push опубликованные коммиты, не переписывать историю без явного запроса; merge- и revert-коммиты не переформулировать (у revert в заголовке — хеш отбрасываемого коммита).
-6. Пустые коммиты не создавать; упавший хук — починить причину и закоммитить заново, не `--no-verify`.
+1. **Atomicity** — one meaningful change per commit: code + its tests together; refactoring separate from behavior changes; formatting fixes (`style`) separate from `feat`/`fix`; documentation separate unless it is part of the change.
+2. **Stage deliberately**: stage by specific paths, review `git diff --cached` before committing; never `git add -A` blindly.
+3. **Never commit**: secrets and keys, temporary and auxiliary files, artifacts covered by `.gitignore`.
+4. **Commit only on explicit user request**; do not propose draft messages unprompted.
+5. Do not amend/force-push published commits and do not rewrite history without an explicit request; do not reword merge and revert commits — keep git's default revert message (`Revert "<subject>"` header, `This reverts commit <hash>.` in the body).
+6. Do not create empty commits; when a hook fails — fix the cause and commit again, never `--no-verify`.
 
-## Порядок составления
+## Workflow
 
-1. `git status`, `git diff`, `git diff --cached`, `git log --oneline -10` (стиль и контекст).
-2. Изучить правила репозитория про коммиты и проверки: AGENTS.md, CONTRIBUTING, конфигурацию CI.
-3. По характеру изменения выбрать `type`, по путям и правилам репозитория — `scope`, сформулировать заголовок.
-4. Определить, нужно ли тело (критерии выше), написать при необходимости.
-5. Проверки (см. чеклист), stage нужных файлов, коммит.
+1. `git status`, `git diff`, `git diff --cached`, `git log --oneline -10` (style and context).
+2. Choose `type` from the nature of the change and `scope` from the diff paths and repository rules (scope section above), then formulate the header.
+3. Decide whether the body is needed (criteria above) and write it if required.
+4. Stage the files and commit after passing the checklist below.
 
-## Чеклист перед `git commit`
+## Checklist before `git commit`
 
-- [ ] Прошли проверки проекта: команды build/lint/test из AGENTS.md, README или CI-конфигурации; если команды неизвестны — спросить у пользователя.
-- [ ] `git diff --cached` просмотрен: в коммите только задуманное, нет секретов, артефактов и мусора.
-- [ ] Заголовок: английский императив, ≤ 50 (потолок 72), без точки.
-- [ ] `type` и `scope` соответствуют правилам репозитория (или выведены по правилам выше).
+- [ ] Project checks passed: build/lint/test commands from AGENTS.md, README, or the CI configuration; if the commands are unknown — ask the user.
+- [ ] `git diff --cached` reviewed: the commit contains only what was intended — no secrets, artifacts, or junk.
+- [ ] Header: English imperative, ≤ 50 (hard limit 72), no trailing period.
+- [ ] `type` and `scope` match the repository's rules (or are derived by the rules above).
 
-Многострочное сообщение — несколькими `-m` (переносимо между оболочками):
+Multi-line message — several `-m` flags (portable across shells):
 
 ```
-git commit -m "feat(importer): accept yaml data files" -m "Map .yaml/.yml to the same section tree as jsonc. Validation and ordered-key semantics are shared with the jsonc reader."
+git commit -m "feat(importer): accept yaml data files" -m "Map .yaml/.yml to the same section tree as jsonc." -m "Validation and ordered-key semantics are shared with the jsonc reader."
 ```
 
-## Примеры
+Each `-m` flag is a separate paragraph; keep every paragraph within the ~72-character wrap.
 
-Хорошие:
+## Examples
+
+Good headers:
 
 ```
 feat(api): add pagination to list endpoint
@@ -90,6 +96,11 @@ fix(parser): reject empty config as user error
 refactor(core): extract config loading
 docs: expand troubleshooting section
 chore(deps): bump dependencies
+```
+
+A complete message with a breaking change (header, body, footer):
+
+```
 feat(api)!: drop legacy id parameters
 
 Replace opaque ids with slugs across public endpoints.
@@ -98,17 +109,17 @@ BREAKING CHANGE: clients must migrate to slug-based URLs; the old
 ids stop resolving after this change.
 ```
 
-Плохие:
+Bad:
 
 ```
-fix: fix parser bug              — тип дублирует глагол, нет scope, «bug» ни о чём
-update files                     — не императив, не видно что изменилось
-Feat(Domain): Added parameter.   — заглавные, прошедшее время, точка
+fix: fix parser bug              — type duplicates the verb, no scope, "bug" says nothing
+update files                     — not imperative, unclear what changed
+Feat(Domain): Added parameter.   — capitalized, past tense, trailing period
 ```
 
-## Особые случаи
+## Special cases
 
-- **Частично staged** (`git add -p`): сообщение описывает только staged-часть; про unstaged-остаток — отдельный коммит.
-- **Синхронные правки**: если проект требует менять связанные места вместе (код + тесты + документация контракта, схема + версия, ключи локализации + бандлы) — это один коммит; коммитить только одну сторону нельзя.
-- **Генерируемое вместе с исходником**: сгенерированные файлы, которые нельзя коммитить отдельно от источника, — вместе с ним, одним изменением.
-- **`fixup`** к только что сделанному коммиту до публикации: допустим отдельный коммит с пометкой `fixup! <заголовок>` либо (по запросу пользователя) amend.
+- **Partially staged** (`git add -p`): the message describes only the staged part; the unstaged remainder goes into a separate commit.
+- **Coupled edits**: if the project requires changing related places together (code + tests + contract documentation, schema + version, localization keys + bundles) — that is one commit; committing only one side is not allowed.
+- **Generated files tied to their source**: generated files that must not be committed separately from their source go together with it, as one change.
+- **`fixup`** to a just-made, unpublished commit: acceptable as a separate commit marked `fixup! <header>` (collapse it with `git rebase -i --autosquash` before publishing), or (on user request) as an amend.
