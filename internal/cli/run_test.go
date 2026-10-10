@@ -499,8 +499,12 @@ func TestInitMasksPostgresPassword(t *testing.T) {
 	if code != 0 || stderr != "" {
 		t.Fatalf("init postgres: код %d, %q, %q", code, stdout, stderr)
 	}
-	if strings.Contains(stdout, secret) {
-		t.Fatalf("init печатает пароль postgres: %q", stdout)
+	// Утечка — исходный DSN в выводе. Голое значение пароля не годится как
+	// признак утечки: оно может совпадать с другими частями DSN (CI:
+	// postgres://postgres:postgres@…) и присутствовать в замаскированном
+	// выводе законно.
+	if strings.Contains(stdout, dsn) {
+		t.Fatalf("init печатает исходный DSN postgres: %q", stdout)
 	}
 	if !strings.Contains(stdout, "***") {
 		t.Fatalf("init не маскирует пароль postgres: %q", stdout)
