@@ -12,6 +12,8 @@ go build ./... && go vet ./... && gofmt -l . && go test ./...
 
 `gofmt -l .` обязан быть пуст. CI (`.github/workflows/ci.yml`) прогоняет кроссплатформенный QA-прогонщик `go run ./qa/runner` тремя джобами: linux на SQLite, linux со службой PostgreSQL и windows на SQLite — каждая с нагрузочной прикидкой `CATALOG_QA_SCALE=10000`; отчёт прогона — структурный лог `qa/reports/*.log` (формат `qa-log/1`). Локальный прогон интеграционных тестов на PostgreSQL — задать `CATALOG_TEST_POSTGRES_DSN` (без переменной нога пропускается; `go test ./...` — с `-p 1`: одноразовая база одна на все пакеты, параллельные пакеты конфликтуют на DROP/CREATE таблиц; прогонщик `qa/runner` добавляет флаг сам).
 
+Релизы: пуш тега `v*` запускает `.github/workflows/release.yml` — проверку (тег обязан указывать на коммит в истории `main`; build, vet, gofmt, test), кросс-сборку `catalogctl` (CGO_ENABLED=0: linux/windows/darwin × amd64/arm64, архивы tar.gz/zip) и публикацию GitHub Release с контрольными суммами (`checksums.txt`, авто-заметки по Conventional Commits). Полный QA-матрицей на том же пуше тега прогоняет обычный CI.
+
 ## Слои и зависимости
 
 - `internal/domain` — обозначения, единицы (коды), классы, ошибки; не знает БД и форматов.
