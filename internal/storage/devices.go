@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"sort"
 	"strings"
 
 	"github.com/billydos/components-catalog/internal/domain"
@@ -380,291 +381,385 @@ ORDER BY t.designation`,
 	return out, rows.Err()
 }
 
-// Пакетное чтение карточек: по одному SELECT с device_id IN (…) на таблицу,
-// группировка по записям — в Go (образец — loadSearchFields); порядок строк
-// внутри записи — как у одиночных загрузчиков.
+// Пакетное чтение карточек: по одному SELECT с device_id IN (…) на таблицу
+// на чанк списка (предел maxInList аргументов оператора), группировка по
+// записям — в Go (образец — loadSearchFields); порядок строк внутри записи
+// — как у одиночных загрузчиков.
 
 // FindDevicesByIDs — записи по списку стабильных id (параллельно удалённые
 // в результате отсутствуют; порядок строк — по id).
 func (d *DB) FindDevicesByIDs(ctx context.Context, ids []int64) ([]*DeviceRow, error) {
+	return findDevicesByIDs(ctx, d.reads, ids)
+}
+
+func (t *Tx) FindDevicesByIDs(ctx context.Context, ids []int64) ([]*DeviceRow, error) {
+	return findDevicesByIDs(ctx, t.tx, ids)
+}
+
+func findDevicesByIDs(ctx context.Context, q queryer, ids []int64) ([]*DeviceRow, error) {
 	if len(ids) == 0 {
 		return nil, nil
 	}
-	args := make(map[string]any, len(ids))
-	rows, err := d.query(ctx, `
+	var out []*DeviceRow
+	err := eachIDChunk(ids, func(chunk []int64) error {
+		args := make(map[string]any, len(chunk))
+		rows, err := queryContext(ctx, q, `
 SELECT id, kind_code, system_code, designation FROM devices
-WHERE id IN `+inList("id", ids, args)+` ORDER BY id`, args)
+WHERE id IN `+inList("id", chunk, args)+` ORDER BY id`, args)
+		if err != nil {
+			return err
+		}
+		defer rows.Close()
+		for rows.Next() {
+			var r DeviceRow
+			if err := rows.Scan(&r.ID, &r.Kind, &r.System, &r.Designation); err != nil {
+				return err
+			}
+			out = append(out, &r)
+		}
+		return rows.Err()
+	})
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
-	var out []*DeviceRow
-	for rows.Next() {
-		var r DeviceRow
-		if err := rows.Scan(&r.ID, &r.Kind, &r.System, &r.Designation); err != nil {
-			return nil, err
-		}
-		out = append(out, &r)
-	}
-	return out, rows.Err()
+	sort.Slice(out, func(i, j int) bool { return out[i].ID < out[j].ID })
+	return out, nil
 }
 
 // LoadFieldsByIDs — поля разбора обозначений по списку записей.
 func (d *DB) LoadFieldsByIDs(ctx context.Context, ids []int64) (map[int64][]domain.Field, error) {
+	return loadFieldsByIDs(ctx, d.reads, ids)
+}
+
+func (t *Tx) LoadFieldsByIDs(ctx context.Context, ids []int64) (map[int64][]domain.Field, error) {
+	return loadFieldsByIDs(ctx, t.tx, ids)
+}
+
+func loadFieldsByIDs(ctx context.Context, q queryer, ids []int64) (map[int64][]domain.Field, error) {
 	if len(ids) == 0 {
 		return nil, nil
 	}
-	args := make(map[string]any, len(ids))
-	rows, err := d.query(ctx, `
-SELECT device_id, field, text_value, num_value FROM device_designation_fields
-WHERE device_id IN `+inList("id", ids, args)+` ORDER BY device_id, field`, args)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
 	out := make(map[int64][]domain.Field, len(ids))
-	for rows.Next() {
-		var id int64
-		var name string
-		var text sql.NullString
-		var num sql.NullFloat64
-		if err := rows.Scan(&id, &name, &text, &num); err != nil {
-			return nil, err
+	err := eachIDChunk(ids, func(chunk []int64) error {
+		args := make(map[string]any, len(chunk))
+		rows, err := queryContext(ctx, q, `
+SELECT device_id, field, text_value, num_value FROM device_designation_fields
+WHERE device_id IN `+inList("id", chunk, args)+` ORDER BY device_id, field`, args)
+		if err != nil {
+			return err
 		}
-		switch {
-		case text.Valid:
-			out[id] = append(out[id], domain.TextField(name, text.String))
-		case num.Valid:
-			out[id] = append(out[id], domain.NumField(name, num.Float64))
-		default:
-			out[id] = append(out[id], domain.TextField(name, ""))
+		defer rows.Close()
+		for rows.Next() {
+			var id int64
+			var name string
+			var text sql.NullString
+			var num sql.NullFloat64
+			if err := rows.Scan(&id, &name, &text, &num); err != nil {
+				return err
+			}
+			switch {
+			case text.Valid:
+				out[id] = append(out[id], domain.TextField(name, text.String))
+			case num.Valid:
+				out[id] = append(out[id], domain.NumField(name, num.Float64))
+			default:
+				out[id] = append(out[id], domain.TextField(name, ""))
+			}
 		}
-	}
-	return out, rows.Err()
+		return rows.Err()
+	})
+	return out, err
 }
 
 // LoadAttributesByIDs — значения атрибутов по списку записей.
 func (d *DB) LoadAttributesByIDs(ctx context.Context, ids []int64) (map[int64][]AttrRow, error) {
+	return loadAttributesByIDs(ctx, d.reads, ids)
+}
+
+func (t *Tx) LoadAttributesByIDs(ctx context.Context, ids []int64) (map[int64][]AttrRow, error) {
+	return loadAttributesByIDs(ctx, t.tx, ids)
+}
+
+func loadAttributesByIDs(ctx context.Context, q queryer, ids []int64) (map[int64][]AttrRow, error) {
 	if len(ids) == 0 {
 		return nil, nil
 	}
-	args := make(map[string]any, len(ids))
-	rows, err := d.query(ctx, `
+	out := make(map[int64][]AttrRow, len(ids))
+	err := eachIDChunk(ids, func(chunk []int64) error {
+		args := make(map[string]any, len(chunk))
+		rows, err := queryContext(ctx, q, `
 SELECT device_id, attribute_code, text_value, num_value, bool_value
 FROM device_attribute_values
-WHERE device_id IN `+inList("id", ids, args)+` ORDER BY device_id, attribute_code`, args)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	out := make(map[int64][]AttrRow, len(ids))
-	for rows.Next() {
-		var id int64
-		var r AttrRow
-		var text sql.NullString
-		var num sql.NullFloat64
-		var b sql.NullInt64
-		if err := rows.Scan(&id, &r.Attribute, &text, &num, &b); err != nil {
-			return nil, err
+WHERE device_id IN `+inList("id", chunk, args)+` ORDER BY device_id, attribute_code`, args)
+		if err != nil {
+			return err
 		}
-		if text.Valid {
-			s := text.String
-			r.Text = &s
+		defer rows.Close()
+		for rows.Next() {
+			var id int64
+			var r AttrRow
+			var text sql.NullString
+			var num sql.NullFloat64
+			var b sql.NullInt64
+			if err := rows.Scan(&id, &r.Attribute, &text, &num, &b); err != nil {
+				return err
+			}
+			if text.Valid {
+				s := text.String
+				r.Text = &s
+			}
+			if num.Valid {
+				f := num.Float64
+				r.Num = &f
+			}
+			if b.Valid {
+				v := b.Int64 != 0
+				r.Bool = &v
+			}
+			out[id] = append(out[id], r)
 		}
-		if num.Valid {
-			f := num.Float64
-			r.Num = &f
-		}
-		if b.Valid {
-			v := b.Int64 != 0
-			r.Bool = &v
-		}
-		out[id] = append(out[id], r)
-	}
-	return out, rows.Err()
+		return rows.Err()
+	})
+	return out, err
 }
 
 // LoadValuesByIDs — все значения параметров (тип в целом и исполнения)
 // с условиями по списку записей; порядок строк внутри записи — как у
 // LoadValues.
 func (d *DB) LoadValuesByIDs(ctx context.Context, ids []int64) (map[int64][]ValueRow, error) {
+	return loadValuesByIDs(ctx, d.reads, ids)
+}
+
+func (t *Tx) LoadValuesByIDs(ctx context.Context, ids []int64) (map[int64][]ValueRow, error) {
+	return loadValuesByIDs(ctx, t.tx, ids)
+}
+
+func loadValuesByIDs(ctx context.Context, q queryer, ids []int64) (map[int64][]ValueRow, error) {
 	if len(ids) == 0 {
 		return nil, nil
 	}
-	args := make(map[string]any, len(ids))
-	rows, err := d.query(ctx, `
+	out := make(map[int64][]ValueRow, len(ids))
+	pos := make(map[int64]int) // parameter_values.id → индекс в out[device_id]
+	err := eachIDChunk(ids, func(chunk []int64) error {
+		args := make(map[string]any, len(chunk))
+		rows, err := queryContext(ctx, q, `
 SELECT pv.device_id, pv.id, pv.variant_id, pv.parameter_code, pv.value_exact, pv.value_min,
        pv.value_max, pv.value_text, pvc.condition_code, pvc.value
 FROM parameter_values pv
 LEFT JOIN parameter_value_conditions pvc ON pvc.parameter_value_id = pv.id
-WHERE pv.device_id IN `+inList("id", ids, args)+`
+WHERE pv.device_id IN `+inList("id", chunk, args)+`
 ORDER BY pv.device_id, (CASE WHEN pv.variant_id IS NULL THEN 0 ELSE 1 END),
          pv.variant_id, pv.sort_order, pv.id, pvc.condition_code`, args)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	out := make(map[int64][]ValueRow, len(ids))
-	pos := make(map[int64]int) // parameter_values.id → индекс в out[device_id]
-	for rows.Next() {
-		var devID, id int64
-		var variant sql.NullInt64
-		var parameter string
-		var exact, minv, maxv sql.NullFloat64
-		var text sql.NullString
-		var condCode sql.NullString
-		var condValue sql.NullFloat64
-		if err := rows.Scan(&devID, &id, &variant, &parameter, &exact, &minv, &maxv, &text,
-			&condCode, &condValue); err != nil {
-			return nil, err
+		if err != nil {
+			return err
 		}
-		idx, ok := pos[id]
-		if !ok {
-			vr := ValueRow{Value: ParamValue{Parameter: parameter}}
-			if variant.Valid {
-				vid := variant.Int64
-				vr.VariantID = &vid
+		defer rows.Close()
+		for rows.Next() {
+			var devID, id int64
+			var variant sql.NullInt64
+			var parameter string
+			var exact, minv, maxv sql.NullFloat64
+			var text sql.NullString
+			var condCode sql.NullString
+			var condValue sql.NullFloat64
+			if err := rows.Scan(&devID, &id, &variant, &parameter, &exact, &minv, &maxv, &text,
+				&condCode, &condValue); err != nil {
+				return err
 			}
-			if exact.Valid {
-				f := exact.Float64
-				vr.Value.Exact = &f
+			idx, ok := pos[id]
+			if !ok {
+				vr := ValueRow{Value: ParamValue{Parameter: parameter}}
+				if variant.Valid {
+					vid := variant.Int64
+					vr.VariantID = &vid
+				}
+				if exact.Valid {
+					f := exact.Float64
+					vr.Value.Exact = &f
+				}
+				if minv.Valid {
+					f := minv.Float64
+					vr.Value.Min = &f
+				}
+				if maxv.Valid {
+					f := maxv.Float64
+					vr.Value.Max = &f
+				}
+				if text.Valid {
+					s := text.String
+					vr.Value.Text = &s
+				}
+				out[devID] = append(out[devID], vr)
+				pos[id] = len(out[devID]) - 1
+				idx = pos[id]
 			}
-			if minv.Valid {
-				f := minv.Float64
-				vr.Value.Min = &f
+			if condCode.Valid && condValue.Valid {
+				slice := out[devID]
+				slice[idx].Value.Conditions = append(slice[idx].Value.Conditions,
+					Cond{Code: condCode.String, Value: condValue.Float64})
 			}
-			if maxv.Valid {
-				f := maxv.Float64
-				vr.Value.Max = &f
-			}
-			if text.Valid {
-				s := text.String
-				vr.Value.Text = &s
-			}
-			out[devID] = append(out[devID], vr)
-			pos[id] = len(out[devID]) - 1
-			idx = pos[id]
 		}
-		if condCode.Valid && condValue.Valid {
-			slice := out[devID]
-			slice[idx].Value.Conditions = append(slice[idx].Value.Conditions,
-				Cond{Code: condCode.String, Value: condValue.Float64})
-		}
-	}
-	return out, rows.Err()
+		return rows.Err()
+	})
+	return out, err
 }
 
 // LoadVariantsByIDs — исполнения по списку записей.
 func (d *DB) LoadVariantsByIDs(ctx context.Context, ids []int64) (map[int64][]VariantRow, error) {
+	return loadVariantsByIDs(ctx, d.reads, ids)
+}
+
+func (t *Tx) LoadVariantsByIDs(ctx context.Context, ids []int64) (map[int64][]VariantRow, error) {
+	return loadVariantsByIDs(ctx, t.tx, ids)
+}
+
+func loadVariantsByIDs(ctx context.Context, q queryer, ids []int64) (map[int64][]VariantRow, error) {
 	if len(ids) == 0 {
 		return nil, nil
 	}
-	args := make(map[string]any, len(ids))
-	rows, err := d.query(ctx, `
-SELECT device_id, id, label, sort_order FROM device_variants
-WHERE device_id IN `+inList("id", ids, args)+` ORDER BY device_id, sort_order, id`, args)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
 	out := make(map[int64][]VariantRow, len(ids))
-	for rows.Next() {
-		var id int64
-		var r VariantRow
-		var label sql.NullString
-		if err := rows.Scan(&id, &r.ID, &label, &r.SortOrder); err != nil {
-			return nil, err
+	err := eachIDChunk(ids, func(chunk []int64) error {
+		args := make(map[string]any, len(chunk))
+		rows, err := queryContext(ctx, q, `
+SELECT device_id, id, label, sort_order FROM device_variants
+WHERE device_id IN `+inList("id", chunk, args)+` ORDER BY device_id, sort_order, id`, args)
+		if err != nil {
+			return err
 		}
-		r.Label = nullableStr(label)
-		out[id] = append(out[id], r)
-	}
-	return out, rows.Err()
+		defer rows.Close()
+		for rows.Next() {
+			var id int64
+			var r VariantRow
+			var label sql.NullString
+			if err := rows.Scan(&id, &r.ID, &label, &r.SortOrder); err != nil {
+				return err
+			}
+			r.Label = nullableStr(label)
+			out[id] = append(out[id], r)
+		}
+		return rows.Err()
+	})
+	return out, err
 }
 
 // LoadManufacturersByIDs — производители по списку записей.
 func (d *DB) LoadManufacturersByIDs(ctx context.Context, ids []int64) (map[int64][]string, error) {
+	return loadManufacturersByIDs(ctx, d.reads, ids)
+}
+
+func (t *Tx) LoadManufacturersByIDs(ctx context.Context, ids []int64) (map[int64][]string, error) {
+	return loadManufacturersByIDs(ctx, t.tx, ids)
+}
+
+func loadManufacturersByIDs(ctx context.Context, q queryer, ids []int64) (map[int64][]string, error) {
 	if len(ids) == 0 {
 		return nil, nil
 	}
-	args := make(map[string]any, len(ids))
-	rows, err := d.query(ctx, `
+	out := make(map[int64][]string, len(ids))
+	err := eachIDChunk(ids, func(chunk []int64) error {
+		args := make(map[string]any, len(chunk))
+		rows, err := queryContext(ctx, q, `
 SELECT dm.device_id, m.name FROM manufacturers m
 JOIN device_manufacturers dm ON dm.manufacturer_id = m.id
-WHERE dm.device_id IN `+inList("id", ids, args)+` ORDER BY dm.device_id, m.name`, args)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	out := make(map[int64][]string, len(ids))
-	for rows.Next() {
-		var id int64
-		var name string
-		if err := rows.Scan(&id, &name); err != nil {
-			return nil, err
+WHERE dm.device_id IN `+inList("id", chunk, args)+` ORDER BY dm.device_id, m.name`, args)
+		if err != nil {
+			return err
 		}
-		out[id] = append(out[id], name)
-	}
-	return out, rows.Err()
+		defer rows.Close()
+		for rows.Next() {
+			var id int64
+			var name string
+			if err := rows.Scan(&id, &name); err != nil {
+				return err
+			}
+			out[id] = append(out[id], name)
+		}
+		return rows.Err()
+	})
+	return out, err
 }
 
 // LoadOutgoingAnalogsByIDs — исходящие ссылки-аналоги по списку записей.
 func (d *DB) LoadOutgoingAnalogsByIDs(ctx context.Context, ids []int64) (map[int64][]AnalogRow, error) {
+	return loadOutgoingAnalogsByIDs(ctx, d.reads, ids)
+}
+
+func (t *Tx) LoadOutgoingAnalogsByIDs(ctx context.Context, ids []int64) (map[int64][]AnalogRow, error) {
+	return loadOutgoingAnalogsByIDs(ctx, t.tx, ids)
+}
+
+func loadOutgoingAnalogsByIDs(ctx context.Context, q queryer, ids []int64) (map[int64][]AnalogRow, error) {
 	if len(ids) == 0 {
 		return nil, nil
 	}
-	args := make(map[string]any, len(ids))
-	rows, err := d.query(ctx, `
+	out := make(map[int64][]AnalogRow, len(ids))
+	err := eachIDChunk(ids, func(chunk []int64) error {
+		args := make(map[string]any, len(chunk))
+		rows, err := queryContext(ctx, q, `
 SELECT a.device_id, a.analog_device_id, t.designation, t.system_code, a.note
 FROM device_analogs a
 JOIN devices t ON t.id = a.analog_device_id
-WHERE a.device_id IN `+inList("id", ids, args)+` ORDER BY a.device_id, t.designation`, args)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	out := make(map[int64][]AnalogRow, len(ids))
-	for rows.Next() {
-		var id int64
-		var r AnalogRow
-		var note sql.NullString
-		if err := rows.Scan(&id, &r.TargetID, &r.Designation, &r.System, &note); err != nil {
-			return nil, err
+WHERE a.device_id IN `+inList("id", chunk, args)+`
+ORDER BY a.device_id, t.designation`, args)
+		if err != nil {
+			return err
 		}
-		r.Note = nullableStr(note)
-		out[id] = append(out[id], r)
-	}
-	return out, rows.Err()
+		defer rows.Close()
+		for rows.Next() {
+			var id int64
+			var r AnalogRow
+			var note sql.NullString
+			if err := rows.Scan(&id, &r.TargetID, &r.Designation, &r.System, &note); err != nil {
+				return err
+			}
+			r.Note = nullableStr(note)
+			out[id] = append(out[id], r)
+		}
+		return rows.Err()
+	})
+	return out, err
 }
 
 // LoadBacklinksByIDs — встречные ссылки («кто указал запись аналогом») по
 // списку записей, индекс по analog_device_id (docs/plan/02-database.md §3).
 func (d *DB) LoadBacklinksByIDs(ctx context.Context, ids []int64) (map[int64][]BacklinkRow, error) {
+	return loadBacklinksByIDs(ctx, d.reads, ids)
+}
+
+func (t *Tx) LoadBacklinksByIDs(ctx context.Context, ids []int64) (map[int64][]BacklinkRow, error) {
+	return loadBacklinksByIDs(ctx, t.tx, ids)
+}
+
+func loadBacklinksByIDs(ctx context.Context, q queryer, ids []int64) (map[int64][]BacklinkRow, error) {
 	if len(ids) == 0 {
 		return nil, nil
 	}
-	args := make(map[string]any, len(ids))
-	rows, err := d.query(ctx, `
+	out := make(map[int64][]BacklinkRow, len(ids))
+	err := eachIDChunk(ids, func(chunk []int64) error {
+		args := make(map[string]any, len(chunk))
+		rows, err := queryContext(ctx, q, `
 SELECT a.analog_device_id, a.device_id, s.kind_code, s.designation, s.system_code, a.note
 FROM device_analogs a
 JOIN devices s ON s.id = a.device_id
-WHERE a.analog_device_id IN `+inList("id", ids, args)+`
+WHERE a.analog_device_id IN `+inList("id", chunk, args)+`
 ORDER BY a.analog_device_id, s.designation`, args)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	out := make(map[int64][]BacklinkRow, len(ids))
-	for rows.Next() {
-		var id int64
-		var r BacklinkRow
-		var note sql.NullString
-		if err := rows.Scan(&id, &r.SourceID, &r.Kind, &r.Designation, &r.System, &note); err != nil {
-			return nil, err
+		if err != nil {
+			return err
 		}
-		r.Note = nullableStr(note)
-		out[id] = append(out[id], r)
-	}
-	return out, rows.Err()
+		defer rows.Close()
+		for rows.Next() {
+			var id int64
+			var r BacklinkRow
+			var note sql.NullString
+			if err := rows.Scan(&id, &r.SourceID, &r.Kind, &r.Designation, &r.System, &note); err != nil {
+				return err
+			}
+			r.Note = nullableStr(note)
+			out[id] = append(out[id], r)
+		}
+		return rows.Err()
+	})
+	return out, err
 }
 
 // Запись (только внутри транзакции).
@@ -673,7 +768,9 @@ ORDER BY a.analog_device_id, s.designation`, args)
 // с признаком вставки. Вставка атомарно подавляет конфликт уникальности
 // (kind_code, designation): параллельный писатель (postgres — общий пул
 // соединений; sqlite-писатель один) успел вставить то же обозначение —
-// вставки не происходит, id перечитывается по ключу.
+// вставки не происходит, id перечитывается по ключу. Строка, не видная
+// перечитыванию (изоляция сервера выше READ COMMITTED), — доменная
+// ошибка вместо сырого ErrNoRows драйвера.
 func (t *Tx) InsertDevice(ctx context.Context, kind domain.Kind, system domain.System, designation string) (int64, bool, error) {
 	id, inserted, err := t.InsertIfAbsentReturningID(ctx, `
 INSERT INTO devices(kind_code, system_code, designation)
@@ -688,6 +785,10 @@ VALUES (@kind, @system, @designation)`,
 	err = t.queryRow(ctx, `
 SELECT id FROM devices WHERE kind_code = @kind AND designation = @designation`,
 		map[string]any{"kind": string(kind), "designation": designation}).Scan(&id)
+	if errors.Is(err, sql.ErrNoRows) {
+		return 0, false, domain.NewErrorf(domain.CodeInternal, domain.MsgStorageRereadMissing,
+			"devices(kind = "+string(kind)+", designation = "+designation+")")
+	}
 	if err != nil {
 		return 0, false, err
 	}
@@ -723,7 +824,7 @@ VALUES `)
 				args[fmt.Sprintf("n%d", i)] = nil
 			}
 		}
-		if _, err := t.exec(ctx, sb.String()+" ON CONFLICT DO NOTHING", args); err != nil {
+		if _, err := t.exec(ctx, withOnConflict(sb.String()), args); err != nil {
 			return err
 		}
 	}
@@ -914,20 +1015,30 @@ VALUES (@id, @label, @sort)`,
 
 // ReplaceManufacturers заменяет список производителей целиком: связи
 // пересоздаются, недостающие строки manufacturers создаются, производители
-// без единой связи удаляются (чистка сирот). Создание строки производителя
-// атомарно подавляет конфликт уникальности имени: параллельный писатель
-// успел вставить то же имя — id перечитывается по имени.
+// этого устройства, оставшиеся без единой связи, удаляются (адресная
+// чистка сирот — только затронутые заменой строки: полный анти-джойн
+// растущей таблицы на каждую замену делал импорт квадратичным; индекс
+// idx_dm_manufacturer держит проверку «без связей» точечной). Создание
+// строки производителя атомарно подавляет конфликт уникальности имени:
+// параллельный писатель успел вставить то же имя — id перечитывается
+// по имени.
 func (t *Tx) ReplaceManufacturers(ctx context.Context, deviceID int64, names []string) error {
+	old, err := t.manufacturersOf(ctx, deviceID)
+	if err != nil {
+		return err
+	}
 	if _, err := t.exec(ctx,
 		`DELETE FROM device_manufacturers WHERE device_id = @id`,
 		map[string]any{"id": deviceID}); err != nil {
 		return err
 	}
+	linked := make(map[int64]bool, len(names))
 	for _, name := range names {
 		mid, err := t.manufacturerID(ctx, name)
 		if err != nil {
 			return err
 		}
+		linked[mid] = true
 		if _, err := t.InsertIfAbsent(ctx, `
 INSERT INTO device_manufacturers(device_id, manufacturer_id)
 VALUES (@id, @mid)`,
@@ -935,12 +1046,41 @@ VALUES (@id, @mid)`,
 			return err
 		}
 	}
-	return t.deleteOrphanManufacturers(ctx)
+	candidates := make([]int64, 0, len(old))
+	for _, mid := range old {
+		if !linked[mid] {
+			candidates = append(candidates, mid)
+		}
+	}
+	return t.deleteOrphanManufacturers(ctx, candidates)
+}
+
+// manufacturersOf возвращает производителей записи до замены связей —
+// кандидаты адресной чистки сирот.
+func (t *Tx) manufacturersOf(ctx context.Context, deviceID int64) ([]int64, error) {
+	rows, err := t.query(ctx,
+		`SELECT manufacturer_id FROM device_manufacturers WHERE device_id = @id`,
+		map[string]any{"id": deviceID})
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []int64
+	for rows.Next() {
+		var mid int64
+		if err := rows.Scan(&mid); err != nil {
+			return nil, err
+		}
+		out = append(out, mid)
+	}
+	return out, rows.Err()
 }
 
 // manufacturerID возвращает id производителя по имени, создавая строку при
 // отсутствии; конкурентное создание той же строки подавляется (проигранная
-// гонка), id перечитывается по имени.
+// гонка), id перечитывается по имени. Строка, не видная перечитыванием
+// (изоляция сервера выше READ COMMITTED), — доменная ошибка, а не сырой
+// ErrNoRows драйвера.
 func (t *Tx) manufacturerID(ctx context.Context, name string) (int64, error) {
 	id, inserted, err := t.InsertIfAbsentReturningID(ctx,
 		`INSERT INTO manufacturers(name) VALUES (@name)`,
@@ -954,6 +1094,10 @@ func (t *Tx) manufacturerID(ctx context.Context, name string) (int64, error) {
 	err = t.queryRow(ctx,
 		`SELECT id FROM manufacturers WHERE name = @name`,
 		map[string]any{"name": name}).Scan(&id)
+	if errors.Is(err, sql.ErrNoRows) {
+		return 0, domain.NewErrorf(domain.CodeInternal, domain.MsgStorageRereadMissing,
+			"manufacturers(name = "+name+")")
+	}
 	return id, err
 }
 
@@ -981,12 +1125,16 @@ VALUES (@id, @target, @note)`,
 // DeleteDevice удаляет запись (каскад FK по всем дочерним таблицам,
 // включая обе стороны device_analogs) и чистит сирот производителей.
 func (t *Tx) DeleteDevice(ctx context.Context, deviceID int64) error {
+	orphans, err := t.manufacturersOf(ctx, deviceID)
+	if err != nil {
+		return err
+	}
 	if _, err := t.exec(ctx,
 		`DELETE FROM devices WHERE id = @id`,
 		map[string]any{"id": deviceID}); err != nil {
 		return err
 	}
-	return t.deleteOrphanManufacturers(ctx)
+	return t.deleteOrphanManufacturers(ctx, orphans)
 }
 
 // DeleteDeviceByKey удаляет запись по ключу (kind_code, designation)
@@ -1010,6 +1158,29 @@ SELECT id FROM devices WHERE designation = @designation ORDER BY kind_code LIMIT
 }
 
 func (t *Tx) deleteDeviceWhere(ctx context.Context, cond string, args map[string]any) (int64, error) {
+	// Кандидаты адресной чистки сирот — производители удаляемых записей,
+	// собираются до удаления (каскад FK уберёт их связи вместе с записями).
+	rows, err := t.query(ctx,
+		`SELECT dm.manufacturer_id FROM device_manufacturers dm
+JOIN devices d ON d.id = dm.device_id WHERE `+cond, args)
+	if err != nil {
+		return 0, err
+	}
+	var orphans []int64
+	for rows.Next() {
+		var mid int64
+		if err := rows.Scan(&mid); err != nil {
+			rows.Close()
+			return 0, err
+		}
+		orphans = append(orphans, mid)
+	}
+	if err := rows.Err(); err != nil {
+		rows.Close()
+		return 0, err
+	}
+	rows.Close()
+
 	res, err := t.exec(ctx, `DELETE FROM devices WHERE `+cond, args)
 	if err != nil {
 		return 0, err
@@ -1021,16 +1192,28 @@ func (t *Tx) deleteDeviceWhere(ctx context.Context, cond string, args map[string
 	if n == 0 {
 		return 0, nil
 	}
-	return n, t.deleteOrphanManufacturers(ctx)
+	return n, t.deleteOrphanManufacturers(ctx, orphans)
 }
 
-// deleteOrphanManufacturers удаляет производителей без единой связи
-// (NOT IN по device_manufacturers — переносимо).
-func (t *Tx) deleteOrphanManufacturers(ctx context.Context) error {
-	_, err := t.exec(ctx, `
+// deleteOrphanManufacturers удаляет перечисленных производителей без
+// единой связи: адресная проверка NOT EXISTS по индексу
+// device_manufacturers(manufacturer_id), без полного анти-джойна таблицы.
+func (t *Tx) deleteOrphanManufacturers(ctx context.Context, ids []int64) error {
+	seen := make(map[int64]bool, len(ids))
+	for _, mid := range ids {
+		if seen[mid] {
+			continue
+		}
+		seen[mid] = true
+		if _, err := t.exec(ctx, `
 DELETE FROM manufacturers
-WHERE id NOT IN (SELECT manufacturer_id FROM device_manufacturers)`, nil)
-	return err
+WHERE id = @id AND NOT EXISTS (
+    SELECT 1 FROM device_manufacturers dm WHERE dm.manufacturer_id = @id)`,
+			map[string]any{"id": mid}); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // CountDevices возвращает число записей (класса, если задан).
@@ -1051,8 +1234,17 @@ func (d *DB) CountDevices(ctx context.Context, kind domain.Kind) (int, error) {
 // CountDevicesByKind — числа записей по классам одним GROUP BY-запросом
 // (агрегат /stats); классы без записей в результате отсутствуют.
 func (d *DB) CountDevicesByKind(ctx context.Context) (map[string]int, error) {
-	rows, err := d.query(ctx, `
-SELECT kind_code, COUNT(*) FROM devices GROUP BY kind_code`, nil)
+	return countDevicesByKind(ctx, d.reads)
+}
+
+// CountDevicesByKind в текущей транзакции — согласованный агрегат /stats.
+func (t *Tx) CountDevicesByKind(ctx context.Context) (map[string]int, error) {
+	return countDevicesByKind(ctx, t.tx)
+}
+
+func countDevicesByKind(ctx context.Context, q queryer) (map[string]int, error) {
+	rows, err := queryContext(ctx, q,
+		`SELECT kind_code, COUNT(*) FROM devices GROUP BY kind_code`, nil)
 	if err != nil {
 		return nil, err
 	}

@@ -243,3 +243,25 @@ func TestParseForSystem(t *testing.T) {
 		t.Errorf("неизвестный класс:\n got:  %s\n want: %s", err.Error(), want)
 	}
 }
+
+// Позиции ошибок канонизации — в координатах echoing-строки (с
+// внутренними пробелами), которую показывает сообщение.
+func TestCanonicalizePositionsEchoSpaces(t *testing.T) {
+	_, err := domain.Canonicalize("К Т 3#5")
+	de, ok := domain.AsError(err)
+	if !ok || de.MsgID != domain.MsgCanonicalBadRune {
+		t.Fatalf("ожидалась canonical_bad_rune, получено %v", err)
+	}
+	if got := de.Args[1]; got != 6 {
+		t.Fatalf("позиция %v, ожидалась 6 («#» в echoing-строке «К Т 3#5»)", got)
+	}
+
+	_, err = domain.Canonicalize("МЛТ BC")
+	de, ok = domain.AsError(err)
+	if !ok || de.MsgID != domain.MsgCanonicalAlphabetMix {
+		t.Fatalf("ожидалась canonical_alphabet_mix, получено %v", err)
+	}
+	if got := de.Args[1]; got != 5 {
+		t.Fatalf("позиция %v, ожидалась 5 («B» в echoing-строке «МЛТ BC»)", got)
+	}
+}

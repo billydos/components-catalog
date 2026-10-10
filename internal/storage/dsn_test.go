@@ -32,6 +32,15 @@ func TestMaskDSN(t *testing.T) {
 		{"keyword repeated", "host=h password=FIRST password=SECOND dbname=d",
 			"host=h password=*** password=*** dbname=d"},
 		{"url userinfo without host", "postgres://user:secret", "***"},
+		{"url password with slash", "postgres://user:se/cr@host/db", "***"},
+		{"url password with question", "postgres://user:se?cr@host/db", "***"},
+		{"url password with hash", "postgres://user:se#cr@host/db", "***"},
+		{"url host port without userinfo", "postgres://host:5432/db",
+			"postgres://host:5432/db"},
+		{"keyword password inside quoted value", `host=h user='u password=x' dbname=d`,
+			`host=h user='u password=x' dbname=d`},
+		{"keyword double-quoted password", `host=h password="two words" dbname=d`,
+			`host=h password=*** dbname=d`},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {

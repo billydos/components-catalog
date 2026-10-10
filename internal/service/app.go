@@ -2,10 +2,10 @@ package service
 
 import (
 	"context"
-	"fmt"
 	"log/slog"
 
 	"github.com/billydos/components-catalog/internal/catalog"
+	"github.com/billydos/components-catalog/internal/domain"
 	"github.com/billydos/components-catalog/internal/storage"
 	"github.com/billydos/components-catalog/seed"
 )
@@ -120,17 +120,19 @@ func (a *App) Revisions(ctx context.Context) (catalogRev, dataRev int64, err err
 }
 
 // seedIfEmpty применяет сиды каталога на пустую базу (kinds пуста) —
-// повторные запуски идемпотентны (upsert по коду).
+// повторные запуски идемпотентны (upsert по коду). Ошибки — доменные
+// (seed_failed): классификация CLI и локализация работают как у прочих
+// ожидаемых ошибок.
 func (a *App) seedIfEmpty(ctx context.Context) error {
 	n, err := a.db.CountKinds(ctx)
 	if err != nil {
-		return fmt.Errorf("сидирование: %w", err)
+		return domain.NewErrorf(domain.CodeSeedFailed, domain.MsgSeedFailed, err.Error())
 	}
 	if n > 0 {
 		return nil
 	}
 	if err := a.catalogSvc.Import(ctx, seed.Catalog()); err != nil {
-		return fmt.Errorf("сидирование: %w", err)
+		return domain.NewErrorf(domain.CodeSeedFailed, domain.MsgSeedFailed, err.Error())
 	}
 	return nil
 }

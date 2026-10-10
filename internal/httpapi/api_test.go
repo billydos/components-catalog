@@ -343,7 +343,7 @@ func TestStats(t *testing.T) {
 		t.Fatalf("статус: %d", status)
 	}
 	st := decode[statsJSON](t, body)
-	if st.SchemaVersion != 6 || st.Total != 4 || st.Kinds["transistor"] != 2 || st.Kinds["capacitor"] != 1 {
+	if st.SchemaVersion != 7 || st.Total != 4 || st.Kinds["transistor"] != 2 || st.Kinds["capacitor"] != 1 {
 		t.Fatalf("статистика: %+v", st)
 	}
 	if st.CatalogRevision == 0 || st.DataRevision == 0 {
@@ -1074,5 +1074,18 @@ func TestRoutesMatchSpec(t *testing.T) {
 		if _, ok := implEndpoints[ep]; !ok {
 			t.Errorf("маршрут спецификации %s %s не реализован", ep.method, ep.path)
 		}
+	}
+}
+
+// Строка запроса, которую не разбирает url.ParseQuery («;» между
+// параметрами), — 400, а не молчаливый поиск без фильтров.
+func TestSearchInvalidQueryStringRejected(t *testing.T) {
+	_, srv := newTestAPI(t, Config{})
+	status, body, _ := do(t, srv, http.MethodGet, apiPrefix+"/components?kind=transistor;q=x", "")
+	if status != http.StatusBadRequest {
+		t.Fatalf("статус: %d, тело: %s", status, body)
+	}
+	if !strings.Contains(string(body), "api_query_invalid") && !strings.Contains(string(body), "query") {
+		t.Fatalf("тело: %s", body)
 	}
 }

@@ -15,8 +15,9 @@ import (
 // Run выполняет команду catalogctl и возвращает код выхода
 // (docs/plan/04-module-functionality.md §3). Общие опции: --dialect, --db,
 // --dsn, --kind, --system, --dry-run, --lang en|ru (локаль вывода — D9,
-// по умолчанию en); ожидаемые ошибки выводятся с префиксом «Ошибка: »,
-// прочие — «Непредвиденная ошибка: », код выхода 1.
+// по умолчанию en); опции задаются после команды. Ожидаемые ошибки
+// выводятся с префиксом «Ошибка: », прочие — «Непредвиденная ошибка: »,
+// код выхода 1.
 func Run(args []string, stdout, stderr io.Writer) int {
 	if len(args) == 0 {
 		fmt.Fprint(stderr, usageText(i18n.En))
@@ -27,11 +28,21 @@ func Run(args []string, stdout, stderr io.Writer) int {
 		return runHelp(args[1:], stdout, stderr)
 	}
 	earlyLang := langFromArgs(args)
+	if strings.HasPrefix(name, "-") {
+		// Опции до команды («catalogctl --db X count») — не «неизвестная
+		// команда», а явная подсказка позиции опций.
+		PrintError(stderr, earlyLang, domain.NewErrorf(domain.CodeValidationFailed,
+			domain.MsgCliOptionsAfterCmd, name))
+		return 1
+	}
 	cmd, ok := commands[name]
 	if !ok {
 		PrintError(stderr, earlyLang, domain.NewErrorf(domain.CodeValidationFailed,
 			domain.MsgCliUnknownCommand, name))
 		return 1
+	}
+	if cmd.subcommands != nil {
+		return runSubcommands(name, cmd, args[1:], stdout, stderr)
 	}
 	opts, pos, err := parseArgs(name, cmd.flags, args[1:])
 	if err != nil {
@@ -49,13 +60,17 @@ func Run(args []string, stdout, stderr io.Writer) int {
 	return cmd.run(ctx, opts, pos, stdout, stderr)
 }
 
-// command — команда CLI: разбор аргументов и исполнение.
+// command — команда CLI: разбор аргументов и исполнение. Подкоманды
+// (subcommands != nil) разбираются по собственным наборам флагов —
+// объединённый набор принимал бы флаги соседних подкоманд и молча
+// игнорировал их.
 type command struct {
-	usage   string
-	flags   []flagSpec
-	minArgs int
-	maxArgs int
-	run     func(ctx context.Context, opts *options, pos []string, stdout, stderr io.Writer) int
+	usage       string
+	flags       []flagSpec
+	minArgs     int
+	maxArgs     int
+	subcommands map[string]*command
+	run         func(ctx context.Context, opts *options, pos []string, stdout, stderr io.Writer) int
 }
 
 // flagSpec — флаг команды: hasValue — флаг принимает значение
@@ -130,9 +145,98 @@ var commands = map[string]*command{
 	"count": {usage: "count [--kind] [--db]", flags: append([]flagSpec{kindFlag}, dbFlags...), minArgs: 0, maxArgs: 0, run: runCount},
 	"export": {usage: "export [--kind] [--format jsonc|yaml|ndjson] [--db]",
 		flags: append([]flagSpec{kindFlag, {name: "format", hasValue: true}}, dbFlags...), minArgs: 0, maxArgs: 0, run: runExport},
-	"catalog": {usage: "catalog export [<файл>] [--format] [--db] | catalog import <файл> [--dry-run] [--db] | catalog list [--db]",
-		flags:   append([]flagSpec{{name: "format", hasValue: true}, dryRunFlag}, dbFlags...),
-		minArgs: 1, maxArgs: 2, run: runCatalog},
+	// Подкоманды каталога несут собственные наборы флагов (строгость:
+	// флаг соседней подкоманды — ошибка, а не молчаливое игнорирование).
+	"catalog": {usage: "catalog export [<файл>] [--format jsonc|yaml|ndjson] [--db] | catalog import <файл> [--dry-run] [--db] | catalog list [--db]",
+		subcommands: map[string]*command{
+			"export": {usage: "catalog export [<файл>] [--format jsonc|yaml|ndjson] [--db]",
+				flags:   append([]flagSpec{{name: "format", hasValue: true}}, dbFlags...),
+				minArgs: 0, maxArgs: 1, run: runCatalog},
+			"import": {usage: "catalog import <файл> [--dry-run] [--db]",
+				flags:   append([]flagSpec{dryRunFlag}, dbFlags...),
+				minArgs: 1, maxArgs: 1, run: runCatalog},
+			"list": {usage: "catalog list [--db]",
+				flags: dbFlags, minArgs: 0, maxArgs: 0, run: runCatalog},
+		}},
+}
+
+// runSubcommands — разбор команды с подкомандами: первая позиционная
+// лексема выбирает подкоманду (флаги могут стоять и до неё — пропускаются
+// по объединению наборов), остаток разбирается набором подкоманды.
+func runSubcommands(name string, cmd *command, args []string, stdout, stderr io.Writer) int {
+	earlyLang := langFromArgs(args)
+	union := make([]flagSpec, 0, 8)
+	seen := map[string]bool{}
+	addAll := func(specs []flagSpec) {
+		for _, s := range specs {
+			if !seen[s.name] {
+				seen[s.name] = true
+				union = append(union, s)
+			}
+		}
+	}
+	for _, sub := range cmd.subcommands {
+		addAll(sub.flags)
+	}
+	subName, rest, ok := firstPositional(union, args)
+	if !ok {
+		PrintError(stderr, earlyLang, domain.NewErrorf(domain.CodeValidationFailed,
+			domain.MsgCliArgCount, name, cmd.usage))
+		return 1
+	}
+	sub, known := cmd.subcommands[subName]
+	if !known {
+		PrintError(stderr, earlyLang, domain.NewErrorf(domain.CodeValidationFailed,
+			domain.MsgCliUnknownCommand, name+" "+subName))
+		return 1
+	}
+	full := name + " " + subName
+	opts, pos, err := parseArgs(full, sub.flags, rest)
+	if err != nil {
+		PrintError(stderr, earlyLang, err)
+		return 1
+	}
+	tooFew := len(pos) < sub.minArgs
+	tooMany := sub.maxArgs >= 0 && len(pos) > sub.maxArgs
+	if tooFew || tooMany {
+		PrintError(stderr, earlyLang, domain.NewErrorf(domain.CodeValidationFailed,
+			domain.MsgCliArgCount, full, sub.usage))
+		return 1
+	}
+	pos = append([]string{subName}, pos...)
+	return sub.run(context.Background(), opts, pos, stdout, stderr)
+}
+
+// firstPositional ищет первую позиционную лексему (подкоманду), пропуская
+// флаги: значение флага, принимающего значение, — не позиция; после «--»
+// всё позиционно.
+func firstPositional(specs []flagSpec, args []string) (string, []string, bool) {
+	byName := make(map[string]bool, len(specs))
+	hasValue := make(map[string]bool, len(specs))
+	for _, s := range specs {
+		byName[s.name] = true
+		hasValue[s.name] = s.hasValue
+	}
+	for i := 0; i < len(args); i++ {
+		arg := args[i]
+		if arg == "--" {
+			if i+2 < len(args) {
+				return args[i+1], args[i+2:], true
+			}
+			return "", nil, false
+		}
+		if !strings.HasPrefix(arg, "--") {
+			return arg, args[i+1:], true
+		}
+		name := strings.TrimPrefix(arg, "--")
+		if eq := strings.IndexByte(name, '='); eq >= 0 {
+			name = name[:eq]
+		}
+		if hasValue[name] && !strings.Contains(arg, "=") {
+			i++ // значение флага — не позиция
+		}
+	}
+	return "", nil, false
 }
 
 // parseArgs разбирает аргументы команды: флаги в любой позиции
@@ -150,11 +254,17 @@ func parseArgs(cmd string, specs []flagSpec, args []string) (*options, []string,
 			pos = append(pos, args[i+1:]...)
 			break
 		}
-		if !strings.HasPrefix(arg, "-") || arg == "-" {
+		if !strings.HasPrefix(arg, "--") {
+			if strings.HasPrefix(arg, "-") && arg != "-" {
+				// одиночный либо утроенный дефис: «-lang», «---lang» —
+				// не форма флага, неизвестный флаг с этим именем.
+				return nil, nil, domain.NewErrorf(domain.CodeValidationFailed,
+					domain.MsgCliUnknownFlag, strings.TrimLeft(arg, "-"), cmd, cmd)
+			}
 			pos = append(pos, arg)
 			continue
 		}
-		name := strings.TrimLeft(arg, "-")
+		name := arg[2:]
 		value := ""
 		hasValue := false
 		if eq := strings.IndexByte(name, '='); eq >= 0 {
@@ -168,7 +278,9 @@ func parseArgs(cmd string, specs []flagSpec, args []string) (*options, []string,
 		}
 		if spec.hasValue {
 			if !hasValue {
-				if i+1 >= len(args) {
+				if i+1 >= len(args) || strings.HasPrefix(args[i+1], "--") {
+					// Значение обязательно и не может быть следующим
+					// флагом («--kind --system» — не kind="--system").
 					return nil, nil, domain.NewErrorf(domain.CodeValidationFailed,
 						domain.MsgCliFlagValueRequired, name)
 				}
@@ -254,20 +366,31 @@ func (o *options) set(cmd, name, value string) error {
 }
 
 // dsnOf — строка подключения: --dsn приоритетнее --db (путь sqlite);
-// по умолчанию catalog.db в текущем каталоге.
-func (o *options) dsnOf() (dialect, dsn string) {
-	dialect = o.dialect
+// по умолчанию catalog.db в текущем каталоге. --dsn postgres://… без
+// --dialect выводит диалект из схемы DSN, а противоречие с явным
+// --dialect sqlite — ошибка с подсказкой: молчаливая трактовка строки
+// postgres как пути sqlite-файла даёт непрозрачную ошибку драйвера.
+func (o *options) dsnOf() (string, string, error) {
+	dialect := o.dialect
 	if dialect == "" {
 		dialect = "sqlite"
 	}
-	dsn = o.dsn
+	dsn := o.dsn
 	if dsn == "" {
 		dsn = o.db
 	}
 	if dsn == "" && dialect == "sqlite" {
 		dsn = "catalog.db"
 	}
-	return dialect, dsn
+	if strings.HasPrefix(dsn, "postgres://") || strings.HasPrefix(dsn, "postgresql://") {
+		if o.dialect == "" {
+			dialect = "postgres"
+		} else if dialect != "postgres" {
+			return "", "", domain.NewErrorf(domain.CodeValidationFailed,
+				domain.MsgCliDsnDialect, dialect)
+		}
+	}
+	return dialect, dsn, nil
 }
 
 // hasDB — явно задана база (флаги --db/--dsn/--dialect).
@@ -277,7 +400,10 @@ func (o *options) hasDB() bool { return o.db != "" || o.dsn != "" || o.dialect !
 // (создание схемы и сиды на пустую базу), команды чтения требуют
 // инициализированную базу.
 func openApp(ctx context.Context, o *options, ensure bool) (*service.App, error) {
-	dialect, dsn := o.dsnOf()
+	dialect, dsn, err := o.dsnOf()
+	if err != nil {
+		return nil, err
+	}
 	if dialect != "sqlite" && dialect != "postgres" {
 		return nil, domain.NewErrorf(domain.CodeValidationFailed,
 			domain.MsgCliDialectUnknown, dialect)

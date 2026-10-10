@@ -11,7 +11,6 @@ package main
 import (
 	"context"
 	"database/sql"
-	"strings"
 
 	_ "github.com/jackc/pgx/v5/stdlib"
 	_ "modernc.org/sqlite"
@@ -19,15 +18,11 @@ import (
 	"github.com/billydos/components-catalog/internal/storage"
 )
 
-// pgDetail — деталь проверки с классом ошибки и маскированным DSN:
-// драйвер включает строку подключения в текст ошибки «best effort»,
-// пароль не должен попадать в закоммичаемый отчёт.
-func pgDetail(where string, err error, dsn string) string {
-	msg := err.Error()
-	if dsn != "" {
-		msg = strings.ReplaceAll(msg, dsn, storage.MaskDSN(dsn))
-	}
-	return where + ": " + msg
+// pgDetail — деталь проверки с классом ошибки подключения; маскировку
+// секрета DSN в тексте ошибки драйвера выполняет единая граница отчёта
+// (mask.go).
+func pgDetail(where string, err error) string {
+	return where + ": " + err.Error()
 }
 
 // resetPostgres очищает одноразовую базу; ok=false — база недоступна
@@ -36,7 +31,7 @@ func resetPostgres(ctx context.Context, r *report, dsn string) bool {
 	db, err := sql.Open("pgx", dsn)
 	if err != nil {
 		r.check("postgres/reset", "очистка одноразовой базы PostgreSQL", false,
-			pgDetail("open", err, dsn))
+			pgDetail("open", err))
 		return false
 	}
 	defer db.Close() //nolint:errcheck — подключение только для очистки
@@ -44,7 +39,7 @@ func resetPostgres(ctx context.Context, r *report, dsn string) bool {
 	defer cancel()
 	if err := db.PingContext(pingCtx); err != nil {
 		r.check("postgres/reset", "очистка одноразовой базы PostgreSQL", false,
-			pgDetail("ping", err, dsn))
+			pgDetail("ping", err))
 		return false
 	}
 	for _, tbl := range storage.TableNames() {
@@ -53,7 +48,7 @@ func resetPostgres(ctx context.Context, r *report, dsn string) bool {
 		cancel()
 		if err != nil {
 			r.check("postgres/reset", "очистка одноразовой базы PostgreSQL", false,
-				pgDetail("drop "+tbl, err, dsn))
+				pgDetail("drop "+tbl, err))
 			return false
 		}
 	}

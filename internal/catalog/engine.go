@@ -179,11 +179,16 @@ func (e *Engine) validateValues(kind domain.Kind, vals []ParameterValue) []Probl
 				p.Code, string(kind)))
 			continue
 		}
-		if v.Section != "" {
-			if g, ok := e.snap.Group(p.Group); ok && g.SectionName != v.Section {
-				probs = append(probs, Problemf(domain.CodeValidationFailed, domain.MsgEngineParamWrongSection,
-					p.Code, v.Section, g.SectionName))
+		// Секция значения обязательна и принадлежит группе параметра:
+		// пустая секция — не «без проверки», а несоответствие (значения
+		// исполнений строятся с секцией так же, как значения типа).
+		if g, ok := e.snap.Group(p.Group); !ok || g.SectionName != v.Section {
+			want := ""
+			if g, ok := e.snap.Group(p.Group); ok {
+				want = g.SectionName
 			}
+			probs = append(probs, Problemf(domain.CodeValidationFailed, domain.MsgEngineParamWrongSection,
+				p.Code, v.Section, want))
 		}
 		probs = append(probs, checkValueShape(p, v)...)
 		probs = append(probs, e.checkValueConditions(p, v)...)

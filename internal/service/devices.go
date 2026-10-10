@@ -29,11 +29,13 @@ type resolvedAnalog struct {
 type PendingDesignations func(kind domain.Kind, designation string) bool
 
 // Upsert применяет запись наполнения с семантикой секций
-// (docs/plan/02-database.md §6): разбор обозначения → транзакция → слитое
-// состояние (вход + текущие секции) → валидация движком → каноническое
-// сравнение (совпадение — Skipped без записи в БД и без инкремента
-// ревизий) → применение секций целиком + инкремент data_revision.
-// Ошибка в любом значении секции — запись не применяется вовсе.
+// (docs/plan/02-database.md §6): разбор обозначения → слитое
+// состояние (вход + текущие секции) → каноническое сравнение (побайтово
+// тот же вход — Skipped до валидации, без записи в БД и без инкремента
+// ревизий: эволюция каталога не делает существующие записи неотрекаемыми)
+// → валидация движком → применение секций целиком + инкремент
+// data_revision. Ошибка в любом значении секции — запись не применяется
+// вовсе.
 func (s *DeviceService) Upsert(ctx context.Context, in DeviceInput) (Outcome, error) {
 	return s.applyUpsert(ctx, in, nil, nil, true, false)
 }
@@ -108,13 +110,16 @@ func (s *DeviceService) applyUpsert(ctx context.Context, in DeviceInput,
 	}
 	merger := &stateMerger{snap: snap}
 
-	tx, err := s.app.db.Begin(ctx)
-	if err != nil {
-		return "", err
-	}
-	defer tx.Rollback() //nolint:errcheck — откат нефиксированной транзакции
-
-	dev, err := tx.FindDevice(ctx, p.Kind, p.Designation)
+	// Фаза чтения — транзакция пула чтения: проверки без DML не занимают
+	// выделенное соединение записи (SQLite) и не блокируют писателей.
+	dev, cur, merged, analogs, err := func() (*storage.DeviceRow, *deviceState, *deviceState, []resolvedAnalog, error) {
+		rtx, err := s.app.db.BeginReadOnly(ctx)
+		if err != nil {
+			return nil, nil, nil, nil, err
+		}
+		defer rtx.Rollback() //nolint:errcheck — откат транзакции чтения
+		return s.readMerged(ctx, rtx, merger, p, &in, explicit, pending)
+	}()
 	if err != nil {
 		return "", err
 	}
@@ -122,56 +127,143 @@ func (s *DeviceService) applyUpsert(ctx context.Context, in DeviceInput,
 		return "", domain.NewErrorf(domain.CodeAlreadyExists,
 			domain.MsgSvcRecordAlreadyExists, p.Designation)
 	}
+	// Каноническое сравнение до валидации: побайтово тот же вход — Skipped
+	// без записи в БД и без инкремента ревизий — эволюция каталога
+	// (деактивация параметра/атрибута) не делает существующие записи
+	// неотрекаемыми; изменённый upsert по-прежнему валидируется и может
+	// быть отвергнут (значения деактивированных параметров секции
+	// заменяются на актуальные — ограничение зафиксировано в плане 04).
+	if outcome, err, done := skippedOrValidated(merger, snap, p, dev, cur, merged); done {
+		return outcome, err
+	}
+	outcome := OutcomeUpdatedExisting
+	if dev == nil {
+		outcome = OutcomeAdded
+	}
+	if !write {
+		return outcome, nil // dry-run: записи нет — транзакция чтения откатится
+	}
 
-	var analogs []resolvedAnalog
-	if in.Analogs != nil {
-		analogs, err = resolveAnalogs(ctx, tx, p.Kind, p.Designation, *in.Analogs, pending)
+	// Фаза записи — атомарная транзакция записи: состояние перечитывается
+	// (между фазами мог писать конкурент), валидация повторяется по
+	// текущему состоянию. Свежесть снимка валидации перепроверяется
+	// ревизией в самой транзакции: при дрейфе транзакция откатывается,
+	// снимок обновляется из кэша ВНЕ соединения записи (DB-чтение внутри
+	// Tx самоблокируется на :memory:/MaxOpen=1 — db.go) и попытка
+	// повторяется по свежему снимку; коды групп стабильны (каталог
+	// эволюционирует добавлением и деактивацией), слитое состояние
+	// пересобирать не нужно. Повторный дрейф — гонка ничтожного окна:
+	// попытка продолжается с текущим снимком.
+	for attempt := 0; ; attempt++ {
+		tx, err := s.app.db.Begin(ctx)
 		if err != nil {
 			return "", err
 		}
+		dev, cur, merged, analogs, err = s.readMerged(ctx, tx, merger, p, &in, explicit, pending)
+		if err != nil {
+			tx.Rollback() //nolint:errcheck — откат нефиксированной транзакции
+			return "", err
+		}
+		if snapOverride == nil {
+			rev, rerr := tx.CatalogRevision(ctx)
+			if rerr != nil {
+				tx.Rollback() //nolint:errcheck — откат нефиксированной транзакции
+				return "", rerr
+			}
+			if rev != snap.Revision && attempt == 0 {
+				tx.Rollback() //nolint:errcheck — откат нефиксированной транзакции
+				fresh, ferr := s.app.cache.Snapshot(ctx)
+				if ferr != nil {
+					return "", ferr
+				}
+				snap = fresh
+				merger = &stateMerger{snap: snap}
+				continue
+			}
+			// Повторный дрейф (вторая попытка уже на свежем снимке) —
+			// гонка ничтожного окна, продолжаем с текущим снимком.
+		}
+		if dev != nil && createOnly {
+			tx.Rollback() //nolint:errcheck — откат нефиксированной транзакции
+			return "", domain.NewErrorf(domain.CodeAlreadyExists,
+				domain.MsgSvcRecordAlreadyExists, p.Designation)
+		}
+		if outcome, err, done := skippedOrValidatedCommit(merger, snap, p, tx, dev, cur, merged); done {
+			return outcome, err
+		}
+		if dev == nil {
+			return OutcomeAdded, s.writeUpsert(ctx, tx, 0, p, in, cur, merged, explicit, analogs, snap, createOnly)
+		}
+		return OutcomeUpdatedExisting, s.writeUpsert(ctx, tx, dev.ID, p, in, cur, merged, explicit, analogs, snap, false)
 	}
+}
 
+// readMerged читает запись в транзакции (чтения либо записи) и строит
+// слитое состояние: поиск по ключу, текущие секции, разрешение аналогов.
+func (s *DeviceService) readMerged(ctx context.Context, tx *storage.Tx, merger *stateMerger,
+	p domain.ParsedDesignation, in *DeviceInput, explicit []domain.Field,
+	pending PendingDesignations) (*storage.DeviceRow, *deviceState, *deviceState, []resolvedAnalog, error) {
+	dev, err := tx.FindDevice(ctx, p.Kind, p.Designation)
+	if err != nil {
+		return nil, nil, nil, nil, err
+	}
 	var cur *deviceState
 	if dev != nil {
 		cur, err = merger.loadState(ctx, tx, dev.ID, p)
 		if err != nil {
-			return "", err
+			return nil, nil, nil, nil, err
 		}
 	} else {
 		cur = &deviceState{groupValues: make(map[string][]stateValue)}
 	}
-
+	var analogs []resolvedAnalog
+	if in.Analogs != nil {
+		analogs, err = resolveAnalogs(ctx, tx, p.Kind, p.Designation, *in.Analogs, pending)
+		if err != nil {
+			return nil, nil, nil, nil, err
+		}
+	}
 	var stateAnalogs []stateAnalog
 	for _, a := range analogs {
 		stateAnalogs = append(stateAnalogs, stateAnalog{Designation: a.designation, Note: a.note})
 	}
-	merged := merger.merge(cur, &in, explicit, stateAnalogs)
+	merged := merger.merge(cur, in, explicit, stateAnalogs)
+	return dev, cur, merged, analogs, nil
+}
 
-	// Валидация слитого состояния — единственная точка записи (R5).
+// skippedOrValidated — каноническое сравнение и валидация слитого
+// состояния без записи (фаза чтения): побайтово тот же вход — Skipped;
+// иначе запись (новая либо изменённая) проверяется движком. done=true —
+// исход определён (Skipped либо ошибка валидации), записи не требуется.
+func skippedOrValidated(merger *stateMerger, snap *catalog.Snapshot, p domain.ParsedDesignation,
+	dev *storage.DeviceRow, cur, merged *deviceState) (Outcome, error, bool) {
+	if dev != nil && sameState(cur, merged) {
+		return OutcomeSkipped, nil, true
+	}
 	catDev := merger.toCatalogDevice(p, merged)
 	engine := catalog.NewEngine(snap)
 	if probs := engine.ValidateDevice(&catDev); len(probs) > 0 {
-		return "", probs[0].Err()
+		return "", probs[0].Err(), true
 	}
+	return "", nil, false
+}
 
+// skippedOrValidatedCommit — то же в фазе записи: Skipped фиксируется
+// пустой транзакцией, проблема валидации — отказ с откатом.
+func skippedOrValidatedCommit(merger *stateMerger, snap *catalog.Snapshot, p domain.ParsedDesignation,
+	tx *storage.Tx, dev *storage.DeviceRow, cur, merged *deviceState) (Outcome, error, bool) {
 	if dev != nil && sameState(cur, merged) {
-		// Ничего не менялось: записи в БД нет, ревизии не инкрементируются.
 		if err := tx.Commit(); err != nil {
-			return "", err
+			return "", err, true
 		}
-		return OutcomeSkipped, nil
+		return OutcomeSkipped, nil, true
 	}
-
-	if dev == nil {
-		if !write {
-			return OutcomeAdded, nil // записи нет — откатит defer (транзакция без DML)
-		}
-		return OutcomeAdded, s.writeUpsert(ctx, tx, 0, p, in, cur, merged, explicit, analogs, snap, createOnly)
+	catDev := merger.toCatalogDevice(p, merged)
+	engine := catalog.NewEngine(snap)
+	if probs := engine.ValidateDevice(&catDev); len(probs) > 0 {
+		return "", probs[0].Err(), true
 	}
-	if !write {
-		return OutcomeUpdatedExisting, nil // откатит defer (транзакция без DML)
-	}
-	return OutcomeUpdatedExisting, s.writeUpsert(ctx, tx, dev.ID, p, in, cur, merged, explicit, analogs, snap, false)
+	return "", nil, false
 }
 
 // writeUpsert применяет слитое состояние записи в БД (секции целиком)
@@ -490,13 +582,21 @@ func (s *DeviceService) ListIDsByKind(ctx context.Context, kind domain.Kind) ([]
 
 // Delete удаляет запись (каскад из devices по всем дочерним таблицам,
 // включая обе стороны device_analogs) с чисткой сирот производителей;
-// false — запись не найдена. Удаление атомарно по ключу в транзакции
-// записи (без окна между поиском и удалением): конкурентное удаление
-// того же обозначения оставляет этот вызов без «пустого» успеха и без
-// инкремента ревизии. Удаление инкрементирует data_revision.
+// false — запись не найдена. Класс валидируется по снимку каталога —
+// единому источнику истины (расширяемому импортом), как в Get/Search.
+// Удаление атомарно по ключу в транзакции записи (без окна между поиском
+// и удалением): конкурентное удаление того же обозначения оставляет этот
+// вызов без «пустого» успеха и без инкремента ревизии. Удаление
+// инкрементирует data_revision.
 func (s *DeviceService) Delete(ctx context.Context, kind domain.Kind, designation string) (bool, error) {
-	if kind != "" && !kind.IsValid() {
-		return false, domain.NewErrorf(domain.CodeValidationFailed, domain.MsgKindUnknown, string(kind))
+	snap, err := s.app.cache.Snapshot(ctx)
+	if err != nil {
+		return false, err
+	}
+	if kind != "" {
+		if _, ok := snap.Kind(kind); !ok {
+			return false, domain.NewErrorf(domain.CodeValidationFailed, domain.MsgKindUnknown, string(kind))
+		}
 	}
 	canonical, err := domain.Canonicalize(designation)
 	if err != nil {

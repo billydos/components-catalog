@@ -5,8 +5,6 @@ import (
 	"strconv"
 	"strings"
 	"unicode"
-
-	"github.com/billydos/components-catalog/internal/i18n"
 )
 
 // Field — поле разбора обозначения: единые имена для одинаковой семантики
@@ -279,7 +277,7 @@ func (s *scanner) fail(expected MsgID) *Error {
 
 // failAt строит по-позиционную ошибку «ожидалось/получено» в заданной позиции.
 func (s *scanner) failAt(pos int, expected MsgID) *Error {
-	arg := i18n.Arg(string(expected))
+	arg := MsgArg(expected)
 	if r, ok := s.peekAt(pos); ok {
 		return NewErrorf(CodeInvalidDesignation, MsgScannerExpected,
 			s.text(), pos+1, arg, string(r))
@@ -292,7 +290,7 @@ func (s *scanner) failAt(pos int, expected MsgID) *Error {
 // «ожидалось: …, получено «токен»».
 func (s *scanner) failToken(pos int, expected MsgID, token string) *Error {
 	return NewErrorf(CodeInvalidDesignation, MsgScannerToken,
-		s.text(), pos+1, i18n.Arg(string(expected)), token)
+		s.text(), pos+1, MsgArg(expected), token)
 }
 
 func (s *scanner) text() string {
@@ -325,6 +323,23 @@ func isLatinUpper(r rune) bool {
 // канонизацией как недопустимые символы, а не попадать в ключи записей.
 func isCyrillicUpper(r rune) bool {
 	return (r >= 'А' && r <= 'Я') || r == 'Ё'
+}
+
+// takePrefix потребляет префикс канонической строки (в рунах), если строка
+// начинается с него. Длина префикса считается в рунах: ручной сдвиг s.i
+// байтовой длиной верен только для коротких кириллических префиксов.
+func (s *scanner) takePrefix(prefix string) bool {
+	p := []rune(prefix)
+	if len(s.src)-s.i < len(p) {
+		return false
+	}
+	for j, r := range p {
+		if s.src[s.i+j] != r {
+			return false
+		}
+	}
+	s.i += len(p)
+	return true
 }
 
 // digits — максимальная последовательность цифр с текущей позиции.
@@ -394,10 +409,12 @@ func Canonicalize(text string) (string, error) {
 	}
 	upper := []rune(strings.ToUpper(trimmed))
 	var b strings.Builder
-	pos := 0            // позиция руны в канонической строке (0-based)
 	alphabet := byte(0) // 0 — не определён; 1 — кириллица; 2 — латиница
 	letters := false
-	for _, r := range upper {
+	// Позиции ошибок — в рунах echoing-строки upper (с внутренними
+	// пробелами), а не в канонической строке без пробелов: сообщение
+	// показывает upper, позиция должна указывать на символ в нём.
+	for i, r := range upper {
 		if unicode.IsSpace(r) {
 			continue
 		}
@@ -414,7 +431,7 @@ func Canonicalize(text string) (string, error) {
 				alphabet = 1
 			} else if alphabet == 2 {
 				return "", NewErrorf(CodeInvalidDesignation, MsgCanonicalAlphabetMix,
-					string(upper), pos+1, string(r))
+					string(upper), i+1, string(r))
 			}
 		case isLatinUpper(r):
 			letters = true
@@ -422,16 +439,15 @@ func Canonicalize(text string) (string, error) {
 				alphabet = 2
 			} else if alphabet == 1 {
 				return "", NewErrorf(CodeInvalidDesignation, MsgCanonicalAlphabetMix,
-					string(upper), pos+1, string(r))
+					string(upper), i+1, string(r))
 			}
 		case isDigitRune(r), r == '-', r == '.', r == '/':
 			// нейтральные символы
 		default:
 			return "", NewErrorf(CodeInvalidDesignation, MsgCanonicalBadRune,
-				string(upper), pos+1, string(r))
+				string(upper), i+1, string(r))
 		}
 		b.WriteRune(r)
-		pos++
 	}
 	if !letters {
 		return "", NewErrorf(CodeInvalidDesignation, MsgCanonicalNoLetters, string(upper))

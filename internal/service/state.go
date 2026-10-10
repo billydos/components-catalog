@@ -16,9 +16,13 @@ import (
 // и для валидации движком (итоговое состояние записи).
 
 // stateValue — значение параметра в состоянии (условия отсортированы
-// по коду для канонического сравнения).
+// по коду для канонического сравнения). Section — имя секции группы
+// каталога, в которой значение стоит (у значений типа в целом и у
+// значений исполнений; для валидации движком и экспорта не хранится в БД —
+// восстанавливается по группе параметра).
 type stateValue struct {
 	Parameter  string
+	Section    string
 	Exact      *float64
 	Min        *float64
 	Max        *float64
@@ -102,7 +106,9 @@ func (s *stateMerger) loadState(ctx context.Context, tx *storage.Tx, deviceID in
 			if !ok {
 				continue
 			}
-			st.variants[idx].Values = append(st.variants[idx].Values, toStateValue(vr.Value))
+			sv := toStateValue(vr.Value)
+			sv.Section = s.sectionOf(vr.Value.Parameter)
+			st.variants[idx].Values = append(st.variants[idx].Values, sv)
 			continue
 		}
 		group := ""
@@ -127,6 +133,20 @@ func toStateValue(v storage.ParamValue) stateValue {
 		Text:       v.Text,
 		Conditions: sortedConds(v.Conditions),
 	}
+}
+
+// sectionOf — имя секции группы параметра по снимку ("" — параметр
+// неизвестен каталогу).
+func (s *stateMerger) sectionOf(parameter string) string {
+	p, ok := s.snap.Parameter(parameter)
+	if !ok {
+		return ""
+	}
+	g, ok := s.snap.Group(p.Group)
+	if !ok {
+		return ""
+	}
+	return g.SectionName
 }
 
 func sortedConds(conds []storage.Cond) []catalog.ConditionValue {
@@ -181,7 +201,9 @@ func (s *stateMerger) merge(cur *deviceState, in *DeviceInput, explicit []domain
 		}
 		out.groupValues[g.Code] = vals
 	}
-	// Исполнения: nil — не менять, иначе полная замена набора.
+	// Исполнения: nil — не менять, иначе полная замена набора. Значения
+	// несут имя секции группы, в которой стоят (проверка принадлежности
+	// секции — движком, как у значений типа в целом).
 	if in.Variants != nil {
 		out.variants = make([]stateVariant, 0, len(*in.Variants))
 		for _, v := range *in.Variants {
@@ -190,6 +212,7 @@ func (s *stateMerger) merge(cur *deviceState, in *DeviceInput, explicit []domain
 				for _, val := range sec.Values {
 					sv.Values = append(sv.Values, stateValue{
 						Parameter: val.Parameter,
+						Section:   sec.Section,
 						Exact:     val.Exact, Min: val.Min, Max: val.Max, Text: val.Text,
 						Conditions: sortedCondsInput(val.Conditions),
 					})
@@ -383,7 +406,9 @@ func boolPtrEqual(a, b *bool) bool {
 }
 
 // toCatalogDevice собирает запись для валидации движком (Section значений —
-// по группе каталога).
+// по группе каталога). Группы обходятся в детерминированном порядке
+// (ключи группы сортируются): движок возвращает проблемы в порядке
+// значений записи, REST 422 и тесты не зависят от порядка итерации map.
 func (s *stateMerger) toCatalogDevice(p domain.ParsedDesignation, st *deviceState) catalog.Device {
 	d := catalog.Device{
 		Kind:        p.Kind,
@@ -391,19 +416,24 @@ func (s *stateMerger) toCatalogDevice(p domain.ParsedDesignation, st *deviceStat
 		Designation: p.Designation,
 		Attributes:  st.attributes,
 	}
-	for g, vals := range st.groupValues {
+	groups := make([]string, 0, len(st.groupValues))
+	for g := range st.groupValues {
+		groups = append(groups, g)
+	}
+	sort.Strings(groups)
+	for _, g := range groups {
 		section := ""
 		if grp, ok := s.snap.Group(g); ok {
 			section = grp.SectionName
 		}
-		for _, v := range vals {
+		for _, v := range st.groupValues[g] {
 			d.Values = append(d.Values, stateToParameterValue(section, v))
 		}
 	}
 	for _, v := range st.variants {
 		cv := catalog.Variant{Label: v.Label}
 		for _, val := range v.Values {
-			cv.Values = append(cv.Values, stateToParameterValue("", val))
+			cv.Values = append(cv.Values, stateToParameterValue(val.Section, val))
 		}
 		d.Variants = append(d.Variants, cv)
 	}

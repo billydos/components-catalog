@@ -4,6 +4,7 @@ import (
 	"errors"
 	"io"
 	"net/http"
+	"net/url"
 	"strconv"
 
 	"github.com/billydos/components-catalog/internal/domain"
@@ -70,6 +71,19 @@ func (a *API) handleStats(w *responseWriter, r *http.Request, _ map[string]strin
 	})
 }
 
+// parseStrictQuery разбирает строку запроса строго: url.Values.Query()
+// молча отбрасывает всю строку при ошибке разбора («?kind=transistor;q=x»
+// даёт пустые фильтры и 200 без фильтрования) — здесь ошибка разбора
+// становится 400 (строгий контракт параметров запроса).
+func parseStrictQuery(r *http.Request) (url.Values, error) {
+	values, err := url.ParseQuery(r.URL.RawQuery)
+	if err != nil {
+		return nil, domain.NewErrorf(domain.CodeValidationFailed,
+			domain.MsgApiQueryInvalid, err.Error())
+	}
+	return values, nil
+}
+
 // handleSearch — GET /api/v1/components: подстрока обозначения, система,
 // фильтры полей/атрибутов/параметров, сортировка, пагинация; ETag —
 // data_revision и хэш канонической строки запроса (разные фильтры —
@@ -82,7 +96,11 @@ func (a *API) handleSearch(w *responseWriter, r *http.Request, _ map[string]stri
 		a.writeDomainErr(w, r, err, true)
 		return
 	}
-	values := r.URL.Query()
+	values, err := parseStrictQuery(r)
+	if err != nil {
+		a.writeDomainErr(w, r, err, true)
+		return
+	}
 	q, err := parseSearchQuery(values, snap)
 	if err != nil {
 		a.writeDomainErr(w, r, err, true)
@@ -156,7 +174,11 @@ func (a *API) handleGetByID(w *responseWriter, r *http.Request, params map[strin
 // handleSuggest — GET /api/v1/suggest: автодополнение по префиксу
 // обозначения (хендлер отключается конфигурацией — не монтируется).
 func (a *API) handleSuggest(w *responseWriter, r *http.Request, _ map[string]string) {
-	values := r.URL.Query()
+	values, err := parseStrictQuery(r)
+	if err != nil {
+		a.writeDomainErr(w, r, err, true)
+		return
+	}
 	if err := rejectDuplicateParams(values, "q", "kind", "limit"); err != nil {
 		a.writeDomainErr(w, r, err, true)
 		return
@@ -296,8 +318,11 @@ func (a *API) handleDelete(w *responseWriter, r *http.Request, params map[string
 
 // readRecordBody читает и разбирает тело записи наполнения
 // (общий читатель формата: дубликаты ключей — ошибка разбора).
+// MaxBytesReader получает исходный ResponseWriter (не обёртку): сигнал
+// requestTooLarge — закрытие соединения сервером — срабатывает только
+// на оригинальном writer'е net/http.
 func (a *API) readRecordBody(w *responseWriter, r *http.Request) (service.DeviceInput, error) {
-	data, err := io.ReadAll(http.MaxBytesReader(w, r.Body, maxBodyBytes))
+	data, err := io.ReadAll(http.MaxBytesReader(w.ResponseWriter, r.Body, maxBodyBytes))
 	if err != nil {
 		var tooLarge *http.MaxBytesError
 		if errors.As(err, &tooLarge) {

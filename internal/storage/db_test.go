@@ -1,8 +1,15 @@
 package storage
 
 import (
+	"context"
+	"errors"
+	"fmt"
 	"reflect"
+	"slices"
 	"testing"
+	"time"
+
+	"github.com/billydos/components-catalog/internal/domain"
 )
 
 // TestPositional — перезапись @имя → $n: нумерация по первому появлению
@@ -181,6 +188,309 @@ func TestWithJitDisabled(t *testing.T) {
 		t.Run(c.name, func(t *testing.T) {
 			if got := withJitDisabled(c.dsn); got != c.want {
 				t.Fatalf("DSN: %q, ожидался %q", got, c.want)
+			}
+		})
+	}
+}
+
+// TestPositionalBlockCommentAndQuotedIdent — блочные комментарии и
+// закавыченные идентификаторы пропускаются лексером: @имя внутри них не
+// переписывается.
+func TestPositionalBlockCommentAndQuotedIdent(t *testing.T) {
+	cases := []struct {
+		name string
+		q    string
+		args map[string]any
+		want string
+		vals []any
+	}{
+		{
+			name: "блочный комментарий с @",
+			q:    "SELECT @kind /* @comment @x */ FROM devices",
+			args: map[string]any{"kind": "diode"},
+			want: "SELECT $1 /* @comment @x */ FROM devices",
+			vals: []any{"diode"},
+		},
+		{
+			name: "незакрытый блочный комментарий — до конца текста",
+			q:    "SELECT @kind /* @comment",
+			args: map[string]any{"kind": "diode"},
+			want: "SELECT $1 /* @comment",
+			vals: []any{"diode"},
+		},
+		{
+			name: "закавыченный идентификатор с @",
+			q:    `SELECT t."group@name" FROM t WHERE x = @group`,
+			args: map[string]any{"group": "g"},
+			want: `SELECT t."group@name" FROM t WHERE x = $1`,
+			vals: []any{"g"},
+		},
+		{
+			name: "кавычка внутри идентификатора удваивается",
+			q:    `SELECT "a""@b" , @v FROM t`,
+			args: map[string]any{"v": 1},
+			want: `SELECT "a""@b" , $1 FROM t`,
+			vals: []any{1},
+		},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			got, vals := positional(c.q, c.args)
+			if got != c.want {
+				t.Fatalf("запрос: %q, ожидался %q", got, c.want)
+			}
+			if !reflect.DeepEqual(vals, c.vals) {
+				t.Fatalf("аргументы: %v, ожидались %v", vals, c.vals)
+			}
+		})
+	}
+}
+
+// TestMemoryDBReadInsideTxTimesOut — пин-тест ловушки единственного
+// соединения: в режиме :memory: DB-чтение внутри открытой Tx ждёт
+// соединение до отмены контекста (внутри транзакции — только методы Tx).
+func TestMemoryDBReadInsideTxTimesOut(t *testing.T) {
+	ctx := t.Context()
+	db, err := Open(ctx, Config{Dialect: "sqlite", DSN: ":memory:"})
+	if err != nil {
+		t.Fatalf("open: %v", err)
+	}
+	defer db.Close() //nolint:errcheck — тестовая база
+	if _, err := db.EnsureCreated(ctx); err != nil {
+		t.Fatalf("EnsureCreated: %v", err)
+	}
+	tx, err := db.Begin(ctx)
+	if err != nil {
+		t.Fatalf("begin: %v", err)
+	}
+	defer tx.Rollback() //nolint:errcheck — тестовая транзакция
+	cctx, cancel := context.WithTimeout(ctx, 300*time.Millisecond)
+	defer cancel()
+	var n int
+	if err := db.queryRow(cctx, `SELECT COUNT(*) FROM kinds`, nil).Scan(&n); !errors.Is(err, context.DeadlineExceeded) {
+		t.Fatalf("ожидалась блокировка до отмены контекста, получено %v", err)
+	}
+}
+
+// TestBumpRevisionMissingRow — отсутствие строки schema_meta при
+// инкременте ревизии — доменная ошибка, а не молчаливый ноль.
+func TestBumpRevisionMissingRow(t *testing.T) {
+	_, db := openSQLiteFile(t)
+	ctx := t.Context()
+	if _, err := db.EnsureCreated(ctx); err != nil {
+		t.Fatalf("EnsureCreated: %v", err)
+	}
+	tx, err := db.Begin(ctx)
+	if err != nil {
+		t.Fatalf("begin: %v", err)
+	}
+	defer tx.Rollback() //nolint:errcheck — тестовая транзакция
+	if _, err := tx.exec(ctx, `DELETE FROM schema_meta WHERE key = 'data_revision'`, nil); err != nil {
+		t.Fatalf("удаление строки ревизии: %v", err)
+	}
+	err = tx.BumpDataRevision(ctx)
+	de, ok := domain.AsError(err)
+	if !ok || de.MsgID != domain.MsgStorageRevisionRowMissing {
+		t.Fatalf("ожидалась storage_revision_row_missing, получено %v", err)
+	}
+}
+
+// pgFakeErr — ошибка с SQLState (поверхность драйвера postgres).
+type pgFakeErr struct{ state string }
+
+func (e pgFakeErr) Error() string    { return "pg error " + e.state }
+func (e pgFakeErr) SQLState() string { return e.state }
+
+// TestIsNoTableError — postgres распознаётся только по SQLState 42P01:
+// «column does not exist» (42703) таблицей не является; sqlite — по тексту.
+func TestIsNoTableError(t *testing.T) {
+	if !isNoTableError(pgFakeErr{state: "42P01"}) {
+		t.Fatal("42P01 должна распознаваться как отсутствие таблицы")
+	}
+	if isNoTableError(pgFakeErr{state: "42703"}) {
+		t.Fatal("42703 (undefined_column) — не отсутствие таблицы")
+	}
+	if isNoTableError(errors.New(`pq: column "x" does not exist`)) {
+		t.Fatal("текст «does not exist» без SQLState — не postgres-таблица")
+	}
+	if !isNoTableError(errors.New("SQL logic error: no such table: schema_meta (1)")) {
+		t.Fatal("текст sqlite «no such table» должен распознаваться")
+	}
+	if isNoTableError(nil) || isNoTableError(errors.New("другая ошибка")) {
+		t.Fatal("прочие ошибки не распознаются")
+	}
+}
+
+// TestRewriteDDLWordBoundaries — замена INTEGER/REAL только целыми словами
+// вне литералов, закавыченных идентификаторов и комментариев (включая
+// точное совпадение слова внутри кавычек — «"INTEGER"» не трогается).
+func TestRewriteDDLWordBoundaries(t *testing.T) {
+	in := `CREATE TABLE t (
+    id INTEGER {{AUTOINC}},
+    "INTEGER_FIELD" TEXT,
+    "INTEGER" TEXT,
+    note TEXT DEFAULT 'INTEGER REAL',
+    val REAL NULL -- INTEGER stays
+)`
+	want := `CREATE TABLE t (
+    id BIGINT GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
+    "INTEGER_FIELD" TEXT,
+    "INTEGER" TEXT,
+    note TEXT DEFAULT 'INTEGER REAL',
+    val DOUBLE PRECISION NULL -- INTEGER stays
+)`
+	if got := (postgresDialect{}).RewriteDDL(in); got != want {
+		t.Fatalf("RewriteDDL:\n%s\nожидалось:\n%s", got, want)
+	}
+}
+
+// TestBatchReadsOverChunkLimit — списки длиннее предела maxInList
+// читаются чанками со слиянием результатов, без сырой ошибки драйвера.
+func TestBatchReadsOverChunkLimit(t *testing.T) {
+	db := openDevicesDB(t, "sqlite")
+	ctx := t.Context()
+	const extra = 5
+	total := maxInList + extra
+	tx, err := db.Begin(ctx)
+	if err != nil {
+		t.Fatalf("begin: %v", err)
+	}
+	ids := make([]int64, 0, total)
+	for i := 0; i < total; i++ {
+		id, _, err := tx.InsertDevice(ctx, "resistor", "gost", fmt.Sprintf("D%06d", i))
+		if err != nil {
+			t.Fatalf("вставка %d: %v", i, err)
+		}
+		ids = append(ids, id)
+	}
+	if err := tx.Commit(); err != nil {
+		t.Fatalf("commit: %v", err)
+	}
+	rows, err := db.FindDevicesByIDs(ctx, ids)
+	if err != nil {
+		t.Fatalf("FindDevicesByIDs: %v", err)
+	}
+	if len(rows) != total {
+		t.Fatalf("записей: %d, ожидалось %d", len(rows), total)
+	}
+	for i, r := range rows {
+		if r.ID != ids[i] {
+			t.Fatalf("порядок: строка %d — id %d, ожидался %d", i, r.ID, ids[i])
+		}
+	}
+	variants, err := db.LoadVariantsByIDs(ctx, ids)
+	if err != nil {
+		t.Fatalf("LoadVariantsByIDs: %v", err)
+	}
+	if len(variants) != 0 {
+		t.Fatalf("исполнений не было, получено %d", len(variants))
+	}
+}
+
+// TestSearchPageValidation — отрицательные limit/offset отвергаются
+// доменной ошибкой до запроса.
+func TestSearchPageValidation(t *testing.T) {
+	db := openDevicesDB(t, "sqlite")
+	for _, r := range []SearchRequest{
+		{Limit: -1, Offset: 0},
+		{Limit: 0, Offset: -1},
+	} {
+		_, _, err := db.Search(t.Context(), r)
+		de, ok := domain.AsError(err)
+		if !ok || de.Code != domain.CodeValidationFailed || de.MsgID != domain.MsgStoragePageInvalid {
+			t.Fatalf("limit=%d offset=%d: ожидалась storage_page_invalid, получено %v",
+				r.Limit, r.Offset, err)
+		}
+	}
+}
+
+// TestSearchEmptyPageBeyondEndKeepsTotal — страница за концом выдачи
+// пуста, total при этом корректен (добирается отдельным COUNT).
+func TestSearchEmptyPageBeyondEndKeepsTotal(t *testing.T) {
+	db := openDevicesDB(t, "sqlite")
+	ctx := t.Context()
+	tx, err := db.Begin(ctx)
+	if err != nil {
+		t.Fatalf("begin: %v", err)
+	}
+	for i := 0; i < 3; i++ {
+		if _, _, err := tx.InsertDevice(ctx, "resistor", "gost", fmt.Sprintf("D%d", i)); err != nil {
+			t.Fatalf("вставка: %v", err)
+		}
+	}
+	if err := tx.Commit(); err != nil {
+		t.Fatalf("commit: %v", err)
+	}
+	items, total, err := db.Search(ctx, SearchRequest{Limit: 2, Offset: 10})
+	if err != nil {
+		t.Fatalf("search: %v", err)
+	}
+	if len(items) != 0 || total != 3 {
+		t.Fatalf("страница %d записей, total %d — ожидались 0 и 3", len(items), total)
+	}
+}
+
+// TestSearchSortByFieldKeys — сортировка по кодам полей разбора (LEFT JOIN
+// device_designation_fields) работоспособна и детерминирована: записи без
+// значения поля — в конце независимо от направления, финальный порядок —
+// (kind, designation).
+func TestSearchSortByFieldKeys(t *testing.T) {
+	db := openDevicesDB(t, "sqlite")
+	ctx := t.Context()
+	tx, err := db.Begin(ctx)
+	if err != nil {
+		t.Fatalf("begin: %v", err)
+	}
+	// dev_number: 301, 315, 305; у D2 поля нет.
+	for _, d := range []struct {
+		desig string
+		num   float64
+	}{
+		{"D1", 301}, {"D2", -1}, {"D3", 315}, {"D4", 305},
+	} {
+		id, _, err := tx.InsertDevice(ctx, "resistor", "gost", d.desig)
+		if err != nil {
+			t.Fatalf("вставка: %v", err)
+		}
+		if d.num >= 0 {
+			if err := tx.InsertDesignationFields(ctx, id, []domain.Field{
+				domain.NumField("dev_number", d.num),
+			}); err != nil {
+				t.Fatalf("поля: %v", err)
+			}
+		}
+	}
+	if err := tx.Commit(); err != nil {
+		t.Fatalf("commit: %v", err)
+	}
+
+	asc := []string{"D1", "D4", "D3", "D2"}
+	desc := []string{"D1", "D4", "D3", "D2"} // NULL-последние сохраняются
+	_ = desc
+	wantDesc := []string{"D3", "D4", "D1", "D2"}
+	for _, tc := range []struct {
+		name  string
+		sorts []SortKey
+		want  []string
+	}{
+		{"возрастание", []SortKey{{Key: "dev_number", Numeric: true}}, asc},
+		{"убывание", []SortKey{{Key: "dev_number", Numeric: true, Desc: true}}, wantDesc},
+		{"два ключа", []SortKey{{Key: "dev_number", Numeric: true}, {Key: "designation"}}, asc},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			items, total, err := db.Search(ctx, SearchRequest{Sorts: tc.sorts, Limit: 10})
+			if err != nil {
+				t.Fatalf("search: %v", err)
+			}
+			if total != 4 {
+				t.Fatalf("total: %d", total)
+			}
+			got := make([]string, len(items))
+			for i, it := range items {
+				got[i] = it.Designation
+			}
+			if !slices.Equal(got, tc.want) {
+				t.Fatalf("порядок: %v, ожидался %v", got, tc.want)
 			}
 		})
 	}

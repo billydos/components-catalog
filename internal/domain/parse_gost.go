@@ -120,7 +120,13 @@ func gostReadSubclass(s *scanner) (subclass string, modern, opto bool, class gos
 
 // checkGostDevNumber проверяет номер разработки: значение 1–99 либо
 // 101–999; allowLeadingZero допускает написание с ведущим нулём (КР302А).
+// Длина цифровой последовательности ограничена четырьмя знаками (ведущий
+// ноль + до трёх разрядов номера): без ограничения «2Т1000005»
+// обрезался бы молча до feature=1, dev_number=5.
 func checkGostDevNumber(s *scanner, digits string, allowLeadingZero bool, pos int) (int, error) {
+	if len(digits) > 4 {
+		return 0, s.failToken(pos, MsgExpectGostDevNumber, digits)
+	}
 	v := mustAtoi(digits)
 	if !allowLeadingZero && len(digits) > 1 && digits[0] == '0' {
 		return 0, s.failToken(pos, MsgExpectGostDevNumberFull, digits)
@@ -133,12 +139,15 @@ func checkGostDevNumber(s *scanner, digits string, allowLeadingZero bool, pos in
 
 // gostSubclassCode отображает прочитанную букву подкласса в код словаря
 // (Т → bjt, П → fet, …); двухбуквенные формы принадлежат неподерживаемым
-// классам и сюда не доходят.
-func gostSubclassCode(subclass string) string {
-	if code, ok := GostSubclassBySymbol([]rune(subclass)[0]); ok {
-		return code
+// классам и сюда не доходят. Буква вне словаря — рассинхронизация таблицы
+// подклассов и словаря: ошибка разработки, а не тихая порча фильтруемых
+// данных сырой кириллической буквой.
+func gostSubclassCode(subclass string) (string, error) {
+	code, ok := GostSubclassBySymbol([]rune(subclass)[0])
+	if !ok {
+		return "", NewErrorf(CodeInternal, MsgGostSubclassDictSync, subclass)
 	}
-	return subclass
+	return code, nil
 }
 
 // parseGostSemiconductor разбирает полупроводниковые обозначения gost;
@@ -166,7 +175,7 @@ func parseGostSemiconductor(s *scanner, kindHint Kind) (ParsedDesignation, error
 	// КДШ289А); уточнение означает современную форму — признак обязателен.
 	refined := false
 	if r, has := s.peek(); has {
-		if r == 'Д' && subclass == "Т" || r == 'Ш' && subclass == "Д" {
+		if (r == 'Д' && subclass == "Т") || (r == 'Ш' && subclass == "Д") {
 			refined = true
 			s.i++
 		}
@@ -315,18 +324,30 @@ func parseGostSemiconductor(s *scanner, kindHint Kind) (ParsedDesignation, error
 	case gostSubclassFixed:
 		kind = class.kind
 	case gostSubclassAmbiguous:
-		if kindHint == KindDiode || kindHint == KindTransistor {
+		switch kindHint {
+		case KindDiode, KindTransistor:
 			kind = kindHint
-		} else {
+		case "":
 			return ParsedDesignation{}, KindAmbiguous()
+		default:
+			// Класс указан явно, но несовместим с неоднозначным «Ф»
+			// (фотодиод/фототранзистор): это несоответствие обозначения
+			// указанному классу, а не «укажите класс» — машиночитаемый
+			// код designation_mismatch.
+			return ParsedDesignation{}, NewErrorf(CodeDesignationMismatch,
+				MsgKindAmbiguousMismatch, canonical, string(kindHint))
 		}
 	case gostSubclassUnsupported:
 		return ParsedDesignation{}, KindNotSupported()
 	}
 
+	subclassCode, err := gostSubclassCode(subclass)
+	if err != nil {
+		return ParsedDesignation{}, err
+	}
 	fields := []Field{
 		TextField("material", material.Code),
-		TextField("subclass", gostSubclassCode(subclass)),
+		TextField("subclass", subclassCode),
 		NumField("assembly", float64(assembly)),
 	}
 	if hasFeature {

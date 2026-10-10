@@ -24,9 +24,12 @@ func MaskDSN(dsn string) string {
 
 // maskURLDSN — форма «схема://user:password@host/db?параметры»: пароль
 // userinfo (до «@», разделяющего authority) замещается без перекодировки
-// остальных частей исходной строки. Форма, которую не разбирает net/url
-// (например, «scheme://user:password» без хоста — «password» читается
-// как порт), не доверяется вовсе.
+// остальных частей исходной строки. Пароль с неэкранированными «/ ? #»
+// съедает границу authority и «@» не находится в ней — верный признак
+// «@» позже границы; такие формы не опознаются надёжно и маскируются
+// целиком: потерять наглядность дешевле, чем показать секрет. Форма,
+// которую не разбирает net/url (например, «scheme://user:password» без
+// хоста — «password» читается как порт), не доверяется вовсе.
 func maskURLDSN(dsn string) string {
 	if _, err := url.Parse(dsn); err != nil {
 		return "***"
@@ -43,11 +46,15 @@ func maskURLDSN(dsn string) string {
 			break
 		}
 	}
-	at := strings.LastIndex(rest[:end], "@")
+	authority := rest[:end]
+	at := strings.LastIndex(authority, "@")
 	if at < 0 {
+		if strings.Contains(rest[end:], "@") {
+			return "***"
+		}
 		return dsn
 	}
-	userinfo := rest[:at]
+	userinfo := authority[:at]
 	colon := strings.Index(userinfo, ":")
 	if colon < 0 || userinfo[colon+1:] == "" {
 		return dsn
@@ -56,59 +63,43 @@ func maskURLDSN(dsn string) string {
 }
 
 // maskKeywordDSN — форма «ключ=значение ключ=значение …»: значения всех
-// ключей password маскируются. Незакавыченное значение продолжается до
-// первого неэкранированного пробела (обратная косая черта экранирует
-// следующий символ — как при разборе ключевой формы pgx); открывающая
-// кавычка продлевает значение до парной (незакрытая — до конца строки).
+// ключей password маскируются. Пары обходятся по правилам разбора
+// ключевой формы pgx (пробелы вокруг «=» допускаются; пробелы внутри
+// значения — только в кавычках '…'/"…" или после экранирующего «\»),
+// поэтому «password=» внутри кавычек значения соседнего ключа ключом
+// не считается.
 func maskKeywordDSN(dsn string) string {
-	lower := strings.ToLower(dsn)
 	var b strings.Builder
-	written := 0
-	search := 0
-	for {
-		i := strings.Index(lower[search:], "password=")
-		if i < 0 {
+	s := strings.TrimLeft(dsn, dsnSpaces)
+	for len(s) > 0 {
+		eq := strings.IndexByte(s, '=')
+		if eq < 0 {
+			b.WriteString(s)
 			break
 		}
-		i += search
-		if i > 0 && !isSpaceByte(dsn[i-1]) {
-			search = i + len("password=")
-			continue
+		key := strings.TrimRight(s[:eq], dsnSpaces)
+		s = strings.TrimLeft(s[eq+1:], dsnSpaces)
+		var val string
+		switch {
+		case len(s) > 0 && s[0] == '\'':
+			rest := skipQuotedValue(s[1:], '\'')
+			val, s = s[:len(s)-len(rest)], rest
+		case len(s) > 0 && s[0] == '"':
+			rest := skipQuotedValue(s[1:], '"')
+			val, s = s[:len(s)-len(rest)], rest
+		default:
+			rest := skipUnquotedValue(s)
+			val, s = s[:len(s)-len(rest)], rest
 		}
-		start := i + len("password=")
-		end := start
-		if end < len(dsn) && (dsn[end] == '\'' || dsn[end] == '"') {
-			quote := dsn[end]
-			end++
-			for end < len(dsn) && dsn[end] != quote {
-				end++
-			}
-			if end < len(dsn) {
-				end++
-			}
+		if strings.EqualFold(key, "password") {
+			b.WriteString(key + "=***")
 		} else {
-			escaped := false
-			for end < len(dsn) {
-				c := dsn[end]
-				if escaped {
-					escaped = false
-				} else if c == '\\' {
-					escaped = true
-				} else if isSpaceByte(c) {
-					break
-				}
-				end++
-			}
+			b.WriteString(key + "=" + val)
 		}
-		b.WriteString(dsn[written:start])
-		b.WriteString("***")
-		written = end
-		search = end
+		s = strings.TrimLeft(s, dsnSpaces)
+		if len(s) > 0 {
+			b.WriteByte(' ')
+		}
 	}
-	b.WriteString(dsn[written:])
 	return b.String()
-}
-
-func isSpaceByte(c byte) bool {
-	return c == ' ' || c == '\t' || c == '\n' || c == '\r'
 }

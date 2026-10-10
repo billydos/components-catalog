@@ -120,6 +120,17 @@ func (m *Importer) importDocument(ctx context.Context, r io.Reader, name string,
 // принципу «всё-или-ничего» на синтаксисе (жёсткая ошибка прерывает
 // прогон до применения буфера). catalogOnly — режим catalog import:
 // применение каталога отложено до проверки отсутствия записей.
+//
+// Гейт каталога: ошибка слияния строк catalog и обёртка «catalog +
+// соседний ключ» до первой записи портят каталог целиком — он не
+// применяется, записи читаются по текущему снимку (как при любой
+// проблеме формы секции catalog документа). Строка catalog после
+// первой записи отвергается сама по себе: её содержимое отбрасывается
+// с проблемой строки, а чистый каталог до неё применяется — план по
+// нему уже роздан чтению записей, отмена разнесла бы валидацию и
+// запись. Строка-обёртка с классовым ключом считается записью
+// (отвергнутой): гейт смешанного файла catalog import видит её и
+// отвергает файл до применения каталога.
 func (m *Importer) importNDJSON(ctx context.Context, r io.Reader, name string,
 	dryRun, catalogOnly bool) (Report, error) {
 	snap, err := m.app.Snapshot(ctx)
@@ -169,9 +180,15 @@ func (m *Importer) importNDJSON(ctx context.Context, r io.Reader, name string,
 				continue
 			}
 			if len(v.members) != 1 {
-				// catalog и запись в одной строке-обёртке: строка не
-				// сливается в каталог и не читается как запись.
+				// catalog и соседний ключ в одной строке-обёртке:
+				// строка не сливается в каталог, а считается
+				// отвергнутой записью (гейт смешанного файла видит
+				// её); проблема формы строки каталога портит каталог
+				// целиком.
 				rep.Issues = append(rep.Issues, issuef(number, domain.MsgImportNdjsonWrapperSingle))
+				rep.Records++
+				rep.Rejected++
+				catTainted = true
 				continue
 			}
 			// Строки catalog сливаются до валидации метасхемы; ошибка
@@ -431,7 +448,15 @@ func (m *Importer) breakAnalogDeadlock(ctx context.Context, queue []*pendingReco
 			continue
 		}
 		exists, err := m.deviceExists(ctx, p.rec)
-		if err != nil || exists {
+		if err != nil {
+			// Ошибка проверки существования — проблема прогона этой
+			// записи, а не молчаливый пропуск: иначе запись будет
+			// отвергнута позже с устаревшей ошибкой аналога.
+			recordIssue(p, err)
+			rest := append(append([]*pendingRecord{}, queue[:i]...), queue[i+1:]...)
+			return rest, true
+		}
+		if exists {
 			continue
 		}
 		stripped := p.rec.Input

@@ -87,6 +87,10 @@ func main() {
 		fmt.Fprintf(os.Stderr, "runner: отчёт %s: %v\n", path, err)
 		os.Exit(2)
 	}
+	// DSN ноги postgres — зарегистрированный секрет отчёта: маскируется
+	// во всех строках (вывод команд и ошибки драйверов могут включать
+	// строку подключения целиком).
+	r.setSecrets(opts.postgresDSN)
 
 	// Первый сигнал отменяет прогон: прерванные и оставшиеся шаги
 	// помечаются заметками «отменён», итог — код выхода 130. stop()
@@ -125,7 +129,7 @@ type runOptions struct {
 // молча пропускаются. Отмена сигналом завершает прогон: оставшиеся фазы
 // и шаги помечаются пропуском, а не FAIL.
 func run(ctx context.Context, r *report, root string, opts runOptions) {
-	writeEnvSection(r, root)
+	writeEnvSection(ctx, r, root)
 	if opts.scale == 0 {
 		// envScale молча возвращает 0 на нераспознанном значении — фаза load
 		// опускается; причина фиксируется заметкой (прямой `go test` в том же

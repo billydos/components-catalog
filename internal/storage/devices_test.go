@@ -558,3 +558,81 @@ func TestBatchDeviceReads(t *testing.T) {
 		})
 	}
 }
+
+// TestManufacturerTargetedOrphanCleanup — адресная чистка сирот:
+// производитель, общий у нескольких записей, переживает замену списка
+// одной из них; потеряв последнюю связь — удаляется; удаление записи
+// чистит его производителей.
+func TestManufacturerTargetedOrphanCleanup(t *testing.T) {
+	for _, dialect := range []string{"sqlite", "postgres"} {
+		t.Run(dialect, func(t *testing.T) {
+			db := openDevicesDB(t, dialect)
+			ctx := context.Background()
+
+			tx, err := db.Begin(ctx)
+			if err != nil {
+				t.Fatalf("begin: %v", err)
+			}
+			id1, _, err := tx.InsertDevice(ctx, "resistor", "gost", "D1")
+			if err != nil {
+				t.Fatalf("вставка D1: %v", err)
+			}
+			id2, _, err := tx.InsertDevice(ctx, "resistor", "gost", "D2")
+			if err != nil {
+				t.Fatalf("вставка D2: %v", err)
+			}
+			if err := tx.Commit(); err != nil {
+				t.Fatalf("commit: %v", err)
+			}
+
+			replace := func(device int64, names []string) {
+				t.Helper()
+				tx, err := db.Begin(ctx)
+				if err != nil {
+					t.Fatalf("begin: %v", err)
+				}
+				if err := tx.ReplaceManufacturers(ctx, device, names); err != nil {
+					t.Fatalf("замена производителей: %v", err)
+				}
+				if err := tx.Commit(); err != nil {
+					t.Fatalf("commit: %v", err)
+				}
+			}
+			countManufacturers := func() int {
+				t.Helper()
+				n, err := db.CountManufacturers(ctx)
+				if err != nil {
+					t.Fatalf("счёт производителей: %v", err)
+				}
+				return n
+			}
+
+			replace(id1, []string{"Общий", "Только-D1"})
+			replace(id2, []string{"Общий"})
+			if n := countManufacturers(); n != 2 {
+				t.Fatalf("производителей: %d, ожидалось 2 (общий пережил замену D1)", n)
+			}
+
+			// D1 остаётся без производителей: «Только-D1» — сирота, «Общий» жив.
+			replace(id1, nil)
+			if n := countManufacturers(); n != 1 {
+				t.Fatalf("производителей после очистки D1: %d, ожидался 1", n)
+			}
+
+			// Удаление записи чистит её производителей.
+			tx, err = db.Begin(ctx)
+			if err != nil {
+				t.Fatalf("begin: %v", err)
+			}
+			if _, err := tx.DeleteDeviceByKey(ctx, "resistor", "D2"); err != nil {
+				t.Fatalf("удаление D2: %v", err)
+			}
+			if err := tx.Commit(); err != nil {
+				t.Fatalf("commit: %v", err)
+			}
+			if n := countManufacturers(); n != 0 {
+				t.Fatalf("производителей после удаления D2: %d, ожидалось 0", n)
+			}
+		})
+	}
+}

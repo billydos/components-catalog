@@ -3,6 +3,7 @@ package storage
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"net/url"
 	"strings"
@@ -25,28 +26,26 @@ func (sqliteDialect) RewriteDDL(stmt string) string {
 	return strings.ReplaceAll(stmt, autoIncToken, "PRIMARY KEY AUTOINCREMENT")
 }
 
+// InsertReturningID — одним оператором INSERT … RETURNING id (sqlite ≥ 3.35;
+// modernc.org/sqlite новее): без второго round-trip last_insert_rowid().
 func (d sqliteDialect) InsertReturningID(ctx context.Context, tx *sql.Tx, query string, args []any) (int64, error) {
-	if _, err := tx.ExecContext(ctx, query, args...); err != nil {
-		return 0, err
-	}
-	// Транзакция привязана к одному соединению — last_insert_rowid() корректен.
 	var id int64
-	if err := tx.QueryRowContext(ctx, "SELECT last_insert_rowid()").Scan(&id); err != nil {
+	if err := tx.QueryRowContext(ctx, query+" RETURNING id", args...).Scan(&id); err != nil {
 		return 0, err
 	}
 	return id, nil
 }
 
+// InsertIfAbsentReturningID — INSERT … ON CONFLICT DO NOTHING RETURNING id:
+// подавленный конфликт не возвращает строк (ErrNoRows → inserted=false),
+// перечитывание id по ключу — на вызывающем коде.
 func (d sqliteDialect) InsertIfAbsentReturningID(ctx context.Context, tx *sql.Tx, query string, args []any) (int64, bool, error) {
-	res, err := tx.ExecContext(ctx, query+" ON CONFLICT DO NOTHING", args...)
-	if err != nil {
-		return 0, false, err
-	}
-	if n, _ := res.RowsAffected(); n == 0 {
+	var id int64
+	err := tx.QueryRowContext(ctx, withOnConflict(query)+" RETURNING id", args...).Scan(&id)
+	if errors.Is(err, sql.ErrNoRows) {
 		return 0, false, nil
 	}
-	var id int64
-	if err := tx.QueryRowContext(ctx, "SELECT last_insert_rowid()").Scan(&id); err != nil {
+	if err != nil {
 		return 0, false, err
 	}
 	return id, true, nil

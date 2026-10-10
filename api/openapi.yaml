@@ -13,8 +13,10 @@ info:
     машиночитаемый латиницей snake_case, `message` — текст сообщения
     из каталога модуля по локали запроса (en — канонический, ru — бандл;
     Accept-Language). Статусы: 400 (неверный запрос),
-    404 (не найдено), 409 (конфликт), 422 (семантика записи),
-    500 (внутренняя ошибка).
+    404 (не найдено), 405 (метод не поддерживается путём; заголовок Allow
+    перечисляет допустимые), 409 (конфликт), 422 (семантика записи),
+    500 (внутренняя ошибка). Неизвестный путь — 404 api_route_not_found
+    той же модели ошибок.
 
     Локализация (D9): база модуля языконезависима — кодовые поля ответов
     (kind, system, unit, parameter, attribute, section) всегда канонические.
@@ -51,6 +53,8 @@ paths:
               schema: {$ref: "#/components/schemas/KindsResponse"}
         "500":
           $ref: "#/components/responses/InternalError"
+        "405":
+          $ref: "#/components/responses/MethodNotAllowed"
   /api/v1/catalog:
     get:
       tags: [catalog]
@@ -82,6 +86,8 @@ paths:
               schema: {type: string}
         "500":
           $ref: "#/components/responses/InternalError"
+        "405":
+          $ref: "#/components/responses/MethodNotAllowed"
   /api/v1/stats:
     get:
       tags: [service]
@@ -95,6 +101,8 @@ paths:
               schema: {$ref: "#/components/schemas/Stats"}
         "500":
           $ref: "#/components/responses/InternalError"
+        "405":
+          $ref: "#/components/responses/MethodNotAllowed"
   /api/v1/components:
     get:
       tags: [components]
@@ -157,6 +165,8 @@ paths:
           $ref: "#/components/responses/BadRequest"
         "500":
           $ref: "#/components/responses/InternalError"
+        "405":
+          $ref: "#/components/responses/MethodNotAllowed"
     post:
       tags: [components]
       operationId: components_create
@@ -193,6 +203,8 @@ paths:
           $ref: "#/components/responses/Unprocessable"
         "500":
           $ref: "#/components/responses/InternalError"
+        "405":
+          $ref: "#/components/responses/MethodNotAllowed"
   /api/v1/components/id/{id}:
     get:
       tags: [components]
@@ -214,6 +226,8 @@ paths:
           $ref: "#/components/responses/NotFound"
         "500":
           $ref: "#/components/responses/InternalError"
+        "405":
+          $ref: "#/components/responses/MethodNotAllowed"
   /api/v1/components/{kind}/{designation}:
     get:
       tags: [components]
@@ -240,6 +254,8 @@ paths:
           $ref: "#/components/responses/NotFound"
         "500":
           $ref: "#/components/responses/InternalError"
+        "405":
+          $ref: "#/components/responses/MethodNotAllowed"
     put:
       tags: [components]
       operationId: components_put
@@ -278,6 +294,8 @@ paths:
           $ref: "#/components/responses/Unprocessable"
         "500":
           $ref: "#/components/responses/InternalError"
+        "405":
+          $ref: "#/components/responses/MethodNotAllowed"
     delete:
       tags: [components]
       operationId: components_delete
@@ -295,6 +313,8 @@ paths:
           $ref: "#/components/responses/NotFound"
         "500":
           $ref: "#/components/responses/InternalError"
+        "405":
+          $ref: "#/components/responses/MethodNotAllowed"
   /api/v1/suggest:
     get:
       tags: [service]
@@ -316,6 +336,8 @@ paths:
           $ref: "#/components/responses/BadRequest"
         "500":
           $ref: "#/components/responses/InternalError"
+        "405":
+          $ref: "#/components/responses/MethodNotAllowed"
 components:
   parameters:
     Kind:
@@ -349,6 +371,16 @@ components:
           schema: {$ref: "#/components/schemas/Error"}
     Conflict:
       description: Конфликт (запись уже существует).
+      content:
+        application/json:
+          schema: {$ref: "#/components/schemas/Error"}
+    MethodNotAllowed:
+      description: Метод не поддерживается путём (заголовок Allow
+        перечисляет допустимые методы пути).
+      headers:
+        Allow:
+          description: Разделённый запятыми список допустимых методов пути.
+          schema: {type: string}
       content:
         application/json:
           schema: {$ref: "#/components/schemas/Error"}
@@ -550,6 +582,15 @@ components:
           properties:
             name: {type: string, description: Обозначение.}
             system: {type: string, description: "Система обозначений; обязателен для other."}
+            fields:
+              type: object
+              description: |
+                Явные классификационные поля (D10): объект «код поля →
+                значение словаря» (`assembly` — число 0/1). Задаёт только
+                поля, которые парсер системы обозначений записи не
+                устанавливает сам, и только применимые к классу
+                (docs/fill-format.md §5.1); заменяется целиком.
+              additionalProperties: {oneOf: [{type: string}, {type: number}]}
             attributes:
               type: object
               description: "Код атрибута → значение (строка/число/логическое)."

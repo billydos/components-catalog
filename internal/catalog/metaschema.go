@@ -175,6 +175,10 @@ func applyInput(out *Snapshot, in Input) {
 			out.Systems = append(out.Systems, r)
 		}
 	}
+	// Привязки систем и правил к классам — только добавление: убрать
+	// существующую привязку импортом каталога нельзя (в отличие от
+	// применимости параметров и атрибутов к классам — те замещаются
+	// целиком по строке параметра/атрибута).
 	for _, r := range in.SystemKinds {
 		if _, ok := sysKinds[systemKindKey{system: r.System, kind: r.Kind}]; !ok {
 			out.SystemKinds = append(out.SystemKinds, r)
@@ -229,6 +233,8 @@ func applyInput(out *Snapshot, in Input) {
 			out.Rules = append(out.Rules, r)
 		}
 	}
+	// Привязка правила к классу — только добавление (убрать существующую
+	// привязку импортом каталога нельзя).
 	for _, r := range in.KindRules {
 		if _, ok := kindRules[kindRuleKey{kind: r.Kind, rule: r.Rule}]; !ok {
 			out.KindRules = append(out.KindRules, r)
@@ -245,6 +251,8 @@ func applyInput(out *Snapshot, in Input) {
 // наполнения.
 func validateMetaschema(out *Snapshot) []Problem {
 	var probs []Problem
+	// Владельцы имён секций групп (контроль дублей одним проходом).
+	sectionOwners := make(map[string]string, len(out.Groups))
 	for i := range out.Kinds {
 		r := &out.Kinds[i]
 		if r.Code == "" {
@@ -308,12 +316,11 @@ func validateMetaschema(out *Snapshot) []Problem {
 		if r.SortOrder < 0 {
 			probs = append(probs, metaProblem(domain.MsgMetaGroupSortNegative, r.Code))
 		}
-		for j := 0; j < i; j++ {
-			if out.Groups[j].SectionName == r.SectionName {
-				probs = append(probs, metaProblem(domain.MsgMetaGroupSectionDup,
-					r.Code, r.SectionName, out.Groups[j].Code))
-				break
-			}
+		if seen, ok := sectionOwners[r.SectionName]; ok {
+			probs = append(probs, metaProblem(domain.MsgMetaGroupSectionDup,
+				r.Code, r.SectionName, seen))
+		} else {
+			sectionOwners[r.SectionName] = r.Code
 		}
 	}
 	for i := range out.Rules {

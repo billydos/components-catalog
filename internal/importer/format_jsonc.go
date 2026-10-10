@@ -3,6 +3,9 @@ package importer
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
+	"io"
+
 	"github.com/billydos/components-catalog/internal/domain"
 
 	"github.com/tailscale/hujson"
@@ -36,7 +39,11 @@ func decodeJSONDocument(data []byte, lineBase int) (value, error) {
 	if err != nil {
 		return value{}, err
 	}
-	if err := decoder.Decode(new(json.RawMessage)); err == nil {
+	// После значения допустим только конец потока: и второе значение, и
+	// невалидный хвост (обрыв конкатенации, лишняя скобка) — ошибка
+	// «после значения данных быть не должно»; SyntaxError хвоста не
+	// отбрасывается молча.
+	if err := decoder.Decode(new(json.RawMessage)); !errors.Is(err, io.EOF) {
 		return value{}, domain.NewErrorf(domain.CodeInvalidImportFile, domain.MsgImportUnexpectedToken, "trailing data")
 	}
 	return v, nil

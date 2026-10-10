@@ -27,7 +27,10 @@ func runInit(ctx context.Context, opts *options, pos []string, stdout, stderr io
 		return fail(stderr, opts.langOf(), err)
 	}
 	defer app.Close() //nolint:errcheck — закрытие при выходе
-	_, dsn := opts.dsnOf()
+	_, dsn, err := opts.dsnOf()
+	if err != nil {
+		return fail(stderr, opts.langOf(), err)
+	}
 	// DSN отображается с маскированным паролем (sqlite-пути функция
 	// пропускает без изменений).
 	fmt.Fprintf(stdout, "%s\n", i18n.Message(opts.langOf(), string(domain.MsgCliDbInitialized),
@@ -36,7 +39,7 @@ func runInit(ctx context.Context, opts *options, pos []string, stdout, stderr io
 }
 
 func appDialect(opts *options) string {
-	dialect, _ := opts.dsnOf()
+	dialect, _, _ := opts.dsnOf()
 	return dialect
 }
 

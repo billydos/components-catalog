@@ -3,8 +3,10 @@ package storage
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/billydos/components-catalog/internal/catalog"
+	"github.com/billydos/components-catalog/internal/domain"
 )
 
 // WriteCatalog применяет строки каталога upsert'ом по коду внутри транзакции
@@ -14,50 +16,48 @@ import (
 // (is_active = 0) самим входом. Валидацию метасхемы выполняет сервисный слой
 // до записи; порядок таблиц учитывает FK.
 func (t *Tx) WriteCatalog(ctx context.Context, in catalog.Input) error {
-	for _, r := range in.Kinds {
-		if err := t.insertIfAbsent(ctx,
-			`INSERT INTO kinds(code)
-SELECT @code
-WHERE NOT EXISTS (SELECT 1 FROM kinds WHERE code = @code)`,
-			map[string]any{"code": string(r.Code)}); err != nil {
+	if len(in.Kinds) > 0 {
+		rows := make([][]any, len(in.Kinds))
+		for i, r := range in.Kinds {
+			rows[i] = []any{string(r.Code)}
+		}
+		if err := t.insertMulti(ctx, "kinds", "code", rows); err != nil {
 			return err
 		}
 	}
-	for _, r := range in.Systems {
-		if err := t.insertIfAbsent(ctx,
-			`INSERT INTO designation_systems(code)
-SELECT @code
-WHERE NOT EXISTS (SELECT 1 FROM designation_systems WHERE code = @code)`,
-			map[string]any{"code": string(r.Code)}); err != nil {
+	if len(in.Systems) > 0 {
+		rows := make([][]any, len(in.Systems))
+		for i, r := range in.Systems {
+			rows[i] = []any{string(r.Code)}
+		}
+		if err := t.insertMulti(ctx, "designation_systems", "code", rows); err != nil {
 			return err
 		}
 	}
-	for _, r := range in.SystemKinds {
-		if err := t.insertIfAbsent(ctx,
-			`INSERT INTO designation_system_kinds(system_code, kind_code)
-SELECT @system, @kind
-WHERE NOT EXISTS (
-    SELECT 1 FROM designation_system_kinds
-    WHERE system_code = @system AND kind_code = @kind)`,
-			map[string]any{"system": string(r.System), "kind": string(r.Kind)}); err != nil {
+	if len(in.SystemKinds) > 0 {
+		rows := make([][]any, len(in.SystemKinds))
+		for i, r := range in.SystemKinds {
+			rows[i] = []any{string(r.System), string(r.Kind)}
+		}
+		if err := t.insertMulti(ctx, "designation_system_kinds", "system_code, kind_code", rows); err != nil {
 			return err
 		}
 	}
-	for _, r := range in.Units {
-		if err := t.insertIfAbsent(ctx,
-			`INSERT INTO units(code)
-SELECT @code
-WHERE NOT EXISTS (SELECT 1 FROM units WHERE code = @code)`,
-			map[string]any{"code": r.Code}); err != nil {
+	if len(in.Units) > 0 {
+		rows := make([][]any, len(in.Units))
+		for i, r := range in.Units {
+			rows[i] = []any{r.Code}
+		}
+		if err := t.insertMulti(ctx, "units", "code", rows); err != nil {
 			return err
 		}
 	}
-	for _, r := range in.Categories {
-		if err := t.insertIfAbsent(ctx,
-			`INSERT INTO categories(code)
-SELECT @code
-WHERE NOT EXISTS (SELECT 1 FROM categories WHERE code = @code)`,
-			map[string]any{"code": r.Code}); err != nil {
+	if len(in.Categories) > 0 {
+		rows := make([][]any, len(in.Categories))
+		for i, r := range in.Categories {
+			rows[i] = []any{r.Code}
+		}
+		if err := t.insertMulti(ctx, "categories", "code", rows); err != nil {
 			return err
 		}
 	}
@@ -86,12 +86,12 @@ VALUES (@code, @section, @sort)`,
 			return err
 		}
 	}
-	for _, r := range in.Rules {
-		if err := t.insertIfAbsent(ctx,
-			`INSERT INTO validation_rules(code)
-SELECT @code
-WHERE NOT EXISTS (SELECT 1 FROM validation_rules WHERE code = @code)`,
-			map[string]any{"code": r.Code}); err != nil {
+	if len(in.Rules) > 0 {
+		rows := make([][]any, len(in.Rules))
+		for i, r := range in.Rules {
+			rows[i] = []any{r.Code}
+		}
+		if err := t.insertMulti(ctx, "validation_rules", "code", rows); err != nil {
 			return err
 		}
 	}
@@ -101,14 +101,12 @@ WHERE NOT EXISTS (SELECT 1 FROM validation_rules WHERE code = @code)`,
 	if err := t.writeAttributes(ctx, in.Attributes); err != nil {
 		return err
 	}
-	for _, r := range in.KindRules {
-		if err := t.insertIfAbsent(ctx,
-			`INSERT INTO kind_validation_rules(kind_code, validation_rule)
-SELECT @kind, @rule
-WHERE NOT EXISTS (
-    SELECT 1 FROM kind_validation_rules
-    WHERE kind_code = @kind AND validation_rule = @rule)`,
-			map[string]any{"kind": string(r.Kind), "rule": r.Rule}); err != nil {
+	if len(in.KindRules) > 0 {
+		rows := make([][]any, len(in.KindRules))
+		for i, r := range in.KindRules {
+			rows[i] = []any{string(r.Kind), r.Rule}
+		}
+		if err := t.insertMulti(ctx, "kind_validation_rules", "kind_code, validation_rule", rows); err != nil {
 			return err
 		}
 	}
@@ -134,54 +132,61 @@ VALUES (@code, @group, @unit, @vtype, @ceiling, @neg, @rule, @sort, @active)`,
 			}); err != nil {
 			return err
 		}
-		// Применимость к классам замещается целиком.
+		// Применимость к классам замещается целиком (батч-вставкой).
 		if _, err := t.exec(ctx,
 			`DELETE FROM parameter_kinds WHERE parameter_code = @code`,
 			map[string]any{"code": r.Code}); err != nil {
 			return err
 		}
-		for _, k := range r.Kinds {
-			if err := t.insertIfAbsent(ctx,
-				`INSERT INTO parameter_kinds(parameter_code, kind_code) VALUES (@code, @kind)`,
-				map[string]any{"code": r.Code, "kind": string(k)}); err != nil {
+		if len(r.Kinds) > 0 {
+			rows := make([][]any, len(r.Kinds))
+			for i, k := range r.Kinds {
+				rows[i] = []any{r.Code, string(k)}
+			}
+			if err := t.insertMulti(ctx, "parameter_kinds", "parameter_code, kind_code", rows); err != nil {
 				return err
 			}
 		}
-		// Enum-значения замещаются целиком.
+		// Enum-значения замещаются целиком (батч-вставкой).
 		if _, err := t.exec(ctx,
 			`DELETE FROM parameter_enum_values WHERE parameter_code = @code`,
 			map[string]any{"code": r.Code}); err != nil {
 			return err
 		}
-		for _, v := range r.EnumValues {
-			if _, err := t.exec(ctx,
-				`INSERT INTO parameter_enum_values(parameter_code, value) VALUES (@code, @value)`,
-				map[string]any{"code": r.Code, "value": v}); err != nil {
+		if len(r.EnumValues) > 0 {
+			rows := make([][]any, len(r.EnumValues))
+			for i, v := range r.EnumValues {
+				rows[i] = []any{r.Code, v}
+			}
+			if err := t.insertMulti(ctx, "parameter_enum_values", "parameter_code, value", rows); err != nil {
 				return err
 			}
 		}
-		// Наборы условий замещаются целиком (элементы — каскадом по FK).
+		// Наборы условий замещаются целиком (элементы — каскадом по FK);
+		// строки наборов и элементов — батч-вставками по параметру.
 		if _, err := t.exec(ctx,
 			`DELETE FROM parameter_condition_sets WHERE parameter_code = @code`,
 			map[string]any{"code": r.Code}); err != nil {
 			return err
 		}
-		for _, set := range r.ConditionSets {
-			if _, err := t.exec(ctx,
-				`INSERT INTO parameter_condition_sets(parameter_code, set_no) VALUES (@code, @no)`,
-				map[string]any{"code": r.Code, "no": set.No}); err != nil {
+		if len(r.ConditionSets) > 0 {
+			setRows := make([][]any, 0, len(r.ConditionSets))
+			itemRows := make([][]any, 0, 8)
+			for _, set := range r.ConditionSets {
+				setRows = append(setRows, []any{r.Code, set.No})
+				for _, it := range set.Items {
+					itemRows = append(itemRows, []any{
+						r.Code, set.No, it.Condition, string(it.Mode), it.FixedValue,
+					})
+				}
+			}
+			if err := t.insertMulti(ctx, "parameter_condition_sets",
+				"parameter_code, set_no", setRows); err != nil {
 				return err
 			}
-			for _, it := range set.Items {
-				if _, err := t.exec(ctx, `
-INSERT INTO parameter_condition_set_items(parameter_code, set_no, condition_code, mode, fixed_value)
-VALUES (@code, @no, @cond, @mode, @fixed)`,
-					map[string]any{
-						"code": r.Code, "no": set.No, "cond": it.Condition,
-						"mode": string(it.Mode), "fixed": it.FixedValue,
-					}); err != nil {
-					return err
-				}
+			if err := t.insertMulti(ctx, "parameter_condition_set_items",
+				"parameter_code, set_no, condition_code, mode, fixed_value", itemRows); err != nil {
+				return err
 			}
 		}
 	}
@@ -210,10 +215,12 @@ VALUES (@code, @group, @vtype, @unit, @rule, @sort, @active)`,
 			map[string]any{"code": r.Code}); err != nil {
 			return err
 		}
-		for _, k := range r.Kinds {
-			if err := t.insertIfAbsent(ctx,
-				`INSERT INTO attribute_kinds(attribute_code, kind_code) VALUES (@code, @kind)`,
-				map[string]any{"code": r.Code, "kind": string(k)}); err != nil {
+		if len(r.Kinds) > 0 {
+			rows := make([][]any, len(r.Kinds))
+			for i, k := range r.Kinds {
+				rows[i] = []any{r.Code, string(k)}
+			}
+			if err := t.insertMulti(ctx, "attribute_kinds", "attribute_code, kind_code", rows); err != nil {
 				return err
 			}
 		}
@@ -222,12 +229,48 @@ VALUES (@code, @group, @vtype, @unit, @rule, @sort, @active)`,
 			map[string]any{"code": r.Code}); err != nil {
 			return err
 		}
-		for _, v := range r.EnumValues {
-			if _, err := t.exec(ctx,
-				`INSERT INTO attribute_enum_values(attribute_code, value) VALUES (@code, @value)`,
-				map[string]any{"code": r.Code, "value": v}); err != nil {
+		if len(r.EnumValues) > 0 {
+			rows := make([][]any, len(r.EnumValues))
+			for i, v := range r.EnumValues {
+				rows[i] = []any{r.Code, v}
+			}
+			if err := t.insertMulti(ctx, "attribute_enum_values", "attribute_code, value", rows); err != nil {
 				return err
 			}
+		}
+	}
+	return nil
+}
+
+// insertMulti — многострочная вставка INSERT INTO … VALUES … с атомарным
+// подавлением конфликта уникальности (ON CONFLICT DO NOTHING — параллельный
+// писатель postgres); чанки ограничивают число аргументов оператора, как
+// батч-вставки devices.go: сидирование каталога — сотни строк, построчные
+// вставки стоили бы сотен round-trip'ов.
+func (t *Tx) insertMulti(ctx context.Context, table, cols string, rows [][]any) error {
+	const rowsPerStmt = 100 // аргументов в операторе ≤ 5·100 — в пределах лимита sqlite
+	for start := 0; start < len(rows); start += rowsPerStmt {
+		end := min(start+rowsPerStmt, len(rows))
+		var sb strings.Builder
+		fmt.Fprintf(&sb, "INSERT INTO %s(%s) VALUES ", table, cols)
+		args := make(map[string]any, (end-start)*5)
+		for i := start; i < end; i++ {
+			if i > start {
+				sb.WriteString(", ")
+			}
+			sb.WriteString("(")
+			for j, v := range rows[i] {
+				if j > 0 {
+					sb.WriteString(", ")
+				}
+				name := fmt.Sprintf("r%dc%d", i, j)
+				sb.WriteString("@" + name)
+				args[name] = v
+			}
+			sb.WriteString(")")
+		}
+		if _, err := t.exec(ctx, withOnConflict(sb.String()), args); err != nil {
+			return err
 		}
 	}
 	return nil
@@ -242,30 +285,22 @@ VALUES (@code, @group, @vtype, @unit, @rule, @sort, @active)`,
 func (t *Tx) upsert(ctx context.Context, update, insert string, args map[string]any) error {
 	res, err := t.exec(ctx, update, args)
 	if err != nil {
-		return fmt.Errorf("хранилище: каталог: %w", err)
+		return domain.NewErrorf(domain.CodeInternal, domain.MsgStorageCatalogWrite, err.Error())
 	}
 	if n, _ := res.RowsAffected(); n > 0 {
 		return nil
 	}
-	res, err = t.exec(ctx, insert+" ON CONFLICT DO NOTHING", args)
+	res, err = t.exec(ctx, withOnConflict(insert), args)
 	if err != nil {
-		return fmt.Errorf("хранилище: каталог: %w", err)
+		return domain.NewErrorf(domain.CodeInternal, domain.MsgStorageCatalogWrite, err.Error())
 	}
 	if n, _ := res.RowsAffected(); n > 0 {
 		return nil
 	}
 	if _, err := t.exec(ctx, update, args); err != nil {
-		return fmt.Errorf("хранилище: каталог: %w", err)
+		return domain.NewErrorf(domain.CodeInternal, domain.MsgStorageCatalogWrite, err.Error())
 	}
 	return nil
-}
-
-// insertIfAbsent выполняет вставку связи, если её ещё нет; конкурентная
-// вставка той же строки подавляется атомарно (ON CONFLICT DO NOTHING —
-// параллельный писатель postgres).
-func (t *Tx) insertIfAbsent(ctx context.Context, query string, args map[string]any) error {
-	_, err := t.exec(ctx, query+" ON CONFLICT DO NOTHING", args)
-	return err
 }
 
 func nilIfEmpty(s string) any {

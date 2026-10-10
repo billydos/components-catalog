@@ -17,8 +17,6 @@ import (
 	"regexp"
 	"strings"
 	"time"
-
-	"github.com/billydos/components-catalog/internal/storage"
 )
 
 // restsrvReadyRE — строка готовности restsrv с фактическим адресом
@@ -54,8 +52,7 @@ func restSuite(ctx context.Context, r *report, srv, tmp string, l leg) {
 	// Порт выбирает сам restsrv и печатает фактический адрес строкой
 	// готовности — порт никем не освобождается до слушания. Успешный
 	// разбор выходит сразу, ранний выход — отмена прогона или падение
-	// хоста.
-	dsn := legDSN(l.dbArgs)
+	// хоста (маскировку DSN в деталях выполняет граница отчёта — mask.go).
 	addr := ""
 	readyLine := false
 	deadline := time.Now().Add(20 * time.Second)
@@ -74,7 +71,7 @@ func restSuite(ctx context.Context, r *report, srv, tmp string, l leg) {
 		break
 	}
 	if !r.check("rest/addr", "restsrv: строка готовности — фактический адрес",
-		readyLine, maskTail(tailFile(logPath, 15), dsn)...) {
+		readyLine, tailFile(logPath, 15)...) {
 		return
 	}
 
@@ -98,7 +95,7 @@ func restSuite(ctx context.Context, r *report, srv, tmp string, l leg) {
 		}
 		break
 	}
-	if !r.check("rest/ready", "restsrv: готовность", ready, maskTail(tailFile(logPath, 15), dsn)...) {
+	if !r.check("rest/ready", "restsrv: готовность", ready, tailFile(logPath, 15)...) {
 		return
 	}
 
@@ -283,29 +280,6 @@ func tailFile(path string, n int) []string {
 	lines := trimSpaceLines(string(data))
 	if len(lines) > n {
 		lines = lines[len(lines)-n:]
-	}
-	return lines
-}
-
-// legDSN — DSN ноги из флагов подключения (пусто для sqlite-ноги).
-func legDSN(dbArgs []string) string {
-	for i := 0; i+1 < len(dbArgs); i++ {
-		if dbArgs[i] == "--dsn" {
-			return dbArgs[i+1]
-		}
-	}
-	return ""
-}
-
-// maskTail маскирует исходный DSN в строках деталей отказа: лог хоста
-// может содержать строку подключения в тексте ошибки драйвера.
-func maskTail(lines []string, dsn string) []string {
-	if dsn == "" {
-		return lines
-	}
-	masked := storage.MaskDSN(dsn)
-	for i, l := range lines {
-		lines[i] = strings.ReplaceAll(l, dsn, masked)
 	}
 	return lines
 }

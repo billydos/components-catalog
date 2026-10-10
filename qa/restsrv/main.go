@@ -64,8 +64,14 @@ func run() error {
 		return err
 	}
 	srv := &http.Server{
-		Handler:           httpapi.New(app, httpapi.Config{}).Handler(),
+		Handler: httpapi.New(app, httpapi.Config{}).Handler(),
+		// Таймауты чтения/записи/простоя — симметричное дополнение
+		// ReadHeaderTimeout: медленный или брошенный клиент не держит
+		// соединение QA-заглушки неограниченно.
 		ReadHeaderTimeout: 5 * time.Second,
+		ReadTimeout:       30 * time.Second,
+		WriteTimeout:      30 * time.Second,
+		IdleTimeout:       60 * time.Second,
 	}
 	go func() {
 		<-ctx.Done()
@@ -75,8 +81,13 @@ func run() error {
 	}()
 
 	fmt.Fprintf(os.Stderr, "restsrv: ready http://%s/api/v1 (%s)\n", ln.Addr(), *dialect)
-	if err := srv.Serve(ln); err != nil && !errors.Is(err, http.ErrServerClosed) {
-		return err
+	serveErr := srv.Serve(ln)
+	// Сигнал между стартом горутины и Serve даёт Shutdown по пустому
+	// списку слушателей — Close вслед за Serve закрывает слушатель
+	// и соединения в любом исходе гонки (после Shutdown безопасен).
+	_ = srv.Close()
+	if serveErr != nil && !errors.Is(serveErr, http.ErrServerClosed) {
+		return serveErr
 	}
 	return nil
 }

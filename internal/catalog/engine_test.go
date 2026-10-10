@@ -433,7 +433,9 @@ func TestConditionSets(t *testing.T) {
 	})
 }
 
-// Параметр задан в чужой секции группы; пустая секция не проверяется.
+// Параметр задан в чужой секции группы; пустая секция — такое же
+// несоответствие (значения исполнений строятся с секцией, как и значения
+// типа в целом).
 func TestSectionMismatch(t *testing.T) {
 	e := seedEngine(t)
 	d := catalog.Device{
@@ -441,13 +443,46 @@ func TestSectionMismatch(t *testing.T) {
 		Values: []catalog.ParameterValue{
 			{Parameter: "h21e", Section: "ratings", Min: f(50), Max: f(350),
 				Conditions: []catalog.ConditionValue{{Condition: "Uke", Value: 10}, {Condition: "Ik", Value: 1}}},
-			{Parameter: "UkeoMax", Exact: f(20)},
+			{Parameter: "UkeoMax", Section: "ratings", Exact: f(20)},
 		},
 	}
 	probs := e.ValidateDevice(&d)
 	if len(probs) != 1 || probs[0].Message !=
 		"parameter «h21e» is set in section «ratings» but belongs to section «parameters»" {
 		t.Fatalf(" got: %v", messages(probs))
+	}
+
+	// Пустая секция — такое же несоответствие.
+	d.Values[1].Section = ""
+	probs = e.ValidateDevice(&d)
+	if len(probs) != 2 || probs[1].Message !=
+		"parameter «UkeoMax» is set in section «» but belongs to section «ratings»" {
+		t.Fatalf(" got: %v", messages(probs))
+	}
+}
+
+// Значение исполнения в чужой секции отвергается так же, как значение
+// типа в целом: секция принадлежит группе параметра.
+func TestVariantSectionMismatch(t *testing.T) {
+	e := seedEngine(t)
+	d := catalog.Device{
+		Kind: domain.KindCapacitor, System: domain.SystemGost,
+		Variants: []catalog.Variant{{
+			Label: "16V",
+			Values: []catalog.ParameterValue{
+				{Parameter: "Cnom", Section: "limits", Exact: f(100)},
+			},
+		}},
+	}
+	probs := e.ValidateDevice(&d)
+	found := false
+	for _, p := range probs {
+		if p.MsgID == domain.MsgEngineParamWrongSection {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatalf("несоответствие секции значения исполнения не найдено: %v", messages(probs))
 	}
 }
 

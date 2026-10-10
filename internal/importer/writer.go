@@ -42,6 +42,21 @@ func (m *Importer) Export(ctx context.Context, w io.Writer, format Format, kind 
 		}
 	}
 
+	switch format {
+	case FormatNDJSON:
+		// Построчный поток для больших объёмов: записи пишутся по мере
+		// чтения батчами, дерево всего файла в памяти не собирается.
+		for _, k := range snap.Kinds {
+			if kind != nil && k.Code != *kind {
+				continue
+			}
+			if err := m.exportKindNDJSON(ctx, w, k.Code); err != nil {
+				return err
+			}
+		}
+		return nil
+	}
+
 	root := value{kind: kindObject}
 	for _, k := range snap.Kinds {
 		if kind != nil && k.Code != *kind {
@@ -57,14 +72,10 @@ func (m *Importer) Export(ctx context.Context, w io.Writer, format Format, kind 
 		root.members = append(root.members, member{name: catalog.KindSection(k.Code), value: array(records...)})
 	}
 
-	switch format {
-	case FormatNDJSON:
-		return writeNDJSONRoot(w, root)
-	case FormatYAML:
+	if format == FormatYAML {
 		return writeYAMLTree(w, root)
-	default:
-		return writeJSONTree(w, root)
 	}
+	return writeJSONTree(w, root)
 }
 
 // ExportCatalog выгружает каталог (снимок определений) в формате
@@ -89,47 +100,71 @@ func (m *Importer) ExportCatalog(ctx context.Context, w io.Writer, format Format
 	}
 }
 
-// exportKindRecords собирает деревья записей класса: единый список id в
-// порядке (designation) одним запросом + пакетная загрузка карточек —
-// одно чтение на дочернюю таблицу, без обращений на каждую запись.
-// Последовательный обход зафиксированного списка id не даёт дубли и
-// пропусков при конкурентных вставках/удалениях между пакетами.
+// exportKindRecords собирает деревья записей класса (документные
+// форматы): обход батчами карточек, дерево — целиком в памяти.
 func (m *Importer) exportKindRecords(ctx context.Context, snap *catalog.Snapshot,
 	kind domain.Kind) ([]value, error) {
+	var out []value
+	err := m.eachKindCard(ctx, kind, func(card *service.Card) error {
+		// Разбор обозначения над реестром семейств каталога — как при
+		// импорте: явные классификационные поля = хранимые минус
+		// продукты парсера (round-trip секции fields). Эволюция
+		// каталога/грамматики может сделать хранимое обозначение
+		// неразбираемым — запись выгружается без секции fields,
+		// экспорт продолжается; жёсткий отказ — только ошибки чтения.
+		p, err := m.app.Services().Designations.ParseForSystem(ctx,
+			card.Designation, card.System, card.Kind)
+		if err != nil {
+			out = append(out, recordTree(card, nil))
+			return nil
+		}
+		out = append(out, recordTree(card, &p))
+		return nil
+	})
+	return out, err
+}
+
+// exportKindNDJSON пишет записи класса строками-обёртками по мере
+// чтения: одна строка на запись, без накопления дерева класса.
+func (m *Importer) exportKindNDJSON(ctx context.Context, w io.Writer, kind domain.Kind) error {
+	return m.eachKindCard(ctx, kind, func(card *service.Card) error {
+		rec := recordTree(card, nil)
+		if p, err := m.app.Services().Designations.ParseForSystem(ctx,
+			card.Designation, card.System, card.Kind); err == nil {
+			rec = recordTree(card, &p)
+		}
+		return writeNDJSONLine(w, object(pair(catalog.KindSection(kind), rec)))
+	})
+}
+
+// eachKindCard обходит карточки записей класса батчами фиксированного
+// списка id: единый список id в порядке (designation) одним запросом +
+// пакетная загрузка карточек — одно чтение на дочернюю таблицу, без
+// обращений на каждую запись. Последовательный обход зафиксированного
+// списка id не даёт дубли и пропусков при конкурентных вставках/
+// удалениях между батчами; параллельно удалённые записи пропускаются.
+func (m *Importer) eachKindCard(ctx context.Context, kind domain.Kind, fn func(*service.Card) error) error {
 	ids, err := m.app.Services().Devices.ListIDsByKind(ctx, kind)
 	if err != nil {
-		return nil, err
+		return err
 	}
-	var out []value
 	const batchSize = 200
 	for start := 0; start < len(ids); start += batchSize {
 		end := start + batchSize
 		if end > len(ids) {
 			end = len(ids)
 		}
-		// Порядок карточек — по порядку id входа (список уже в порядке
-		// designation); параллельно удалённые записи пропускаются.
 		cards, err := m.app.Services().Devices.GetByIDs(ctx, ids[start:end])
 		if err != nil {
-			return nil, err
+			return err
 		}
 		for _, card := range cards {
-			// Разбор обозначения над реестром семейств каталога — как при
-			// импорте: явные классификационные поля = хранимые минус
-			// продукты парсера (round-trip секции fields). Эволюция
-			// каталога/грамматики может сделать хранимое обозначение
-			// неразбираемым — запись выгружается без секции fields,
-			// экспорт продолжается; жёсткий отказ — только ошибки чтения.
-			p, err := m.app.Services().Designations.ParseForSystem(ctx,
-				card.Designation, card.System, card.Kind)
-			if err != nil {
-				out = append(out, recordTree(card, nil))
-				continue
+			if err := fn(card); err != nil {
+				return err
 			}
-			out = append(out, recordTree(card, &p))
 		}
 	}
-	return out, nil
+	return nil
 }
 
 // recordTree строит дерево записи наполнения из карточки. Поля разбора
@@ -513,25 +548,22 @@ func emitJSON(b *strings.Builder, v value, indent string) {
 	}
 }
 
-// writeNDJSONRoot пишет записи построчно: одна строка-обёртка
-// {"<класс>": <запись>} на запись.
-func writeNDJSONRoot(w io.Writer, root value) error {
-	for _, sec := range root.members {
-		for _, rec := range sec.value.items {
-			if _, err := io.WriteString(w, jsonCompact(object(pair(sec.name, rec)))+"\n"); err != nil {
-				return err
-			}
-		}
+// writeNDJSONLine пишет одну строку-обёртку без полной копии текста
+// строки (перевод строки — отдельной записью).
+func writeNDJSONLine(w io.Writer, v value) error {
+	if _, err := io.WriteString(w, jsonCompact(v)); err != nil {
+		return err
 	}
-	return nil
+	_, err := io.WriteString(w, "\n")
+	return err
 }
 
 // writeNDJSONCatalog пишет каталог построчно: одна строка-обёртка
 // {"catalog": {"<подраздел>": [...]}} на подраздел.
 func writeNDJSONCatalog(w io.Writer, cat value) error {
 	for _, sub := range cat.members {
-		if _, err := io.WriteString(w, jsonCompact(object(
-			pair("catalog", object(pair(sub.name, sub.value)))))+"\n"); err != nil {
+		if err := writeNDJSONLine(w, object(
+			pair("catalog", object(pair(sub.name, sub.value))))); err != nil {
 			return err
 		}
 	}

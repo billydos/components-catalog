@@ -1,9 +1,5 @@
 package domain
 
-import (
-	"strings"
-)
-
 // Грамматики резисторных систем (план 03 §2.2, выверка — 07 §4).
 //
 // gost (ГОСТ 3453-68):
@@ -34,15 +30,13 @@ func parseResistorGost(s *scanner, _ Kind) (ParsedDesignation, error) {
 
 	var family string
 	switch {
-	case strings.HasPrefix(canonical, "СП"):
+	case s.takePrefix("СП"):
 		family = "СП"
-		s.i = 2
-	case strings.HasPrefix(canonical, "СТ"), strings.HasPrefix(canonical, "СН"), strings.HasPrefix(canonical, "СФ"):
+	case s.takePrefix("СТ"), s.takePrefix("СН"), s.takePrefix("СФ"):
 		// Терморезисторы, варисторы, фоторезисторы — иные классы приборов.
 		return ParsedDesignation{}, KindNotSupported()
-	case strings.HasPrefix(canonical, "С"):
+	case s.takePrefix("С"):
 		family = "С"
-		s.i = 1
 	default:
 		return ParsedDesignation{}, s.fail(MsgExpectResFamilyCS)
 	}
@@ -94,19 +88,15 @@ func parseResistorOst(s *scanner, _ Kind) (ParsedDesignation, error) {
 
 	var family string
 	switch {
-	case strings.HasPrefix(canonical, "РП"):
-		family = "РП"
-		s.i = 2
-	case strings.HasPrefix(canonical, "НР"):
-		family = "НР"
-		s.i = 2
-	case strings.HasPrefix(canonical, "Р"):
-		family = "Р"
-		s.i = 1
-	case strings.HasPrefix(canonical, "ВРП"), strings.HasPrefix(canonical, "ВР"),
-		strings.HasPrefix(canonical, "ТРП"), strings.HasPrefix(canonical, "ТР"):
+	case s.takePrefix("ВРП"), s.takePrefix("ВР"), s.takePrefix("ТРП"), s.takePrefix("ТР"):
 		// Варисторы и терморезисторы — иные классы приборов.
 		return ParsedDesignation{}, KindNotSupported()
+	case s.takePrefix("РП"):
+		family = "РП"
+	case s.takePrefix("НР"):
+		family = "НР"
+	case s.takePrefix("Р"):
+		family = "Р"
 	default:
 		return ParsedDesignation{}, s.fail(MsgExpectResFamilyR)
 	}

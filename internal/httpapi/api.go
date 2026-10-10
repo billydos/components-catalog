@@ -330,17 +330,21 @@ func (a *API) writeErr(w *responseWriter, r *http.Request, err error) {
 	})
 }
 
-// statusFor — HTTP-статус по коду ошибки (план 04 §2: 400/404/409/422/500).
+// statusFor — HTTP-статус по коду ошибки (план 04 §2: 400/404/405/409/422/500).
 // Контекст query: ошибки параметров запроса и пути — 400 (фильтр по
 // неприменимому параметру — 400 по плану); контекст body: синтаксис
-// тела — 400, конфликт — 409, семантика записи — 422.
+// тела — 400, конфликт — 409, семантика записи — 422. Инфраструктурные
+// коды (недоступная база, DDL, сидирование, внутренняя ошибка) — 500
+// независимо от контекста.
 func statusFor(code domain.Code, inQuery bool) int {
 	switch code {
 	case domain.CodeNotFound:
 		return http.StatusNotFound
 	case domain.CodeAlreadyExists:
 		return http.StatusConflict
-	case domain.CodeSchemaVersionMismatch, domain.CodeDatabaseNotInitialized:
+	case domain.CodeSchemaVersionMismatch, domain.CodeDatabaseNotInitialized,
+		domain.CodeInternal, domain.CodeStorageOpenFailed,
+		domain.CodeStorageDDLFailed, domain.CodeSeedFailed:
 		return http.StatusInternalServerError
 	case domain.CodeInvalidImportFile:
 		return http.StatusBadRequest

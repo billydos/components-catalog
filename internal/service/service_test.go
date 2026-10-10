@@ -758,6 +758,19 @@ func suiteSearch(t *testing.T, factory configFactory) {
 		return out
 	}
 
+	// Неизвестные операция фильтра, поле и ключ сортировки отвергаются
+	// сервисом (единая точка входа — валидация не только в транспорте).
+	for _, q := range []SearchQuery{
+		{Fields: []FieldFilter{{Field: "material", Num: 1, HasNum: true, Op: "lt"}}},
+		{Fields: []FieldFilter{{Field: "nosuchfield", Text: "x"}}},
+		{Attributes: []AttributeFilter{{Attribute: "description", Op: "gt", Num: 1, HasNum: true}}},
+		{Sort: []SortField{{Key: "nosuchkey"}}},
+	} {
+		if _, err := svc.Search(ctx, q); err == nil {
+			t.Fatalf("запрос %+v должен был быть отвергнут", q)
+		}
+	}
+
 	// Подstring обозначения (канонический регистр ввода не важен).
 	page, err := svc.Search(ctx, SearchQuery{Query: "кт3"})
 	if err != nil || !slices.Equal(designations(page), []string{"КТ315Б"}) {
@@ -1372,5 +1385,32 @@ func suiteClassificationFields(t *testing.T, factory configFactory) {
 	card, _, _ = svc.Get(ctx, domain.KindTransistor, "MJE340")
 	if f, ok := card.FieldByName("material"); !ok || f.Text != "ge" {
 		t.Fatalf("material после отказа: %v", f)
+	}
+}
+
+// Класс удаления проверяется по снимку каталога, а не по стартовому
+// реестру domain: класс, добавленный импортом каталога, легитимен
+// (единый источник истины — как в Get/Search), неизвестный — ошибка.
+func TestDeleteKindBySnapshot(t *testing.T) {
+	app := openSuiteApp(t, memoryConfig)
+	ctx := context.Background()
+	svc := app.Services().Devices
+
+	if _, err := svc.Delete(ctx, "nosuchkind", "X1"); err == nil {
+		t.Fatal("неизвестный класс должен отвергаться")
+	} else if de, ok := domain.AsError(err); !ok || de.MsgID != domain.MsgKindUnknown {
+		t.Fatalf("ожидалась kind_unknown, получено %v", err)
+	}
+
+	// Класс, добавленный расширением каталога: валиден для Delete
+	// (записи нет — false, но не kind_unknown).
+	if err := app.Services().Catalog.Import(ctx, catalog.Input{
+		Kinds: []catalog.KindDef{{Code: "thyristor"}},
+	}); err != nil {
+		t.Fatalf("расширение каталога: %v", err)
+	}
+	found, err := svc.Delete(ctx, "thyristor", "КУ101")
+	if err != nil || found {
+		t.Fatalf("удаление по классу из снимка: %v %v", found, err)
 	}
 }

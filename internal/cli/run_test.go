@@ -559,3 +559,79 @@ func TestLimitRangeValidation(t *testing.T) {
 		t.Fatalf("--limit 0 (ru): код %d, %q (want %q)", code, stderr, want)
 	}
 }
+
+// «help help» — справка о самой справке, а не «неизвестная команда».
+func TestHelpHelp(t *testing.T) {
+	stdout, stderr, code := run(t, "help", "help")
+	if code != 0 || stderr != "" || !strings.Contains(stdout, "help [command]") {
+		t.Fatalf("код %d, stdout %q, stderr %q", code, stdout, stderr)
+	}
+}
+
+// Опции до команды — явная подсказка позиции опций, а не «неизвестная
+// команда --db».
+func TestOptionsBeforeCommandHinted(t *testing.T) {
+	_, stderr, code := run(t, "--db", "/tmp/x.db", "count")
+	if code != 1 || !strings.HasPrefix(stderr, "Error: ") ||
+		!strings.Contains(stderr, "options must follow the command") {
+		t.Fatalf("код %d, stderr %q", code, stderr)
+	}
+}
+
+// Флаги соседних подкоманд catalog не принимаются молча.
+func TestCatalogSubcommandFlagsStrict(t *testing.T) {
+	db := testDB(t)
+	run(t, "init", "--db", db)
+	_, stderr, code := run(t, "catalog", "list", "--db", db, "--dry-run")
+	if code != 1 || !strings.Contains(stderr, "unknown flag") {
+		t.Fatalf("catalog list --dry-run: код %d, stderr %q", code, stderr)
+	}
+	_, stderr, code = run(t, "catalog", "export", "--db", db, "--dry-run")
+	if code != 1 || !strings.Contains(stderr, "unknown flag") {
+		t.Fatalf("catalog export --dry-run: код %d, stderr %q", code, stderr)
+	}
+	// Свои флаги работают.
+	cat := filepath.Join(t.TempDir(), "cat.jsonc")
+	if err := os.WriteFile(cat, []byte(`{"catalog": {"units": [ { "code": "kV" } ]}}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	_, stderr, code = run(t, "catalog", "import", cat, "--db", db, "--dry-run")
+	if code != 0 || stderr != "" {
+		t.Fatalf("catalog import --dry-run: код %d, stderr %q", code, stderr)
+	}
+}
+
+// Форма флага — ровно два дефиса; значение не может быть следующим
+// флагом.
+func TestFlagLexingStrict(t *testing.T) {
+	db := testDB(t)
+	_, stderr, code := run(t, "count", "-kind", "transistor", "--db", db)
+	if code != 1 || !strings.Contains(stderr, "unknown flag") {
+		t.Fatalf("-kind: код %d, stderr %q", code, stderr)
+	}
+	_, stderr, code = run(t, "count", "---kind", "transistor", "--db", db)
+	if code != 1 || !strings.Contains(stderr, "unknown flag") {
+		t.Fatalf("---kind: код %d, stderr %q", code, stderr)
+	}
+	_, stderr, code = run(t, "list", "--kind", "--system", "--db", db)
+	if code != 1 || !strings.Contains(stderr, "requires a value") {
+		t.Fatalf("--kind --system: код %d, stderr %q", code, stderr)
+	}
+}
+
+// --dsn postgres://… без --dialect выводит диалект из схемы DSN;
+// противоречие с явным --dialect sqlite — подсказка, а не непрозрачная
+// ошибка драйвера.
+func TestDsnDialectDerivation(t *testing.T) {
+	_, stderr, code := run(t, "init", "--dsn", "postgres://u:p@127.0.0.1:1/db")
+	if code == 1 && strings.Contains(stderr, "unable to open database file") {
+		t.Fatalf("dsn postgres молча трактован как sqlite-путь: %s", stderr)
+	}
+
+	_, stderr, code = run(t, "init", "--dsn", "postgres://u:p@127.0.0.1:1/db",
+		"--dialect", "sqlite")
+	if code != 1 || !strings.Contains(stderr, "--dialect") ||
+		!strings.Contains(stderr, "postgres") {
+		t.Fatalf("противоречие dsn/dialect: код %d, stderr %q", code, stderr)
+	}
+}

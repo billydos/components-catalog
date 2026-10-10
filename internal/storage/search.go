@@ -5,6 +5,8 @@ import (
 	"database/sql"
 	"fmt"
 	"strings"
+
+	"github.com/billydos/components-catalog/internal/domain"
 )
 
 // FilterOp — операция сравнения числового фильтра.
@@ -219,11 +221,15 @@ WHERE (pv%d.variant_id = dv.id OR (pv%d.device_id = d.id AND pv%d.variant_id IS 
 		")"
 }
 
-// orderClause — сортировка с финальным (kind, designation) (designation
-// уникален только в пределах класса — без этого пагинация недетерминирована);
-// NULL-значения полей — в конце независимо от направления (переносимо).
-func orderClause(sorts []SortKey, w *whereBuilder) string {
-	var parts []string
+// orderJoinClause — соединение и сортировка по ключам: финальный ключ
+// (kind, designation) обязателен (designation уникален только в пределах
+// класса — без этого пагинация недетерминирована); NULL-значения полей —
+// в конце независимо от направления (переносимо). Ключу сортировки по
+// полю разбора соответствует LEFT JOIN device_designation_fields (PK
+// (device_id, field) даёт не более одной строки — дублирования записей
+// нет) вместо коррелированного подзапроса на каждую строку.
+func orderJoinClause(sorts []SortKey, w *whereBuilder) (joins, order string) {
+	var joinParts, orderParts []string
 	for i, s := range sorts {
 		dir := "ASC"
 		if s.Desc {
@@ -231,56 +237,79 @@ func orderClause(sorts []SortKey, w *whereBuilder) string {
 		}
 		switch s.Key {
 		case "designation":
-			parts = append(parts, "d.designation "+dir)
+			orderParts = append(orderParts, "d.designation "+dir)
 		case "id":
-			parts = append(parts, "d.id "+dir)
+			orderParts = append(orderParts, "d.id "+dir)
 		default:
-			col := "so.text_value"
+			alias := fmt.Sprintf("so%d", i)
+			joinParts = append(joinParts, fmt.Sprintf(
+				"LEFT JOIN device_designation_fields %s ON %s.device_id = d.id AND %s.field = %s",
+				alias, alias, alias, w.arg(fmt.Sprintf("sortkey%d", i), s.Key)))
+			col := alias + ".text_value"
 			if s.Numeric {
-				col = "so.num_value"
+				col = alias + ".num_value"
 			}
-			sub := "(SELECT " + col + ` FROM device_designation_fields so
-WHERE so.device_id = d.id AND so.field = ` + w.arg(fmt.Sprintf("sortkey%d", i), s.Key) + ")"
-			parts = append(parts, "(CASE WHEN "+sub+" IS NULL THEN 1 ELSE 0 END) ASC", sub+" "+dir)
+			orderParts = append(orderParts, "(CASE WHEN "+col+" IS NULL THEN 1 ELSE 0 END) ASC", col+" "+dir)
 		}
 	}
-	parts = append(parts, "d.kind_code ASC", "d.designation ASC")
-	return " ORDER BY " + strings.Join(parts, ", ")
+	orderParts = append(orderParts, "d.kind_code ASC", "d.designation ASC")
+	return strings.Join(joinParts, " "), " ORDER BY " + strings.Join(orderParts, ", ")
 }
 
 // Search выполняет поиск записей: WHERE — общие условия, ORDER BY —
 // сортировка с финальным (kind, designation), LIMIT/OFFSET — пагинация.
-// Возвращает страницу и общее число записей под фильтрами.
+// Возвращает страницу и общее число записей под фильтрами одним
+// оператором (COUNT(*) OVER() — оконная функция переносима: sqlite ≥ 3.25,
+// postgres): total и страница — один снимок данных, тяжёлый WHERE
+// вычисляется один раз. Пустая страница (фильтр без строк либо страница
+// за концом выдачи) оконного COUNT не даёт — total добирается отдельным
+// COUNT-запросом того же фильтра. Отрицательные limit/offset отвергаются
+// доменной ошибкой — диалекты расходятся в их трактовке (postgres — ошибка
+// протокола, sqlite молча «без лимита»).
 func (d *DB) Search(ctx context.Context, r SearchRequest) ([]SearchItemRow, int, error) {
-	w, clause := buildSearchWhere(r)
-
-	var total int
-	if err := d.queryRow(ctx,
-		`SELECT COUNT(*) FROM devices d`+clause, w.names).Scan(&total); err != nil {
-		return nil, 0, err
+	if r.Limit < 0 || r.Offset < 0 {
+		return nil, 0, domain.NewErrorf(domain.CodeValidationFailed,
+			domain.MsgStoragePageInvalid, r.Limit, r.Offset)
 	}
-
-	query := `SELECT d.id, d.kind_code, d.system_code, d.designation FROM devices d` +
-		clause + orderClause(r.Sorts, w) + ` LIMIT @limit OFFSET @offset`
+	w, clause := buildSearchWhere(r)
+	joins, order := orderJoinClause(r.Sorts, w)
 	w.names["limit"] = r.Limit
 	w.names["offset"] = r.Offset
+
+	from := "FROM devices d"
+	if joins != "" {
+		from += " " + joins
+	}
+	query := `SELECT d.id, d.kind_code, d.system_code, d.designation, COUNT(*) OVER()
+` + from + clause + order + ` LIMIT @limit OFFSET @offset`
 	rows, err := d.query(ctx, query, w.names)
 	if err != nil {
 		return nil, 0, err
 	}
-	defer rows.Close()
 	var out []SearchItemRow
+	total := 0
 	for rows.Next() {
 		var it SearchItemRow
-		if err := rows.Scan(&it.ID, &it.Kind, &it.System, &it.Designation); err != nil {
+		var n int
+		if err := rows.Scan(&it.ID, &it.Kind, &it.System, &it.Designation, &n); err != nil {
+			rows.Close()
 			return nil, 0, err
 		}
+		total = n
 		out = append(out, it)
 	}
 	if err := rows.Err(); err != nil {
+		rows.Close()
 		return nil, 0, err
 	}
 	rows.Close()
+
+	if len(out) == 0 {
+		if err := d.queryRow(ctx,
+			`SELECT COUNT(*) FROM devices d`+clause, w.names).Scan(&total); err != nil {
+			return nil, 0, err
+		}
+	}
 
 	if len(out) > 0 {
 		if err := d.loadSearchFields(ctx, out); err != nil {

@@ -16,8 +16,10 @@ import "strings"
 // текст переносимого DML не менялся). Версия 6 — удалена таблица
 // series_families (система обозначений series исключена: бывшие
 // серийные записи — система other, семейство/номер/буквы — явные поля
-// секции fields, мощность — параметр Pnom).
-const SchemaVersion = 6
+// секции fields, мощность — параметр Pnom). Версия 7 — индекс
+// device_manufacturers(manufacturer_id): адресная чистка сирот
+// производителей проверяет «без связей» точечно, без полного анти-джойна.
+const SchemaVersion = 7
 
 // autoIncToken — маркер авто-PK в переносимом DDL; диалект заменяет его
 // своим определением в RewriteDDL (sqlite: PRIMARY KEY AUTOINCREMENT —
@@ -230,6 +232,8 @@ var ddlStatements = []string{
 	`CREATE INDEX IF NOT EXISTS idx_pv_variant ON parameter_values(variant_id)`,
 
 	`CREATE INDEX IF NOT EXISTS idx_dv_device ON device_variants(device_id)`,
+
+	`CREATE INDEX IF NOT EXISTS idx_dm_manufacturer ON device_manufacturers(manufacturer_id)`,
 
 	`CREATE INDEX IF NOT EXISTS idx_analogs_analog ON device_analogs(analog_device_id)`,
 }

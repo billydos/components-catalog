@@ -17,7 +17,9 @@ const (
 	MsgSchemaVersionMismatch  MsgID = "schema_version_mismatch"
 	MsgDatabaseNotInitialized MsgID = "database_not_initialized"
 	MsgKindNotSupported       MsgID = "kind_not_supported"
+	MsgGostSubclassDictSync   MsgID = "gost_subclass_dict_sync"
 	MsgKindAmbiguous          MsgID = "kind_ambiguous"
+	MsgKindAmbiguousMismatch  MsgID = "kind_ambiguous_mismatch"
 	MsgKindRequired           MsgID = "kind_required"
 
 	MsgEmptyDesignation MsgID = "empty_designation"
@@ -244,6 +246,11 @@ const (
 	MsgImportFormatByExt              MsgID = "import_format_by_ext"
 	MsgImportFormatLineOnly           MsgID = "import_format_line_only"
 	MsgImportYamlNonFinite            MsgID = "import_yaml_non_finite"
+	MsgImportYamlMultiDoc             MsgID = "import_yaml_multi_doc"
+	MsgImportYamlAliasCycle           MsgID = "import_yaml_alias_cycle"
+	MsgImportYamlAliasUnknown         MsgID = "import_yaml_alias_unknown"
+	MsgImportYamlKeyInvalid           MsgID = "import_yaml_key_invalid"
+	MsgImportYamlNodeUnsupported      MsgID = "import_yaml_node_unsupported"
 	MsgImportNdjsonLineError          MsgID = "import_ndjson_line_error"
 	MsgImportSyntaxError              MsgID = "import_syntax_error"
 	MsgImportCatalogRecordsMixed      MsgID = "import_catalog_records_mixed"
@@ -270,6 +277,18 @@ const (
 	MsgImportCatalogPlain     MsgID = "import_catalog_object_plain"
 	MsgImportNdjsonSubsection MsgID = "import_ndjson_subsection_array"
 
+	// Сообщения хранилища (internal/storage) и сидирования.
+	MsgStorageDsnMissing         MsgID = "storage_dsn_missing"
+	MsgStorageDialectUnknown     MsgID = "storage_dialect_unknown"
+	MsgStorageOpen               MsgID = "storage_open_failed"
+	MsgStorageDDL                MsgID = "storage_ddl_failed"
+	MsgStorageCatalogWrite       MsgID = "storage_catalog_write_failed"
+	MsgStorageRereadMissing      MsgID = "storage_reread_missing"
+	MsgStorageRevisionRowMissing MsgID = "storage_revision_row_missing"
+	MsgStoragePageInvalid        MsgID = "storage_page_invalid"
+	MsgStorageCommitReadOnly     MsgID = "storage_commit_read_only"
+	MsgSeedFailed                MsgID = "seed_failed"
+
 	// Сообщения сервисного слоя (internal/service).
 	MsgSvcRecordNameMissing     MsgID = "svc_record_name_missing"
 	MsgSvcRecordAlreadyExists   MsgID = "svc_record_already_exists"
@@ -285,6 +304,8 @@ const (
 	MsgSvcAnalogDuplicate       MsgID = "svc_analog_duplicate"
 	MsgSvcAnalogNotFound        MsgID = "svc_analog_not_found"
 	MsgSvcFilterFieldMissing    MsgID = "svc_designation_filter_field_missing"
+	MsgSvcFilterOpUnknown       MsgID = "svc_filter_op_unknown"
+	MsgSvcSearchFieldUnknown    MsgID = "svc_search_field_unknown"
 	MsgSvcFilterAttrText        MsgID = "svc_filter_attr_text_expected"
 	MsgSvcFilterAttrNumber      MsgID = "svc_filter_attr_number_expected"
 	MsgSvcFilterParamSet        MsgID = "svc_filter_param_value_missing"
@@ -310,6 +331,7 @@ const (
 	MsgApiDesignationMismatch MsgID = "api_designation_mismatch"
 	MsgApiBadID               MsgID = "api_bad_id"
 	MsgApiQMissing            MsgID = "api_q_missing"
+	MsgApiQueryInvalid        MsgID = "api_query_invalid"
 	MsgApiLimitRange          MsgID = "api_limit_range"
 	MsgApiOffsetNonNeg        MsgID = "api_offset_non_negative"
 	MsgApiSortKey             MsgID = "api_sort_key_unknown"
@@ -321,6 +343,9 @@ const (
 
 	// Интерфейсные строки CLI (internal/cli).
 	MsgCliUnknownCommand    MsgID = "cli_unknown_command"
+	MsgCliOptionsAfterCmd   MsgID = "cli_options_after_command"
+	MsgCliHelpUsage         MsgID = "cli_help_usage"
+	MsgCliDsnDialect        MsgID = "cli_dsn_dialect_mismatch"
 	MsgCliArgCount          MsgID = "cli_arg_count"
 	MsgCliHelpArgs          MsgID = "cli_help_args"
 	MsgCliUnknownFlag       MsgID = "cli_unknown_flag"
@@ -381,7 +406,9 @@ var msgRegistry = map[MsgID]struct{}{
 	MsgSchemaVersionMismatch:  {},
 	MsgDatabaseNotInitialized: {},
 	MsgKindNotSupported:       {},
+	MsgGostSubclassDictSync:   {},
 	MsgKindAmbiguous:          {},
+	MsgKindAmbiguousMismatch:  {},
 	MsgKindRequired:           {},
 
 	MsgEmptyDesignation: {},
@@ -603,6 +630,11 @@ var msgRegistry = map[MsgID]struct{}{
 	MsgImportFormatByExt:              {},
 	MsgImportFormatLineOnly:           {},
 	MsgImportYamlNonFinite:            {},
+	MsgImportYamlMultiDoc:             {},
+	MsgImportYamlAliasCycle:           {},
+	MsgImportYamlAliasUnknown:         {},
+	MsgImportYamlKeyInvalid:           {},
+	MsgImportYamlNodeUnsupported:      {},
 	MsgImportNdjsonLineError:          {},
 	MsgImportSyntaxError:              {},
 	MsgImportCatalogRecordsMixed:      {},
@@ -626,6 +658,16 @@ var msgRegistry = map[MsgID]struct{}{
 	MsgImportWhereValue:               {},
 	MsgImportCatalogPlain:             {},
 	MsgImportNdjsonSubsection:         {},
+	MsgStorageDsnMissing:              {},
+	MsgStorageDialectUnknown:          {},
+	MsgStorageOpen:                    {},
+	MsgStorageDDL:                     {},
+	MsgStorageCatalogWrite:            {},
+	MsgStorageRereadMissing:           {},
+	MsgStorageRevisionRowMissing:      {},
+	MsgStoragePageInvalid:             {},
+	MsgStorageCommitReadOnly:          {},
+	MsgSeedFailed:                     {},
 	MsgSvcRecordNameMissing:           {},
 	MsgSvcRecordAlreadyExists:         {},
 	MsgSvcSectionUnknown:              {},
@@ -640,13 +682,15 @@ var msgRegistry = map[MsgID]struct{}{
 	MsgSvcAnalogDuplicate:             {},
 	MsgSvcAnalogNotFound:              {},
 	MsgSvcFilterFieldMissing:          {},
+	MsgSvcFilterOpUnknown:             {},
+	MsgSvcFieldUnknown:                {},
 	MsgSvcFilterAttrText:              {},
 	MsgSvcFilterAttrNumber:            {},
 	MsgSvcFilterParamSet:              {},
 	MsgSvcFilterParamText:             {},
 	MsgSvcFilterParamNumber:           {},
 	MsgSvcFieldDuplicate:              {},
-	MsgSvcFieldUnknown:                {},
+	MsgSvcSearchFieldUnknown:          {},
 	MsgSvcFieldParserOwned:            {},
 	MsgSvcFieldNotApplicable:          {},
 	MsgSvcFieldAssemblyRange:          {},
@@ -662,6 +706,7 @@ var msgRegistry = map[MsgID]struct{}{
 	MsgApiAlreadyExists:               {},
 	MsgApiDesignationMismatch:         {},
 	MsgApiBadID:                       {},
+	MsgApiQueryInvalid:                {},
 	MsgApiQMissing:                    {},
 	MsgApiLimitRange:                  {},
 	MsgApiOffsetNonNeg:                {},
@@ -672,6 +717,9 @@ var msgRegistry = map[MsgID]struct{}{
 	MsgApiBoolAttrFilter:              {},
 	MsgInternalError:                  {},
 	MsgCliUnknownCommand:              {},
+	MsgCliOptionsAfterCmd:             {},
+	MsgCliHelpUsage:                   {},
+	MsgCliDsnDialect:                  {},
 	MsgCliArgCount:                    {},
 	MsgCliHelpArgs:                    {},
 	MsgCliUnknownFlag:                 {},

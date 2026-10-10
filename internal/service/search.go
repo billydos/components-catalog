@@ -25,9 +25,10 @@ func (s *CatalogService) Snapshot(ctx context.Context) (*catalog.Snapshot, error
 
 // Import применяет каталог upsert'ом по коду после валидации метасхемы
 // (ApplyCatalog: вставка новой строки либо обновление полей; enum-значения,
-// наборы условий и применимость к классам замещаются целиком; непустой
-// список проблем — отказ целиком). Изменение каталога инкрементирует
-// catalog_revision атомарно в той же транзакции.
+// наборы условий и применимость параметров/атрибутов к классам замещаются
+// целиком по строке; привязки систем и правил к классам — только
+// добавление; непустой список проблем — отказ целиком). Изменение каталога
+// инкрементирует catalog_revision атомарно в той же транзакции.
 func (s *CatalogService) Import(ctx context.Context, in catalog.Input) error {
 	cur, err := s.app.cache.Snapshot(ctx)
 	if err != nil {
@@ -143,6 +144,12 @@ func buildSearchRequest(snap *catalog.Snapshot, q SearchQuery) (storage.SearchRe
 		if f.Field == "" {
 			return req, domain.NewErrorf(domain.CodeValidationFailed, domain.MsgSvcFilterFieldMissing)
 		}
+		if !domain.KnownDesignationField(f.Field) {
+			return req, domain.NewErrorf(domain.CodeValidationFailed, domain.MsgSvcSearchFieldUnknown, f.Field)
+		}
+		if err := knownFilterOp(f.Op); err != nil {
+			return req, err
+		}
 		req.Fields = append(req.Fields, storage.FieldCond{
 			Field: f.Field, Text: f.Text, Num: f.Num, HasNum: f.HasNum, Op: storage.FilterOp(f.Op),
 		})
@@ -156,6 +163,9 @@ func buildSearchRequest(snap *catalog.Snapshot, q SearchQuery) (storage.SearchRe
 			return req, domain.NewErrorf(domain.CodeAttributeNotApplicable, domain.MsgEngineAttrNotApplicable, a.Attribute, string(q.Kind))
 		}
 		cond := storage.AttrCond{Code: a.Attribute, Text: a.Text, Num: a.Num, HasNum: a.HasNum, Op: storage.FilterOp(a.Op)}
+		if err := knownFilterOp(a.Op); err != nil {
+			return req, err
+		}
 		switch def.Type {
 		case catalog.AttrText, catalog.AttrEnum:
 			if a.HasNum {
@@ -202,11 +212,30 @@ func buildSearchRequest(snap *catalog.Snapshot, q SearchQuery) (storage.SearchRe
 	}
 	for _, so := range q.Sort {
 		// "designation"/"id" — колонки записи; прочие ключи — коды полей
-		// разбора (значение передаётся параметром, неизвестное поле даёт
-		// NULL — записи без поля в конце порядка).
+		// разбора (значение передаётся параметром, записи без поля —
+		// в конце порядка). Известность ключа проверяется по единому
+		// реестру полей — неизвестный не «молча пустой порядок».
+		switch so.Key {
+		case "designation", "id":
+		default:
+			if !domain.KnownDesignationField(so.Key) {
+				return req, domain.NewErrorf(domain.CodeValidationFailed, domain.MsgSvcSearchFieldUnknown, so.Key)
+			}
+		}
 		req.Sorts = append(req.Sorts, storage.SortKey{Key: so.Key, Numeric: so.Numeric, Desc: so.Desc})
 	}
 	return req, nil
+}
+
+// knownFilterOp — известность операции числового фильтра: пустая —
+// «не задана» (трактуется как eq, как и раньше), неизвестная — не
+// «молчит как =», а отвергается.
+func knownFilterOp(op FilterOp) error {
+	switch op {
+	case "", OpEq, OpGte, OpLte:
+		return nil
+	}
+	return domain.NewErrorf(domain.CodeValidationFailed, domain.MsgSvcFilterOpUnknown, string(op))
 }
 
 // normalizeQuery приводит подстроку поиска к каноническому регистру

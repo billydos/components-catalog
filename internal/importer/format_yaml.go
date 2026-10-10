@@ -1,7 +1,6 @@
 package importer
 
 import (
-	"errors"
 	"fmt"
 
 	"github.com/billydos/components-catalog/internal/domain"
@@ -36,7 +35,8 @@ func parseYAML(data []byte) (value, error) {
 		}
 		return v, nil
 	}
-	return value{}, syntaxError(FormatYAML, errors.New("файл содержит несколько yaml-документов, ожидается один"))
+	return value{}, domain.NewErrorf(domain.CodeInvalidImportFile,
+		domain.MsgImportYamlMultiDoc, yamlDocLine(file.Docs[1]))
 }
 
 // yamlNonFiniteText — текст скаляра YAML, обозначающий не-конечное число
@@ -106,8 +106,8 @@ func (c *yamlConverter) convert(node ast.Node, key string) (value, error) {
 	case *ast.AnchorNode:
 		name := n.Name.GetToken().Value
 		if c.converting[name] {
-			return value{}, fmt.Errorf(
-				"циклическая ссылка: алиас «*%s» участвует в значении якоря «&%s»", name, name)
+			return value{}, domain.NewErrorf(domain.CodeInvalidImportFile,
+				domain.MsgImportYamlAliasCycle, name, yamlNodeLine(n))
 		}
 		c.converting[name] = true
 		converted, err := c.convert(n.Value, key)
@@ -123,11 +123,11 @@ func (c *yamlConverter) convert(node ast.Node, key string) (value, error) {
 			return converted, nil
 		}
 		if c.converting[name] {
-			return value{}, fmt.Errorf(
-				"циклическая ссылка: алиас «*%s» участвует в значении якоря «&%s»", name, name)
+			return value{}, domain.NewErrorf(domain.CodeInvalidImportFile,
+				domain.MsgImportYamlAliasCycle, name, yamlNodeLine(n))
 		}
-		return value{}, fmt.Errorf(
-			"неизвестный алиас «*%s» — якорь «&%s» не определён до использования", name, name)
+		return value{}, domain.NewErrorf(domain.CodeInvalidImportFile,
+			domain.MsgImportYamlAliasUnknown, name, yamlNodeLine(n))
 	case *ast.TagNode:
 		return c.convert(n.Value, key)
 	case *ast.MappingNode:
@@ -155,7 +155,25 @@ func (c *yamlConverter) convert(node ast.Node, key string) (value, error) {
 		}
 		return array, nil
 	}
-	return value{}, fmt.Errorf("неподдерживаемый элемент yaml: %T", node)
+	return value{}, domain.NewErrorf(domain.CodeInvalidImportFile,
+		domain.MsgImportYamlNodeUnsupported, fmt.Sprintf("%T", node), yamlNodeLine(node))
+}
+
+// yamlNodeLine — строка узла yaml-AST (1 — первая строка файла); у узла
+// без токена — 0.
+func yamlNodeLine(n ast.Node) int {
+	if tok := n.GetToken(); tok != nil {
+		return tok.Position.Line
+	}
+	return 0
+}
+
+// yamlDocLine — строка начала документа (первый токен тела).
+func yamlDocLine(doc *ast.DocumentNode) int {
+	if doc == nil || doc.Body == nil {
+		return 0
+	}
+	return yamlNodeLine(doc.Body)
 }
 
 // yamlKeyName — текст ключа отображения: обычные ключи и ключи явной формы
@@ -169,5 +187,10 @@ func yamlKeyName(key ast.MapKeyNode) (string, error) {
 			return s.Value, nil
 		}
 	}
-	return "", errors.New("неверный ключ объекта")
+	text := ""
+	if tok := key.GetToken(); tok != nil {
+		text = tok.Value
+	}
+	return "", domain.NewErrorf(domain.CodeInvalidImportFile,
+		domain.MsgImportYamlKeyInvalid, text, yamlNodeLine(key))
 }

@@ -124,9 +124,20 @@ func TestLoad(t *testing.T) {
 	if dialect == "postgres" {
 		dbLabel = "postgres" // DSN может содержать учётные данные — не печатается
 	}
-	t.Logf("диалект=%s база=%s записей=%d импорт=%v (%.0f записей/с)",
-		dialect, dbLabel, scale, importTime.Round(time.Millisecond),
-		float64(scale)/importTime.Seconds())
+	// Скорость импорта считается только по применённым записям (Added+
+	// Updated): повторный прогон с сохранённым CATALOG_QA_DB идёт как
+	// холостой пропуск (Skipped), и скорость разбора уже известных записей
+	// не является пропускной способностью импорта. Обе строки замечаются
+	// фазой load раннера по ключу «диалект=» (exec.go).
+	applied := rep.Added + rep.Updated
+	if applied > 0 {
+		t.Logf("диалект=%s база=%s записей=%d импорт=%v (%.0f записей/с, применено %d)",
+			dialect, dbLabel, scale, importTime.Round(time.Millisecond),
+			float64(applied)/importTime.Seconds(), applied)
+	} else {
+		t.Logf("диалект=%s база=%s записей=%d холостой пропуск=%v (все записи уже в базе, применено 0)",
+			dialect, dbLabel, scale, importTime.Round(time.Millisecond))
+	}
 
 	// Опорные записи для измерений карточки.
 	page, err := app.Services().Devices.Search(ctx, service.SearchQuery{

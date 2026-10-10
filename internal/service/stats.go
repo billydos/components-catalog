@@ -20,18 +20,24 @@ type Stats struct {
 
 // Stats собирает агрегаты приложения: снимок задаёт реестр классов
 // (устройства вне реестра классов невозможны — движок валидации
-// отвергает неизвестный класс), количества — одним GROUP BY-запросом,
-// ревизии — из schema_meta.
+// отвергает неизвестный класс), количества и ревизии — в одной
+// транзакции чтения (согласованный снимок, без смешения состояний
+// при конкурентной записи).
 func (a *App) Stats(ctx context.Context) (Stats, error) {
 	snap, err := a.cache.Snapshot(ctx)
 	if err != nil {
 		return Stats{}, err
 	}
-	catRev, dataRev, err := a.db.Revisions(ctx)
+	tx, err := a.db.BeginReadOnly(ctx)
 	if err != nil {
 		return Stats{}, err
 	}
-	byKind, err := a.db.CountDevicesByKind(ctx)
+	defer tx.Rollback() //nolint:errcheck — откат транзакции чтения
+	catRev, dataRev, err := tx.Revisions(ctx)
+	if err != nil {
+		return Stats{}, err
+	}
+	byKind, err := tx.CountDevicesByKind(ctx)
 	if err != nil {
 		return Stats{}, err
 	}

@@ -4,7 +4,6 @@ import (
 	"context"
 	"database/sql"
 	"errors"
-	"fmt"
 	"strconv"
 	"strings"
 
@@ -32,8 +31,19 @@ func (d *DB) EnsureCreated(ctx context.Context) (bool, error) {
 	defer tx.Rollback() //nolint:errcheck — откат нефиксированной транзакции
 
 	for _, stmt := range ddlFor(d.dialect) {
-		if _, err := tx.exec(ctx, stmt, nil); err != nil {
-			return false, fmt.Errorf("хранилище: DDL: %w", err)
+		for attempt := 0; ; attempt++ {
+			_, err := tx.exec(ctx, stmt, nil)
+			if err == nil {
+				break
+			}
+			// Гонка параллельного EnsureCreated: CREATE … IF NOT EXISTS не
+			// атомарно в проверке существования — конкурент успел создать
+			// объект, повтор оператора видит его созданным.
+			if attempt < 3 && isAlreadyExistsError(err) {
+				continue
+			}
+			return false, domain.NewErrorf(domain.CodeStorageDDLFailed,
+				domain.MsgStorageDDL, err.Error())
 		}
 	}
 	created := false
@@ -91,8 +101,10 @@ func (d *DB) CheckSchema(ctx context.Context) error {
 	return nil
 }
 
-// isNoTableError распознаёт отсутствие таблицы в обоих диалектах
-// (sqlite: no such table; postgres: 42P01 undefined_table).
+// isNoTableError распознаёт отсутствие таблицы в обоих диалектах:
+// postgres — только по SQLState 42P01 (undefined_table) — тексты других
+// ошибок «… does not exist» (например 42703 undefined_column) таблицей
+// не являются; sqlite-драйвер SQLState не даёт — по тексту ошибки.
 func isNoTableError(err error) bool {
 	if err == nil {
 		return false
@@ -101,16 +113,37 @@ func isNoTableError(err error) bool {
 	if errors.As(err, &pg) {
 		return pg.SQLState() == "42P01"
 	}
-	msg := err.Error()
-	return strings.Contains(msg, "no such table") ||
-		strings.Contains(msg, "does not exist") ||
-		strings.Contains(msg, "42P01")
+	return strings.Contains(err.Error(), "no such table")
+}
+
+// isAlreadyExistsError распознаёт «объект уже существует» — ретрай гонки
+// параллельного EnsureCreated: postgres — SQLState 42P07 (duplicate_table,
+// в том числе индекс) и 42710 (duplicate_object), sqlite — по тексту.
+func isAlreadyExistsError(err error) bool {
+	if err == nil {
+		return false
+	}
+	var pg interface{ SQLState() string }
+	if errors.As(err, &pg) {
+		return pg.SQLState() == "42P07" || pg.SQLState() == "42710"
+	}
+	return strings.Contains(err.Error(), "already exists")
 }
 
 // Revisions возвращает текущие счётчики catalog_revision и data_revision
 // (для ETag REST — docs/plan/02-database.md §5.5).
 func (d *DB) Revisions(ctx context.Context) (catalog, data int64, err error) {
-	rows, err := d.query(ctx,
+	return readRevisions(ctx, d.reads)
+}
+
+// Revisions в текущей транзакции — согласованные агрегаты (один снимок
+// чтения с прочими чтениями вызывающего, например /stats).
+func (t *Tx) Revisions(ctx context.Context) (catalog, data int64, err error) {
+	return readRevisions(ctx, t.tx)
+}
+
+func readRevisions(ctx context.Context, q queryer) (catalog, data int64, err error) {
+	rows, err := queryContext(ctx, q,
 		`SELECT key, value FROM schema_meta WHERE key IN (@a, @b)`,
 		map[string]any{"a": metaCatalogRevision, "b": metaDataRevision})
 	if err != nil {
@@ -142,6 +175,12 @@ func (d *DB) CatalogRevision(ctx context.Context) (int64, error) {
 	return catalogRevision(ctx, d.reads)
 }
 
+// CatalogRevision в текущей транзакции — перепроверка свежести снимка,
+// по которому валидировалась запись (валидированное = записанному).
+func (t *Tx) CatalogRevision(ctx context.Context) (int64, error) {
+	return catalogRevision(ctx, t.tx)
+}
+
 // catalogRevision читает catalog_revision одним SELECT schema_meta —
 // из пула чтения или внутри транзакции чтения снимка каталога
 // (ревизия и определения — одно согласованное чтение).
@@ -158,12 +197,23 @@ func catalogRevision(ctx context.Context, q queryer) (int64, error) {
 
 // bumpRevision инкрементирует счётчик ревизий атомарно внутри транзакции
 // записи (docs/plan/02-database.md §5.5); CAST переносим между диалектами
-// (value — TEXT).
+// (value — TEXT). Отсутствие строки schema_meta — повреждение базы:
+// молчаливый ноль инкремента заморозил бы ETag и кэш без диагностики.
 func (t *Tx) bumpRevision(ctx context.Context, key string) error {
-	_, err := t.exec(ctx,
+	res, err := t.exec(ctx,
 		`UPDATE schema_meta SET value = CAST(CAST(value AS INTEGER) + 1 AS TEXT) WHERE key = @key`,
 		map[string]any{"key": key})
-	return err
+	if err != nil {
+		return err
+	}
+	n, err := res.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if n == 0 {
+		return domain.NewErrorf(domain.CodeInternal, domain.MsgStorageRevisionRowMissing, key)
+	}
+	return nil
 }
 
 // BumpCatalogRevision инкрементирует catalog_revision (транзакция меняет

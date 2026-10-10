@@ -84,7 +84,7 @@ func formatBytes(b uint64) string {
 
 // writeEnvSection — секция [environment] отчёта: железо, ОС, инструментарий,
 // модуль и коммит, версии драйверов СУБД из build info.
-func writeEnvSection(r *report, root string) {
+func writeEnvSection(ctx context.Context, r *report, root string) {
 	r.section("environment")
 	h := detectHost()
 	r.kv("started", time.Now().Format(time.RFC3339))
@@ -96,7 +96,7 @@ func writeEnvSection(r *report, root string) {
 	r.kv("cores", fmt.Sprintf("%d", h.Cores))
 	r.kv("memory", h.Memory)
 	r.kv("go", h.Go)
-	mod, commit, dirty := vcsInfo(root)
+	mod, commit, dirty := vcsInfo(ctx, root)
 	r.kv("module", mod)
 	r.kv("commit", commit)
 	if dirty {
@@ -110,7 +110,10 @@ func writeEnvSection(r *report, root string) {
 
 // vcsInfo — модуль, коммит и грязнота рабочего дерева: build info, при
 // отсутствии штампов vcs (go run) — git; unknown вне репозитория.
-func vcsInfo(root string) (module, revision string, dirty bool) {
+// git-вызовы идут на ctx прогона: отмена по сигналу прекращает и их, а
+// не ждёт полного таймаута команды — больной git не удерживает фазу
+// environment после Ctrl+C.
+func vcsInfo(ctx context.Context, root string) (module, revision string, dirty bool) {
 	module, revision = "unknown", "unknown"
 	bi, ok := debug.ReadBuildInfo()
 	if ok {
@@ -127,11 +130,11 @@ func vcsInfo(root string) (module, revision string, dirty bool) {
 	if revision != "unknown" {
 		return
 	}
-	if res := runCmd(context.Background(), root, cmdTimeout,
+	if res := runCmd(ctx, root, cmdTimeout,
 		"git", "rev-parse", "HEAD"); res.code == 0 {
 		revision = strings.TrimSpace(res.output)
 	}
-	if res := runCmd(context.Background(), root, cmdTimeout,
+	if res := runCmd(ctx, root, cmdTimeout,
 		"git", "status", "--porcelain"); res.code == 0 {
 		dirty = strings.TrimSpace(res.output) != ""
 	}

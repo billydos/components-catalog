@@ -5,6 +5,8 @@ import (
 	"database/sql"
 	"fmt"
 	"strings"
+
+	"github.com/billydos/components-catalog/internal/domain"
 )
 
 // Config — конфигурация открытия хранилища (docs/plan/01-architecture.md §2.3):
@@ -45,8 +47,8 @@ type Dialect interface {
 	RewriteDDL(stmt string) string
 
 	// InsertReturningID выполняет INSERT внутри транзакции и возвращает
-	// сгенерированный id (sqlite: last_insert_rowid() того же соединения;
-	// postgres: INSERT … RETURNING id).
+	// сгенерированный id (sqlite: INSERT … RETURNING id; postgres:
+	// INSERT … RETURNING id).
 	InsertReturningID(ctx context.Context, tx *sql.Tx, query string, args []any) (int64, error)
 
 	// InsertIfAbsentReturningID выполняет INSERT внутри транзакции,
@@ -71,6 +73,12 @@ type pools struct {
 // DB — открытое хранилище. Правило (docs/plan/01-architecture.md §2.3): весь DML —
 // только внутри явных транзакций Begin (соединение записи); вне транзакций —
 // только SELECT из пула чтения. Бизнес-правил не содержит.
+//
+// Ловушка единственного соединения: у базы sqlite :memory: (и при
+// MaxOpenConns(1) у postgres) чтение и запись делят одно соединение —
+// DB-чтение (методы DB) внутри открытой Tx самозаблокируется до отмены
+// контекста: соединение занято транзакцией. Внутри транзакции читайте
+// только методами Tx; DB-чтения — вне транзакций.
 type DB struct {
 	dialect Dialect
 	reads   *sql.DB
@@ -79,10 +87,13 @@ type DB struct {
 }
 
 // Open открывает хранилище по конфигурации; схему не проверяет и не создаёт
-// (это делают CheckSchema/EnsureCreated).
+// (это делают CheckSchema/EnsureCreated). Ошибки конфигурации и подключения —
+// доменные (storage_dsn_missing / storage_dialect_unknown /
+// storage_open_failed) — деталь драйвера передаётся аргументом сообщения.
 func Open(ctx context.Context, cfg Config) (*DB, error) {
 	if cfg.DSN == "" {
-		return nil, fmt.Errorf("хранилище: не задан DSN (диалект %q)", cfg.Dialect)
+		return nil, domain.NewErrorf(domain.CodeValidationFailed,
+			domain.MsgStorageDsnMissing, cfg.Dialect)
 	}
 	var d Dialect
 	switch cfg.Dialect {
@@ -91,11 +102,13 @@ func Open(ctx context.Context, cfg Config) (*DB, error) {
 	case "postgres":
 		d = postgresDialect{}
 	default:
-		return nil, fmt.Errorf("хранилище: неизвестный диалект %q", cfg.Dialect)
+		return nil, domain.NewErrorf(domain.CodeValidationFailed,
+			domain.MsgStorageDialectUnknown, cfg.Dialect)
 	}
 	p, err := d.Open(ctx, cfg)
 	if err != nil {
-		return nil, err
+		return nil, domain.NewErrorf(domain.CodeStorageOpenFailed,
+			domain.MsgStorageOpen, err.Error())
 	}
 	return &DB{dialect: d, reads: p.reads, writes: p.writes, same: p.same}, nil
 }
@@ -125,15 +138,34 @@ func (d *DB) Begin(ctx context.Context) (*Tx, error) {
 	return &Tx{tx: tx, dialect: d.dialect}, nil
 }
 
+// BeginReadOnly открывает транзакцию чтения из пула чтения: проверки без
+// DML (dry-run, каноническое сравнение Skipped, пакетные чтения карточки)
+// не занимают выделенное соединение записи (SQLite) и не блокируют
+// писателей. Транзакция только читается — Commit отвергается, откат —
+// Rollback вызывающего (обычно defer).
+func (d *DB) BeginReadOnly(ctx context.Context) (*Tx, error) {
+	tx, err := d.reads.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, err
+	}
+	return &Tx{tx: tx, dialect: d.dialect, readOnly: true}, nil
+}
+
 // Tx — транзакция записи: Commit фиксирует, откат — Rollback (присутствует
 // в defer вызывающего). Все DML-методы хранилища принимают *Tx.
 type Tx struct {
-	tx      *sql.Tx
-	dialect Dialect
+	tx       *sql.Tx
+	dialect  Dialect
+	readOnly bool // транзакция пула чтения: Commit запрещён
 }
 
 // Commit фиксирует транзакцию.
-func (t *Tx) Commit() error { return t.tx.Commit() }
+func (t *Tx) Commit() error {
+	if t.readOnly {
+		return domain.NewErrorf(domain.CodeInternal, domain.MsgStorageCommitReadOnly)
+	}
+	return t.tx.Commit()
+}
 
 // Rollback откатывает транзакцию.
 func (t *Tx) Rollback() error { return t.tx.Rollback() }
@@ -149,10 +181,11 @@ type queryer interface {
 // нумерации. $n понимают оба драйвера: pgx — нативно (его путь database/sql
 // имена @имя-аргументов отбрасывает, текст запроса не переписывает),
 // modernc/sqlite связывает $NNN с аргументом NNN. Повторное имя — один
-// параметр. Строковые литералы '...' (кавычка внутри удваивается) и
-// комментарии -- пропускаются; имя без значения не переписывается — ошибка
-// связывания укажет его (баг кода, не пользовательский ввод); ключи без
-// плейсхолдера игнорируются.
+// параметр. Строковые литералы '...' (кавычка внутри удваивается),
+// закавыченные идентификаторы "..." (кавычка внутри удваивается) и
+// комментарии -- и /* */ пропускаются; имя без значения не переписывается —
+// ошибка связывания укажет его (баг кода, не пользовательский ввод); ключи
+// без плейсхолдера игнорируются.
 func positional(query string, args map[string]any) (string, []any) {
 	if !strings.ContainsRune(query, '@') {
 		return query, nil
@@ -177,6 +210,21 @@ func positional(query string, args map[string]any) (string, []any) {
 			}
 			sb.WriteString(query[i:j])
 			i = j
+		case c == '"':
+			j := i + 1
+			for j < len(query) {
+				if query[j] == '"' {
+					if j+1 < len(query) && query[j+1] == '"' {
+						j += 2
+						continue
+					}
+					j++
+					break
+				}
+				j++
+			}
+			sb.WriteString(query[i:j])
+			i = j
 		case c == '-' && i+1 < len(query) && query[i+1] == '-':
 			j := strings.IndexByte(query[i:], '\n')
 			if j < 0 {
@@ -185,6 +233,15 @@ func positional(query string, args map[string]any) (string, []any) {
 			} else {
 				sb.WriteString(query[i : i+j+1])
 				i += j + 1
+			}
+		case c == '/' && i+1 < len(query) && query[i+1] == '*':
+			j := strings.Index(query[i+2:], "*/")
+			if j < 0 {
+				sb.WriteString(query[i:])
+				i = len(query)
+			} else {
+				sb.WriteString(query[i : i+j+4])
+				i += j + 4
 			}
 		case c == '@' && i+1 < len(query) && isIdentStart(query[i+1]):
 			j := i + 1
@@ -238,6 +295,12 @@ func execContext(ctx context.Context, tx *sql.Tx, query string, args map[string]
 	return tx.ExecContext(ctx, s, vals...)
 }
 
+// maxInList — предел списка IN одного оператора батч-чтений: у драйвера
+// sqlite потолок 32766 связанных аргументов, у протокола postgres — 65535;
+// чанкование со слиянием результатов страхует контракт для любого
+// вызывающего без сырой ошибки драйвера.
+const maxInList = 1000
+
 // inList — список «(@p0, @p1, …)» для условия IN по идентификаторам:
 // именованные аргументы дописываются в args (пакетное чтение дочерних
 // таблиц по списку записей); перезапись в позиционные аргументы — общая
@@ -250,6 +313,19 @@ func inList(prefix string, ids []int64, args map[string]any) string {
 		args[name] = id
 	}
 	return "(" + strings.Join(parts, ", ") + ")"
+}
+
+// eachIDChunk обходит список id чанками не длиннее maxInList: батч-чтения
+// выполняют запрос по чанку и сливают результаты (карта или срез
+// вызывающего), лимит аргументов одного оператора не превышается.
+func eachIDChunk(ids []int64, fn func(chunk []int64) error) error {
+	for start := 0; start < len(ids); start += maxInList {
+		end := min(start+maxInList, len(ids))
+		if err := fn(ids[start:end]); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // Чтение вне транзакций — только из пула чтения.
@@ -292,13 +368,20 @@ func (t *Tx) InsertIfAbsentReturningID(ctx context.Context, query string, args m
 	return t.dialect.InsertIfAbsentReturningID(ctx, t.tx, q, vals)
 }
 
+// withOnConflict дописывает подавление конфликта уникальности к оператору
+// INSERT: единая точка суффикса « ON CONFLICT DO NOTHING» (хвостовой
+// «;»/пробелы оператора не допускаются — снимаются до конкатенации).
+func withOnConflict(query string) string {
+	return strings.TrimRight(query, "; \t\n\r") + " ON CONFLICT DO NOTHING"
+}
+
 // InsertIfAbsent — вставка с атомарным подавлением конфликта уникальности
 // для таблиц без суррогатного id (составной PK: связи производителей,
 // атрибуты, аналоги): inserted=false — строка уже есть (вставлена
 // конкурирующей транзакцией). ON CONFLICT DO NOTHING и RowsAffected
 // переносимы, RETURNING не используется.
 func (t *Tx) InsertIfAbsent(ctx context.Context, query string, args map[string]any) (bool, error) {
-	res, err := execContext(ctx, t.tx, query+" ON CONFLICT DO NOTHING", args)
+	res, err := execContext(ctx, t.tx, withOnConflict(query), args)
 	if err != nil {
 		return false, err
 	}

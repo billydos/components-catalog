@@ -2,6 +2,8 @@ package i18n_test
 
 import (
 	"maps"
+	"os"
+	"path/filepath"
 	"regexp"
 	"slices"
 	"strings"
@@ -278,6 +280,35 @@ func TestFormatValue(t *testing.T) {
 	for _, c := range cases {
 		if got := i18n.FormatValue(c.lang, c.unit, c.v); got != c.want {
 			t.Errorf("FormatValue(%s, %s, %v) = %q; want %q", c.lang, c.unit, c.v, got, c.want)
+		}
+	}
+}
+
+// Пин-тест синхронизации констант и реестра по исходнику messages.go:
+// константа без записи в реестре рендерится сырым ключом через fallback,
+// а тесты полноты бандлов этого не видят (реестр⇄бандлы проверяются,
+// константа⇄реестр — нет). Новый MsgID падает здесь сразу.
+func TestMessageConstantsRegistered(t *testing.T) {
+	src, err := os.ReadFile(filepath.Join("..", "domain", "messages.go"))
+	if err != nil {
+		t.Fatalf("чтение исходника реестра: %v", err)
+	}
+	re := regexp.MustCompile(`Msg\w+\s+MsgID = "([a-z0-9_]+)"`)
+	registered := make(map[string]bool, len(domain.MsgIDs()))
+	for _, id := range domain.MsgIDs() {
+		registered[string(id)] = true
+	}
+	constants := map[string]bool{}
+	for _, m := range re.FindAllStringSubmatch(string(src), -1) {
+		id := m[1]
+		constants[id] = true
+		if !registered[id] {
+			t.Errorf("константа %q отсутствует в реестре messagesRegistry", id)
+		}
+	}
+	for id := range registered {
+		if !constants[string(id)] {
+			t.Errorf("реестр содержит %q без константы в messages.go", string(id))
 		}
 	}
 }

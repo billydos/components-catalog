@@ -70,6 +70,17 @@ func importFile(t *testing.T, app *service.App, path string, dryRun bool) Report
 	return rep
 }
 
+// importFileErr — импорт с жёсткой ошибкой прогона (синтаксис файла).
+func importFileErr(t *testing.T, app *service.App, path string, dryRun bool) (Report, error) {
+	t.Helper()
+	f, err := os.Open(path)
+	if err != nil {
+		t.Fatalf("открытие %s: %v", path, err)
+	}
+	defer f.Close()
+	return New(app).Import(context.Background(), f, path, dryRun)
+}
+
 func runImporterSuite(t *testing.T, factory configFactory) {
 	t.Run("DryRunDoesNotWrite", func(t *testing.T) {
 		app := openApp(t, factory)
@@ -376,9 +387,10 @@ func runImporterSuite(t *testing.T, factory configFactory) {
 		write(t, file,
 			`{"catalog": {"units": [ { "code": "kV" } ]}, "transistors": [ { "name": "КТ315Б" } ]}`+"\n")
 		rep := importFile(t, app, file, false)
-		// Запись не отбрасывается молча: проблема формы, строка не
-		// сливается в каталог и не читается как запись.
-		if !rep.HasIssues() || rep.Records != 0 {
+		// Обёртка «catalog + класс» — отвергнутая запись для сводки и
+		// гейта смешанного файла; проблема формы строки каталога портит
+		// каталог целиком (как проблема формы секции catalog документа).
+		if !rep.HasIssues() || rep.Records != 1 || rep.Rejected != 1 {
 			t.Fatalf("итог: %+v; проблемы: %v", rep, issueMessages(rep.Issues))
 		}
 		want := "line 1: the wrapper line must contain exactly one key — a kind or catalog"
@@ -397,6 +409,112 @@ func runImporterSuite(t *testing.T, factory configFactory) {
 		}
 		if n, err := app.Services().Devices.Count(context.Background(), nil); err != nil || n != 0 {
 			t.Fatalf("count: %v %d", err, n)
+		}
+	})
+
+	t.Run("NDJSONCatalogImportWrapperIsMixedFile", func(t *testing.T) {
+		app := openApp(t, factory)
+		// catalog import: каталог чистой строки + обёртка с классовым
+		// ключом — файл смешанный, отказ до применения каталога; запись
+		// обёртки не теряется молча (видна гейту и сводке).
+		file := filepath.Join(t.TempDir(), "mixed.ndjson")
+		write(t, file,
+			`{"catalog": {"units": [ { "code": "kV" } ]}}`+"\n"+
+				`{"catalog": {"units": [ { "code": "GV" } ]}, "transistors": [ { "name": "КТ315Б" } ]}`+"\n")
+		rep, err := importCatalogFile(t, app, file, false)
+		de, ok := domain.AsError(err)
+		if !ok || de.Code != domain.CodeInvalidImportFile ||
+			de.MsgID != domain.MsgImportCatalogRecordsMixed {
+			t.Fatalf("ожидалась invalid_import_file (records mixed), получено %v", err)
+		}
+		if rep.Records != 1 || rep.Rejected != 1 {
+			t.Fatalf("итог: %+v", rep)
+		}
+		if rep.CatalogApplied {
+			t.Fatalf("каталог применён вопреки отказу: %+v", rep)
+		}
+		snap, err := app.Snapshot(context.Background())
+		if err != nil {
+			t.Fatalf("снимок: %v", err)
+		}
+		if _, ok := snap.Unit("kV"); ok {
+			t.Fatal("отказ оставил расширение каталога (единица kV)")
+		}
+		if n, err := app.Services().Devices.Count(context.Background(), nil); err != nil || n != 0 {
+			t.Fatalf("count: %v %d", err, n)
+		}
+	})
+
+	t.Run("NDJSONCleanCatalogPlusWrapperTaintsCatalog", func(t *testing.T) {
+		app := openApp(t, factory)
+		// Обычный import: чистая строка catalog + обёртка портят каталог
+		// целиком (он не применяется), чистые записи применяются по
+		// текущему снимку.
+		file := filepath.Join(t.TempDir(), "taint.ndjson")
+		write(t, file,
+			`{"catalog": {"units": [ { "code": "kV" } ]}}`+"\n"+
+				`{"catalog": {"units": [ { "code": "GV" } ]}, "transistors": [ { "name": "КТ315Б" } ]}`+"\n"+
+				`{"transistors": { "name": "КТ361А" }}`+"\n")
+		rep := importFile(t, app, file, false)
+		if !rep.HasIssues() || rep.Records != 2 || rep.Rejected != 1 || rep.Added != 1 {
+			t.Fatalf("итог: %+v; проблемы: %v", rep, issueMessages(rep.Issues))
+		}
+		if rep.CatalogApplied {
+			t.Fatalf("каталог применён: %+v", rep)
+		}
+		snap, err := app.Snapshot(context.Background())
+		if err != nil {
+			t.Fatalf("снимок: %v", err)
+		}
+		if _, ok := snap.Unit("kV"); ok {
+			t.Fatal("каталог применён вопреки испорченной обёртке")
+		}
+		if n, err := app.Services().Devices.Count(context.Background(), nil); err != nil || n != 1 {
+			t.Fatalf("count: %v %d", err, n)
+		}
+	})
+
+	t.Run("DeactivatedParameterSkippedReimport", func(t *testing.T) {
+		app := openApp(t, factory)
+		// Деактивация параметра делает значения существующих записей
+		// «неактивными»: побайтово тот же повторный импорт обязан
+		// оставаться Skipped (сравнение до валидации), запись в БД нет.
+		file := filepath.Join(t.TempDir(), "dev.ndjson")
+		write(t, file, `{"transistors": { "name": "КТ315Б", "ratings": [ { "parameter": "UkeoMax", "value": 20 } ] }}`+"\n")
+		rep := importFile(t, app, file, false)
+		if rep.Added != 1 || rep.Skipped != 0 {
+			t.Fatalf("первичный импорт: %+v", rep)
+		}
+		cat := filepath.Join(t.TempDir(), "deact.jsonc")
+		write(t, cat, `{"catalog": {"parameters": [ { "code": "UkeoMax", "group": "limiting",
+	"unit": "V", "value_type": "exact", "is_active": false } ]}}`)
+		if rep, err := importCatalogFile(t, app, cat, false); err != nil || rep.CatalogApplied != true {
+			t.Fatalf("деактивация: %v %+v", err, rep)
+		}
+		rep2 := importFile(t, app, file, false)
+		if rep2.Records != 1 || rep2.Skipped != 1 || rep2.Rejected != 0 {
+			t.Fatalf("повторный импорт после деактивации: %+v; проблемы: %v", rep2, issueMessages(rep2.Issues))
+		}
+	})
+
+	t.Run("NDJSONInvalidTailRejected", func(t *testing.T) {
+		app := openApp(t, factory)
+		// Хвост после полного значения строки — жёсткая ошибка
+		// синтаксиса, запись не принимается молча.
+		for _, line := range []string{
+			`{"transistors": { "name": "МП39" }} xyz`,
+			`{"transistors": { "name": "МП39" }}}`,
+		} {
+			file := filepath.Join(t.TempDir(), "tail.ndjson")
+			write(t, file, line+"\n")
+			_, err := importFileErr(t, app, file, false)
+			de, ok := domain.AsError(err)
+			if !ok || de.Code != domain.CodeInvalidImportFile {
+				t.Fatalf("ожидалась invalid_import_file для %q, получено %v", line, err)
+			}
+			if n, err := app.Services().Devices.Count(context.Background(), nil); err != nil || n != 0 {
+				t.Fatalf("count: %v %d", err, n)
+			}
 		}
 	})
 
@@ -424,6 +542,16 @@ func runImporterSuite(t *testing.T, factory configFactory) {
 				name: "битая строка среди валидных",
 				body: `{"catalog": {"conditions": [ { "code": "ta" }, { "code": "tb", "unit": 5 } ]}}`,
 				want: `catalog: section conditions, «tb»: field "unit" must be a string`,
+			},
+			{
+				name: "sort_order вне диапазона целых",
+				body: `{"catalog": {"parameter_groups": [ { "code": "gx", "section": "envx", "sort_order": 1e19 } ]}}`,
+				want: `catalog: section parameter_groups, «gx»: field "sort_order" must be an integer`,
+			},
+			{
+				name: "sort_order дробный",
+				body: `{"catalog": {"parameter_groups": [ { "code": "gx", "section": "envx", "sort_order": 1.5 } ]}}`,
+				want: `catalog: section parameter_groups, «gx»: field "sort_order" must be an integer`,
 			},
 		} {
 			catRev, _, err := app.Revisions(context.Background())

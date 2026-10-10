@@ -23,6 +23,7 @@ type report struct {
 	failed      int
 	cancelled   bool
 	cancelledBy func() bool
+	secrets     []string // DSN ног прогона — маскируются в каждой строке журнала
 }
 
 // newReport открывает файл отчёта и пишет заголовок формата.
@@ -40,8 +41,16 @@ func newReport(path string, mirror io.Writer) (*report, error) {
 	return r, nil
 }
 
-// line пишет строку в файл и на консоль.
+// setSecrets регистрирует строки подключения, маскируемые во всех строках
+// отчёта: вывод дочерних команд и ошибки драйверов включают DSN «best
+// effort», а отчёт коммитится в репозиторий как свидетельство прогона.
+func (r *report) setSecrets(dsns ...string) { r.secrets = append(r.secrets, dsns...) }
+
+// line пишет строку в файл и на консоль; единая граница маскировки
+// секретов: пароли DSN не попадают в отчёт ни из одного места
+// (вывод команд, ошибки, env-детали — mask.go).
 func (r *report) line(s string) {
+	s = maskSecrets(s, r.secrets)
 	fmt.Fprintln(r.w, s)
 	_ = r.w.Flush()
 	if r.mirror != nil {

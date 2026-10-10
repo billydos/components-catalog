@@ -36,6 +36,14 @@ func runHelp(args []string, stdout, stderr io.Writer) int {
 			domain.MsgCliHelpArgs))
 		return 1
 	}
+	// «help help» — справка о самой справке: usage её рекламирует,
+	// в реестре команд её нет.
+	if pos[0] == "help" {
+		fmt.Fprintf(stdout, "%s catalogctl %s\n",
+			i18n.Message(lang, string(domain.MsgCliUsageWord)),
+			i18n.Message(lang, string(domain.MsgCliHelpUsage)))
+		return 0
+	}
 	cmd, ok := commands[pos[0]]
 	if !ok {
 		PrintError(stderr, lang, domain.NewErrorf(domain.CodeValidationFailed,

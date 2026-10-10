@@ -1,6 +1,7 @@
 package importer
 
 import (
+	"math"
 	"strconv"
 	"strings"
 
@@ -147,12 +148,17 @@ func (r *catReader) num(v value, section, code, key string) (*float64, bool) {
 	return &f, true
 }
 
+// integerMaxExact — граница целых, точно представимых в float64 (2^53):
+// преобразование float→int вне диапазона int — implementation-defined,
+// поэтому целость и диапазон проверяются до преобразования.
+const integerMaxExact = 1 << 53
+
 func (r *catReader) integer(v value, section, code, key string) (int, bool) {
 	f, ok := r.num(v, section, code, key)
 	if !ok || f == nil {
 		return 0, ok
 	}
-	if *f != float64(int(*f)) {
+	if *f != math.Trunc(*f) || *f < -integerMaxExact || *f > integerMaxExact {
 		r.fail(domain.MsgImportCatalogFieldInteger, rowName(section, code), key)
 		return 0, false
 	}

@@ -191,3 +191,47 @@ func TestGostSubclassCoverage(t *testing.T) {
 		t.Errorf("таблица подклассов изменилась: %c", got)
 	}
 }
+
+// Длинная цифровая последовательность номера отвергается, а не обрезается
+// молча (2Т1000005 не даёт feature=1, dev_number=5).
+func TestGostDevNumberRunLengthRejected(t *testing.T) {
+	_, err := ParseDesignation("2Т1000005")
+	de, ok := AsError(err)
+	if !ok || de.Code != CodeInvalidDesignation {
+		t.Fatalf("ожидалась invalid_designation, получено %v", err)
+	}
+}
+
+// Явный несовместимый класс при неоднозначном «Ф» — designation_mismatch
+// (класс указан), а не kind_ambiguous («укажите класс»).
+func TestGostAmbiguousExplicitKindMismatch(t *testing.T) {
+	for _, kind := range []Kind{KindResistor, KindCapacitor} {
+		_, err := ParseDesignationForSystem("КФ102А", SystemGost, kind)
+		de, ok := AsError(err)
+		if !ok || de.Code != CodeDesignationMismatch {
+			t.Fatalf("kind=%s: ожидался designation_mismatch, получено %v", kind, err)
+		}
+	}
+	// Совместимые подсказки и отсутствие подсказки сохраняют прежнее
+	// поведение.
+	if _, err := ParseDesignationForSystem("КФ102А", SystemGost, KindDiode); err != nil {
+		t.Fatalf("подсказка диода: %v", err)
+	}
+	if _, err := ParseDesignationForSystem("КФ102А", SystemGost, ""); err == nil {
+		t.Fatal("без подсказки ожидался kind_ambiguous")
+	}
+}
+
+// Таблица подклассов и словарь синхронизированы: каждой разбираемой букве
+// подкласса соответствует код словаря — иначе gostSubclassCode вернёт
+// ошибку словаря вместо тихой порчи данных.
+func TestGostSubclassTablesSync(t *testing.T) {
+	for r, info := range gostSubclasses {
+		if info.state == gostSubclassUnsupported {
+			continue
+		}
+		if _, ok := GostSubclassBySymbol(r); !ok {
+			t.Errorf("буква подкласса %q отсутствует в словаре GostSubclassBySymbol", string(r))
+		}
+	}
+}

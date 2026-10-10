@@ -113,7 +113,29 @@ func TestParseYAMLUnknownAliasRejected(t *testing.T) {
 	if !ok || de.Code != domain.CodeInvalidImportFile {
 		t.Fatalf("ожидалась ошибка invalid_import_file, получено %v", err)
 	}
-	if !strings.Contains(de.Message, "неизвестный алиас") {
+	if !strings.Contains(de.Message, "unknown alias «*nope»") || !strings.Contains(de.Message, "line 1") {
+		t.Fatalf("текст: %q", de.Message)
+	}
+}
+
+func TestParseYAMLCyclicAliasRejected(t *testing.T) {
+	_, err := parseYAML([]byte("a: &x { b: *x }\n"))
+	de, ok := domain.AsError(err)
+	if !ok || de.Code != domain.CodeInvalidImportFile {
+		t.Fatalf("ожидалась ошибка invalid_import_file, получено %v", err)
+	}
+	if !strings.Contains(de.Message, "cyclic reference: alias «*x»") || !strings.Contains(de.Message, "line 1") {
+		t.Fatalf("текст: %q", de.Message)
+	}
+}
+
+func TestParseYAMLInvalidKeyRejected(t *testing.T) {
+	_, err := parseYAML([]byte("1: a\n"))
+	de, ok := domain.AsError(err)
+	if !ok || de.Code != domain.CodeInvalidImportFile {
+		t.Fatalf("ожидалась ошибка invalid_import_file, получено %v", err)
+	}
+	if !strings.Contains(de.Message, "invalid object key") || !strings.Contains(de.Message, "line 1") {
 		t.Fatalf("текст: %q", de.Message)
 	}
 }
@@ -150,7 +172,7 @@ func TestParseYAMLMultipleDocumentsRejected(t *testing.T) {
 	if !ok || de.Code != domain.CodeInvalidImportFile {
 		t.Fatalf("ожидалась ошибка invalid_import_file, получено %v", err)
 	}
-	if !strings.Contains(de.Message, "несколько yaml-документов") {
+	if !strings.Contains(de.Message, "several YAML documents") || !strings.Contains(de.Message, "line 3") {
 		t.Fatalf("текст: %q", de.Message)
 	}
 }

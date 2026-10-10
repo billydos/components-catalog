@@ -13,16 +13,19 @@ import (
 // fakeStore — транспорт каталога для тестов кэша: ревизия и число загрузок.
 // gate (если задан) задерживает LoadSnapshot; snapRev (если не 0) — ревизия
 // возвращаемого снимка (модель загрузки, начатой до записи каталога);
-// loadErr — отказ самой загрузки; entered сигнализирует вход в LoadSnapshot.
+// loadErr — отказ самой загрузки (failLoads, если > 0, ограничивает отказы
+// первыми N вызовами — дальше загрузка успешна); entered сигнализирует вход
+// в LoadSnapshot.
 type fakeStore struct {
-	mu      sync.Mutex
-	rev     int64
-	snapRev int64
-	loads   int
-	revErr  error
-	loadErr error
-	gate    chan struct{}
-	entered chan struct{}
+	mu        sync.Mutex
+	rev       int64
+	snapRev   int64
+	loads     int
+	revErr    error
+	loadErr   error
+	failLoads int
+	gate      chan struct{}
+	entered   chan struct{}
 }
 
 func (s *fakeStore) SetRev(rev int64) {
@@ -48,6 +51,11 @@ func (s *fakeStore) LoadSnapshot(context.Context) (*catalog.Snapshot, error) {
 		rev = s.rev
 	}
 	gate, entered, err := s.gate, s.entered, s.loadErr
+	if s.failLoads > 0 {
+		s.failLoads--
+	} else {
+		err = nil
+	}
 	s.mu.Unlock()
 	if entered != nil {
 		entered <- struct{}{}
@@ -283,12 +291,17 @@ func TestCacheWaiterContextCancel(t *testing.T) {
 // Ошибка единственной загрузки достаётся всем ждущим single-flight:
 // их собственный контекст здоров, данных нет — наследование реальной
 // ошибки загрузчика корректно; неудачная загрузка не повторяется толпой.
+// Отказ загрузчика не заражает ждущих single-flight: каждый участник
+// после чужого отказа ведёт свой полёт и отвечает своей ошибкой.
 func TestCacheSingleFlightLoadError(t *testing.T) {
 	want := errors.New("бд недоступна")
-	store := &fakeStore{gate: make(chan struct{}), entered: make(chan struct{}, 1)}
+	// entered с запасом: после чужого отказа каждый участник ведёт свой
+	// полёт — сигналов входа больше одного, и каждый должен быть принят.
+	store := &fakeStore{gate: make(chan struct{}), entered: make(chan struct{}, 8)}
 	store.SetRev(1)
 	store.mu.Lock()
 	store.loadErr = want
+	store.failLoads = 1 << 30 // отказ устойчив: каждый полёт падает
 	store.mu.Unlock()
 	cache := catalog.NewCache(store)
 	ctx := context.Background()
@@ -322,7 +335,53 @@ func TestCacheSingleFlightLoadError(t *testing.T) {
 	store.mu.Lock()
 	loads := store.loads
 	store.mu.Unlock()
-	if loads != 1 {
-		t.Fatalf("загрузок %d, ожидалась 1", loads)
+	if loads != n {
+		t.Fatalf("загрузок %d, ожидалось %d (каждый участник ведёт свой полёт)", loads, n)
+	}
+}
+
+// Отмена контекста загрузчика не заражает ждущих single-flight: после
+// чужого упавшего полёта ждущий ведёт свой и получает снимок.
+func TestCacheSingleFlightLoaderCancelled(t *testing.T) {
+	cancelled := errors.New("контекст отменён")
+	store := &fakeStore{gate: make(chan struct{}), entered: make(chan struct{}, 1)}
+	store.SetRev(1)
+	store.mu.Lock()
+	store.loadErr = cancelled
+	store.failLoads = 1 // первый полёт падает, дальше — успех
+	store.mu.Unlock()
+	cache := catalog.NewCache(store)
+
+	loaderDone := make(chan struct{})
+	go func() {
+		defer close(loaderDone)
+		_, err := cache.Snapshot(context.Background()) // загрузчик (упадёт)
+		_ = err
+	}()
+	<-store.entered
+
+	type waiterResult struct {
+		snap *catalog.Snapshot
+		err  error
+	}
+	res := make(chan waiterResult, 1)
+	go func() {
+		snap, err := cache.Snapshot(context.Background()) // ждущий
+		res <- waiterResult{snap, err}
+	}()
+	// Ждущий успевает занять место ожидания чужого полёта, полёт падает.
+	time.Sleep(20 * time.Millisecond)
+	close(store.gate)
+	<-loaderDone
+	select {
+	case r := <-res:
+		if r.err != nil {
+			t.Fatalf("ждущий не пережил отказ чужого полёта: %v", r.err)
+		}
+		if r.snap.Revision != 1 {
+			t.Fatalf("ревизия снимка ждущего: %d", r.snap.Revision)
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("ждущий single-flight не вернулся после отказа загрузки")
 	}
 }

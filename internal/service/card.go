@@ -9,45 +9,50 @@ import (
 )
 
 // buildCards собирает карточки записей по списку стабильных id одним
-// пакетным чтением дочерних таблиц (по SELECT с device_id IN на таблицу —
-// экспорт полной базы без запросов на каждую запись): поля разбора,
-// атрибуты, значения параметров по группам каталога, исполнения (матрица
-// номиналов), производители, исходящие и встречные ссылки-аналоги (D8).
-// Порядок результата — по порядку id входа; параллельно удалённые записи
-// пропускаются.
+// пакетным чтением дочерних таблиц в общей транзакции чтения (один
+// снимок данных — конкурентная запись не даёт карточку со смешанным
+// состоянием): поля разбора, атрибуты, значения параметров по группам
+// каталога, исполнения (матрица номиналов), производители, исходящие
+// и встречные ссылки-аналоги (D8). Порядок результата — по порядку id
+// входа; параллельно удалённые записи пропускаются.
 func (s *DeviceService) buildCards(ctx context.Context, snap *catalog.Snapshot, ids []int64) ([]*Card, error) {
 	if len(ids) == 0 {
 		return nil, nil
 	}
-	devs, err := s.app.db.FindDevicesByIDs(ctx, ids)
+	tx, err := s.app.db.BeginReadOnly(ctx)
 	if err != nil {
 		return nil, err
 	}
-	fields, err := s.app.db.LoadFieldsByIDs(ctx, ids)
+	defer tx.Rollback() //nolint:errcheck — откат транзакции чтения
+	devs, err := tx.FindDevicesByIDs(ctx, ids)
 	if err != nil {
 		return nil, err
 	}
-	attrRows, err := s.app.db.LoadAttributesByIDs(ctx, ids)
+	fields, err := tx.LoadFieldsByIDs(ctx, ids)
 	if err != nil {
 		return nil, err
 	}
-	values, err := s.app.db.LoadValuesByIDs(ctx, ids)
+	attrRows, err := tx.LoadAttributesByIDs(ctx, ids)
 	if err != nil {
 		return nil, err
 	}
-	variants, err := s.app.db.LoadVariantsByIDs(ctx, ids)
+	values, err := tx.LoadValuesByIDs(ctx, ids)
 	if err != nil {
 		return nil, err
 	}
-	manufacturers, err := s.app.db.LoadManufacturersByIDs(ctx, ids)
+	variants, err := tx.LoadVariantsByIDs(ctx, ids)
 	if err != nil {
 		return nil, err
 	}
-	outgoing, err := s.app.db.LoadOutgoingAnalogsByIDs(ctx, ids)
+	manufacturers, err := tx.LoadManufacturersByIDs(ctx, ids)
 	if err != nil {
 		return nil, err
 	}
-	backlinks, err := s.app.db.LoadBacklinksByIDs(ctx, ids)
+	outgoing, err := tx.LoadOutgoingAnalogsByIDs(ctx, ids)
+	if err != nil {
+		return nil, err
+	}
+	backlinks, err := tx.LoadBacklinksByIDs(ctx, ids)
 	if err != nil {
 		return nil, err
 	}
@@ -195,8 +200,6 @@ func condsFromStorage(conds []storage.Cond) []catalog.ConditionValue {
 	}
 	return out
 }
-
-// SourceKind не используется: класс источника хранится прямо в BacklinkRow.
 
 // Find ищет запись по точному обозначению; при отсутствии совпадения у
 // полупроводников gost подсказывает равнозначную по материалу запись
