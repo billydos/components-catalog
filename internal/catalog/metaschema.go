@@ -11,13 +11,17 @@ import (
 // замещаются целиком; удаление строк каталога входом не поддерживается —
 // только деактивация (is_active = 0). При пустом списке Problem результат
 // пригоден к записи; непустой — вход отвергается целиком (частичное
-// применение запрещено). base = nil означает пустой каталог (сидирование).
+// применение запрещено): проблемы самопроверки входа исключают и перенос
+// строк в снимок, и проверку метасхемы — вердикт (непустой список проблем)
+// от этого не меняется. base = nil означает пустой каталог (сидирование).
 func ApplyCatalog(base *Snapshot, in Input) (*Snapshot, []Problem) {
 	out := base.Clone()
 	probs := validateInputSelf(in)
+	if len(probs) > 0 {
+		return out, probs
+	}
 	applyInput(out, in)
-	probs = append(probs, validateMetaschema(out)...)
-	return out, probs
+	return out, append(probs, validateMetaschema(out)...)
 }
 
 // metaProblem — проблема метасхемы: ошибка импорта каталога.
@@ -127,197 +131,132 @@ func checkPairCodes[T any](section string, rows []T, key func(T) string) []Probl
 	return checkCodes(section, rows, key)
 }
 
+// kindRuleKey — составной ключ привязки правила к классу
+// (kind_validation_rules).
+type kindRuleKey struct {
+	kind domain.Kind
+	rule string
+}
+
+// indexRows строит индекс «ключ → позиция строки» (при повторах ключа
+// в снимке побеждает первое вхождение — как линейный поиск). Индексы
+// применяются к строкам входа вместо линейного поиска на каждую строку:
+// применение растёт как O(строк входа + снимок), а не O(строк×снимок).
+func indexRows[K comparable, V any](rows []V, key func(V) K) map[K]int {
+	idx := make(map[K]int, len(rows))
+	for i := range rows {
+		if _, ok := idx[key(rows[i])]; !ok {
+			idx[key(rows[i])] = i
+		}
+	}
+	return idx
+}
+
 // applyInput — перенос строк входа в снимок (upsert по коду; при дубликатах
 // в одном входе побеждает последняя строка — вход уже отвергнут проверкой).
+// Вызывается только при пустом списке проблем validateInputSelf: дубликатов
+// ключей во входе нет, поэтому индексы снимка, построенные до применения,
+// эквивалентны поиску по текущему состоянию среза на каждом шаге.
 func applyInput(out *Snapshot, in Input) {
+	kinds := indexRows(out.Kinds, func(r KindDef) domain.Kind { return r.Code })
+	systems := indexRows(out.Systems, func(r SystemDef) domain.System { return r.Code })
+	sysKinds := indexRows(out.SystemKinds, func(r SystemKindRef) systemKindKey {
+		return systemKindKey{system: r.System, kind: r.Kind}
+	})
+	families := indexRows(out.SeriesFamilies, func(r SeriesFamilyDef) seriesKey {
+		return seriesKey{series: r.Series, kind: r.Kind}
+	})
+	units := indexRows(out.Units, func(r UnitDef) string { return r.Code })
+	categories := indexRows(out.Categories, func(r CategoryDef) string { return r.Code })
+	conditions := indexRows(out.Conditions, func(r ConditionDef) string { return r.Code })
+	groups := indexRows(out.Groups, func(r GroupDef) string { return r.Code })
+	parameters := indexRows(out.Parameters, func(r ParameterDef) string { return r.Code })
+	attributes := indexRows(out.Attributes, func(r AttributeDef) string { return r.Code })
+	rules := indexRows(out.Rules, func(r RuleDef) string { return r.Code })
+	kindRules := indexRows(out.KindRules, func(r KindRuleRef) kindRuleKey {
+		return kindRuleKey{kind: r.Kind, rule: r.Rule}
+	})
+
 	for _, r := range in.Kinds {
-		if i := indexOfKind(out.Kinds, r.Code); i >= 0 {
+		if i, ok := kinds[r.Code]; ok {
 			out.Kinds[i] = r
 		} else {
 			out.Kinds = append(out.Kinds, r)
 		}
 	}
 	for _, r := range in.Systems {
-		if i := indexOfSystem(out.Systems, r.Code); i >= 0 {
+		if i, ok := systems[r.Code]; ok {
 			out.Systems[i] = r
 		} else {
 			out.Systems = append(out.Systems, r)
 		}
 	}
 	for _, r := range in.SystemKinds {
-		if !containsSystemKind(out.SystemKinds, r) {
+		if _, ok := sysKinds[systemKindKey{system: r.System, kind: r.Kind}]; !ok {
 			out.SystemKinds = append(out.SystemKinds, r)
 		}
 	}
 	for _, r := range in.SeriesFamilies {
-		if i := indexOfFamily(out.SeriesFamilies, r.Series, r.Kind); i >= 0 {
+		if i, ok := families[seriesKey{series: r.Series, kind: r.Kind}]; ok {
 			out.SeriesFamilies[i] = r
 		} else {
 			out.SeriesFamilies = append(out.SeriesFamilies, r)
 		}
 	}
 	for _, r := range in.Units {
-		if i := indexOfUnit(out.Units, r.Code); i >= 0 {
+		if i, ok := units[r.Code]; ok {
 			out.Units[i] = r
 		} else {
 			out.Units = append(out.Units, r)
 		}
 	}
 	for _, r := range in.Categories {
-		if i := indexOfCategory(out.Categories, r.Code); i >= 0 {
+		if i, ok := categories[r.Code]; ok {
 			out.Categories[i] = r
 		} else {
 			out.Categories = append(out.Categories, r)
 		}
 	}
 	for _, r := range in.Conditions {
-		if i := indexOfCondition(out.Conditions, r.Code); i >= 0 {
+		if i, ok := conditions[r.Code]; ok {
 			out.Conditions[i] = r
 		} else {
 			out.Conditions = append(out.Conditions, r)
 		}
 	}
 	for _, r := range in.Groups {
-		if i := indexOfGroup(out.Groups, r.Code); i >= 0 {
+		if i, ok := groups[r.Code]; ok {
 			out.Groups[i] = r
 		} else {
 			out.Groups = append(out.Groups, r)
 		}
 	}
 	for _, r := range in.Parameters {
-		if i := indexOfParameter(out.Parameters, r.Code); i >= 0 {
+		if i, ok := parameters[r.Code]; ok {
 			out.Parameters[i] = r
 		} else {
 			out.Parameters = append(out.Parameters, r)
 		}
 	}
 	for _, r := range in.Attributes {
-		if i := indexOfAttribute(out.Attributes, r.Code); i >= 0 {
+		if i, ok := attributes[r.Code]; ok {
 			out.Attributes[i] = r
 		} else {
 			out.Attributes = append(out.Attributes, r)
 		}
 	}
 	for _, r := range in.Rules {
-		if i := indexOfRule(out.Rules, r.Code); i >= 0 {
+		if i, ok := rules[r.Code]; ok {
 			out.Rules[i] = r
 		} else {
 			out.Rules = append(out.Rules, r)
 		}
 	}
 	for _, r := range in.KindRules {
-		if !containsKindRule(out.KindRules, r) {
+		if _, ok := kindRules[kindRuleKey{kind: r.Kind, rule: r.Rule}]; !ok {
 			out.KindRules = append(out.KindRules, r)
 		}
 	}
-}
-
-func indexOfKind(rows []KindDef, code domain.Kind) int {
-	for i := range rows {
-		if rows[i].Code == code {
-			return i
-		}
-	}
-	return -1
-}
-
-func indexOfSystem(rows []SystemDef, code domain.System) int {
-	for i := range rows {
-		if rows[i].Code == code {
-			return i
-		}
-	}
-	return -1
-}
-
-func containsSystemKind(rows []SystemKindRef, r SystemKindRef) bool {
-	for i := range rows {
-		if rows[i] == r {
-			return true
-		}
-	}
-	return false
-}
-
-func indexOfFamily(rows []SeriesFamilyDef, series string, kind domain.Kind) int {
-	for i := range rows {
-		if rows[i].Series == series && rows[i].Kind == kind {
-			return i
-		}
-	}
-	return -1
-}
-
-func indexOfUnit(rows []UnitDef, code string) int {
-	for i := range rows {
-		if rows[i].Code == code {
-			return i
-		}
-	}
-	return -1
-}
-
-func indexOfCategory(rows []CategoryDef, code string) int {
-	for i := range rows {
-		if rows[i].Code == code {
-			return i
-		}
-	}
-	return -1
-}
-
-func indexOfCondition(rows []ConditionDef, code string) int {
-	for i := range rows {
-		if rows[i].Code == code {
-			return i
-		}
-	}
-	return -1
-}
-
-func indexOfGroup(rows []GroupDef, code string) int {
-	for i := range rows {
-		if rows[i].Code == code {
-			return i
-		}
-	}
-	return -1
-}
-
-func indexOfParameter(rows []ParameterDef, code string) int {
-	for i := range rows {
-		if rows[i].Code == code {
-			return i
-		}
-	}
-	return -1
-}
-
-func indexOfAttribute(rows []AttributeDef, code string) int {
-	for i := range rows {
-		if rows[i].Code == code {
-			return i
-		}
-	}
-	return -1
-}
-
-func indexOfRule(rows []RuleDef, code string) int {
-	for i := range rows {
-		if rows[i].Code == code {
-			return i
-		}
-	}
-	return -1
-}
-
-func containsKindRule(rows []KindRuleRef, r KindRuleRef) bool {
-	for i := range rows {
-		if rows[i] == r {
-			return true
-		}
-	}
-	return false
 }
 
 // validateMetaschema — валидация целостности определений каталога

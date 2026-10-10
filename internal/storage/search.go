@@ -292,20 +292,15 @@ func (d *DB) Search(ctx context.Context, r SearchRequest) ([]SearchItemRow, int,
 
 // loadSearchFields дозагружает поля разбора обозначений страницы результатов.
 func (d *DB) loadSearchFields(ctx context.Context, items []SearchItemRow) error {
-	var sb strings.Builder
-	sb.WriteString(`SELECT device_id, field, text_value, num_value
-FROM device_designation_fields WHERE device_id IN (`)
-	args := make(map[string]any, len(items))
+	ids := make([]int64, len(items))
 	for i, it := range items {
-		if i > 0 {
-			sb.WriteString(", ")
-		}
-		name := fmt.Sprintf("sid%d", i)
-		sb.WriteString("@" + name)
-		args[name] = it.ID
+		ids[i] = it.ID
 	}
-	sb.WriteString(`) ORDER BY device_id, field`)
-	rows, err := d.query(ctx, sb.String(), args)
+	args := make(map[string]any, len(items))
+	rows, err := d.query(ctx, `
+SELECT device_id, field, text_value, num_value
+FROM device_designation_fields WHERE device_id IN `+inList("sid", ids, args)+`
+ORDER BY device_id, field`, args)
 	if err != nil {
 		return err
 	}

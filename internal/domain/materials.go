@@ -53,8 +53,13 @@ func MaterialByCode(code string) (Material, bool) {
 }
 
 // GostMaterialBySymbol ищет материал по символу ГОСТ — букве (Г, К, А, И, Д, П)
-// или цифре (1–6); используется парсером gost и подсказкой find.
+// или цифре (1–6); используется парсером gost и подсказкой find. Нулевая и
+// отрицательная руна не «находит» материал (в частности, арсенид галлия без
+// символов ГОСТ не выпадает из поиска по невалидной руне).
 func GostMaterialBySymbol(r rune) (Material, bool) {
+	if r <= 0 {
+		return Material{}, false
+	}
 	for _, m := range materials {
 		if m.GostLetter == r || m.GostDigit == r {
 			return m, true

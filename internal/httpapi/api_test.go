@@ -488,6 +488,16 @@ func TestSearchErrors(t *testing.T) {
 		{"sort=bogus", "validation_failed", "parameter sort: unknown sort key «bogus»"},
 		{"bogus=1", "validation_failed", "unknown query parameter «bogus»"},
 		{"junctions=abc", "validation_failed", "parameter «junctions»: a number is expected"},
+		{"par.h21e.min=1&par.h21e.min=2", "validation_failed",
+			"query parameter «par.h21e.min» is set more than once"},
+		{"q=a&q=b", "validation_failed", "query parameter «q» is set more than once"},
+		{"kind=transistor&kind=diode", "validation_failed",
+			"query parameter «kind» is set more than once"},
+		{"limit=1&limit=2", "validation_failed", "query parameter «limit» is set more than once"},
+		{"material=si&material=ge", "validation_failed",
+			"query parameter «material» is set more than once"},
+		{"attr.structure=npn&attr.structure=pnp", "validation_failed",
+			"query parameter «attr.structure» is set more than once"},
 		{"par.h21e.min=abc", "validation_failed", "parameter «par.h21e.min»: a number is expected"},
 		{"par.h21e.text=1", "validation_failed", "parameter filter «h21e»: a number is expected"},
 	}
@@ -602,6 +612,15 @@ func TestSuggest(t *testing.T) {
 	status, _, eb = do(t, srv, http.MethodGet, apiPrefix+"/suggest?q=%D0%9A&limit=51", "")
 	wantError(t, status, eb, http.StatusBadRequest, "validation_failed",
 		"parameter limit: an integer from 1 to 50 is expected")
+
+	// Повтор разбираемого параметра — 400 (первое значение не берётся молча).
+	status, _, eb = do(t, srv, http.MethodGet, apiPrefix+"/suggest?q=%D0%9A&q=%D0%9B", "")
+	wantError(t, status, eb, http.StatusBadRequest, "validation_failed",
+		"query parameter «q» is set more than once")
+	status, _, eb = do(t, srv, http.MethodGet,
+		apiPrefix+"/suggest?q=%D0%9A&kind=transistor&kind=diode", "")
+	wantError(t, status, eb, http.StatusBadRequest, "validation_failed",
+		"query parameter «kind» is set more than once")
 }
 
 func TestSuggestDisabled(t *testing.T) {
@@ -623,9 +642,20 @@ func TestCreate(t *testing.T) {
 		t.Fatalf("ответ создания: %+v", resp)
 	}
 
-	// Повтор — 409 already_exists.
-	status, _, eb := do(t, srv, http.MethodPost, apiPrefix+"/components", `{"name":"ГТ109Г"}`)
+	// Повтор с чужими секциями — 409 already_exists, запись не изменена
+	// (создание атомарно: секции проигравшего не применяются к чужой записи).
+	status, _, eb := do(t, srv, http.MethodPost, apiPrefix+"/components",
+		`{"name":"ГТ109Г","attributes":{"package":"TO-92"},"manufacturers":["Захват"]}`)
 	wantError(t, status, eb, http.StatusConflict, "already_exists", "record «ГТ109Г» already exists")
+	_, body, _ = do(t, srv, http.MethodGet, apiPrefix+"/components/transistor/"+esc("ГТ109Г"), "")
+	unchanged := decode[cardJSON](t, body)
+	if len(unchanged.Attributes) != 1 || unchanged.Attributes[0].Code != "structure" ||
+		*unchanged.Attributes[0].Text != "pnp" {
+		t.Fatalf("запись изменена при 409: %+v", unchanged.Attributes)
+	}
+	if len(unchanged.Manufacturers) != 0 {
+		t.Fatalf("производители изменены при 409: %v", unchanged.Manufacturers)
+	}
 
 	// Строка-обозначение как тело.
 	status, body, _ = do(t, srv, http.MethodPost, apiPrefix+"/components", `"2Т312А"`)
@@ -827,6 +857,91 @@ func TestInternalError(t *testing.T) {
 	if status != http.StatusInternalServerError || eb.Code != "internal_error" ||
 		eb.Message != "internal request processing error" {
 		t.Fatalf("internal error: %d %+v", status, eb)
+	}
+
+	// Локаль запроса: текст 500 — по локали (D9), не только канонический en.
+	req, _ := http.NewRequest(http.MethodGet, srv.URL+apiPrefix+"/kinds", nil)
+	req.Header.Set("Accept-Language", "ru")
+	resp, err := srv.Client().Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+	data, _ := io.ReadAll(resp.Body)
+	var ruBody errorBody
+	if err := json.Unmarshal(data, &ruBody); err != nil {
+		t.Fatalf("декодирование: %v", err)
+	}
+	if resp.StatusCode != http.StatusInternalServerError ||
+		ruBody.Message != "внутренняя ошибка обработки запроса" {
+		t.Fatalf("internal error (ru): %d %+v", resp.StatusCode, ruBody)
+	}
+}
+
+// TestSearchETagPerQuery — ETag поиска идентифицирует представление
+// конкретного запроса ("data-<rev>-<hash>"): разные фильтры — разные
+// ETag, повтор того же запроса — совпадающий; ошибки разбора параметров
+// приоритетнее отсечения 304.
+func TestSearchETagPerQuery(t *testing.T) {
+	_, srv := newTestAPI(t, Config{})
+	get := func(query, ifNoneMatch string) *http.Response {
+		t.Helper()
+		req, _ := http.NewRequest(http.MethodGet, srv.URL+apiPrefix+"/components?"+query, nil)
+		if ifNoneMatch != "" {
+			req.Header.Set("If-None-Match", ifNoneMatch)
+		}
+		resp, err := srv.Client().Do(req)
+		if err != nil {
+			t.Fatal(err)
+		}
+		resp.Body.Close()
+		return resp
+	}
+	all := get("q=", "")
+	kind := get("kind=transistor", "")
+	eAll, eKind := all.Header.Get("ETag"), kind.Header.Get("ETag")
+	if eAll == "" || eKind == "" || eAll == eKind {
+		t.Fatalf("ETag разных запросов совпали: %q / %q", eAll, eKind)
+	}
+	if again := get("q=", "").Header.Get("ETag"); again != eAll {
+		t.Fatalf("ETag того же запроса изменился: %q → %q", eAll, again)
+	}
+	if resp := get("q=", eAll); resp.StatusCode != http.StatusNotModified {
+		t.Fatalf("If-None-Match: %d, ожидался 304", resp.StatusCode)
+	}
+	if resp := get("kind=transistor", eAll); resp.StatusCode != http.StatusOK {
+		t.Fatalf("чужой ETag дал 304: %d", resp.StatusCode)
+	}
+	// Транспортные ошибки разбора приоритетнее 304 (If-None-Match: *).
+	if resp := get("limit=abc", "*"); resp.StatusCode != http.StatusBadRequest {
+		t.Fatalf("разбор до ETag: %d", resp.StatusCode)
+	}
+	if resp := get("bogus=1", "*"); resp.StatusCode != http.StatusBadRequest {
+		t.Fatalf("неизвестный параметр до ETag: %d", resp.StatusCode)
+	}
+	// Сервисная валидация (семантика фильтров) также предшествует 304:
+	// невалидный запрос отвечает 400 и для If-None-Match: *.
+	for _, query := range []string{
+		"kind=bogus", "par.nosuch.min=1", "par.h21e.min=1&kind=resistor",
+	} {
+		if resp := get(query, "*"); resp.StatusCode != http.StatusBadRequest {
+			t.Fatalf("сервисная валидация до ETag (%s): %d", query, resp.StatusCode)
+		}
+	}
+}
+
+// TestResponseWriterHeaderGuard — повторная запись статуса игнорируется
+// целиком: нижележащий writer не получает второго WriteHeader.
+func TestResponseWriterHeaderGuard(t *testing.T) {
+	rec := httptest.NewRecorder()
+	rw := &responseWriter{ResponseWriter: rec, status: http.StatusOK}
+	rw.WriteHeader(http.StatusOK)
+	rw.WriteHeader(http.StatusInternalServerError)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("нижележащий статус перезаписан: %d", rec.Code)
+	}
+	if rw.status != http.StatusOK {
+		t.Fatalf("собственный учёт статуса перезаписан: %d", rw.status)
 	}
 }
 

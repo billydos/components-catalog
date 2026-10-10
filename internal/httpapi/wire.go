@@ -118,7 +118,6 @@ func cardToJSON(lang i18n.Language, c *service.Card) cardJSON {
 		Designation:   c.Designation,
 		Fields:        fieldsToJSON(c.Fields),
 		Attributes:    make([]cardAttrJSON, 0, len(c.Attributes)),
-		Groups:        make([]cardGroupJSON, 0, len(c.Groups)),
 		Variants:      make([]cardVariantJSON, 0, len(c.Variants)),
 		Manufacturers: make([]string, 0, len(c.Manufacturers)),
 		Analogs:       make([]linkJSON, 0, len(c.Analogs)),
@@ -130,7 +129,7 @@ func cardToJSON(lang i18n.Language, c *service.Card) cardJSON {
 			Text: a.Text, Num: a.Num, Bool: a.Bool,
 		})
 	}
-	out.Groups = append(out.Groups, groupsToJSON(lang, c.Groups)...)
+	out.Groups = groupsToJSON(lang, c.Groups)
 	for _, v := range c.Variants {
 		out.Variants = append(out.Variants, cardVariantJSON{Label: v.Label, Groups: groupsToJSON(lang, v.Groups)})
 	}

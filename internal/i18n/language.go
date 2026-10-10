@@ -1,7 +1,6 @@
 package i18n
 
 import (
-	"fmt"
 	"slices"
 	"strconv"
 	"strings"
@@ -57,6 +56,9 @@ func ParseLanguage(tag string) (Language, bool) {
 // Negotiate выбирает язык по заголовку Accept-Language: теги с q-значениями
 // по убыванию приоритета, совпадение по базовому подтегу; неподдерживаемые
 // теги пропускаются, при пустом/непонятном заголовке — канонический en.
+// q-параметр разбирается без учёта регистра префикса и пробелов вокруг
+// значения («en; q=0.3»); кандидат с q=0 либо с битым q (не число, не
+// конечное, вне [0,1]) — неприемлем и исключается из выбора.
 func Negotiate(header string) Language {
 	type candidate struct {
 		tag string
@@ -70,12 +72,20 @@ func Negotiate(header string) Language {
 		}
 		tag, params, _ := strings.Cut(part, ";")
 		c := candidate{tag: strings.TrimSpace(tag), q: 1}
-		if v, ok := strings.CutPrefix(params, "q="); ok {
-			if q, err := strconv.ParseFloat(strings.TrimSpace(v), 64); err == nil {
+		acceptable := true
+		for _, seg := range strings.Split(params, ";") {
+			v, ok := cutQParam(strings.TrimSpace(seg))
+			if !ok {
+				continue
+			}
+			if q, err := strconv.ParseFloat(strings.TrimSpace(v), 64); err != nil || !(q >= 0 && q <= 1) {
+				acceptable = false
+			} else {
 				c.q = q
 			}
+			break
 		}
-		if c.tag != "" && c.tag != "*" {
+		if acceptable && c.q > 0 && c.tag != "" && c.tag != "*" {
 			list = append(list, c)
 		}
 	}
@@ -94,6 +104,16 @@ func Negotiate(header string) Language {
 		}
 	}
 	return En
+}
+
+// cutQParam выделяет значение q-параметра («q=0.3», «Q=0.3»); имя
+// параметра сравнивается без учёта регистра.
+func cutQParam(params string) (string, bool) {
+	name, val, has := strings.Cut(params, "=")
+	if !has || !strings.EqualFold(strings.TrimSpace(name), "q") {
+		return "", false
+	}
+	return val, true
 }
 
 // resolve возвращает строку по ключу: запрошенный язык → en (fallback) →
@@ -131,88 +151,69 @@ func Keys(l Language) []string {
 	return out
 }
 
-func mustKnown(l Language) {
-	if !l.IsValid() {
-		panic(fmt.Sprintf("i18n: неизвестный язык %q", string(l)))
-	}
-}
-
 // KindName возвращает отображаемое название класса приборов.
 func KindName(l Language, code string) string {
-	mustKnown(l)
 	return resolve(l, "kind."+code, code)
 }
 
 // SystemName возвращает короткое имя системы обозначений.
 func SystemName(l Language, code string) string {
-	mustKnown(l)
 	return resolve(l, "system."+code, code)
 }
 
 // SystemDescription возвращает пояснение системы обозначений.
 func SystemDescription(l Language, code string) string {
-	mustKnown(l)
 	return resolve(l, "system."+code+".description", "")
 }
 
 // FamilyName возвращает расшифровку семейства системы series.
 func FamilyName(l Language, series string) string {
-	mustKnown(l)
 	return resolve(l, "family."+series, series)
 }
 
 // UnitName возвращает отображаемое название единицы.
 func UnitName(l Language, code string) string {
-	mustKnown(l)
 	return resolve(l, "unit."+code+".name", code)
 }
 
 // UnitSymbol возвращает символ единицы для вывода значений.
 func UnitSymbol(l Language, code string) string {
-	mustKnown(l)
 	return resolve(l, "unit."+code+".symbol", code)
 }
 
 // ConditionName возвращает отображаемое название условия измерения.
 func ConditionName(l Language, code string) string {
-	mustKnown(l)
 	return resolve(l, "condition."+code, code)
 }
 
 // GroupName возвращает отображаемое название группы параметров.
 func GroupName(l Language, code string) string {
-	mustKnown(l)
 	return resolve(l, "group."+code, code)
 }
 
 // ParameterName возвращает отображаемое название параметра.
 func ParameterName(l Language, code string) string {
-	mustKnown(l)
 	return resolve(l, "param."+code, code)
 }
 
 // AttributeName возвращает отображаемое название атрибута.
 func AttributeName(l Language, code string) string {
-	mustKnown(l)
 	return resolve(l, "attr."+code, code)
 }
 
 // RuleDescription возвращает описание именованного правила валидации.
 func RuleDescription(l Language, code string) string {
-	mustKnown(l)
 	return resolve(l, "rule."+code, code)
 }
 
 // DesignationField возвращает отображаемое имя поля разбора обозначения.
 func DesignationField(l Language, code string) string {
-	mustKnown(l)
 	return resolve(l, "field."+code, code)
 }
 
 // MaterialName возвращает отображаемое название материала полупроводника
 // по стабильному коду словаря (D9: значения словаря — коды).
 func MaterialName(l Language, code string) string {
-	mustKnown(l)
 	return resolve(l, "material."+code, code)
 }
 
@@ -239,7 +240,6 @@ func MaterialCode(codeOrDisplay string) (string, bool) {
 // SubclassName возвращает отображаемое название подкласса прибора
 // по стабильному коду словаря (D9: значения словаря — коды).
 func SubclassName(l Language, code string) string {
-	mustKnown(l)
 	return resolve(l, "subclass."+code, code)
 }
 
@@ -266,7 +266,6 @@ func SubclassCode(codeOrDisplay string) (string, bool) {
 // AdjustmentName возвращает отображаемое название способа подстройки
 // по стабильному коду словаря (D9: значения словаря — коды).
 func AdjustmentName(l Language, code string) string {
-	mustKnown(l)
 	return resolve(l, "adjustment."+code, code)
 }
 
@@ -294,7 +293,6 @@ func AdjustmentCode(codeOrDisplay string) (string, bool) {
 // каталожного словаря; расширения каталога данными без записи в бандле
 // отображаются кодом (D9).
 func CategoryName(l Language, code string) string {
-	mustKnown(l)
 	return resolve(l, "category."+code, code)
 }
 

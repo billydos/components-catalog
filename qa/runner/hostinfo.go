@@ -7,7 +7,6 @@ package main
 import (
 	"context"
 	"fmt"
-	"net"
 	"os"
 	"runtime"
 	"runtime/debug"
@@ -155,19 +154,6 @@ func driverVersions() [][2]string {
 		}
 	}
 	return out
-}
-
-// freePort — свободный порт локального интерфейса для REST-хоста прогона.
-func freePort() (int, error) {
-	l, err := net.Listen("tcp", "127.0.0.1:0")
-	if err != nil {
-		return 0, err
-	}
-	port := l.Addr().(*net.TCPAddr).Port
-	if err := l.Close(); err != nil {
-		return 0, err
-	}
-	return port, nil
 }
 
 // trimSpaceLines — непустые строки вывода (для заметок фазы нагрузочной

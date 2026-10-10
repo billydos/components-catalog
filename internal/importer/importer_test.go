@@ -3,6 +3,7 @@ package importer
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -10,6 +11,7 @@ import (
 
 	"github.com/billydos/components-catalog/internal/domain"
 	"github.com/billydos/components-catalog/internal/service"
+	"github.com/billydos/components-catalog/internal/storage"
 	"github.com/billydos/components-catalog/internal/testutil"
 )
 
@@ -263,6 +265,10 @@ func runImporterSuite(t *testing.T, factory configFactory) {
 
 	t.Run("CatalogImportFileRejectsRecords", func(t *testing.T) {
 		app := openApp(t, factory)
+		catRev, dataRev, err := app.Revisions(context.Background())
+		if err != nil {
+			t.Fatalf("ревизии: %v", err)
+		}
 		file := dataPath(t, "diodes.jsonc")
 		f, err := os.Open(file)
 		if err != nil {
@@ -276,6 +282,337 @@ func runImporterSuite(t *testing.T, factory configFactory) {
 		}
 		if de.Message != "the file contains kind records; catalog import applies to files with the catalog section only" {
 			t.Fatalf("текст: %q", de.Message)
+		}
+		// Отказ до любых записей в БД: записей нет, ревизии не двигались.
+		n, err := app.Services().Devices.Count(context.Background(), nil)
+		if err != nil {
+			t.Fatalf("count: %v", err)
+		}
+		if n != 0 {
+			t.Fatalf("отказ оставил записи в базе: %d", n)
+		}
+		catRev2, dataRev2, err := app.Revisions(context.Background())
+		if err != nil {
+			t.Fatalf("ревизии: %v", err)
+		}
+		if catRev2 != catRev || dataRev2 != dataRev {
+			t.Fatalf("отказ двинул ревизии: catalog %d→%d, data %d→%d",
+				catRev, catRev2, dataRev, dataRev2)
+		}
+	})
+
+	t.Run("CatalogImportMixedFileAppliesNothing", func(t *testing.T) {
+		app := openApp(t, factory)
+		catRev, dataRev, err := app.Revisions(context.Background())
+		if err != nil {
+			t.Fatalf("ревизии: %v", err)
+		}
+		// Смешанный документ: каталог вводит новый класс, файл содержит
+		// записи (в том числе под вводимым классом).
+		file := filepath.Join(t.TempDir(), "mixed.jsonc")
+		write(t, file, `{
+			"catalog": { "kinds": [ { "code": "sensor" } ] },
+			"transistors": [ { "name": "КТ315Б" } ],
+			"sensors": [ { "name": "DHT11" } ]
+		}`)
+		rep, err := importCatalogFile(t, app, file, false)
+		de, ok := domain.AsError(err)
+		if !ok || de.Code != domain.CodeInvalidImportFile {
+			t.Fatalf("ожидалась invalid_import_file, получено %v", err)
+		}
+		if de.Message != "the file contains kind records; catalog import applies to files with the catalog section only" {
+			t.Fatalf("текст: %q", de.Message)
+		}
+		if rep.CatalogApplied {
+			t.Fatalf("каталог применён вопреки отказу: %+v", rep)
+		}
+		n, err := app.Services().Devices.Count(context.Background(), nil)
+		if err != nil {
+			t.Fatalf("count: %v", err)
+		}
+		if n != 0 {
+			t.Fatalf("отказ оставил записи в базе: %d", n)
+		}
+		snap, err := app.Snapshot(context.Background())
+		if err != nil {
+			t.Fatalf("снимок: %v", err)
+		}
+		if _, ok := snap.Kind(domain.Kind("sensor")); ok {
+			t.Fatal("отказ оставил расширение каталога (класс sensor)")
+		}
+		catRev2, dataRev2, err := app.Revisions(context.Background())
+		if err != nil {
+			t.Fatalf("ревизии: %v", err)
+		}
+		if catRev2 != catRev || dataRev2 != dataRev {
+			t.Fatalf("отказ двинул ревизии: catalog %d→%d, data %d→%d",
+				catRev, catRev2, dataRev, dataRev2)
+		}
+
+		// Смешанный NDJSON: строки catalog + строки записей.
+		nd := filepath.Join(t.TempDir(), "mixed.ndjson")
+		write(t, nd,
+			`{"catalog": {"kinds": [ { "code": "sensor" } ]}}`+"\n"+
+				`{"transistors": { "name": "МП39" }}`+"\n")
+		rep, err = importCatalogFile(t, app, nd, false)
+		if de, ok := domain.AsError(err); !ok || de.Code != domain.CodeInvalidImportFile {
+			t.Fatalf("ndjson: ожидалась invalid_import_file, получено %v", err)
+		}
+		if rep.CatalogApplied {
+			t.Fatalf("ndjson: каталог применён вопреки отказу: %+v", rep)
+		}
+		snap, err = app.Snapshot(context.Background())
+		if err != nil {
+			t.Fatalf("снимок: %v", err)
+		}
+		if _, ok := snap.Kind(domain.Kind("sensor")); ok {
+			t.Fatal("ndjson: отказ оставил расширение каталога (класс sensor)")
+		}
+	})
+
+	t.Run("NDJSONCatalogAndRecordInOneLine", func(t *testing.T) {
+		app := openApp(t, factory)
+		file := filepath.Join(t.TempDir(), "drop.ndjson")
+		write(t, file,
+			`{"catalog": {"units": [ { "code": "kV" } ]}, "transistors": [ { "name": "КТ315Б" } ]}`+"\n")
+		rep := importFile(t, app, file, false)
+		// Запись не отбрасывается молча: проблема формы, строка не
+		// сливается в каталог и не читается как запись.
+		if !rep.HasIssues() || rep.Records != 0 {
+			t.Fatalf("итог: %+v; проблемы: %v", rep, issueMessages(rep.Issues))
+		}
+		want := "line 1: the wrapper line must contain exactly one key — a kind or catalog"
+		if rep.Issues[0].String() != want {
+			t.Fatalf("текст: %q, ожидался %q", rep.Issues[0].String(), want)
+		}
+		if rep.CatalogApplied {
+			t.Fatalf("каталог применён: %+v", rep)
+		}
+		snap, err := app.Snapshot(context.Background())
+		if err != nil {
+			t.Fatalf("снимок: %v", err)
+		}
+		if _, ok := snap.Unit("kV"); ok {
+			t.Fatal("единица kV введена из проблемной строки")
+		}
+		if n, err := app.Services().Devices.Count(context.Background(), nil); err != nil || n != 0 {
+			t.Fatalf("count: %v %d", err, n)
+		}
+	})
+
+	t.Run("CatalogFormIssuesBlockApplication", func(t *testing.T) {
+		app := openApp(t, factory)
+		for _, tc := range []struct {
+			name string
+			body string
+			want string
+		}{
+			{
+				name: "unit не строка",
+				body: `{"catalog": {"conditions": [ { "code": "ta", "unit": 5 } ]}}`,
+				want: `catalog: section conditions, «ta»: field "unit" must be a string`,
+			},
+			{
+				name: "catalog не объект",
+				body: `{"catalog": []}`,
+				want: `catalog: catalog must be an object with subsections (allowed: kinds, ` +
+					`designation_systems, designation_system_kinds, series_families, units, ` +
+					`categories, conditions, parameter_groups, parameters, attributes, ` +
+					`validation_rules, kind_validation_rules)`,
+			},
+			{
+				name: "битая строка среди валидных",
+				body: `{"catalog": {"conditions": [ { "code": "ta" }, { "code": "tb", "unit": 5 } ]}}`,
+				want: `catalog: section conditions, «tb»: field "unit" must be a string`,
+			},
+		} {
+			catRev, _, err := app.Revisions(context.Background())
+			if err != nil {
+				t.Fatalf("ревизии: %v", err)
+			}
+			file := filepath.Join(t.TempDir(), "form.jsonc")
+			write(t, file, tc.body)
+			rep, err := importCatalogFile(t, app, file, false)
+			if err != nil {
+				t.Fatalf("%s: %v", tc.name, err)
+			}
+			if !rep.HasIssues() || rep.CatalogApplied {
+				t.Fatalf("%s: итог %+v; проблемы: %v", tc.name, rep, issueMessages(rep.Issues))
+			}
+			if rep.Issues[0].String() != tc.want {
+				t.Fatalf("%s: текст: %q, ожидался %q", tc.name, rep.Issues[0].String(), tc.want)
+			}
+			snap, err := app.Snapshot(context.Background())
+			if err != nil {
+				t.Fatalf("%s: снимок: %v", tc.name, err)
+			}
+			if _, ok := snap.Condition("ta"); ok {
+				t.Fatalf("%s: секция применена частично (условие ta)", tc.name)
+			}
+			if _, ok := snap.Condition("tb"); ok {
+				t.Fatalf("%s: секция применена (условие tb)", tc.name)
+			}
+			catRev2, _, err := app.Revisions(context.Background())
+			if err != nil {
+				t.Fatalf("%s: ревизии: %v", tc.name, err)
+			}
+			if catRev2 != catRev {
+				t.Fatalf("%s: catalog_revision двинулась %d→%d", tc.name, catRev, catRev2)
+			}
+		}
+	})
+
+	t.Run("CatalogConditionSetTypoBlocked", func(t *testing.T) {
+		app := openApp(t, factory)
+		file := filepath.Join(t.TempDir(), "typo.jsonc")
+		write(t, file, `{"catalog": {"parameters": [ {
+			"code": "vib", "group": "env", "value_type": "text",
+			"condition_sets": [ { "items": [
+				{ "condition": "ta", "mode": "required", "fxed_value": 0.1 }
+			] } ]
+		} ] }}`)
+		rep, err := importCatalogFile(t, app, file, false)
+		if err != nil {
+			t.Fatalf("импорт: %v", err)
+		}
+		if !rep.HasIssues() || rep.CatalogApplied {
+			t.Fatalf("итог: %+v; проблемы: %v", rep, issueMessages(rep.Issues))
+		}
+		want := "catalog: section parameters, «vib»: unknown field «fxed_value» " +
+			"(allowed: condition, mode, fixed_value)"
+		if rep.Issues[0].String() != want {
+			t.Fatalf("текст: %q, ожидался %q", rep.Issues[0].String(), want)
+		}
+		snap, err := app.Snapshot(context.Background())
+		if err != nil {
+			t.Fatalf("снимок: %v", err)
+		}
+		if _, ok := snap.Parameter("vib"); ok {
+			t.Fatal("параметр с опечаткой применён")
+		}
+	})
+
+	t.Run("IdleCreationCompensatedOnLaterFailure", func(t *testing.T) {
+		app := openApp(t, factory)
+		// Взаимные аналоги: цикл разрывается холостым созданием Д226;
+		// полное применение после создания проваливается не-аналоговой
+		// ошибкой (дубликат цели в списке аналогов) — холостая запись
+		// компенсируется удалением, в отчёте проблема.
+		file := filepath.Join(t.TempDir(), "deadlock.jsonc")
+		write(t, file, `{
+			"diodes": [
+				{ "name": "Д226", "analogs": ["1N4007", "1N4007"] },
+				{ "name": "1N4007", "analogs": ["Д226"] }
+			]
+		}`)
+		rep := importFile(t, app, file, false)
+		if rep.Added != 1 || rep.Rejected != 1 || len(rep.Issues) != 1 {
+			t.Fatalf("итог: %+v; проблемы: %v", rep, issueMessages(rep.Issues))
+		}
+		want := "record «Д226»: analog «1N4007» is set more than once"
+		if rep.Issues[0].String() != want {
+			t.Fatalf("текст: %q, ожидался %q", rep.Issues[0].String(), want)
+		}
+		if _, found, err := app.Services().Devices.Get(context.Background(), domain.KindDiode, "Д226"); err != nil || found {
+			t.Fatalf("холостое создание не компенсировано: found=%v err=%v", found, err)
+		}
+		if _, found, err := app.Services().Devices.Get(context.Background(), domain.KindDiode, "1N4007"); err != nil || !found {
+			t.Fatalf("валидная запись не применена: found=%v err=%v", found, err)
+		}
+	})
+
+	t.Run("NDJSONCatalogMergeSoftIssues", func(t *testing.T) {
+		app := openApp(t, factory)
+		cases := []struct {
+			name string
+			line string
+			want string
+		}{
+			{
+				name: "вторая строка catalog не объект",
+				line: `{"catalog": 5}`,
+				want: "line 2: catalog must be an object with subsections",
+			},
+			{
+				name: "подраздел не массив",
+				line: `{"catalog": {"units": 5}}`,
+				want: "line 2: catalog subsection «units» must be an array in every catalog line",
+			},
+		}
+		for _, tc := range cases {
+			file := filepath.Join(t.TempDir(), "merge.ndjson")
+			write(t, file,
+				`{"catalog": {"units": [ { "code": "kV" } ]}}`+"\n"+tc.line+"\n")
+			rep := importFile(t, app, file, false)
+			// Ошибка слияния — мягкая проблема строки, не жёсткий abort:
+			// прогона без применения каталога достаточно.
+			if !rep.HasIssues() || rep.CatalogApplied {
+				t.Fatalf("%s: итог: %+v; проблемы: %v", tc.name, rep, issueMessages(rep.Issues))
+			}
+			if rep.Issues[0].String() != tc.want {
+				t.Fatalf("%s: текст: %q, ожидался %q", tc.name, rep.Issues[0].String(), tc.want)
+			}
+			snap, err := app.Snapshot(context.Background())
+			if err != nil {
+				t.Fatalf("%s: снимок: %v", tc.name, err)
+			}
+			if _, ok := snap.Unit("kV"); ok {
+				t.Fatalf("%s: каталог применён вопреки проблеме слияния", tc.name)
+			}
+		}
+	})
+
+	t.Run("ExportOrderStableAcrossBatches", func(t *testing.T) {
+		app := openApp(t, factory)
+		// Больше одной пачки выгрузки (200): порядок (kind, designation)
+		// и полнота не зависят от разбивки на пачки.
+		const total = 260
+		var b strings.Builder
+		for i := 1000; i < 1000+total; i++ {
+			fmt.Fprintf(&b, `{"transistors": { "name": "2N%d" }}`+"\n", i)
+		}
+		file := filepath.Join(t.TempDir(), "bulk.ndjson")
+		write(t, file, b.String())
+		rep := importFile(t, app, file, false)
+		if rep.HasIssues() || rep.Added != total {
+			t.Fatalf("импорт: %+v; %v", rep, issueMessages(rep.Issues))
+		}
+		var buf bytes.Buffer
+		if err := New(app).Export(context.Background(), &buf, FormatNDJSON, nil); err != nil {
+			t.Fatalf("экспорт: %v", err)
+		}
+		var names []string
+		sc := newNDJSONScanner(strings.NewReader(buf.String()))
+		for {
+			line, _, ok, err := sc.next()
+			if err != nil {
+				t.Fatalf("чтение: %v", err)
+			}
+			if !ok {
+				break
+			}
+			v, err := parseLineJSON(line, 0)
+			if err != nil {
+				t.Fatalf("разбор: %v", err)
+			}
+			m := v.members[0]
+			nameVal, _ := m.value.has("name")
+			names = append(names, nameVal.str)
+		}
+		if len(names) != total {
+			t.Fatalf("полнота: выгружено %d из %d", len(names), total)
+		}
+		for i := 1; i < len(names); i++ {
+			if names[i-1] >= names[i] {
+				t.Fatalf("порядок нарушен на %d: %q >= %q", i, names[i-1], names[i])
+			}
+		}
+		var buf2 bytes.Buffer
+		if err := New(app).Export(context.Background(), &buf2, FormatNDJSON, nil); err != nil {
+			t.Fatalf("повторный экспорт: %v", err)
+		}
+		if buf.String() != buf2.String() {
+			t.Fatal("экспорт недетерминирован")
 		}
 	})
 
@@ -442,5 +779,84 @@ func write(t *testing.T, path, content string) {
 	t.Helper()
 	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
 		t.Fatalf("запись %s: %v", path, err)
+	}
+}
+
+func importCatalogFile(t *testing.T, app *service.App, path string, dryRun bool) (Report, error) {
+	t.Helper()
+	f, err := os.Open(path)
+	if err != nil {
+		t.Fatalf("открытие %s: %v", path, err)
+	}
+	defer f.Close()
+	return New(app).ImportCatalogFile(context.Background(), f, path, dryRun)
+}
+
+// Неразбираемая запись (эволюция каталога/грамматики) не прерывает
+// экспорт: секция fields записи пропускается, остальные записи и секции
+// выгружаются; жёсткий отказ — только ошибки чтения БД.
+func TestExportSkipsUnparseableRecordFields(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "catalog.db")
+	app := openApp(t, func(t *testing.T) service.Config {
+		t.Helper()
+		return service.Config{Dialect: "sqlite", DSN: path, EnsureCreated: true}
+	})
+	file := filepath.Join(t.TempDir(), "good.jsonc")
+	write(t, file, `{"transistors": [ {
+		"name": "MJE340", "system": "other",
+		"fields": { "material": "si", "subclass": "bjt" }
+	} ]}`)
+	rep := importFile(t, app, file, false)
+	if rep.HasIssues() || rep.Added != 1 {
+		t.Fatalf("импорт: %+v; %v", rep, issueMessages(rep.Issues))
+	}
+
+	// Напрямую через storage — запись с системой series и обозначением
+	// вне реестра семейств: текущим каталогом не разбирается.
+	db, err := storage.Open(context.Background(), storage.Config{Dialect: "sqlite", DSN: path})
+	if err != nil {
+		t.Fatalf("storage: %v", err)
+	}
+	tx, err := db.Begin(context.Background())
+	if err != nil {
+		t.Fatalf("tx: %v", err)
+	}
+	if _, _, err := tx.InsertDevice(context.Background(),
+		domain.KindTransistor, domain.SystemSeries, "ЪЪЪ5"); err != nil {
+		t.Fatalf("вставка: %v", err)
+	}
+	if err := tx.Commit(); err != nil {
+		t.Fatalf("commit: %v", err)
+	}
+	if err := db.Close(); err != nil {
+		t.Fatalf("close: %v", err)
+	}
+
+	var buf bytes.Buffer
+	if err := New(app).Export(context.Background(), &buf, FormatJSONC, nil); err != nil {
+		t.Fatalf("экспорт: %v", err)
+	}
+	root, err := parseJSONC(buf.Bytes())
+	if err != nil {
+		t.Fatalf("разбор выгрузки: %v", err)
+	}
+	sec, _ := root.has("transistors")
+	if len(sec.items) != 2 {
+		t.Fatalf("выгружено записей: %d, ожидалось 2:\n%s", len(sec.items), buf.String())
+	}
+	exported := map[string]value{}
+	for _, item := range sec.items {
+		nameVal, _ := item.has("name")
+		exported[nameVal.str] = item
+	}
+	if _, ok := exported["MJE340"]; !ok {
+		t.Fatalf("разбираемая запись потеряна:\n%s", buf.String())
+	}
+	broken := exported["ЪЪЪ5"]
+	if _, has := broken.has("fields"); has {
+		t.Fatalf("неразбираемая запись выгружена с fields:\n%s", buf.String())
+	}
+	if sysVal, _ := broken.has("system"); sysVal.str != string(domain.SystemSeries) {
+		t.Fatalf("система неразбираемой записи: %v", sysVal)
 	}
 }

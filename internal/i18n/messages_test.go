@@ -1,6 +1,8 @@
 package i18n_test
 
 import (
+	"maps"
+	"regexp"
 	"slices"
 	"strings"
 	"testing"
@@ -72,6 +74,33 @@ func TestMessageVerbParity(t *testing.T) {
 		ve, vr := formatVerbs(en), formatVerbs(ru)
 		if !slices.Equal(ve, vr) {
 			t.Errorf("MsgID %s: глаголы en %v ≠ ru %v\n  en: %s\n  ru: %s", string(id), ve, vr, en, ru)
+		}
+	}
+}
+
+// positionalVerbs — позиционные спецификаторы формата %[n]s/%[n]d…
+// (полное вхождение с флагами и глаголом — как ключ множества).
+var positionalVerbs = regexp.MustCompile(`%\[(\d+)\][+\-# 0-9.]*[a-zA-Z]`)
+
+// Паритет позиционных аргументов en/ru: для каждого MsgID совпадает
+// множество и число позиционных спецификаторов — перевод может менять
+// порядок слов (%[2]s … %[1]s), но не индексы и не их состав; рассинхрон
+// индексов не ловится тестом глаголов и рендерится не теми аргументами.
+func TestMessagePositionalArgParity(t *testing.T) {
+	counts := func(format string) map[string]int {
+		out := map[string]int{}
+		for _, m := range positionalVerbs.FindAllString(format, -1) {
+			out[m]++
+		}
+		return out
+	}
+	for _, id := range domain.MsgIDs() {
+		en := i18n.Message(i18n.En, string(id))
+		ru := i18n.Message(i18n.Ru, string(id))
+		ce, cru := counts(en), counts(ru)
+		if !maps.Equal(ce, cru) {
+			t.Errorf("MsgID %s: позиционные спецификаторы en %v ≠ ru %v\n  en: %s\n  ru: %s",
+				string(id), ce, cru, en, ru)
 		}
 	}
 }
@@ -229,6 +258,22 @@ func TestFormatValue(t *testing.T) {
 		{i18n.Ru, "W", 0.125, "125 мВт"},
 		{i18n.En, "", 42, "42"},
 		{i18n.En, "pF", 0, "0 pF"},
+		// Границы декад: округление шума мантиссы до 1000 переводит
+		// значение в следующую декаду («1000 мВт» → «1 Вт»).
+		{i18n.En, "mW", 999.9999996, "1 W"},
+		{i18n.Ru, "mW", 999.9999996, "1 Вт"},
+		{i18n.En, "ohm", 999.9999999999999, "1 kΩ"},
+		{i18n.Ru, "ohm", 999.9999999999999, "1 кОм"},
+		{i18n.En, "mA", 0.9999999999999999, "1 mA"},
+		{i18n.Ru, "mA", 0.9999999999999999, "1 мА"},
+		// Мантисса ниже порога округления вверх — декада не меняется.
+		{i18n.En, "ohm", 999.9995, "999.9995 Ω"},
+		{i18n.En, "ohm", 999.9, "999.9 Ω"},
+		{i18n.En, "ohm", 1000, "1 kΩ"},
+		// 1eN-экспоненты: порядок из shortest-представления точен.
+		{i18n.En, "MHz", 0.0009999999, "999.9999 Hz"},
+		{i18n.En, "pF", 0.0009999999, "0.001 pF"},
+		{i18n.En, "pF", 1e-6, "0.000001 pF"},
 	}
 	for _, c := range cases {
 		if got := i18n.FormatValue(c.lang, c.unit, c.v); got != c.want {

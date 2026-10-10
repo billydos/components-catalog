@@ -90,6 +90,30 @@ func (d *DB) FindDeviceAnyKind(ctx context.Context, designation string) (*Device
 	return findDeviceAnyKind(ctx, d.reads, designation)
 }
 
+// ListDeviceIDsByKind перечисляет id записей класса в порядке
+// (designation) — единый снимок одного запроса: последовательный обход
+// страниц по OFFSET на живой базе даёт дубли и пропуски (экспорт).
+func (d *DB) ListDeviceIDsByKind(ctx context.Context, kind domain.Kind) ([]int64, error) {
+	rows, err := queryContext(ctx, d.reads, `
+SELECT id FROM devices
+WHERE kind_code = @kind
+ORDER BY designation`,
+		map[string]any{"kind": string(kind)})
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close() //nolint:errcheck — чтение завершилось
+	var out []int64
+	for rows.Next() {
+		var id int64
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		out = append(out, id)
+	}
+	return out, rows.Err()
+}
+
 func (t *Tx) FindDevice(ctx context.Context, kind domain.Kind, designation string) (*DeviceRow, error) {
 	return findDevice(ctx, t.tx, kind, designation)
 }
@@ -965,6 +989,41 @@ func (t *Tx) DeleteDevice(ctx context.Context, deviceID int64) error {
 	return t.deleteOrphanManufacturers(ctx)
 }
 
+// DeleteDeviceByKey удаляет запись по ключу (kind_code, designation)
+// в текущей транзакции и чистит сирот производителей; возвращает число
+// удалённых строк (0 — записи нет). Поиск и удаление атомарны в одном
+// операторе: конкурентное удаление того же ключа даёт ноль строк — без
+// «пустого» успеха и лишнего инкремента ревизии (TOCTOU отдельного
+// поиска и удаления).
+func (t *Tx) DeleteDeviceByKey(ctx context.Context, kind domain.Kind, designation string) (int64, error) {
+	return t.deleteDeviceWhere(ctx, `kind_code = @kind AND designation = @designation`,
+		map[string]any{"kind": string(kind), "designation": designation})
+}
+
+// DeleteDeviceAnyKindByKey удаляет запись по обозначению без фильтра
+// классом — детерминированно первая по kind_code, как FindDeviceAnyKind
+// (подзапрос переносим: sqlite и postgres).
+func (t *Tx) DeleteDeviceAnyKindByKey(ctx context.Context, designation string) (int64, error) {
+	return t.deleteDeviceWhere(ctx, `id = (
+SELECT id FROM devices WHERE designation = @designation ORDER BY kind_code LIMIT 1)`,
+		map[string]any{"designation": designation})
+}
+
+func (t *Tx) deleteDeviceWhere(ctx context.Context, cond string, args map[string]any) (int64, error) {
+	res, err := t.exec(ctx, `DELETE FROM devices WHERE `+cond, args)
+	if err != nil {
+		return 0, err
+	}
+	n, err := res.RowsAffected()
+	if err != nil {
+		return 0, err
+	}
+	if n == 0 {
+		return 0, nil
+	}
+	return n, t.deleteOrphanManufacturers(ctx)
+}
+
 // deleteOrphanManufacturers удаляет производителей без единой связи
 // (NOT IN по device_manufacturers — переносимо).
 func (t *Tx) deleteOrphanManufacturers(ctx context.Context) error {
@@ -987,6 +1046,27 @@ func (d *DB) CountDevices(ctx context.Context, kind domain.Kind) (int, error) {
 		return 0, err
 	}
 	return n, nil
+}
+
+// CountDevicesByKind — числа записей по классам одним GROUP BY-запросом
+// (агрегат /stats); классы без записей в результате отсутствуют.
+func (d *DB) CountDevicesByKind(ctx context.Context) (map[string]int, error) {
+	rows, err := d.query(ctx, `
+SELECT kind_code, COUNT(*) FROM devices GROUP BY kind_code`, nil)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close() //nolint:errcheck — чтение завершилось
+	out := make(map[string]int)
+	for rows.Next() {
+		var kind string
+		var n int
+		if err := rows.Scan(&kind, &n); err != nil {
+			return nil, err
+		}
+		out[kind] = n
+	}
+	return out, rows.Err()
 }
 
 // CountManufacturers возвращает число строк manufacturers (контроль чистки

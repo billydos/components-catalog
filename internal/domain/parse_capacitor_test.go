@@ -45,6 +45,7 @@ func TestParseCapacitorGostMessages(t *testing.T) {
 		{"М3-8", "designation «М3-8»: position 1: expected: capacitor subclass prefix (К, КТ, КП, КН, or КС), got «М»"},
 		{"К10", "designation «К10»: position 4: expected: hyphen, got end of designation"},
 		{"К10-017", "designation «К10-017»: position 5: expected: development number without a leading zero (up to 3 digits), got «017»"},
+		{"К10-1234", "designation «К10-1234»: position 5: expected: development number of at most 3 digits, got «1234»"},
 		{"К10-17БМ", "designation «К10-17БМ»: position 8: expected end of designation, got «М»"},
 	}
 	for _, tc := range cases {

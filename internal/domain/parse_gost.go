@@ -148,9 +148,9 @@ func parseGostSemiconductor(s *scanner, kindHint Kind) (ParsedDesignation, error
 
 	// Элемент 1 — материал (пустая строка даёт ту же ошибку «конец
 	// обозначения» — символ материала обязателен).
-	mat, _ := s.peek()
+	mat, has := s.peek()
 	material, ok := GostMaterialBySymbol(mat)
-	if !ok {
+	if !has || !ok {
 		return ParsedDesignation{}, s.fail(MsgExpectGostMaterial)
 	}
 	s.i++

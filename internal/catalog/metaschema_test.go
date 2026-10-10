@@ -330,6 +330,33 @@ func TestApplyCatalogUpsert(t *testing.T) {
 	})
 }
 
+// Ранний выход: при проблемах самопроверки вход не переносится в снимок
+// вовсе — итоговый вердикт (непустой список проблем, отказ целиком)
+// не меняется, «частичное применение запрещено» выполняется дословно.
+func TestApplyCatalogSelfProblemsSkipApply(t *testing.T) {
+	snap := seedSnapshot(t)
+	in := catalog.Input{
+		Parameters: []catalog.ParameterDef{
+			{Code: "NewP", Group: "electrical", Unit: "no_such_unit",
+				ValueType: catalog.ValueAtMost, SortOrder: 480, Active: true},
+			{Code: "NewP", Group: "electrical", Unit: "V",
+				ValueType: catalog.ValueAtMost, SortOrder: 480, Active: true},
+		},
+	}
+	out, probs := catalog.ApplyCatalog(snap, in)
+	hasProblem(t, probs, "catalog: section parameters: duplicate code «NewP»")
+	if _, ok := out.Parameter("NewP"); ok {
+		t.Fatal("вход с проблемами самопроверки перенесён в снимок")
+	}
+	if _, ok := snap.Parameter("NewP"); ok {
+		t.Fatal("исходный снимок изменён")
+	}
+	// Тот же вход без дубликата доходит до метасхемы: вердикт по-прежнему
+	// непустой список проблем — поведение отказа не зависит от пути.
+	_, probs = catalog.ApplyCatalog(snap, catalog.Input{Parameters: in.Parameters[:1]})
+	hasProblem(t, probs, "catalog: parameter «NewP»: unit «no_such_unit» does not exist")
+}
+
 // Критерий этапа 2: расширение каталога только вставкой строк — новый
 // параметр с новым условием и новой единицей — проходит end-to-end
 // (применение → метасхема → валидация значений) без правки кода.

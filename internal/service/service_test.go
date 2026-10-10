@@ -168,6 +168,8 @@ func runSuite(t *testing.T, factory configFactory) {
 	t.Run("search", func(t *testing.T) { suiteSearch(t, factory) })
 	t.Run("search validation", func(t *testing.T) { suiteSearchValidation(t, factory) })
 	t.Run("delete cascade", func(t *testing.T) { suiteDeleteCascade(t, factory) })
+	t.Run("create", func(t *testing.T) { suiteCreate(t, factory) })
+	t.Run("fields rewrite on update", func(t *testing.T) { suiteFieldsRewriteOnUpdate(t, factory) })
 	t.Run("revisions", func(t *testing.T) { suiteRevisions(t, factory) })
 	t.Run("catalog import", func(t *testing.T) { suiteCatalogImport(t, factory) })
 	t.Run("classification fields", func(t *testing.T) { suiteClassificationFields(t, factory) })
@@ -948,9 +950,143 @@ func suiteDeleteCascade(t *testing.T, factory configFactory) {
 	if n, err := app.db.CountManufacturers(ctx); err != nil || n != 0 {
 		t.Fatalf("производители-сироты: %d (err %v)", n, err)
 	}
-	// Повторное удаление — false.
+	// Повторное удаление — false без инкремента ревизии
+	// (атомарное удаление по ключу: пустого успеха не бывает).
+	_, dataAfter, _ := app.Revisions(ctx)
 	if deleted, _ := svc.Delete(ctx, "transistor", "КТ315Б"); deleted {
 		t.Fatal("повторное удаление вернуло true")
+	}
+	if _, dataNext, _ := app.Revisions(ctx); dataNext != dataAfter {
+		t.Fatalf("data_revision при удалении отсутствующей: %d → %d", dataAfter, dataNext)
+	}
+	// Удаление без класса — детерминированно первая запись по kind_code.
+	if deleted, _ := svc.Delete(ctx, "", "МП39"); !deleted {
+		t.Fatal("удаление без класса не нашло запись")
+	}
+	if _, ok, _ := svc.Get(ctx, "transistor", "МП39"); ok {
+		t.Fatal("запись не удалена без класса")
+	}
+}
+
+// suiteCreate — режим «только создание» (POST REST): существующая запись —
+// отказ already_exists без применения секций и без инкремента ревизии;
+// новая запись создаётся (Added), повтор — уже конфликт.
+func suiteCreate(t *testing.T, factory configFactory) {
+	ctx := context.Background()
+	app := openSuiteApp(t, factory)
+	svc := app.Services().Devices
+	seedTransistors(t, svc)
+
+	_, dataBefore, _ := app.Revisions(ctx)
+	_, err := svc.Create(ctx, DeviceInput{
+		Name:          "КТ315Б",
+		Attributes:    []catalog.AttributeValue{attrText("package", "КТ-13")},
+		Manufacturers: &[]string{"Захват"},
+	})
+	wantDomainError(t, err, domain.CodeAlreadyExists, "record «КТ315Б» already exists")
+
+	// Секции проигравшего не применены, ревизия не двигалась.
+	card, ok, err := svc.Get(ctx, "transistor", "КТ315Б")
+	if err != nil || !ok {
+		t.Fatalf("get: ok=%v err=%v", ok, err)
+	}
+	if len(card.Attributes) != 3 || card.Attributes[0].Code != "structure" {
+		t.Fatalf("атрибуты изменены конфликтом Create: %+v", card.Attributes)
+	}
+	if !slices.Equal(card.Manufacturers, []string{"Восход", "Терма"}) {
+		t.Fatalf("производители изменены конфликтом Create: %v", card.Manufacturers)
+	}
+	if _, dataAfter, _ := app.Revisions(ctx); dataAfter != dataBefore {
+		t.Fatalf("data_revision при конфликте Create: %d → %d", dataBefore, dataAfter)
+	}
+
+	// Новая запись — Added; повтор — конфликт.
+	in := DeviceInput{
+		Name:       "ГТ109Г",
+		Attributes: []catalog.AttributeValue{attrText("structure", "pnp")},
+	}
+	if out, err := svc.Create(ctx, in); err != nil || out != OutcomeAdded {
+		t.Fatalf("create: %v %v", out, err)
+	}
+	_, err = svc.Create(ctx, in)
+	wantDomainError(t, err, domain.CodeAlreadyExists, "record «ГТ109Г» already exists")
+}
+
+// suiteFieldsRewriteOnUpdate — обновление перезаписывает и продукты
+// разбора обозначения: после прямого изменения designation_fields в БД
+// (имитация дрейфа грамматики) Upsert восстановления восстанавливает
+// инвариант «хранимые поля = продукты разбора ∪ explicit».
+func suiteFieldsRewriteOnUpdate(t *testing.T, factory configFactory) {
+	ctx := context.Background()
+	app := openSuiteApp(t, factory)
+	svc := app.Services().Devices
+	seedTransistors(t, svc)
+
+	// Дрейф: продукт разбора потерян, добавлено устаревшее поле.
+	card, _, _ := svc.Get(ctx, "transistor", "КТ315Б")
+	tx, err := app.db.Begin(ctx)
+	if err != nil {
+		t.Fatalf("begin: %v", err)
+	}
+	if err := tx.DeleteDesignationFields(ctx, card.ID, []string{"dev_number"}); err != nil {
+		t.Fatalf("удаление полей: %v", err)
+	}
+	if err := tx.InsertDesignationFields(ctx, card.ID, []domain.Field{
+		domain.TextField("stale", "x"),
+	}); err != nil {
+		t.Fatalf("вставка полей: %v", err)
+	}
+	if err := tx.Commit(); err != nil {
+		t.Fatalf("commit: %v", err)
+	}
+
+	// Обновление с секцией fields: хранимые поля = продукты разбора ∪
+	// explicit — продукт восстановлен, устаревшее поле удалено.
+	fields := []domain.Field{domain.TextField("category", "switching")}
+	if out := mustUpsert(t, svc, DeviceInput{
+		Name:   "КТ315Б",
+		Fields: &fields,
+	}); out != OutcomeUpdatedExisting {
+		t.Fatalf("обновление: %s", out)
+	}
+	card, _, _ = svc.Get(ctx, "transistor", "КТ315Б")
+	if _, ok := card.FieldByName("dev_number"); !ok {
+		t.Fatalf("продукт разбора не восстановлен: %+v", card.Fields)
+	}
+	if f, ok := card.FieldByName("material"); !ok || f.String() != "si" {
+		t.Fatalf("продукт material: %+v", f)
+	}
+	if f, ok := card.FieldByName("category"); !ok || f.String() != "switching" {
+		t.Fatalf("явное поле category: %+v", f)
+	}
+	if _, ok := card.FieldByName("stale"); ok {
+		t.Fatalf("устаревшее поле пережило обновление: %+v", card.Fields)
+	}
+
+	// Обновление без секции fields: явные поля сохраняются, продукты
+	// перезаписываются (drift-поля классифицируются как явные).
+	tx, err = app.db.Begin(ctx)
+	if err != nil {
+		t.Fatalf("begin: %v", err)
+	}
+	if err := tx.DeleteDesignationFields(ctx, card.ID, []string{"dev_number"}); err != nil {
+		t.Fatalf("удаление полей: %v", err)
+	}
+	if err := tx.Commit(); err != nil {
+		t.Fatalf("commit: %v", err)
+	}
+	if out := mustUpsert(t, svc, DeviceInput{
+		Name:       "КТ315Б",
+		Attributes: []catalog.AttributeValue{attrText("package", "КТ-13")},
+	}); out != OutcomeUpdatedExisting {
+		t.Fatalf("обновление без секции: %s", out)
+	}
+	card, _, _ = svc.Get(ctx, "transistor", "КТ315Б")
+	if _, ok := card.FieldByName("dev_number"); !ok {
+		t.Fatalf("продукт не восстановлен без секции fields: %+v", card.Fields)
+	}
+	if f, ok := card.FieldByName("category"); !ok || f.String() != "switching" {
+		t.Fatalf("явное поле category изменено: %+v", f)
 	}
 }
 

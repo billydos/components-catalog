@@ -68,3 +68,36 @@ func TestPrintErrorNil(t *testing.T) {
 		t.Fatalf("при nil ошибки вывод должен быть пуст: %q", b.String())
 	}
 }
+
+func TestPrintErrorJoinedDomainErrors(t *testing.T) {
+	// errors.Join двух доменных ошибок: обе локализуются по собственным
+	// MsgID+Args, соединение «\n» и префикс «Ошибка: » сохраняются.
+	joined := errors.Join(
+		domain.NewErrorf(domain.CodeNotFound, domain.MsgCliRecordNotFound, "КТ315"),
+		domain.NewErrorf(domain.CodeValidationFailed, domain.MsgUnknownMaterial, "wood"),
+	)
+	var b bytes.Buffer
+	cli.PrintError(&b, i18n.Ru, joined)
+	want := "Ошибка: запись «КТ315» не найдена\n" +
+		"неизвестный материал «wood» (допустимы: ge, si, ga, in, sic, other, gaas либо отображаемое название локали)\n"
+	if b.String() != want {
+		t.Fatalf("вывод (ru):\n got:  %q\n want: %q", b.String(), want)
+	}
+	// Обёртка над доменной ошибкой локализует вложенное сообщение.
+	b.Reset()
+	cli.PrintError(&b, i18n.Ru, fmt.Errorf("import: %w",
+		domain.NewErrorf(domain.CodeInvalidImportFile, domain.MsgImportDuplicateKey, "x", 1)))
+	if got, want := b.String(), "Ошибка: import: повторяющийся ключ «x» (строка 1)\n"; got != want {
+		t.Fatalf("обёртка (ru):\n got:  %q\n want: %q", got, want)
+	}
+	// Join с ветвью без доменных ошибок: доменная ветвь локализуется,
+	// прочая сохраняет канонический текст.
+	b.Reset()
+	cli.PrintError(&b, i18n.Ru, errors.Join(
+		errors.New("сбой"),
+		domain.NewErrorf(domain.CodeNotFound, domain.MsgCliRecordNotFound, "КТ315"),
+	))
+	if got, want := b.String(), "Ошибка: сбой\nзапись «КТ315» не найдена\n"; got != want {
+		t.Fatalf("Join со смешанными ветвями (ru):\n got:  %q\n want: %q", got, want)
+	}
+}

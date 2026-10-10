@@ -20,13 +20,18 @@ type Stats struct {
 
 // Stats собирает агрегаты приложения: снимок задаёт реестр классов
 // (устройства вне реестра классов невозможны — движок валидации
-// отвергает неизвестный класс), ревизии — из schema_meta.
+// отвергает неизвестный класс), количества — одним GROUP BY-запросом,
+// ревизии — из schema_meta.
 func (a *App) Stats(ctx context.Context) (Stats, error) {
 	snap, err := a.cache.Snapshot(ctx)
 	if err != nil {
 		return Stats{}, err
 	}
 	catRev, dataRev, err := a.db.Revisions(ctx)
+	if err != nil {
+		return Stats{}, err
+	}
+	byKind, err := a.db.CountDevicesByKind(ctx)
 	if err != nil {
 		return Stats{}, err
 	}
@@ -37,10 +42,7 @@ func (a *App) Stats(ctx context.Context) (Stats, error) {
 		DataRevision:    dataRev,
 	}
 	for _, k := range snap.Kinds {
-		n, err := a.db.CountDevices(ctx, k.Code)
-		if err != nil {
-			return Stats{}, err
-		}
+		n := byKind[string(k.Code)]
 		st.Counts[k.Code] = n
 		st.Total += n
 	}

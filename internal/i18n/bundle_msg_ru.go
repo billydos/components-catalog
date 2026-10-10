@@ -11,6 +11,7 @@ var messageFormatsRu = map[string]string{
 	"database_not_initialized": "база данных не инициализирована или не является базой модуля; выполните init (CLI) или EnsureCreated",
 	"kind_not_supported":       "обозначение принадлежит классу, не поддерживаемому модулем",
 	"kind_ambiguous":           "класс прибора не определяется по обозначению однозначно; укажите класс явно",
+	"kind_required":            "система обозначений other не определяет класс прибора; укажите класс явно",
 
 	// Сканер обозначений.
 	"scanner_expected":   "обозначение «%[1]s»: позиция %[2]d: ожидалось: %[3]s, получено «%[4]s»",
@@ -31,7 +32,9 @@ var messageFormatsRu = map[string]string{
 	"power_suffix":            "обозначение «%[1]s»: числовой хвост после букв — суффикс мощности, элемент полного обозначения; используйте обозначение «%[2]s» и секцию variants",
 	"cap_group_unknown":       "обозначение «%[1]s»: неизвестная группа конденсаторов «%[2]s» (префикс К)",
 	"family_unknown":          "обозначение «%[1]s»: неизвестное семейство «%[2]s»; поддерживаемые семейства (%[3]s): %[4]s",
+	"families_all_scopes":     "все классы",
 	"dev_number_leading_zero": "обозначение «%[1]s»: позиция %[2]d: ожидалось: номер разработки без ведущего нуля (до %[3]d цифр), получено «%[4]s»",
+	"dev_number_digits":       "обозначение «%[1]s»: позиция %[2]d: ожидалось: номер разработки не более %[3]d цифр, получено «%[4]s»",
 
 	// Фрагменты грамматик «ожидалось: …» (аргументы scanner-сообщений).
 	"expect_gost_subclass":        "буква подкласса (Т, П, Д, С, В, А, И, Г, Л, Ф, Ц, Н, У, Е, Р, Ж, Э, Х, М, УП либо О с буквой функции)",
@@ -272,6 +275,7 @@ var messageFormatsRu = map[string]string{
 	"svc_filter_param_value_missing":       "фильтр параметра «%[1]s»: задайте значение",
 	"svc_manufacturer_duplicate":           "производитель «%[1]s» задан повторно",
 	"svc_manufacturer_empty":               "пустое имя производителя",
+	"svc_record_already_exists":            "запись «%[1]s» уже существует",
 	"svc_record_name_missing":              "не задано обозначение записи",
 	"svc_section_duplicate":                "секция «%[1]s» задана повторно",
 	"svc_section_missing":                  "не задано имя секции группы параметров",
@@ -291,6 +295,7 @@ var messageFormatsRu = map[string]string{
 	"api_offset_non_negative":  "параметр offset: ожидается целое неотрицательное число",
 	"api_panic":                "внутренняя ошибка обработки запроса",
 	"api_q_missing":            "не задан параметр q",
+	"api_param_duplicate":      "параметр запроса «%[1]s» задан повторно",
 	"api_query_param_unknown":  "неизвестный параметр запроса «%[1]s»",
 	"api_route_not_found":      "неизвестный маршрут запроса",
 	"api_sort_key_unknown":     "параметр sort: неизвестный ключ сортировки «%[1]s»",
@@ -303,7 +308,7 @@ var messageFormatsRu = map[string]string{
 	"cli_at_most":                    "не более %[1]s",
 	"cli_attr_list_line":             "  %[1]s — %[2]s; тип %[3]s",
 	"cli_backlinks":                  "Встречные ссылки: %[1]s",
-	"cli_catalog_export_args":        "неверное число аргументов; формат: catalog export [--format jsonc|yaml|ndjson] [--db]",
+	"cli_catalog_export_args":        "неверное число аргументов; формат: catalog export [<файл>] [--format jsonc|yaml|ndjson] [--db]",
 	"cli_catalog_import_args":        "неверное число аргументов; формат: catalog import <файл> [--dry-run] [--db]",
 	"cli_catalog_list_args":          "неверное число аргументов; формат: catalog list [--db]",
 	"cli_catalog_subcommand_missing": "укажите подкоманду: catalog export | import | list",
@@ -318,6 +323,7 @@ var messageFormatsRu = map[string]string{
 	"cli_err_prefix":                 "Ошибка: ",
 	"cli_field_line":                 "  %[1]s: %[2]s",
 	"cli_file_open":                  "не удалось открыть файл «%[1]s»: %[2]v",
+	"cli_file_write":                 "не удалось записать файл «%[1]s»: %[2]v",
 	"cli_find_not_found":             "%[1]s: запись не найдена",
 	"cli_find_suggestion":            "%[1]s: запись не найдена; равнозначная по материалу: %[2]s",
 	"cli_flag_no_value":              "флаг «--%[1]s» не принимает значение",
@@ -330,6 +336,7 @@ var messageFormatsRu = map[string]string{
 	"cli_h_kinds":                    "Классы:",
 	"cli_h_params":                   "Параметры:",
 	"cli_h_systems":                  "Системы обозначений:",
+	"cli_help_args":                  "неверное число аргументов; формат: catalogctl help [команда]",
 	"cli_issue_line":                 "Проблема: %[1]s",
 	"cli_lang_invalid":               "флаг «--lang» принимает en либо ru, получено «%[1]s»",
 	"cli_manufacturers":              "Производители: %[1]s",
@@ -346,7 +353,7 @@ var messageFormatsRu = map[string]string{
 	"cli_unknown_flag":               "неизвестный флаг «--%[1]s» (команда %[2]s; справка: catalogctl help %[3]s)",
 	"cli_unknown_flag_set":           "неизвестный флаг «--%[1]s» (команда %[2]s)",
 	"cli_variant_head":               "Исполнение «%[1]s»:",
-	"cli_usage":                      "catalogctl — консольная утилита справочника электронных компонентов\n\nКоманды:\n  init                              создать и инициализировать базу (сиди каталога)\n  parse <обозначение>…              разбор обозначений (автодетект класса и системы)\n  add <обозначение>…                добавить записи-обозначения (--kind для неоднозначных)\n  import <файл> [--dry-run]         импорт файла наполнения (jsonc/yaml/ndjson;\n                                    «-» — stdin, формат jsonc)\n  list [фильтры]                    список записей (--kind --system --material --subclass\n                                    --junctions --group --series --number --letters --adjustment\n                                    --category --q --limit --offset)\n  info <обозначение>                карточка записи\n  find <обозначение>                точный поиск; подсказка равнозначной по материалу (gost)\n  delete <обозначение>… [--dry-run] удаление (каскад)\n  count [--kind]                    число записей\n  export [--kind] [--format]        экспорт записей (round-trip; jsonc|yaml|ndjson)\n  catalog export [--format]         экспорт каталога\n  catalog import <файл> [--dry-run] расширение каталога (секция catalog)\n  catalog list                      справка из каталога (классы, системы, группы, параметры)\n  help [команда]                    эта справка\n\nОбщие опции:\n  --dialect sqlite|postgres         диалект хранилища (по умолчанию sqlite)\n  --db <путь>                       файл базы sqlite (по умолчанию catalog.db)\n  --dsn <строка>                    строка подключения (приоритетнее --db)\n  --kind <код>                      класс приборов (transistor|diode|resistor|capacitor)\n  --system <код>                    система обозначений (gost|ost|pro|jedec|jis|series|other)\n  --lang en|ru                      язык отображаемых строк (по умолчанию en)\n  --dry-run                         контрольный прогон без записи в базу\n  --format jsonc|yaml|ndjson        формат экспорта (по умолчанию jsonc)\n\nОжидаемые ошибки выводятся с префиксом «Ошибка: », прочие —\n«Непредвиденная ошибка: »; код выхода при ошибках — 1.\n",
+	"cli_usage":                      "catalogctl — консольная утилита справочника электронных компонентов\n\nКоманды:\n  init                              создать и инициализировать базу (сиди каталога)\n  parse <обозначение>…              разбор обозначений (автодетект класса и системы)\n  add <обозначение>…                добавить записи-обозначения (--kind для неоднозначных)\n  import <файл> [--dry-run]         импорт файла наполнения (jsonc/yaml/ndjson;\n                                    «-» — stdin, формат jsonc)\n  list [фильтры]                    список записей (--kind --system --material --subclass\n                                    --junctions --group --series --number --letters --adjustment\n                                    --category --q --limit --offset)\n  info <обозначение>                карточка записи\n  find <обозначение>                точный поиск; подсказка равнозначной по материалу (gost)\n  delete <обозначение>… [--dry-run] удаление (каскад)\n  count [--kind]                    число записей\n  export [--kind] [--format]        экспорт записей (round-trip; jsonc|yaml|ndjson)\n  catalog export [<файл>] [--format] экспорт каталога («-» — stdout)\n  catalog import <файл> [--dry-run] расширение каталога (секция catalog)\n  catalog list                      справка из каталога (классы, системы, группы, параметры)\n  help [команда]                    эта справка\n\nОбщие опции:\n  --dialect sqlite|postgres         диалект хранилища (по умолчанию sqlite)\n  --db <путь>                       файл базы sqlite (по умолчанию catalog.db)\n  --dsn <строка>                    строка подключения (приоритетнее --db)\n  --kind <код>                      класс приборов (transistor|diode|resistor|capacitor)\n  --system <код>                    система обозначений (gost|ost|pro|jedec|jis|series|other)\n  --lang en|ru                      язык отображаемых строк (по умолчанию en)\n  --dry-run                         контрольный прогон без записи в базу\n  --format jsonc|yaml|ndjson        формат экспорта (по умолчанию jsonc)\n\nОжидаемые ошибки выводятся с префиксом «Ошибка: », прочие —\n«Непредвиденная ошибка: »; код выхода при ошибках — 1.\n",
 	"engine_kind_no_variants":        "класс %[1]s не поддерживает исполнения (варианты)",
 	"expect_gost_dev_one_digit":      "номер разработки 101–999 либо цифра признака и номер 1–99",
 	"import_ndjson_wrapper_single":   "строка-обёртка должна содержать ровно один ключ — класс либо catalog",
@@ -365,4 +372,5 @@ var messageFormatsRu = map[string]string{
 	"svc_field_parser_owned":         "поле «%[1]s» определяется разбором обозначения системы %[2]s и явно не задаётся",
 	"svc_field_not_applicable":       "поле «%[1]s» неприменимо к классу %[2]s",
 	"svc_field_assembly_range":       "значение поля assembly — 0 либо 1",
+	"import_yaml_non_finite":         "ключ «%[1]s»: неконечное число %[2]s не допускается (строка %[3]d)",
 }

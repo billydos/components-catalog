@@ -138,8 +138,8 @@ func groups() []catalog.GroupDef {
 // (docs/plan/03-data-model.md §7, §10).
 func kindRules() []catalog.KindRuleRef {
 	return []catalog.KindRuleRef{
-		{Kind: domain.KindCapacitor, Rule: "cap_variant_matrix"},
-		{Kind: domain.KindResistor, Rule: "resistor_variant_power"},
+		{Kind: domain.KindCapacitor, Rule: catalog.RuleCapVariantMatrix},
+		{Kind: domain.KindResistor, Rule: catalog.RuleResistorVariantPower},
 	}
 }
 
@@ -173,8 +173,8 @@ func parameters() []catalog.ParameterDef {
 	re := []domain.Kind{domain.KindResistor}
 	trDiRe := []domain.Kind{domain.KindTransistor, domain.KindDiode, domain.KindResistor}
 	reCa := []domain.Kind{domain.KindResistor, domain.KindCapacitor}
-	ruleTempPair := "temp_pair"
-	ruleDims := "cap_dimensions_form"
+	ruleTempPair := catalog.RuleTempPair
+	ruleDims := catalog.RuleCapDimensionsForm
 
 	return []catalog.ParameterDef{
 		// Транзисторы — электрические параметры (§6.1).
@@ -448,9 +448,9 @@ func attributes() []catalog.AttributeDef {
 		{Code: "tu", Type: catalog.AttrText, SortOrder: 130, Active: true},
 		{Code: "notes", Type: catalog.AttrText, SortOrder: 140, Active: true},
 		{Code: "yearFrom", Type: catalog.AttrInt,
-			ValidationRule: "year_range", SortOrder: 150, Active: true},
+			ValidationRule: catalog.RuleYearRange, SortOrder: 150, Active: true},
 		{Code: "yearTo", Type: catalog.AttrInt,
-			ValidationRule: "year_range", SortOrder: 160, Active: true},
+			ValidationRule: catalog.RuleYearRange, SortOrder: 160, Active: true},
 		{Code: "datasheetUrl", Type: catalog.AttrText,
 			SortOrder: 170, Active: true},
 	}

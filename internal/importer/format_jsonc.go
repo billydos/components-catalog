@@ -19,7 +19,7 @@ func parseJSONC(data []byte) (value, error) {
 	if err != nil {
 		return value{}, syntaxError(FormatJSONC, err)
 	}
-	v, err := decodeJSONDocument(standardized)
+	v, err := decodeJSONDocument(standardized, 1)
 	if err != nil {
 		return value{}, syntaxError(FormatJSONC, err)
 	}
@@ -27,11 +27,12 @@ func parseJSONC(data []byte) (value, error) {
 }
 
 // decodeJSONDocument — документ целиком (jsonc): после значения данных
-// быть не должно.
-func decodeJSONDocument(data []byte) (value, error) {
+// быть не должно. lineBase — номер первой строки буфера в файле (1 у
+// документа; у строки NDJSON — фактический номер строки файла).
+func decodeJSONDocument(data []byte, lineBase int) (value, error) {
 	decoder := json.NewDecoder(bytes.NewReader(data))
 	decoder.UseNumber()
-	v, err := decodeJSONFrom(decoder, data)
+	v, err := decodeJSONFrom(decoder, data, lineBase)
 	if err != nil {
 		return value{}, err
 	}
@@ -41,15 +42,16 @@ func decodeJSONDocument(data []byte) (value, error) {
 	return v, nil
 }
 
-// decodeJSONValue — одно значение из буфера (строка NDJSON).
-func decodeJSONValue(data []byte) (value, error) {
-	return decodeJSONDocument(data)
+// decodeJSONValue — одно значение из буфера (строка NDJSON); line —
+// фактический номер строки файла для позиций ошибок.
+func decodeJSONValue(data []byte, line int) (value, error) {
+	return decodeJSONDocument(data, line)
 }
 
 // decodeJSONFrom строит дерево value из потока json-токенов (UseNumber —
 // числа как текст, без потери точности). Повторяющиеся ключи объекта —
-// ошибка разбора с номером строки.
-func decodeJSONFrom(decoder *json.Decoder, source []byte) (value, error) {
+// ошибка разбора с номером строки (lineBase + смещение в буфере).
+func decodeJSONFrom(decoder *json.Decoder, source []byte, lineBase int) (value, error) {
 	token, err := decoder.Token()
 	if err != nil {
 		return value{}, err
@@ -80,10 +82,10 @@ func decodeJSONFrom(decoder *json.Decoder, source []byte) (value, error) {
 				}
 				if names[name] {
 					return value{}, domain.NewErrorf(domain.CodeInvalidImportFile,
-						domain.MsgImportDuplicateKey, name, lineOfOffset(source, decoder.InputOffset()))
+						domain.MsgImportDuplicateKey, name, lineOfOffset(source, decoder.InputOffset())+lineBase-1)
 				}
 				names[name] = true
-				item, err := decodeJSONFrom(decoder, source)
+				item, err := decodeJSONFrom(decoder, source, lineBase)
 				if err != nil {
 					return value{}, err
 				}
@@ -96,7 +98,7 @@ func decodeJSONFrom(decoder *json.Decoder, source []byte) (value, error) {
 		case '[':
 			array := value{kind: kindArray}
 			for decoder.More() {
-				item, err := decodeJSONFrom(decoder, source)
+				item, err := decodeJSONFrom(decoder, source, lineBase)
 				if err != nil {
 					return value{}, err
 				}

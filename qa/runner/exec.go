@@ -22,6 +22,11 @@ const (
 	cmdTimeout     = 2 * time.Minute
 	loadTimeout    = 40 * time.Minute
 	requestTimeout = 15 * time.Second
+
+	// waitDelay ограничивает ожидание Wait после завершения/убийства
+	// команды: внуки (тестовые бинарники, порождаемые go test) держат
+	// write-концы пайпов — без него таймауты фаз не гарантируются.
+	waitDelay = 30 * time.Second
 )
 
 // cmdResult — итог внешней команды: код выхода (отрицательный — снята по
@@ -46,10 +51,15 @@ func runCmdEnv(ctx context.Context, dir string, timeout time.Duration, env []str
 	cmd := exec.CommandContext(ctx, name, args...)
 	cmd.Dir = dir
 	cmd.Env = env
+	cmd.WaitDelay = waitDelay
 	var buf bytes.Buffer
 	cmd.Stdout, cmd.Stderr = &buf, &buf
-	res := cmdResult{code: exitCode(cmd.Run()), output: buf.String()}
-	if ctx.Err() != nil {
+	runErr := cmd.Run()
+	res := cmdResult{code: exitCode(runErr), output: buf.String()}
+	// Успех оценивается кодом выхода; контекст рассматривается только
+	// для неудачной команды — истёкший сразу после успешного завершения
+	// таймаут не помечает её убитой.
+	if res.code != 0 && ctx.Err() != nil {
 		res.code = -1
 		res.output += "\n[" + ctx.Err().Error() + "]"
 	}
@@ -67,6 +77,7 @@ func runCmdOut(ctx context.Context, dir, outPath string, timeout time.Duration, 
 	}
 	cmd := exec.CommandContext(ctx, name, args...)
 	cmd.Dir = dir
+	cmd.WaitDelay = waitDelay
 	cmd.Stdout = f
 	var buf bytes.Buffer
 	cmd.Stderr = &buf
@@ -194,6 +205,7 @@ func loadPhase(ctx context.Context, r *report, root string, opts runOptions) {
 	cmd := exec.CommandContext(ctx, "go", "test", "./qa", "-run", "TestLoad",
 		"-count=1", "-v", "-timeout", "30m")
 	cmd.Dir = root
+	cmd.WaitDelay = waitDelay
 	// Наследованное CATALOG_QA_SCALE/CATALOG_QA_DIALECT заменяется явными
 	// значениями прогона (дубликаты записей окружения неоднозначны);
 	// -dialect переносится и на нагрузочную прикидку.
@@ -206,8 +218,10 @@ func loadPhase(ctx context.Context, r *report, root string, opts runOptions) {
 	var buf bytes.Buffer
 	cmd.Stdout, cmd.Stderr = &buf, &buf
 	runErr := cmd.Run()
+	// Успех — по коду выхода; контекст помечает убитой только неудачную
+	// команду (см. runCmdEnv).
 	code := exitCode(runErr)
-	if ctx.Err() != nil {
+	if code != 0 && ctx.Err() != nil {
 		code = -1
 	}
 	res := cmdResult{code: code, output: buf.String()}

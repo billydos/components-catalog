@@ -2,6 +2,7 @@ package importer
 
 import (
 	"bytes"
+	"fmt"
 	"strings"
 	"testing"
 
@@ -258,9 +259,59 @@ func TestParseLineJSONDuplicateKeyWithLineNumber(t *testing.T) {
 	if !ok || de.Code != domain.CodeInvalidImportFile {
 		t.Fatalf("ожидалась ошибка invalid_import_file, получено %v", err)
 	}
-	want := "line 7: duplicate key «name» (line 1)"
+	want := "line 7: duplicate key «name» (line 7)"
 	if de.Message != want {
 		t.Fatalf("текст: %q, ожидался %q", de.Message, want)
+	}
+}
+
+// Не-конечные числа (inf/nan во всех формах goccy/go-yaml, включая
+// формы, приходящие строками) — явная ошибка формата, а не вводящее в
+// заблуждение «должно быть числом» на чтении значений.
+func TestParseYAMLNonFiniteRejected(t *testing.T) {
+	cases := []struct {
+		src  string
+		text string
+		line int
+	}{
+		{"value: .inf", ".inf", 1},
+		{"value: -.inf", "-.inf", 1},
+		{"value: .nan", ".nan", 1},
+		{"value: -.nan", "-.nan", 1},
+		{"parameters:\n  - parameter: h21e\n    value: .inf\n", ".inf", 3},
+	}
+	for _, tc := range cases {
+		_, err := parseYAML([]byte(tc.src))
+		de, ok := domain.AsError(err)
+		if !ok || de.Code != domain.CodeInvalidImportFile {
+			t.Fatalf("%q: ожидалась invalid_import_file, получено %v", tc.src, err)
+		}
+		if de.MsgID != domain.MsgImportYamlNonFinite {
+			t.Fatalf("%q: MsgID %s, ожидался import_yaml_non_finite", tc.src, de.MsgID)
+		}
+		want := fmt.Sprintf("key «value»: non-finite number %s is not allowed (line %d)", tc.text, tc.line)
+		if de.Message != want {
+			t.Fatalf("%q: текст: %q, ожидался %q", tc.src, de.Message, want)
+		}
+	}
+	// Конечные числа, закавыченные формы (строки по намерению автора —
+	// так их пишет экспорт) и строки, похожие на inf/nan только частью,
+	// читаются.
+	v, err := parseYAML([]byte("a: 1.5\nb: инф\nq: \".inf\"\nr: '.nan'\n"))
+	if err != nil {
+		t.Fatalf("конечные значения: %v", err)
+	}
+	if av, _ := v.has("a"); av.kind != kindNumber || av.num != "1.5" {
+		t.Fatalf("число: %+v", av)
+	}
+	if bv, _ := v.has("b"); bv.kind != kindString || bv.str != "инф" {
+		t.Fatalf("строка: %+v", bv)
+	}
+	if qv, _ := v.has("q"); qv.kind != kindString || qv.str != ".inf" {
+		t.Fatalf("закавыченная форма: %+v", qv)
+	}
+	if rv, _ := v.has("r"); rv.kind != kindString || rv.str != ".nan" {
+		t.Fatalf("закавыченная форма: %+v", rv)
 	}
 }
 

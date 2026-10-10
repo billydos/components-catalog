@@ -97,6 +97,19 @@ func (s *DeviceService) Search(ctx context.Context, q SearchQuery) (SearchPage, 
 	return page, nil
 }
 
+// ValidateSearch проверяет поисковый запрос по каталогу (класс, система,
+// фильтры атрибутов/параметров и их применимость) без обращения к БД:
+// условное кэширование транспорта (304 по ETag) обязано отвечать
+// невалидному запросу 400 до отсечения — валидация дешевле выполнения.
+func (s *DeviceService) ValidateSearch(ctx context.Context, q SearchQuery) error {
+	snap, err := s.app.cache.Snapshot(ctx)
+	if err != nil {
+		return err
+	}
+	_, err = buildSearchRequest(snap, q)
+	return err
+}
+
 // buildSearchRequest валидирует запрос по каталогу и собирает транспортный
 // запрос хранилища.
 func buildSearchRequest(snap *catalog.Snapshot, q SearchQuery) (storage.SearchRequest, error) {

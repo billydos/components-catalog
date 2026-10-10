@@ -563,8 +563,10 @@ func parseWithSystem(scan func() *scanner, canonical string, system System, kind
 		// поддерживаемых, конфликт класса, ошибка хвоста.
 		return parseSeries(canonical, kind)
 	case SystemOther:
+		// Класс для other не определяется обозначением — он обязан быть
+		// указан явно (03 §2.1: автодетекта для other нет).
 		if kind == "" {
-			return ParsedDesignation{}, KindAmbiguous()
+			return ParsedDesignation{}, NewErrorf(CodeKindAmbiguous, MsgKindRequired)
 		}
 		return ParsedDesignation{Kind: kind, System: SystemOther, Designation: canonical}, nil
 	}

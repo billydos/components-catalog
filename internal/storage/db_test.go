@@ -167,7 +167,15 @@ func TestWithJitDisabled(t *testing.T) {
 		{"URL с запросом", "postgres://h/db?sslmode=disable", "postgres://h/db?sslmode=disable&jit=off"},
 		{"ключевая форма", "host=h port=5432", "host=h port=5432 jit=off"},
 		{"явный jit=on сохраняется", "postgres://h/db?jit=on", "postgres://h/db?jit=on"},
-		{"явный jit=off не дублируется", "host=h jit=off", "host=h jit=off"},
+		{"явный jit=off в URL не дублируется", "postgres://h/db?jit=off", "postgres://h/db?jit=off"},
+		{"jit= в пароле URL — не параметр", "postgres://u:jit=xx@h/db", "postgres://u:jit=xx@h/db?jit=off"},
+		{"ключ с jit в имени URL — не параметр", "postgres://h/db?ssljit=1", "postgres://h/db?ssljit=1&jit=off"},
+		{"ключ с jit в имени ключевой формы — не параметр", "host=h ajit=1", "host=h ajit=1 jit=off"},
+		{"jit= в значении ключевой формы — не параметр", "host=h password=jit=xx", "host=h password=jit=xx jit=off"},
+		{"jit= в закавыченном значении — не параметр", `host=h password='foo jit=bar'`, `host=h password='foo jit=bar' jit=off`},
+		{"jit= после экранированного пробела — не параметр", `host=h password=foo\ jit=bar`, `host=h password=foo\ jit=bar jit=off`},
+		{"пробелы вокруг = — явный jit", "host=h jit = on", "host=h jit = on"},
+		{"явный jit=off в ключевой форме не дублируется", "host=h jit=off", "host=h jit=off"},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {

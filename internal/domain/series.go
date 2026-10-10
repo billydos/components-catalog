@@ -320,10 +320,11 @@ func parseSeriesWeakTail(s *scanner) (*int, string, error) {
 }
 
 // seriesUnknownFamily — ошибка неизвестного семейства с перечнем
-// поддерживаемых (класса — при явном классе).
+// поддерживаемых (класса — при явном классе; без класса — аргумент-сообщение
+// families_all_scopes, локализуемое при рендере, D9).
 func seriesUnknownFamily(canonical string, kindHint Kind) *Error {
 	known := seriesByCode
-	scope := "все классы"
+	scope := any(MsgArg(MsgFamiliesAllScopes))
 	if kindHint != "" {
 		known = SeriesFamiliesForKind(kindHint)
 		scope = string(kindHint)

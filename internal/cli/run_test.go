@@ -2,12 +2,14 @@ package cli_test
 
 import (
 	"bytes"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 
 	"github.com/billydos/components-catalog/internal/cli"
+	"github.com/billydos/components-catalog/internal/testutil"
 )
 
 // Сценарные прогоны CLI (этап 4): полный контур команд на временной базе
@@ -380,5 +382,176 @@ func TestLimitFlagValidation(t *testing.T) {
 	_, stderr, code := run(t, "list", "--limit", "много")
 	if code != 1 || !strings.HasPrefix(stderr, "Error: flag «--limit» requires a non-negative number") {
 		t.Fatalf("код %d, %q", code, stderr)
+	}
+}
+
+func TestHelpLangVariants(t *testing.T) {
+	// Флаг --lang до команды, после команды и в форме «--lang=» — разбор
+	// общий с прочими командами (parseArgs); справка на выбранной локали.
+	for _, args := range [][]string{
+		{"help", "--lang", "ru", "parse"},
+		{"help", "--lang=ru", "parse"},
+		{"help", "parse", "--lang", "ru"},
+	} {
+		stdout, _, code := run(t, args...)
+		if code != 0 || !strings.HasPrefix(stdout, "формат: catalogctl parse") {
+			t.Fatalf("help %v: код %d, справка %q", args, code, stdout)
+		}
+	}
+	// help без команды, но с флагом — общая справка на локали.
+	stdout, _, code := run(t, "help", "--lang", "ru")
+	if code != 0 || !strings.HasPrefix(stdout, "catalogctl — консольная") {
+		t.Fatalf("help --lang ru: код %d, справка %q", code, stdout)
+	}
+	// Неизвестная команда — ошибка на выбранной локали.
+	_, stderr, code := run(t, "help", "--lang", "ru", "nosuch")
+	if code != 1 || stderr != "Ошибка: неизвестная команда «nosuch»; справка: catalogctl help\n" {
+		t.Fatalf("help nosuch (ru): код %d, %q", code, stderr)
+	}
+	// Лишний позиционный аргумент после команды — ошибка.
+	_, stderr, code = run(t, "help", "parse", "extra")
+	if code != 1 ||
+		stderr != "Error: wrong number of arguments; usage: catalogctl help [command]\n" {
+		t.Fatalf("help лишний аргумент: код %d, %q", code, stderr)
+	}
+	_, stderr, code = run(t, "help", "--lang", "ru", "parse", "extra")
+	if code != 1 ||
+		stderr != "Ошибка: неверное число аргументов; формат: catalogctl help [команда]\n" {
+		t.Fatalf("help лишний аргумент (ru): код %d, %q", code, stderr)
+	}
+}
+
+func TestCatalogExportToFile(t *testing.T) {
+	db := testDB(t)
+	run(t, "init", "--db", db)
+	want, _, code := run(t, "catalog", "export", "--db", db)
+	if code != 0 || !strings.Contains(want, "\"catalog\"") {
+		t.Fatalf("catalog export (stdout): код %d, %q", code, want)
+	}
+
+	// Аргумент — файл назначения: выгрузка записывается в файл (формат —
+	// по --format, не по расширению), stdout пуст.
+	file := filepath.Join(t.TempDir(), "catalog-export.txt")
+	stdout, stderr, code := run(t, "catalog", "export", file, "--db", db)
+	if code != 0 || stderr != "" || stdout != "" {
+		t.Fatalf("catalog export <файл>: код %d, stdout %q, stderr %q", code, stdout, stderr)
+	}
+	data, err := os.ReadFile(file)
+	if err != nil {
+		t.Fatalf("файл выгрузки не создан: %v", err)
+	}
+	if string(data) != want {
+		t.Fatalf("файл выгрузки отличается от stdout-выгрузки:\n got:  %q\n want: %q", data, want)
+	}
+	db2 := testDB(t)
+	run(t, "init", "--db", db2)
+	// Формат выгрузки — jsonc (по --format), а не по расширению: для
+	// round-trip импорта копия получает распознаваемое расширение.
+	roundTrip := filepath.Join(t.TempDir(), "catalog-round-trip.jsonc")
+	if err := os.WriteFile(roundTrip, data, 0o644); err != nil {
+		t.Fatalf("запись: %v", err)
+	}
+	out, stderr, code := run(t, "catalog", "import", roundTrip, "--db", db2)
+	if code != 0 || stderr != "" || !strings.Contains(out, "catalog extended") {
+		t.Fatalf("round-trip каталога: код %d, %q, %q", code, out, stderr)
+	}
+
+	// «-» — выгрузка в stdout.
+	stdout, stderr, code = run(t, "catalog", "export", "-", "--db", db)
+	if code != 0 || stderr != "" || stdout != want {
+		t.Fatalf("catalog export -: код %d, stdout %q, stderr %q", code, stdout, stderr)
+	}
+
+	// Ошибка создания файла — доменная ошибка cli_file_write.
+	bad := filepath.Join(t.TempDir(), "no-such-dir", "catalog.jsonc")
+	_, stderr, code = run(t, "catalog", "export", bad, "--db", db)
+	if code != 1 || !strings.HasPrefix(stderr, "Error: cannot write file «"+bad+"»") {
+		t.Fatalf("catalog export в недоступный путь: код %d, %q", code, stderr)
+	}
+
+	// Два аргумента — ошибка.
+	_, stderr, code = run(t, "catalog", "export", file, file, "--db", db)
+	if code != 1 || !strings.HasPrefix(stderr, "Error: ") {
+		t.Fatalf("catalog export с двумя аргументами: код %d, %q", code, stderr)
+	}
+}
+
+func TestInitMasksDsnPassword(t *testing.T) {
+	// sqlite-путь печатается как есть (маскировке не подлежит).
+	db := testDB(t)
+	stdout, stderr, code := run(t, "init", "--db", db)
+	if code != 0 || stderr != "" || !strings.Contains(stdout, db) {
+		t.Fatalf("init sqlite: код %d, %q, %q", code, stdout, stderr)
+	}
+	if strings.Contains(stdout, "***") {
+		t.Fatalf("init sqlite исказил путь: %q", stdout)
+	}
+}
+
+func TestInitMasksPostgresPassword(t *testing.T) {
+	dsn := testutil.PostgresDSN(t)
+	secret := dsnSecret(dsn)
+	if secret == "" {
+		t.Skip("DSN без пароля — маскирование недоступно для проверки")
+	}
+	testutil.DropAllTables(t, dsn)
+	stdout, stderr, code := run(t, "init", "--dialect", "postgres", "--dsn", dsn)
+	if code != 0 || stderr != "" {
+		t.Fatalf("init postgres: код %d, %q, %q", code, stdout, stderr)
+	}
+	if strings.Contains(stdout, secret) {
+		t.Fatalf("init печатает пароль postgres: %q", stdout)
+	}
+	if !strings.Contains(stdout, "***") {
+		t.Fatalf("init не маскирует пароль postgres: %q", stdout)
+	}
+}
+
+// dsnSecret — пароль DSN (URL-форма userinfo либо ключевая форма
+// password=); пусто — пароля нет.
+func dsnSecret(dsn string) string {
+	if u, err := url.Parse(dsn); err == nil && u.User != nil {
+		pw, _ := u.User.Password()
+		return pw
+	}
+	lower := strings.ToLower(dsn)
+	i := strings.Index(lower, "password=")
+	if i < 0 {
+		return ""
+	}
+	rest := dsn[i+len("password="):]
+	if rest != "" && (rest[0] == '\'' || rest[0] == '"') {
+		quote := rest[0]
+		if end := strings.IndexByte(rest[1:], quote); end >= 0 {
+			return rest[1 : 1+end]
+		}
+		return rest[1:]
+	}
+	if end := strings.IndexAny(rest, " \t"); end >= 0 {
+		return rest[:end]
+	}
+	return rest
+}
+
+func TestLimitRangeValidation(t *testing.T) {
+	db := testDB(t)
+	run(t, "init", "--db", db)
+	// Диапазон --limit симметричен REST: 0 и выше потолка — ошибка
+	// api_limit_range (не тихий клампинг и не «0 = по умолчанию»).
+	for _, v := range []string{"0", "201"} {
+		_, stderr, code := run(t, "list", "--limit", v, "--db", db)
+		want := "Error: parameter limit: an integer from 1 to 200 is expected\n"
+		if code != 1 || stderr != want {
+			t.Fatalf("--limit %s: код %d, %q (want %q)", v, code, stderr, want)
+		}
+	}
+	_, stderr, code := run(t, "list", "--limit", "200", "--lang", "ru", "--db", db)
+	if code != 0 || stderr != "" {
+		t.Fatalf("--limit 200: код %d, %q", code, stderr)
+	}
+	_, stderr, code = run(t, "list", "--limit", "0", "--lang", "ru", "--db", db)
+	want := "Ошибка: параметр limit: ожидается целое от 1 до 200\n"
+	if code != 1 || stderr != want {
+		t.Fatalf("--limit 0 (ru): код %d, %q (want %q)", code, stderr, want)
 	}
 }

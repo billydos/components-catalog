@@ -9,7 +9,7 @@ info:
     авторизация и лимитирование — на стороне сайта, монтирующего хендлер
     (защищённые маршруты — на усмотрение сайта). Транспорт: JSON, UTF-8.
 
-    Ошибки — модель `{"code", "message", "details"}`: `code` —
+    Ошибки — модель `{"code", "message"}`: `code` —
     машиночитаемый латиницей snake_case, `message` — текст сообщения
     из каталога модуля по локали запроса (en — канонический, ru — бандл;
     Accept-Language). Статусы: 400 (неверный запрос),
@@ -103,7 +103,9 @@ paths:
       description: |
         Подстрока обозначения, система, фильтры полей/атрибутов/параметров,
         сортировка, пагинация. Ответ — список с обозначением, классом,
-        системой и ключевыми полями; ETag — по data_revision.
+        системой и ключевыми полями; ETag — по data_revision и канонической
+        строке запроса (разные фильтры/сортировки — разные ETag). Повтор
+        любого параметра запроса — 400 validation_failed.
 
         Помимо перечисленных параметров допустимы:
 
@@ -137,7 +139,10 @@ paths:
           description: Страница результатов.
           headers:
             ETag:
-              description: Сильный ETag вида "data-<data_revision>".
+              description: |
+                Сильный ETag вида "data-<data_revision>-<hash>": hash —
+                хэш канонической строки запроса (имена параметров
+                отсортированы, пары name=value через «&»).
               schema: {type: string}
           content:
             application/json:
@@ -159,7 +164,9 @@ paths:
         Тело — запись наполнения: строка-обозначение либо объект
         «name/system + секции». Класс определяется автодетектом по
         обозначению; для системы other создание адресуется PUT с классом
-        в пути. Существующий (kind, designation) — 409 already_exists.
+        в пути. Существующий (kind, designation) — 409 already_exists
+        без изменения записи (создание атомарно, гонка параллельных
+        POST не применяет секции к чужой записи).
       requestBody:
         required: true
         content:
@@ -173,6 +180,12 @@ paths:
               schema: {$ref: "#/components/schemas/UpsertResponse"}
         "400":
           $ref: "#/components/responses/BadRequest"
+        "404":
+          description: Редкая гонка — запись удалена между применением
+            и чтением карточки для ответа.
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/Error"}
         "409":
           $ref: "#/components/responses/Conflict"
         "422":
@@ -255,7 +268,11 @@ paths:
         "400":
           $ref: "#/components/responses/BadRequest"
         "404":
-          $ref: "#/components/responses/NotFound"
+          description: Редкая гонка — запись удалена между применением
+            и чтением карточки для ответа.
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/Error"}
         "422":
           $ref: "#/components/responses/Unprocessable"
         "500":
@@ -355,10 +372,8 @@ components:
           examples: [validation_failed]
         message:
           type: string
-          description: Русский текст сообщения.
-        details:
-          type: array
-          items: {type: string}
+          description: Текст сообщения по локали запроса (Accept-Language;
+            en — канонический).
     KindDef:
       type: object
       required: [code, name]

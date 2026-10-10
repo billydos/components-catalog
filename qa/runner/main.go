@@ -36,6 +36,10 @@ func main() {
 		keep  = flag.Bool("keep", false, "не удалять временный каталог прогона (диагностика)")
 	)
 	flag.Parse()
+	if *scale < 0 {
+		fmt.Fprintf(os.Stderr, "runner: -scale: масштаб не может быть отрицательным (%d); 0 — пропустить фазу load\n", *scale)
+		os.Exit(2)
+	}
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
@@ -72,8 +76,11 @@ func main() {
 
 	path := *reportPath
 	if path == "" {
-		path = filepath.Join(root, "qa", "reports", fmt.Sprintf("qa-%s-%s-%s.log",
-			time.Now().Format("20060102-150405"), runtime.GOOS, runtime.GOARCH))
+		// Наносекунды в имени исключают коллизию повторных прогонов в
+		// пределах секунды (os.Create молча обрезал бы чужой отчёт).
+		now := time.Now()
+		path = filepath.Join(root, "qa", "reports", fmt.Sprintf("qa-%s-%09d-%s-%s.log",
+			now.Format("20060102-150405"), now.Nanosecond(), runtime.GOOS, runtime.GOARCH))
 	}
 	r, err := newReport(path, os.Stdout)
 	if err != nil {
@@ -81,9 +88,22 @@ func main() {
 		os.Exit(2)
 	}
 
+	// Первый сигнал отменяет прогон: прерванные и оставшиеся шаги
+	// помечаются заметками «отменён», итог — код выхода 130. stop()
+	// возвращает SIGINT/SIGTERM умолчание — повторный Ctrl+C завершает
+	// процесс немедленно, не дожидаясь остановки команд (WaitDelay).
+	go func() {
+		<-ctx.Done()
+		stop()
+	}()
+	r.onCancel(func() bool { return ctx.Err() != nil })
+
 	run(ctx, r, root, opts)
 	verdict := r.finish()
 	fmt.Printf("отчёт: %s (%s)\n", path, verdict)
+	if r.isCancelled() {
+		os.Exit(130)
+	}
 	if verdict != "PASS" {
 		os.Exit(1)
 	}
@@ -98,8 +118,12 @@ type runOptions struct {
 	keep          bool
 }
 
-// run выполняет фазы прогона; отказ фазы не прерывает последующие
-// (кроме сбоя сборки бинарников — сценарии невозможны).
+// run выполняет фазы прогона; отказ фазы не прерывает последующие.
+// Сборка бинарников нужна только сценариям cli/rest: статические
+// проверки и нагрузочная прикидка выполняются независимо (свои go-вызовы),
+// при провале сборки сценарии помечаются пропуском с причиной, а не
+// молча пропускаются. Отмена сигналом завершает прогон: оставшиеся фазы
+// и шаги помечаются пропуском, а не FAIL.
 func run(ctx context.Context, r *report, root string, opts runOptions) {
 	writeEnvSection(r, root)
 	if opts.scale == 0 {
@@ -132,12 +156,29 @@ func run(ctx context.Context, r *report, root string, opts runOptions) {
 		defer os.RemoveAll(tmp) //nolint:errcheck — одноразовый каталог прогона
 	}
 
-	ctl, srv, ok := buildBinaries(ctx, r, root, tmp)
-	if !ok {
+	if cancelled(ctx, r) {
 		return
 	}
+	ctl, srv, buildOK := buildBinaries(ctx, r, root, tmp)
 	staticPhase(ctx, r, root, opts)
+	if cancelled(ctx, r) {
+		return
+	}
 
+	if buildOK {
+		runLegs(ctx, r, ctl, srv, root, tmp, opts)
+	} else {
+		r.note("сценарии cli/rest пропущены: сборка catalogctl/restsrv не прошла (фаза build)")
+	}
+
+	if opts.scale > 0 && !cancelled(ctx, r) {
+		loadPhase(ctx, r, root, opts)
+	}
+}
+
+// runLegs — сценарные фазы cli/rest по ногам прогона (включая ограждённую
+// подготовку ноги postgres).
+func runLegs(ctx context.Context, r *report, ctl, srv, root, tmp string, opts runOptions) {
 	legs := []leg{{name: "sqlite", dbArgs: []string{"--db", filepath.Join(tmp, "qa.db")}}}
 	// Нога postgres — только когда не исключена -dialect sqlite: сброс
 	// базы деструктивен, исключённая нога не должна его выполнять.
@@ -176,13 +217,25 @@ func run(ctx context.Context, r *report, root string, opts runOptions) {
 		legs = filtered
 	}
 	for _, l := range legs {
+		if cancelled(ctx, r) {
+			return
+		}
 		cliSuite(ctx, r, ctl, root, tmp, l)
+		if cancelled(ctx, r) {
+			return
+		}
 		restSuite(ctx, r, srv, tmp, l)
 	}
+}
 
-	if opts.scale > 0 {
-		loadPhase(ctx, r, root, opts)
+// cancelled фиксирует отмену прогона сигналом: помечаются оставшиеся фазы —
+// заметкой пропуска, шаги дальше не выполняются и не числятся FAIL.
+func cancelled(ctx context.Context, r *report) bool {
+	if ctx.Err() == nil {
+		return false
 	}
+	r.note("прогон отменён сигналом — оставшиеся фазы пропущены")
+	return true
 }
 
 // findRepoRoot — корень модуля (go.mod) от текущего каталога вверх.

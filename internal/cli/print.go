@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io"
 	"strconv"
+	"strings"
 
 	"github.com/billydos/components-catalog/internal/catalog"
 	"github.com/billydos/components-catalog/internal/domain"
@@ -161,14 +162,7 @@ func printCard(w io.Writer, lang i18n.Language, c *service.Card, snap *catalog.S
 }
 
 func joinParts(parts []string) string {
-	out := ""
-	for i, p := range parts {
-		if i > 0 {
-			out += "; "
-		}
-		out += p
-	}
-	return out
+	return strings.Join(parts, "; ")
 }
 
 // valueWithConditions — значение параметра с единицей и условиями:

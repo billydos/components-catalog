@@ -1,7 +1,7 @@
 package httpapi
 
 import (
-	"net/http"
+	"net/url"
 	"sort"
 	"strconv"
 	"strings"
@@ -30,11 +30,34 @@ func queryLimit(values []string, max int) (int, bool, error) {
 	return n, true, nil
 }
 
+// rejectDuplicateParams — строгость разбора запроса: повтор параметра —
+// ошибка, молчаливый выбор первого значения маскирует опечатку
+// (?q=a&q=b). Без имён — все параметры в отсортированном порядке
+// (поиск разбирает каждый), иначе только названные (suggest разбирает
+// подмножество, прочие параметры запроса игнорирует).
+func rejectDuplicateParams(values url.Values, names ...string) error {
+	if len(names) == 0 {
+		for name := range values {
+			names = append(names, name)
+		}
+		sort.Strings(names)
+	}
+	for _, name := range names {
+		if len(values[name]) > 1 {
+			return domain.NewErrorf(domain.CodeValidationFailed,
+				domain.MsgApiParamDuplicate, name)
+		}
+	}
+	return nil
+}
+
 // parseSearchQuery разбирает параметры поиска в запрос сервисного слоя;
 // применимость фильтров к классу и типы значений проверяет сервис
 // (единственная точка валидации — тексты ошибок не дублируются).
-func parseSearchQuery(r *http.Request, snap *catalog.Snapshot) (service.SearchQuery, error) {
-	values := r.URL.Query()
+func parseSearchQuery(values url.Values, snap *catalog.Snapshot) (service.SearchQuery, error) {
+	if err := rejectDuplicateParams(values); err != nil {
+		return service.SearchQuery{}, err
+	}
 	q := service.SearchQuery{
 		Kind:   domain.Kind(first(values, "kind")),
 		System: domain.System(first(values, "system")),

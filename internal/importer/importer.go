@@ -48,29 +48,36 @@ func (m *Importer) Import(ctx context.Context, r io.Reader, name string, dryRun 
 	}
 	switch format {
 	case FormatNDJSON:
-		return m.importNDJSON(ctx, r, name, dryRun)
+		return m.importNDJSON(ctx, r, name, dryRun, false)
 	default:
-		return m.importDocument(ctx, r, name, format, dryRun)
+		return m.importDocument(ctx, r, name, format, dryRun, false)
 	}
 }
 
 // ImportCatalogFile применяет только секцию catalog файла наполнения
 // (catalog import): записи в файле не допускаются — для них есть import.
+// Смешанный файл отвергается до каких-либо записей в БД: признак «есть
+// записи» известен фазе чтения, применение каталога отложено до проверки.
 func (m *Importer) ImportCatalogFile(ctx context.Context, r io.Reader, name string, dryRun bool) (Report, error) {
-	rep, err := m.Import(ctx, r, name, dryRun)
+	format, err := FormatByFilename(name)
 	if err != nil {
-		return rep, err
+		return Report{}, err
 	}
-	if rep.Records > 0 {
-		return rep, domain.NewErrorf(domain.CodeInvalidImportFile, domain.MsgImportCatalogRecordsMixed)
+	switch format {
+	case FormatNDJSON:
+		return m.importNDJSON(ctx, r, name, dryRun, true)
+	default:
+		return m.importDocument(ctx, r, name, format, dryRun, true)
 	}
-	return rep, nil
 }
 
 // importDocument — jsonc/yaml: документ читается целиком; секция catalog
-// применяется ДО чтения записей (блок catalog предшествует записям,
+// планируется до чтения записей (блок catalog предшествует записям,
 // использующим вводимые им определения), записи — в порядке файла.
-func (m *Importer) importDocument(ctx context.Context, r io.Reader, name string, format Format, dryRun bool) (Report, error) {
+// catalogOnly — режим catalog import: применение каталога отложено до
+// проверки отсутствия записей (смешанный файл — отказ до записи в БД).
+func (m *Importer) importDocument(ctx context.Context, r io.Reader, name string, format Format,
+	dryRun, catalogOnly bool) (Report, error) {
 	data, err := io.ReadAll(r)
 	if err != nil {
 		return Report{}, err
@@ -91,23 +98,30 @@ func (m *Importer) importDocument(ctx context.Context, r io.Reader, name string,
 			catTree = catVal
 		}
 	}
-	snap, err = m.applyCatalog(ctx, catTree, snap, dryRun, &rep)
-	if err != nil {
-		return rep, err
-	}
-
-	doc, issues := ReadDocument(root, snap)
+	plan := m.planCatalog(catTree, snap, &rep)
+	doc, issues := ReadDocument(root, plan.read)
 	rep.Issues = append(rep.Issues, issues...)
 	rep.Records = len(doc.Records) + doc.Rejected
 	rep.Rejected = doc.Rejected
-	m.applyRecords(ctx, doc.Records, snap, dryRun, &rep)
+	if catalogOnly && rep.Records > 0 {
+		return rep, domain.NewErrorf(domain.CodeInvalidImportFile, domain.MsgImportCatalogRecordsMixed)
+	}
+	readSnap, err := m.commitCatalog(ctx, plan, dryRun, &rep)
+	if err != nil {
+		return rep, err
+	}
+	m.applyRecords(ctx, doc.Records, readSnap, dryRun, &rep)
 	return rep, nil
 }
 
-// importNDJSON — построчный стриминг: строки catalog сливаются и
-// применяются до первой записи (блок catalog предшествует записям),
-// записи применяются по мере чтения.
-func (m *Importer) importNDJSON(ctx context.Context, r io.Reader, name string, dryRun bool) (Report, error) {
+// importNDJSON — построчное чтение: строки catalog сливаются и
+// планируются до первой записи (блок catalog предшествует записям).
+// Записи буферизуются и применяются после цикла — файл применяется по
+// принципу «всё-или-ничего» на синтаксисе (жёсткая ошибка прерывает
+// прогон до применения буфера). catalogOnly — режим catalog import:
+// применение каталога отложено до проверки отсутствия записей.
+func (m *Importer) importNDJSON(ctx context.Context, r io.Reader, name string,
+	dryRun, catalogOnly bool) (Report, error) {
 	snap, err := m.app.Snapshot(ctx)
 	if err != nil {
 		return Report{}, err
@@ -117,15 +131,21 @@ func (m *Importer) importNDJSON(ctx context.Context, r io.Reader, name string, d
 	var catTree value
 	sc := newNDJSONScanner(r)
 	catalogFlushed := false
+	catTainted := false // проблема строки catalog: каталог не применяется
+	var plan catalogPlan
 	var records []Record
-	flushCatalog := func() error {
+	flushCatalog := func() {
 		if catalogFlushed {
-			return nil
+			return
 		}
 		catalogFlushed = true
-		var err error
-		snap, err = m.applyCatalog(ctx, catTree, snap, dryRun, &rep)
-		return err
+		if catTainted {
+			// Ошибка слияния строк catalog: каталог не применяется, записи
+			// читаются по текущему снимку и получают собственные проблемы.
+			plan = catalogPlan{read: snap}
+			return
+		}
+		plan = m.planCatalog(catTree, snap, &rep)
 	}
 	for {
 		line, number, ok, err := sc.next()
@@ -148,18 +168,31 @@ func (m *Importer) importNDJSON(ctx context.Context, r io.Reader, name string, d
 				rep.Issues = append(rep.Issues, issuef(number, domain.MsgImportNdjsonCatalogOrder))
 				continue
 			}
-			// Строки catalog сливаются до валидации метасхемы.
+			if len(v.members) != 1 {
+				// catalog и запись в одной строке-обёртке: строка не
+				// сливается в каталог и не читается как запись.
+				rep.Issues = append(rep.Issues, issuef(number, domain.MsgImportNdjsonWrapperSingle))
+				continue
+			}
+			// Строки catalog сливаются до валидации метасхемы; ошибка
+			// слияния — проблема строки (строка пропускается, каталог
+			// не применяется), жёсткий отказ — только синтаксис.
 			merged, err := mergeCatalogTrees(catTree, catVal)
 			if err != nil {
-				return rep, err
+				iss := issuef(number, domain.MsgImportCatalogPlain)
+				if de, ok := domain.AsError(err); ok {
+					iss = issuef(number, de.MsgID, de.Args...)
+					iss.Code = de.Code
+				}
+				rep.Issues = append(rep.Issues, iss)
+				catTainted = true
+				continue
 			}
 			catTree = merged
 			continue
 		}
-		if err := flushCatalog(); err != nil {
-			return rep, err
-		}
-		rec, ok, issues := ReadRecordLine(snap, v, number)
+		flushCatalog()
+		rec, ok, issues := ReadRecordLine(plan.read, v, number)
 		rep.Issues = append(rep.Issues, issues...)
 		rep.Records++
 		if ok {
@@ -168,10 +201,15 @@ func (m *Importer) importNDJSON(ctx context.Context, r io.Reader, name string, d
 			rep.Rejected++
 		}
 	}
-	if err := flushCatalog(); err != nil {
+	flushCatalog()
+	if catalogOnly && rep.Records > 0 {
+		return rep, domain.NewErrorf(domain.CodeInvalidImportFile, domain.MsgImportCatalogRecordsMixed)
+	}
+	readSnap, err := m.commitCatalog(ctx, plan, dryRun, &rep)
+	if err != nil {
 		return rep, err
 	}
-	m.applyRecords(ctx, records, snap, dryRun, &rep)
+	m.applyRecords(ctx, records, readSnap, dryRun, &rep)
 	return rep, nil
 }
 
@@ -208,15 +246,23 @@ func mergeCatalogTrees(a, b value) (value, error) {
 	return out, nil
 }
 
-// applyCatalog применяет секцию catalog: чтение формы → ApplyCatalog
-// (метасхема — единственная точка валидации определений) → запись в БД.
-// Возвращает снимок для чтения записей: после применения — актуальный,
-// в dry-run — гипотетический (расширения каталога видимы проверке записей
-// без записи в БД).
-func (m *Importer) applyCatalog(ctx context.Context, tree value, cur *catalog.Snapshot,
-	dryRun bool, rep *Report) (*catalog.Snapshot, error) {
+// catalogPlan — прочитанная секция catalog: вход метасхемы и план
+// применения. Гейт — проблемы читателя (форма секции) и метасхемы
+// отключают применение целиком: частичное применение каталога запрещено.
+type catalogPlan struct {
+	in    catalog.Input     // вход метасхемы (применяется при apply)
+	read  *catalog.Snapshot // снимок чтения записей (не применяется — текущий)
+	apply bool              // вход пригоден к применению
+}
+
+// planCatalog читает секцию catalog и валидирует её метасхемой без
+// записи в БД. read — снимок для чтения записей: при проблемах формы
+// либо метасхемы — текущий (каталог не будет применён, записи получат
+// собственные проблемы — полный список за прогон), иначе — гипотетический
+// (расширения каталога видимы проверке записей).
+func (m *Importer) planCatalog(tree value, cur *catalog.Snapshot, rep *Report) catalogPlan {
 	if tree.kind == kindNull {
-		return cur, nil
+		return catalogPlan{read: cur}
 	}
 	in, issues := ReadCatalogSection(tree)
 	rep.Issues = append(rep.Issues, issues...)
@@ -226,15 +272,20 @@ func (m *Importer) applyCatalog(ctx context.Context, tree value, cur *catalog.Sn
 		iss.Code = p.Code
 		rep.Issues = append(rep.Issues, iss)
 	}
-	if len(probs) > 0 {
-		// Каталог не применён: записи читаются по текущему снимку и
-		// получают собственные проблемы — полный список за прогон.
-		return cur, nil
+	if len(issues) > 0 || len(probs) > 0 {
+		return catalogPlan{in: in, read: cur}
 	}
-	if dryRun {
-		return out, nil
+	return catalogPlan{in: in, read: out, apply: true}
+}
+
+// commitCatalog применяет план каталога: в dry-run — без записи (снимок
+// чтения — гипотетический), иначе — Catalog.Import и свежий снимок БД.
+func (m *Importer) commitCatalog(ctx context.Context, plan catalogPlan,
+	dryRun bool, rep *Report) (*catalog.Snapshot, error) {
+	if !plan.apply || dryRun {
+		return plan.read, nil
 	}
-	if err := m.app.Services().Catalog.Import(ctx, in); err != nil {
+	if err := m.app.Services().Catalog.Import(ctx, plan.in); err != nil {
 		return nil, err
 	}
 	rep.CatalogApplied = true
@@ -290,16 +341,31 @@ func (m *Importer) applyRecords(ctx context.Context, records []Record, snap *cat
 			rep.Skipped++
 		}
 	}
-	recordIssue := func(rec Record, err error) {
+	// recordIssue выводит запись из очереди проблемой прогона; холостое
+	// создание компенсируется удалением — контракт «запись не применяется
+	// вовсе» (холостое создание в отчёт не входило). Штатное удаление
+	// двигает data_revision, поэтому отвергнутая запись оставляет шум в
+	// счётчике ревизий — принятый компромисс: служебного пути записи мимо
+	// счётчика ревизий нет, целостность отчёта важнее точности счётчика.
+	// Ошибка компенсации — проблема прогона, а не тихая потеря.
+	recordIssue := func(p *pendingRecord, err error) {
 		rep.Rejected++
-		rep.Issues = append(rep.Issues, issueFromError(rec, err))
+		rep.Issues = append(rep.Issues, issueFromError(p.rec, err))
+		if !p.created {
+			return
+		}
+		if _, derr := m.app.Services().Devices.Delete(ctx, p.rec.Kind, p.rec.Input.Name); derr != nil {
+			iss := issuef(p.rec.Line, domain.MsgInternalError, derr.Error())
+			iss.Record = p.rec.Input.Name
+			rep.Issues = append(rep.Issues, iss)
+		}
 	}
 
 	if dryRun {
 		for _, p := range queue {
 			outcome, err := m.app.Services().Devices.DryRun(ctx, p.rec.Input, snap, pendingFn)
 			if err != nil {
-				recordIssue(p.rec, err)
+				recordIssue(p, err)
 				continue
 			}
 			recordOutcome(p.rec, outcome)
@@ -324,7 +390,7 @@ func (m *Importer) applyRecords(ctx context.Context, records []Record, snap *cat
 			}
 			switch {
 			case err != nil:
-				recordIssue(p.rec, err)
+				recordIssue(p, err)
 			case p.created:
 				// Запись создана холостым применением — в этом прогоне она новая.
 				rep.Added++
@@ -344,13 +410,8 @@ func (m *Importer) applyRecords(ctx context.Context, records []Record, snap *cat
 		}
 	}
 	for _, p := range queue {
-		if p.created {
-			// Компенсация: запись, созданная холостым применением, удаляется —
-			// контракт «запись не применяется вовсе» сохраняется (холостое
-			// создание в отчёт не входило).
-			_, _ = m.app.Services().Devices.Delete(ctx, p.rec.Kind, p.rec.Input.Name)
-		}
-		recordIssue(p.rec, p.lastErr)
+		// Компенсация холостого создания — внутри recordIssue.
+		recordIssue(p, p.lastErr)
 	}
 }
 
@@ -361,7 +422,7 @@ func (m *Importer) applyRecords(ctx context.Context, records []Record, snap *cat
 // холостую запись (компенсация). Возвращает очередь (возможно, без
 // безнадёжной записи) и признак продвижения.
 func (m *Importer) breakAnalogDeadlock(ctx context.Context, queue []*pendingRecord,
-	pendingFn service.PendingDesignations, recordIssue func(Record, error)) ([]*pendingRecord, bool) {
+	pendingFn service.PendingDesignations, recordIssue func(*pendingRecord, error)) ([]*pendingRecord, bool) {
 	for i, p := range queue {
 		if p.created || p.rec.Input.Analogs == nil {
 			continue
@@ -379,7 +440,7 @@ func (m *Importer) breakAnalogDeadlock(ctx context.Context, queue []*pendingReco
 			if isAnalogNotFound(err) {
 				continue
 			}
-			recordIssue(p.rec, err)
+			recordIssue(p, err)
 			rest := append(append([]*pendingRecord{}, queue[:i]...), queue[i+1:]...)
 			return rest, true
 		}

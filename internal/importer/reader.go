@@ -417,8 +417,13 @@ func (r *reader) attributes(rec *Record, v value) ([]catalog.AttributeValue, boo
 // parameterValue читает объект значения секции группы: {"parameter": код,
 // value|min/max|text, условия — соседние ключи по коду}. Коды параметров
 // и условий проверяет движок каталога; читатель — только форму ключей.
-func (r *reader) parameterValue(rec *Record, section any, index int, v value) (catalog.ParameterValue, bool) {
-	where := domain.MsgArg(domain.MsgImportWhereSection, section, index+1)
+func (r *reader) parameterValue(rec *Record, section string, index int, v value) (catalog.ParameterValue, bool) {
+	return r.valueObject(rec, domain.MsgArg(domain.MsgImportWhereSection, section, index+1), v)
+}
+
+// valueObject читает объект значения по готовой позиции «где» (значение
+// секции группы записи либо значение внутри исполнения).
+func (r *reader) valueObject(rec *Record, where any, v value) (catalog.ParameterValue, bool) {
 	if v.kind != kindObject {
 		r.recFail(rec, domain.MsgImportValueObject, where)
 		return catalog.ParameterValue{}, false
@@ -530,7 +535,9 @@ func (r *reader) variant(rec *Record, index int, v value) (service.VariantInput,
 		}
 		vals := make([]catalog.ParameterValue, 0, len(m.value.items))
 		for i, item := range m.value.items {
-			pv, ok := r.parameterValue(rec, domain.MsgArg(domain.MsgImportWhereValue, where, i+1), i, item)
+			// Позиция значения исполнения — как у значений секции записи.
+			pv, ok := r.valueObject(rec, domain.MsgArg(domain.MsgImportWhereSection,
+				domain.MsgArg(domain.MsgImportWhereValue, where, i+1), i+1), item)
 			if !ok {
 				return service.VariantInput{}, false
 			}

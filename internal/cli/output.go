@@ -28,18 +28,60 @@ func PrintError(w io.Writer, lang i18n.Language, err error) {
 	fmt.Fprintln(w, prefix+errorString(lang, err))
 }
 
-// errorString — текст ошибки по локали: ожидаемая ошибка домена
-// рендерится каталогом (MsgID+Args), обёртки «%s: %w» сохраняют префикс.
+// errorString — текст ошибки по локали: каждая доменная ошибка дерева
+// (цепочки Unwrap и errors.Join) рендерится каталогом по её собственным
+// MsgID+Args; обёртки сохраняют собственный рендер (префикс «%s: %w»,
+// соединение Join). Замена — по вычисленному каноническому тексту
+// конкретной ошибки, а не по первому вхождению подстроки.
 func errorString(lang i18n.Language, err error) string {
-	var de *domain.Error
-	for e := err; e != nil; e = errors.Unwrap(e) {
-		if d, ok := e.(*domain.Error); ok {
-			de = d
+	if s, ok := localizedErrorText(lang, err); ok {
+		return s
+	}
+	return err.Error()
+}
+
+// localizedErrorText реконструирует текст ошибки с локализованными
+// доменными ошибками; false — доменных ошибок в дереве нет. Сегмент
+// дочерней ошибки ищется в тексте узла по порядку следования ветвей Join.
+func localizedErrorText(lang i18n.Language, err error) (string, bool) {
+	if err == nil {
+		return "", false
+	}
+	if de, ok := err.(*domain.Error); ok {
+		return i18n.Message(lang, string(de.MsgID), de.Args...), true
+	}
+	if inner := errors.Unwrap(err); inner != nil {
+		s, ok := localizedErrorText(lang, inner)
+		if !ok {
+			return "", false
 		}
+		return strings.Replace(err.Error(), inner.Error(), s, 1), true
 	}
-	if de == nil {
-		return err.Error()
+	if joiner, ok := err.(interface{ Unwrap() []error }); ok {
+		out := err.Error()
+		from, found := 0, false
+		for _, child := range joiner.Unwrap() {
+			if child == nil {
+				continue
+			}
+			s, ok := localizedErrorText(lang, child)
+			if !ok {
+				continue
+			}
+			found = true
+			canonical := child.Error()
+			i := strings.Index(out[from:], canonical)
+			if i < 0 {
+				return err.Error(), true
+			}
+			i += from
+			out = out[:i] + s + out[i+len(canonical):]
+			from = i + len(s)
+		}
+		if found {
+			return out, true
+		}
+		return "", false
 	}
-	loc := i18n.Message(lang, string(de.MsgID), de.Args...)
-	return strings.Replace(err.Error(), de.Message, loc, 1)
+	return "", false
 }

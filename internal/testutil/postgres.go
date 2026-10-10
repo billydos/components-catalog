@@ -4,12 +4,19 @@
 package testutil
 
 import (
+	"context"
 	"database/sql"
 	"os"
+	"strings"
 	"testing"
+	"time"
 
 	_ "github.com/jackc/pgx/v5/stdlib"
 )
+
+// dropTimeout — бюджет одного DROP очистки: висячий сервер не держит
+// тест до внешнего таймаута прогона.
+const dropTimeout = 30 * time.Second
 
 // PostgresDSN возвращает DSN локального тестового PostgreSQL либо пропускает
 // тест (без переменной окружения прогон PostgreSQL опционален — docs/plan/05
@@ -60,17 +67,30 @@ var catalogTables = []string{
 }
 
 // DropAllTables очищает одноразовую тестовую базу PostgreSQL между прогонами
-// (схема создаётся заново EnsureCreated).
+// (схема создаётся заново EnsureCreated). DROP идёт с таймаутом на каждый
+// оператор, текст ошибки маскирует DSN — сообщение драйвера может включать
+// строку подключения целиком.
 func DropAllTables(t *testing.T, dsn string) {
 	t.Helper()
 	db, err := sql.Open("pgx", dsn)
 	if err != nil {
-		t.Fatalf("postgres cleanup: %v", err)
+		t.Fatalf("postgres cleanup: %v", maskDSNIn(err.Error(), dsn))
 	}
 	defer db.Close()
 	for _, tbl := range catalogTables {
-		if _, err := db.Exec("DROP TABLE IF EXISTS " + tbl + " CASCADE"); err != nil {
-			t.Fatalf("postgres cleanup %s: %v", tbl, err)
+		ctx, cancel := context.WithTimeout(context.Background(), dropTimeout)
+		_, err := db.ExecContext(ctx, "DROP TABLE IF EXISTS "+tbl+" CASCADE")
+		cancel()
+		if err != nil {
+			t.Fatalf("postgres cleanup %s: %v", tbl, maskDSNIn(err.Error(), dsn))
 		}
 	}
+}
+
+// maskDSNIn заменяет вхождения DSN замаскированной формой.
+func maskDSNIn(msg, dsn string) string {
+	if dsn == "" {
+		return msg
+	}
+	return strings.ReplaceAll(msg, dsn, maskDSN(dsn))
 }

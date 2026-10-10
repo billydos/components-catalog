@@ -35,7 +35,17 @@ type PendingDesignations func(kind domain.Kind, designation string) bool
 // ревизий) → применение секций целиком + инкремент data_revision.
 // Ошибка в любом значении секции — запись не применяется вовсе.
 func (s *DeviceService) Upsert(ctx context.Context, in DeviceInput) (Outcome, error) {
-	return s.applyUpsert(ctx, in, nil, nil, true)
+	return s.applyUpsert(ctx, in, nil, nil, true, false)
+}
+
+// Create применяет запись наполнения только как создание (POST REST):
+// тот же конвейер проверок, что Upsert, но существующая запись
+// (kind, designation) — найденная в транзакции либо столкнувшаяся
+// по уникальному ключу при вставке (параллельный создатель) — отказ
+// already_exists без применения секций и без изменения базы: 409
+// перестаёт мутировать по построению.
+func (s *DeviceService) Create(ctx context.Context, in DeviceInput) (Outcome, error) {
+	return s.applyUpsert(ctx, in, nil, nil, true, true)
 }
 
 // DryRun проверяет запись наполнения без изменения базы и возвращает
@@ -45,11 +55,11 @@ func (s *DeviceService) Upsert(ctx context.Context, in DeviceInput) (Outcome, er
 // pending разрешает ссылки на обозначения, создаваемые этим же прогоном.
 func (s *DeviceService) DryRun(ctx context.Context, in DeviceInput, snap *catalog.Snapshot,
 	pending PendingDesignations) (Outcome, error) {
-	return s.applyUpsert(ctx, in, snap, pending, false)
+	return s.applyUpsert(ctx, in, snap, pending, false, false)
 }
 
 func (s *DeviceService) applyUpsert(ctx context.Context, in DeviceInput,
-	snapOverride *catalog.Snapshot, pending PendingDesignations, write bool) (Outcome, error) {
+	snapOverride *catalog.Snapshot, pending PendingDesignations, write, createOnly bool) (Outcome, error) {
 	if strings.TrimSpace(in.Name) == "" {
 		return "", domain.NewErrorf(domain.CodeValidationFailed, domain.MsgSvcRecordNameMissing)
 	}
@@ -108,6 +118,10 @@ func (s *DeviceService) applyUpsert(ctx context.Context, in DeviceInput,
 	if err != nil {
 		return "", err
 	}
+	if dev != nil && createOnly {
+		return "", domain.NewErrorf(domain.CodeAlreadyExists,
+			domain.MsgSvcRecordAlreadyExists, p.Designation)
+	}
 
 	var analogs []resolvedAnalog
 	if in.Analogs != nil {
@@ -152,25 +166,35 @@ func (s *DeviceService) applyUpsert(ctx context.Context, in DeviceInput,
 		if !write {
 			return OutcomeAdded, nil // записи нет — откатит defer (транзакция без DML)
 		}
-		return OutcomeAdded, s.writeUpsert(ctx, tx, 0, p, in, cur, merged, explicit, analogs, snap)
+		return OutcomeAdded, s.writeUpsert(ctx, tx, 0, p, in, cur, merged, explicit, analogs, snap, createOnly)
 	}
 	if !write {
 		return OutcomeUpdatedExisting, nil // откатит defer (транзакция без DML)
 	}
-	return OutcomeUpdatedExisting, s.writeUpsert(ctx, tx, dev.ID, p, in, cur, merged, explicit, analogs, snap)
+	return OutcomeUpdatedExisting, s.writeUpsert(ctx, tx, dev.ID, p, in, cur, merged, explicit, analogs, snap, false)
 }
 
 // writeUpsert применяет слитое состояние записи в БД (секции целиком)
-// и инкрементирует data_revision. Явные классификационные поля (explicit):
-// при создании дополняют продукты разбора, при обновлении заменяют прежний
-// набор (удаляются имена прежних и новых явных полей, вставляются новые).
+// и инкрементирует data_revision. Инвариант полей: хранимые поля =
+// продукты разбора обозначения ∪ явные классификационные поля (explicit):
+// при создании оба набора вставляются; при обновлении перезаписываются —
+// удаляются имена объединения (прошлые хранимые ∪ новые продукты ∪
+// явные поля), вставляются новые продукты разбора и действующие явные
+// поля (при заданной секции fields устаревшие продукты прежней
+// грамматики удаляются; без секции поля, ставшие явными, сохраняются).
 func (s *DeviceService) writeUpsert(ctx context.Context, tx *storage.Tx, deviceID int64,
 	p domain.ParsedDesignation, in DeviceInput, cur, merged *deviceState,
-	explicit []domain.Field, analogs []resolvedAnalog, snap *catalog.Snapshot) error {
+	explicit []domain.Field, analogs []resolvedAnalog, snap *catalog.Snapshot, createOnly bool) error {
 	if deviceID == 0 {
-		id, _, err := tx.InsertDevice(ctx, p.Kind, p.System, p.Designation)
+		id, inserted, err := tx.InsertDevice(ctx, p.Kind, p.System, p.Designation)
 		if err != nil {
 			return err
+		}
+		if !inserted && createOnly {
+			// Запись появилась между проверкой в транзакции и вставкой
+			// (параллельный создатель) — откат без применения секций.
+			return domain.NewErrorf(domain.CodeAlreadyExists,
+				domain.MsgSvcRecordAlreadyExists, p.Designation)
 		}
 		deviceID = id
 		if err := tx.InsertDesignationFields(ctx, deviceID, p.Fields); err != nil {
@@ -181,13 +205,21 @@ func (s *DeviceService) writeUpsert(ctx context.Context, tx *storage.Tx, deviceI
 				return err
 			}
 		}
-	} else if in.Fields != nil {
+	} else {
+		keptExplicit := explicit
+		if in.Fields == nil {
+			keptExplicit = cur.fields // секция не задана — явные поля сохраняются
+		}
+		pastNames := append(append([]domain.Field(nil), cur.fields...), keptExplicit...)
 		if err := tx.DeleteDesignationFields(ctx, deviceID,
-			fieldNamesUnion(cur.fields, explicit)); err != nil {
+			fieldNamesUnion(p.Fields, pastNames)); err != nil {
 			return err
 		}
-		if len(explicit) > 0 {
-			if err := tx.InsertDesignationFields(ctx, deviceID, explicit); err != nil {
+		if err := tx.InsertDesignationFields(ctx, deviceID, p.Fields); err != nil {
+			return err
+		}
+		if len(keptExplicit) > 0 {
+			if err := tx.InsertDesignationFields(ctx, deviceID, keptExplicit); err != nil {
 				return err
 			}
 		}
@@ -449,9 +481,19 @@ func (s *DeviceService) GetByIDs(ctx context.Context, ids []int64) ([]*Card, err
 	return s.buildCards(ctx, snap, ids)
 }
 
+// ListIDsByKind перечисляет id записей класса в порядке (designation)
+// одним запросом — последовательная выгрузка без дрейфа страниц
+// (параллельные вставки/удаления не дают дубли и пропуски выборки).
+func (s *DeviceService) ListIDsByKind(ctx context.Context, kind domain.Kind) ([]int64, error) {
+	return s.app.db.ListDeviceIDsByKind(ctx, kind)
+}
+
 // Delete удаляет запись (каскад из devices по всем дочерним таблицам,
 // включая обе стороны device_analogs) с чисткой сирот производителей;
-// false — запись не найдена. Удаление инкрементирует data_revision.
+// false — запись не найдена. Удаление атомарно по ключу в транзакции
+// записи (без окна между поиском и удалением): конкурентное удаление
+// того же обозначения оставляет этот вызов без «пустого» успеха и без
+// инкремента ревизии. Удаление инкрементирует data_revision.
 func (s *DeviceService) Delete(ctx context.Context, kind domain.Kind, designation string) (bool, error) {
 	if kind != "" && !kind.IsValid() {
 		return false, domain.NewErrorf(domain.CodeValidationFailed, domain.MsgKindUnknown, string(kind))
@@ -460,25 +502,22 @@ func (s *DeviceService) Delete(ctx context.Context, kind domain.Kind, designatio
 	if err != nil {
 		return false, err
 	}
-	var dev *storage.DeviceRow
-	if kind != "" {
-		dev, err = s.app.db.FindDevice(ctx, kind, canonical)
-	} else {
-		dev, err = s.app.db.FindDeviceAnyKind(ctx, canonical)
-	}
-	if err != nil {
-		return false, err
-	}
-	if dev == nil {
-		return false, nil
-	}
 	tx, err := s.app.db.Begin(ctx)
 	if err != nil {
 		return false, err
 	}
 	defer tx.Rollback() //nolint:errcheck — откат нефиксированной транзакции
-	if err := tx.DeleteDevice(ctx, dev.ID); err != nil {
+	var rows int64
+	if kind != "" {
+		rows, err = tx.DeleteDeviceByKey(ctx, kind, canonical)
+	} else {
+		rows, err = tx.DeleteDeviceAnyKindByKey(ctx, canonical)
+	}
+	if err != nil {
 		return false, err
+	}
+	if rows == 0 {
+		return false, nil
 	}
 	if err := tx.BumpDataRevision(ctx); err != nil {
 		return false, err

@@ -72,13 +72,83 @@ func appendDSNParam(dsn, param string) string {
 // точечные запросы; оценка стоимости плана параметрического поиска,
 // раздутая коррелированными EXISTS вариантной семантики, переваливает за
 // jit_threshold (100 тыс.), и LLVM-компиляция стоит на слабых CPU сотни
-// мс при десятках мс выполнения (измерения — qa/reports). Явный jit= в
-// DSN не перекрывается.
+// мс при десятках мс выполнения (измерения — qa/reports). Явно заданный
+// jit= (ключ параметра DSN, а не подстрока пароля) не перекрывается.
 func withJitDisabled(dsn string) string {
-	if strings.Contains(dsn, "jit=") {
+	if dsnJitSet(dsn) {
 		return dsn
 	}
 	return appendDSNParam(dsn, "jit=off")
+}
+
+// dsnSpaces — разделители пар ключевой формы DSN (как в разборе pgx).
+const dsnSpaces = " \t\n\r\v\f"
+
+func isDsnSpace(c byte) bool { return strings.IndexByte(dsnSpaces, c) >= 0 }
+
+// dsnJitSet сообщает, задан ли jit= в DSN явно — как параметр, а не
+// подстрока учётных данных. URL-форма: ключ строки запроса — сразу после
+// «?» или «&». Ключевая форма: имя пары «ключ=значение» по правилам
+// разбора pgx (пробелы вокруг «=» допускаются; пробелы внутри значения —
+// только в кавычках '…' или после экранирующего «\» — там границы ключа
+// не возникает).
+func dsnJitSet(dsn string) bool {
+	if strings.Contains(dsn, "://") {
+		return strings.Contains(dsn, "?jit=") || strings.Contains(dsn, "&jit=")
+	}
+	s := strings.TrimLeft(dsn, dsnSpaces)
+	for len(s) > 0 {
+		eq := strings.IndexByte(s, '=')
+		if eq < 0 {
+			return false
+		}
+		if key := strings.TrimRight(s[:eq], dsnSpaces); key == "jit" {
+			return true
+		}
+		s = strings.TrimLeft(s[eq+1:], dsnSpaces)
+		if len(s) == 0 {
+			return false
+		}
+		if s[0] == '\'' {
+			s = skipQuotedValue(s[1:])
+		} else {
+			s = skipUnquotedValue(s)
+		}
+		s = strings.TrimLeft(s, dsnSpaces)
+	}
+	return false
+}
+
+// skipUnquotedValue пропускает незакавыченное значение ключевой формы
+// (до разделителя-пробела; «\» экранирует следующий символ, включая
+// пробел).
+func skipUnquotedValue(s string) string {
+	for len(s) > 0 && !isDsnSpace(s[0]) {
+		if s[0] == '\\' && len(s) > 1 {
+			s = s[2:]
+			continue
+		}
+		s = s[1:]
+	}
+	return s
+}
+
+// skipQuotedValue пропускает закавыченное значение до закрывающей
+// кавычки («\» экранирует); незакрытая кавычка — до конца строки (такой
+// DSN всё равно отвергается драйвером при разборе).
+func skipQuotedValue(s string) string {
+	for len(s) > 0 {
+		if s[0] == '\\' && len(s) > 1 {
+			s = s[2:]
+			continue
+		}
+		c := s[0]
+		s = s[1:]
+		if c == '\'' {
+			break
+		}
+	}
+	return s
 }
 
 func (postgresDialect) Open(ctx context.Context, cfg Config) (*pools, error) {

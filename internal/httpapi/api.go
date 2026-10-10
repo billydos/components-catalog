@@ -4,8 +4,10 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"hash/fnv"
 	"log/slog"
 	"net/http"
+	"net/url"
 	"sort"
 	"strings"
 	"time"
@@ -40,17 +42,28 @@ type API struct {
 	app     *service.App
 	log     *slog.Logger
 	metrics Metrics
-	suggest bool
+	routes  []route
 }
 
 // New создаёт API над приложением. Приложение остаётся открытым на стороне
-// сайта (App.Close — обязанность владельца).
+// сайта (App.Close — обязанность владельца). Набор маршрутов строится
+// один раз (suggest отключается конфигурацией — исключается из набора).
 func New(app *service.App, cfg Config) *API {
 	log := cfg.Log
 	if log == nil {
 		log = slog.Default()
 	}
-	return &API{app: app, log: log, metrics: cfg.Metrics, suggest: !cfg.DisableSuggest}
+	rts := routes
+	if cfg.DisableSuggest {
+		rts = make([]route, 0, len(routes))
+		for _, rt := range routes {
+			if rt.op == "suggest" {
+				continue
+			}
+			rts = append(rts, rt)
+		}
+	}
+	return &API{app: app, log: log, metrics: cfg.Metrics, routes: rts}
 }
 
 // Handler возвращает http.Handler REST /api/v1 для монтирования в роутер
@@ -96,19 +109,10 @@ func init() {
 	}
 }
 
-// activeRoutes — маршруты с учётом конфигурации (suggest отключаемый).
+// activeRoutes — маршруты с учётом конфигурации (набор построен один
+// раз при создании API: suggest отключаемый).
 func (a *API) activeRoutes() []route {
-	if a.suggest {
-		return routes
-	}
-	out := make([]route, 0, len(routes))
-	for _, r := range routes {
-		if r.op == "suggest" {
-			continue
-		}
-		out = append(out, r)
-	}
-	return out
+	return a.routes
 }
 
 // opContextKey — ключ slog-контекста запроса (операция маршрута).
@@ -129,11 +133,15 @@ type responseWriter struct {
 	wrote   bool
 }
 
+// WriteHeader записывает статус один раз: повторный вызов игнорируется
+// целиком (включая нижележащий writer — без superfluous WriteHeader);
+// защита собственного учёта и recover после частичной записи ответа.
 func (w *responseWriter) WriteHeader(status int) {
-	if !w.wrote {
-		w.status = status
-		w.wrote = true
+	if w.wrote {
+		return
 	}
+	w.status = status
+	w.wrote = true
 	w.ResponseWriter.WriteHeader(status)
 }
 
@@ -267,16 +275,11 @@ func (a *API) allowedMethods(segments []string) []string {
 	return out
 }
 
-// Тексты транспортных сообщений — контракт (как тексты домена);
-// закреплены тестами дословно.
-const ()
-
 // errorBody — модель ошибки REST (docs/plan/04-module-functionality.md §2):
-// машиночитаемый код, русский текст и необязательные подробности.
+// машиночитаемый код и текст сообщения.
 type errorBody struct {
-	Code    string   `json:"code"`
-	Message string   `json:"message"`
-	Details []string `json:"details,omitempty"`
+	Code    string `json:"code"`
+	Message string `json:"message"`
 }
 
 // writeJSON — JSON-ответ (UTF-8).
@@ -304,7 +307,7 @@ func (a *API) writeError(w *responseWriter, r *http.Request, status int, code do
 func (a *API) writeDomainErr(w *responseWriter, r *http.Request, err error, inQuery bool) {
 	de, ok := domain.AsError(err)
 	if !ok {
-		a.writeErr(w, err)
+		a.writeErr(w, r, err)
 		return
 	}
 	w.fail(de.Code)
@@ -315,13 +318,16 @@ func (a *API) writeDomainErr(w *responseWriter, r *http.Request, err error, inQu
 }
 
 // writeErr — неожидаемая ошибка: 500 internal_error с фиксированным
-// текстом (технический текст — только в журнале error уровня; наружу
-// детали инфраструктуры не отдаются), журнал error.
-func (a *API) writeErr(w *responseWriter, err error) {
+// текстом по локали запроса, как соседние ошибки (D9; технический
+// текст — только в журнале error уровня; наружу детали инфраструктуры
+// не отдаются), журнал error.
+func (a *API) writeErr(w *responseWriter, r *http.Request, err error) {
 	a.log.Error("непредвиденная ошибка REST", "error", err)
 	w.fail(domain.CodeInternal)
-	writeJSON(w, http.StatusInternalServerError,
-		errorBody{Code: string(domain.CodeInternal), Message: domain.Msgf(domain.MsgApiPanic)})
+	writeJSON(w, http.StatusInternalServerError, errorBody{
+		Code:    string(domain.CodeInternal),
+		Message: i18n.Message(requestLang(r), string(domain.MsgApiPanic)),
+	})
 }
 
 // statusFor — HTTP-статус по коду ошибки (план 04 §2: 400/404/409/422/500).
@@ -351,9 +357,34 @@ func statusFor(code domain.Code, inQuery bool) int {
 	return http.StatusUnprocessableEntity
 }
 
-// setETag — сильный ETag ревизии («catalog-<n>» / «data-<n>»).
-func setETag(w *responseWriter, kind string, rev int64) {
-	w.Header().Set("ETag", fmt.Sprintf(`"%s-%d"`, kind, rev))
+// catalogETag — сильный ETag снимка каталога по catalog_revision
+// («catalog-<n>»).
+func catalogETag(rev int64) string {
+	return fmt.Sprintf(`"catalog-%d"`, rev)
+}
+
+// searchETag — сильный ETag страницы поиска: data_revision и хэш
+// канонической строки запроса («data-<n>-<hash>»): имена параметров
+// отсортированы, пары name=value через «&» (повторные параметры
+// отвергаются разбором — значения одиночные). ETag идентифицирует
+// представление конкретного запроса, а не любые фильтры с той же
+// ревизией (RFC 9110); hash — FNV-1a 64.
+func searchETag(dataRev int64, values url.Values) string {
+	names := make([]string, 0, len(values))
+	for name := range values {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	h := fnv.New64a()
+	for i, name := range names {
+		if i > 0 {
+			h.Write([]byte{'&'})
+		}
+		h.Write([]byte(name))
+		h.Write([]byte{'='})
+		h.Write([]byte(values[name][0]))
+	}
+	return fmt.Sprintf(`"data-%d-%016x"`, dataRev, h.Sum64())
 }
 
 // etagMatch — If-None-Match совпадает с ETag (точное значение либо «*»).

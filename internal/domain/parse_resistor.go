@@ -162,15 +162,19 @@ func readHyphen(s *scanner) error {
 	return nil
 }
 
-// readDevNumber читает номер разработки — до max цифр, без ведущего нуля.
+// readDevNumber читает номер разработки — до max цифр, без ведущего нуля;
+// ведущий ноль и превышение разрядности — отдельные сообщения.
 func readDevNumber(s *scanner, max int) (int, error) {
 	start := s.i
 	run, n := s.digits()
 	if n == 0 {
 		return 0, s.fail(MsgExpectDevNumber)
 	}
-	if n > max || run[0] == '0' {
+	if run[0] == '0' {
 		return 0, NewErrorf(CodeInvalidDesignation, MsgDevNumberZeros, s.text(), start+1, max, run)
+	}
+	if n > max {
+		return 0, NewErrorf(CodeInvalidDesignation, MsgDevNumberDigits, s.text(), start+1, max, run)
 	}
 	return mustAtoi(run), nil
 }

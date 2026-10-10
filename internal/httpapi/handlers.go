@@ -2,7 +2,6 @@ package httpapi
 
 import (
 	"errors"
-	"fmt"
 	"io"
 	"net/http"
 	"strconv"
@@ -41,8 +40,8 @@ func (a *API) handleCatalog(w *responseWriter, r *http.Request, _ map[string]str
 		a.writeDomainErr(w, r, err, true)
 		return
 	}
-	etag := fmt.Sprintf(`"catalog-%d"`, snap.Revision)
-	setETag(w, "catalog", snap.Revision)
+	etag := catalogETag(snap.Revision)
+	w.Header().Set("ETag", etag)
 	if etagMatch(r, etag) {
 		w.WriteHeader(http.StatusNotModified)
 		return
@@ -72,26 +71,34 @@ func (a *API) handleStats(w *responseWriter, r *http.Request, _ map[string]strin
 }
 
 // handleSearch — GET /api/v1/components: подстрока обозначения, система,
-// фильтры полей/атрибутов/параметров, сортировка, пагинация; ETag по
-// data_revision.
+// фильтры полей/атрибутов/параметров, сортировка, пагинация; ETag —
+// data_revision и хэш канонической строки запроса (разные фильтры —
+// разные ETag). Разбор параметров и сервисная валидация запроса — строго
+// до проверки ETag: ошибки 400 (транспортные и семантические) приоритетнее
+// отсечения 304, в том числе для If-None-Match: *.
 func (a *API) handleSearch(w *responseWriter, r *http.Request, _ map[string]string) {
 	snap, err := a.app.Snapshot(r.Context())
 	if err != nil {
 		a.writeDomainErr(w, r, err, true)
 		return
 	}
-	q, err := parseSearchQuery(r, snap)
+	values := r.URL.Query()
+	q, err := parseSearchQuery(values, snap)
 	if err != nil {
+		a.writeDomainErr(w, r, err, true)
+		return
+	}
+	if err := a.app.Services().Devices.ValidateSearch(r.Context(), q); err != nil {
 		a.writeDomainErr(w, r, err, true)
 		return
 	}
 	_, dataRev, err := a.app.Revisions(r.Context())
 	if err != nil {
-		a.writeErr(w, err)
+		a.writeErr(w, r, err)
 		return
 	}
-	etag := fmt.Sprintf(`"data-%d"`, dataRev)
-	setETag(w, "data", dataRev)
+	etag := searchETag(dataRev, values)
+	w.Header().Set("ETag", etag)
 	if etagMatch(r, etag) {
 		w.WriteHeader(http.StatusNotModified)
 		return
@@ -149,13 +156,18 @@ func (a *API) handleGetByID(w *responseWriter, r *http.Request, params map[strin
 // handleSuggest — GET /api/v1/suggest: автодополнение по префиксу
 // обозначения (хендлер отключается конфигурацией — не монтируется).
 func (a *API) handleSuggest(w *responseWriter, r *http.Request, _ map[string]string) {
-	q := r.URL.Query().Get("q")
+	values := r.URL.Query()
+	if err := rejectDuplicateParams(values, "q", "kind", "limit"); err != nil {
+		a.writeDomainErr(w, r, err, true)
+		return
+	}
+	q := values.Get("q")
 	if q == "" {
 		a.writeError(w, r, http.StatusBadRequest, domain.CodeValidationFailed, domain.MsgApiQMissing)
 		return
 	}
-	kind := domain.Kind(r.URL.Query().Get("kind"))
-	limit, exists, err := queryLimit(r.URL.Query()["limit"], service.SuggestLimitMax)
+	kind := domain.Kind(values.Get("kind"))
+	limit, exists, err := queryLimit(values["limit"], service.SuggestLimitMax)
 	if err != nil {
 		a.writeDomainErr(w, r, err, true)
 		return
@@ -180,7 +192,9 @@ func (a *API) handleSuggest(w *responseWriter, r *http.Request, _ map[string]str
 // handleCreate — POST /api/v1/components: создание; тело — запись
 // наполнения (name/system + секции), класс — автодетект по обозначению
 // (для system other создание адресуется PUT с классом в пути).
-// Существующий (kind, designation) — 409 already_exists.
+// Существующий (kind, designation) — 409 already_exists без изменения
+// записи: сервисный Create атомарно отказывает (гонка параллельных POST
+// не применяет секций проигравшего к чужой записи).
 func (a *API) handleCreate(w *responseWriter, r *http.Request, _ map[string]string) {
 	in, err := a.readRecordBody(w, r)
 	if err != nil {
@@ -192,29 +206,19 @@ func (a *API) handleCreate(w *responseWriter, r *http.Request, _ map[string]stri
 		a.writeDomainErr(w, r, err, false)
 		return
 	}
-	if _, found, gerr := a.app.Services().Devices.Get(r.Context(), p.Kind, p.Designation); gerr != nil {
-		a.writeErr(w, gerr)
-		return
-	} else if found {
-		a.writeError(w, r, http.StatusConflict, domain.CodeAlreadyExists,
-			domain.MsgApiAlreadyExists, p.Designation)
-		return
-	}
-	outcome, err := a.app.Services().Devices.Upsert(r.Context(), in)
+	outcome, err := a.app.Services().Devices.Create(r.Context(), in)
 	if err != nil {
 		a.writeDomainErr(w, r, err, false)
 		return
 	}
-	if outcome != service.OutcomeAdded {
-		// Запись появилась между проверкой Get и применением (гонка
-		// создания) — существующий (kind, designation) отвечает 409.
-		a.writeError(w, r, http.StatusConflict, domain.CodeAlreadyExists,
-			domain.MsgApiAlreadyExists, p.Designation)
+	card, found, err := a.app.Services().Devices.Get(r.Context(), p.Kind, p.Designation)
+	if err != nil {
+		a.writeErr(w, r, err)
 		return
 	}
-	card, found, err := a.app.Services().Devices.Get(r.Context(), p.Kind, p.Designation)
-	if err != nil || !found {
-		a.writeErr(w, err)
+	if !found {
+		a.writeError(w, r, http.StatusNotFound, domain.CodeNotFound,
+			domain.MsgApiCardNotFound, p.Designation)
 		return
 	}
 	writeJSON(w, http.StatusCreated, upsertResponseJSON{Outcome: string(outcome), Card: cardToJSON(requestLang(r), card)})
@@ -255,8 +259,15 @@ func (a *API) handlePut(w *responseWriter, r *http.Request, params map[string]st
 		return
 	}
 	card, found, err := a.app.Services().Devices.Get(r.Context(), kind, pathDesignation)
-	if err != nil || !found {
-		a.writeErr(w, err)
+	if err != nil {
+		a.writeErr(w, r, err)
+		return
+	}
+	if !found {
+		// Запись удалена между применением и чтением карточки — 404,
+		// как соседние пути (не внутренняя ошибка с nil-текстом).
+		a.writeError(w, r, http.StatusNotFound, domain.CodeNotFound,
+			domain.MsgApiCardNotFound, pathDesignation)
 		return
 	}
 	writeJSON(w, http.StatusOK, upsertResponseJSON{Outcome: string(outcome), Card: cardToJSON(requestLang(r), card)})

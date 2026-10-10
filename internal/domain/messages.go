@@ -18,6 +18,7 @@ const (
 	MsgDatabaseNotInitialized MsgID = "database_not_initialized"
 	MsgKindNotSupported       MsgID = "kind_not_supported"
 	MsgKindAmbiguous          MsgID = "kind_ambiguous"
+	MsgKindRequired           MsgID = "kind_required"
 
 	MsgEmptyDesignation MsgID = "empty_designation"
 
@@ -26,15 +27,17 @@ const (
 	MsgScannerToken      MsgID = "scanner_token"
 	MsgScannerEof        MsgID = "scanner_eof"
 
-	MsgKindUnknown     MsgID = "kind_unknown"
-	MsgSystemUnknown   MsgID = "system_unknown"
-	MsgFamilyUnknown   MsgID = "family_unknown"
-	MsgUnknownMaterial MsgID = "unknown_material"
-	MsgUnknownSubclass MsgID = "unknown_subclass"
-	MsgUnknownAdjust   MsgID = "unknown_adjustment"
-	MsgUnknownCategory MsgID = "unknown_category"
-	MsgPowerSuffix     MsgID = "power_suffix"
-	MsgDevNumberZeros  MsgID = "dev_number_leading_zero"
+	MsgKindUnknown       MsgID = "kind_unknown"
+	MsgSystemUnknown     MsgID = "system_unknown"
+	MsgFamilyUnknown     MsgID = "family_unknown"
+	MsgFamiliesAllScopes MsgID = "families_all_scopes"
+	MsgUnknownMaterial   MsgID = "unknown_material"
+	MsgUnknownSubclass   MsgID = "unknown_subclass"
+	MsgUnknownAdjust     MsgID = "unknown_adjustment"
+	MsgUnknownCategory   MsgID = "unknown_category"
+	MsgPowerSuffix       MsgID = "power_suffix"
+	MsgDevNumberZeros    MsgID = "dev_number_leading_zero"
+	MsgDevNumberDigits   MsgID = "dev_number_digits"
 
 	MsgCanonicalAlphabetMix MsgID = "canonical_alphabet_mix"
 	MsgCanonicalBadRune     MsgID = "canonical_bad_rune"
@@ -253,6 +256,7 @@ const (
 	MsgImportFormatUnknown            MsgID = "import_format_unknown"
 	MsgImportFormatByExt              MsgID = "import_format_by_ext"
 	MsgImportFormatLineOnly           MsgID = "import_format_line_only"
+	MsgImportYamlNonFinite            MsgID = "import_yaml_non_finite"
 	MsgImportNdjsonLineError          MsgID = "import_ndjson_line_error"
 	MsgImportSyntaxError              MsgID = "import_syntax_error"
 	MsgImportCatalogRecordsMixed      MsgID = "import_catalog_records_mixed"
@@ -281,6 +285,7 @@ const (
 
 	// Сообщения сервисного слоя (internal/service).
 	MsgSvcRecordNameMissing     MsgID = "svc_record_name_missing"
+	MsgSvcRecordAlreadyExists   MsgID = "svc_record_already_exists"
 	MsgSvcSectionUnknown        MsgID = "svc_section_unknown"
 	MsgSvcSectionMissing        MsgID = "svc_section_missing"
 	MsgSvcSectionDuplicate      MsgID = "svc_section_duplicate"
@@ -320,6 +325,7 @@ const (
 	MsgApiOffsetNonNeg        MsgID = "api_offset_non_negative"
 	MsgApiSortKey             MsgID = "api_sort_key_unknown"
 	MsgApiQueryParamUnknown   MsgID = "api_query_param_unknown"
+	MsgApiParamDuplicate      MsgID = "api_param_duplicate"
 	MsgApiNumberParam         MsgID = "api_number_param"
 	MsgApiBoolAttrFilter      MsgID = "api_bool_attr_filter"
 	MsgInternalError          MsgID = "internal_error"
@@ -327,6 +333,7 @@ const (
 	// Интерфейсные строки CLI (internal/cli).
 	MsgCliUnknownCommand    MsgID = "cli_unknown_command"
 	MsgCliArgCount          MsgID = "cli_arg_count"
+	MsgCliHelpArgs          MsgID = "cli_help_args"
 	MsgCliUnknownFlag       MsgID = "cli_unknown_flag"
 	MsgCliFlagValueRequired MsgID = "cli_flag_value_required"
 	MsgCliFlagNoValue       MsgID = "cli_flag_no_value"
@@ -341,6 +348,7 @@ const (
 	MsgCliCatalogListArgs   MsgID = "cli_catalog_list_args"
 	MsgCliCatalogSubUnknown MsgID = "cli_catalog_subcommand_unknown"
 	MsgCliFileOpen          MsgID = "cli_file_open"
+	MsgCliFileWrite         MsgID = "cli_file_write"
 	MsgCliErrPrefix         MsgID = "cli_err_prefix"
 	MsgCliUnexpectedPrefix  MsgID = "cli_unexpected_prefix"
 	MsgCliDbInitialized     MsgID = "cli_db_initialized"
@@ -385,6 +393,7 @@ var msgRegistry = map[MsgID]struct{}{
 	MsgDatabaseNotInitialized: {},
 	MsgKindNotSupported:       {},
 	MsgKindAmbiguous:          {},
+	MsgKindRequired:           {},
 
 	MsgEmptyDesignation: {},
 
@@ -393,15 +402,17 @@ var msgRegistry = map[MsgID]struct{}{
 	MsgScannerToken:      {},
 	MsgScannerEof:        {},
 
-	MsgKindUnknown:     {},
-	MsgSystemUnknown:   {},
-	MsgFamilyUnknown:   {},
-	MsgUnknownMaterial: {},
-	MsgUnknownSubclass: {},
-	MsgUnknownAdjust:   {},
-	MsgUnknownCategory: {},
-	MsgPowerSuffix:     {},
-	MsgDevNumberZeros:  {},
+	MsgKindUnknown:       {},
+	MsgSystemUnknown:     {},
+	MsgFamilyUnknown:     {},
+	MsgFamiliesAllScopes: {},
+	MsgUnknownMaterial:   {},
+	MsgUnknownSubclass:   {},
+	MsgUnknownAdjust:     {},
+	MsgUnknownCategory:   {},
+	MsgPowerSuffix:       {},
+	MsgDevNumberZeros:    {},
+	MsgDevNumberDigits:   {},
 
 	MsgCanonicalAlphabetMix: {},
 	MsgCanonicalBadRune:     {},
@@ -615,6 +626,7 @@ var msgRegistry = map[MsgID]struct{}{
 	MsgImportFormatUnknown:            {},
 	MsgImportFormatByExt:              {},
 	MsgImportFormatLineOnly:           {},
+	MsgImportYamlNonFinite:            {},
 	MsgImportNdjsonLineError:          {},
 	MsgImportSyntaxError:              {},
 	MsgImportCatalogRecordsMixed:      {},
@@ -639,6 +651,7 @@ var msgRegistry = map[MsgID]struct{}{
 	MsgImportCatalogPlain:             {},
 	MsgImportNdjsonSubsection:         {},
 	MsgSvcRecordNameMissing:           {},
+	MsgSvcRecordAlreadyExists:         {},
 	MsgSvcSectionUnknown:              {},
 	MsgSvcSectionMissing:              {},
 	MsgSvcSectionDuplicate:            {},
@@ -676,11 +689,13 @@ var msgRegistry = map[MsgID]struct{}{
 	MsgApiOffsetNonNeg:                {},
 	MsgApiSortKey:                     {},
 	MsgApiQueryParamUnknown:           {},
+	MsgApiParamDuplicate:              {},
 	MsgApiNumberParam:                 {},
 	MsgApiBoolAttrFilter:              {},
 	MsgInternalError:                  {},
 	MsgCliUnknownCommand:              {},
 	MsgCliArgCount:                    {},
+	MsgCliHelpArgs:                    {},
 	MsgCliUnknownFlag:                 {},
 	MsgCliFlagValueRequired:           {},
 	MsgCliFlagNoValue:                 {},
@@ -695,6 +710,7 @@ var msgRegistry = map[MsgID]struct{}{
 	MsgCliCatalogListArgs:             {},
 	MsgCliCatalogSubUnknown:           {},
 	MsgCliFileOpen:                    {},
+	MsgCliFileWrite:                   {},
 	MsgCliErrPrefix:                   {},
 	MsgCliUnexpectedPrefix:            {},
 	MsgCliDbInitialized:               {},

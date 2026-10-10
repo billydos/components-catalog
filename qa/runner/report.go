@@ -15,12 +15,14 @@ import (
 
 // report — журнал прогона: секции, поля, проверки, заметки.
 type report struct {
-	f       *os.File
-	w       *bufio.Writer
-	mirror  io.Writer
-	started time.Time
-	passed  int
-	failed  int
+	f           *os.File
+	w           *bufio.Writer
+	mirror      io.Writer
+	started     time.Time
+	passed      int
+	failed      int
+	cancelled   bool
+	cancelledBy func() bool
 }
 
 // newReport открывает файл отчёта и пишет заголовок формата.
@@ -66,9 +68,33 @@ func (r *report) note(text string) {
 	r.line("note  " + text)
 }
 
+// onCancel подключает источник отмены (ctx прогона): не прошедшие после
+// отмены проверки помечаются заметкой «отменён», а не FAIL — прерванный
+// прогон не выглядит регрессией в закоммиченном отчёте. Опрос источника
+// синхронен с командами, убитыми по контексту, — гонки планировщика
+// между сигналом и записью проверки исключены.
+func (r *report) onCancel(f func() bool) { r.cancelledBy = f }
+
+// isCancelled сообщает, отменён ли прогон.
+func (r *report) isCancelled() bool {
+	if r.cancelled {
+		return true
+	}
+	if r.cancelledBy != nil && r.cancelledBy() {
+		r.cancelled = true
+	}
+	return r.cancelled
+}
+
 // check фиксирует проверку: статус, стабильный идентификатор и описание;
 // строки деталей пишутся только при отказе (что именно разошлось).
+// Проверка, не прошедшая после отмены прогона, помечается пропуском —
+// заметкой с причиной «отменён», без FAIL и счётчиков.
 func (r *report) check(id, desc string, ok bool, details ...string) bool {
+	if !ok && r.isCancelled() {
+		r.line("note  " + id + " — " + desc + ": отменён")
+		return false
+	}
 	status := "ok   "
 	if ok {
 		r.passed++
@@ -102,7 +128,9 @@ func envDetails(res cmdResult, tail int) []string {
 	return details
 }
 
-// finish пишет итоговую секцию и закрывает файл; verdict — PASS/FAIL.
+// finish пишет итоговую секцию и закрывает файл; verdict — PASS/FAIL
+// (отменённые отменой шаги не FAIL; сама отмена отмечается полем
+// cancelled и кодом выхода раника).
 func (r *report) finish() string {
 	verdict := "PASS"
 	if r.failed > 0 {
@@ -112,6 +140,9 @@ func (r *report) finish() string {
 	r.kv("checks", fmt.Sprintf("%d", r.passed+r.failed))
 	r.kv("passed", fmt.Sprintf("%d", r.passed))
 	r.kv("failed", fmt.Sprintf("%d", r.failed))
+	if r.isCancelled() {
+		r.kv("cancelled", "yes")
+	}
 	r.kv("finished", time.Now().Format(time.RFC3339))
 	r.kv("duration", time.Since(r.started).Round(time.Second).String())
 	r.kv("verdict", verdict)

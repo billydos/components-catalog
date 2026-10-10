@@ -74,9 +74,9 @@ func parseTree(data []byte, format Format) (value, error) {
 
 // parseLineJSON разбирает одну строку NDJSON (одна JSON-строка — одна
 // сущность); дубликаты ключей — ошибка разбора, как и в документных
-// форматах.
+// форматах; line — номер строки файла для позиций ошибок.
 func parseLineJSON(data []byte, line int) (value, error) {
-	v, err := decodeJSONValue(data)
+	v, err := decodeJSONValue(data, line)
 	if err != nil {
 		return value{}, lineError(line, err)
 	}
@@ -87,20 +87,6 @@ func parseLineJSON(data []byte, line int) (value, error) {
 func lineError(line int, err error) error {
 	return domain.NewErrorf(domain.CodeInvalidImportFile,
 		domain.MsgImportNdjsonLineError, line, err.Error())
-}
-
-func itoa(n int) string {
-	if n == 0 {
-		return "0"
-	}
-	var buf [20]byte
-	i := len(buf)
-	for n > 0 {
-		i--
-		buf[i] = byte('0' + n%10)
-		n /= 10
-	}
-	return string(buf[i:])
 }
 
 // syntaxError — ошибка синтаксиса формата с указанием формата.

@@ -15,24 +15,31 @@ func usageText(lang i18n.Language) string {
 	return i18n.Message(lang, string(domain.MsgCliUsage))
 }
 
-// runHelp — справка по командам (help [команда] [--lang en|ru]).
+// runHelp — справка по командам (help [команда] [--lang en|ru]): разбор
+// аргументов — общий parseArgs (флаги в любой позиции, формы «--lang X» и
+// «--lang=X», как у прочих команд), команда — первый позиционный аргумент;
+// неизвестная команда и лишние позиционные аргументы — локализованные
+// ошибки выбранной локали.
 func runHelp(args []string, stdout, stderr io.Writer) int {
-	lang := i18n.En
-	for i := 0; i < len(args)-1; i++ {
-		if args[i] == "--lang" {
-			if l, ok := i18n.ParseLanguage(args[i+1]); ok {
-				lang = l
-			}
-		}
+	opts, pos, err := parseArgs("help", []flagSpec{{name: "lang", hasValue: true}}, args)
+	if err != nil {
+		PrintError(stderr, langFromArgs(args), err)
+		return 1
 	}
-	if len(args) == 0 {
+	lang := opts.langOf()
+	if len(pos) == 0 {
 		fmt.Fprint(stdout, usageText(lang))
 		return 0
 	}
-	cmd, ok := commands[args[0]]
+	if len(pos) > 1 {
+		PrintError(stderr, lang, domain.NewErrorf(domain.CodeValidationFailed,
+			domain.MsgCliHelpArgs))
+		return 1
+	}
+	cmd, ok := commands[pos[0]]
 	if !ok {
-		PrintError(stderr, i18n.En, domain.NewErrorf(domain.CodeValidationFailed,
-			domain.MsgCliUnknownCommand, args[0]))
+		PrintError(stderr, lang, domain.NewErrorf(domain.CodeValidationFailed,
+			domain.MsgCliUnknownCommand, pos[0]))
 		return 1
 	}
 	fmt.Fprintf(stdout, "%s catalogctl %s\n", i18n.Message(lang, string(domain.MsgCliUsageWord)), cmd.usage)

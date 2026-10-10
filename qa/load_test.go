@@ -108,8 +108,17 @@ func TestLoad(t *testing.T) {
 		}
 		t.Fatalf("импорт: отвергнуто записей: %d", rep.Rejected)
 	}
-	if rep.Added != scale {
-		t.Fatalf("импорт: added %d записей, ожидалось %d", rep.Added, scale)
+	// Итог — число записей в базе, а не Added одного прогона: повторный
+	// прогон с сохранённым CATALOG_QA_DB не добавляет записей при полном
+	// составе.
+	total, err := app.Services().Devices.Search(ctx, service.SearchQuery{
+		Kind: domain.KindTransistor, Limit: 1,
+	})
+	if err != nil {
+		t.Fatalf("подсчёт записей: %v", err)
+	}
+	if total.Total != scale {
+		t.Fatalf("импорт: в базе %d записей, ожидалось %d", total.Total, scale)
 	}
 	dbLabel := dsn
 	if dialect == "postgres" {
@@ -127,7 +136,10 @@ func TestLoad(t *testing.T) {
 		t.Fatalf("поиск: %v", err)
 	}
 	if len(page.Items) == 0 {
-		t.Fatalf("поиск опорной записи не вернул записей: сценарии ищут подстроку «2N3» — масштаб %d мал, прикидка рассчитана на 10⁴–10⁵", scale)
+		// Генератор начинает номера с 1000: подстрока «2N3» (номера
+		// 3000–3999) появляется с 2001-й записи — малый масштаб не
+		// ошибка прикидки, а её нижняя граница.
+		t.Skipf("поиск опорной записи не вернул записей: сценарии ищут подстроку «2N3» — масштаб %d мал, прикидка рассчитана на 10⁴–10⁵", scale)
 	}
 	probe := page.Items[0]
 

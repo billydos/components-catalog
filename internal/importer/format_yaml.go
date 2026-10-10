@@ -4,8 +4,10 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/billydos/components-catalog/internal/domain"
 	"github.com/goccy/go-yaml/ast"
 	"github.com/goccy/go-yaml/parser"
+	"github.com/goccy/go-yaml/token"
 )
 
 // parseYaml разбирает yaml в дерево value через AST goccy/go-yaml: узлы
@@ -27,6 +29,9 @@ func parseYAML(data []byte) (value, error) {
 		}
 		v, err := yamlToValue(file.Docs[0].Body)
 		if err != nil {
+			if _, ok := domain.AsError(err); ok {
+				return value{}, err // ошибка формата с собственным MsgID
+			}
 			return value{}, syntaxError(FormatYAML, err)
 		}
 		return v, nil
@@ -34,12 +39,27 @@ func parseYAML(data []byte) (value, error) {
 	return value{}, syntaxError(FormatYAML, errors.New("файл содержит несколько yaml-документов, ожидается один"))
 }
 
+// yamlNonFiniteText — текст скаляра YAML, обозначающий не-конечное число
+// (формы ядра YAML с необязательным знаком: .inf/.Inf/.INF, .nan/.NaN/.NAN).
+func yamlNonFiniteText(s string) bool {
+	body := s
+	if len(body) > 0 && (body[0] == '-' || body[0] == '+') {
+		body = body[1:]
+	}
+	switch body {
+	case ".inf", ".Inf", ".INF", ".nan", ".NaN", ".NAN":
+		return true
+	}
+	return false
+}
+
 // yamlConverter конвертирует узлы yaml-AST в value; якоря и алиасы
 // раскрываются в значения: парсер goccy алиасы не разрешает (AliasNode
 // хранит имя, а не узел якоря), поэтому конвертер ведёт реестр якорей
 // документа сам. Циклическая ссылка и алиас без предшествующего якоря —
 // ошибка разбора. Теги и литеральные блоки разворачиваются в обёрнутое
-// значение.
+// значение. Не-конечные числа (inf/nan во всех формах, которые даёт
+// goccy/go-yaml) отвергаются: канонические числа каталога конечны.
 type yamlConverter struct {
 	anchors    map[string]value
 	converting map[string]bool
@@ -47,10 +67,19 @@ type yamlConverter struct {
 
 func yamlToValue(node ast.Node) (value, error) {
 	converter := &yamlConverter{anchors: make(map[string]value), converting: make(map[string]bool)}
-	return converter.convert(node)
+	return converter.convert(node, "")
 }
 
-func (c *yamlConverter) convert(node ast.Node) (value, error) {
+// nonFinite — ошибка формата о не-конечном числе: ключ отображения и
+// позиция токена (как у соседних ошибок формата).
+func (c *yamlConverter) nonFinite(key string, tok *token.Token) error {
+	return domain.NewErrorf(domain.CodeInvalidImportFile, domain.MsgImportYamlNonFinite,
+		key, tok.Value, tok.Position.Line)
+}
+
+// convert конвертирует узел; key — ключ отображения, под которым стоит
+// узел (для сообщений об ошибках, «» — корень документа).
+func (c *yamlConverter) convert(node ast.Node, key string) (value, error) {
 	switch n := node.(type) {
 	case *ast.NullNode:
 		return value{kind: kindNull}, nil
@@ -61,10 +90,16 @@ func (c *yamlConverter) convert(node ast.Node) (value, error) {
 	case *ast.FloatNode:
 		return value{kind: kindNumber, num: n.GetToken().Value}, nil
 	case *ast.InfinityNode:
-		return value{kind: kindNumber, num: n.GetToken().Value}, nil
+		return value{}, c.nonFinite(key, n.GetToken())
 	case *ast.NanNode:
-		return value{kind: kindNumber, num: n.GetToken().Value}, nil
+		return value{}, c.nonFinite(key, n.GetToken())
 	case *ast.StringNode:
+		// Явно закавыченные скаляры — строки по намерению автора (экспорт
+		// закавычивает все похожие на inf/nan); отвергаются только plain-
+		// скаляры не-конечных чисел.
+		if n.GetToken().Type == token.StringType && yamlNonFiniteText(n.Value) {
+			return value{}, c.nonFinite(key, n.GetToken())
+		}
 		return value{kind: kindString, str: n.Value}, nil
 	case *ast.LiteralNode:
 		return value{kind: kindString, str: n.Value.Value}, nil
@@ -75,7 +110,7 @@ func (c *yamlConverter) convert(node ast.Node) (value, error) {
 				"циклическая ссылка: алиас «*%s» участвует в значении якоря «&%s»", name, name)
 		}
 		c.converting[name] = true
-		converted, err := c.convert(n.Value)
+		converted, err := c.convert(n.Value, key)
 		delete(c.converting, name)
 		if err != nil {
 			return value{}, err
@@ -94,7 +129,7 @@ func (c *yamlConverter) convert(node ast.Node) (value, error) {
 		return value{}, fmt.Errorf(
 			"неизвестный алиас «*%s» — якорь «&%s» не определён до использования", name, name)
 	case *ast.TagNode:
-		return c.convert(n.Value)
+		return c.convert(n.Value, key)
 	case *ast.MappingNode:
 		object := value{kind: kindObject}
 		for _, item := range n.Values {
@@ -102,7 +137,7 @@ func (c *yamlConverter) convert(node ast.Node) (value, error) {
 			if err != nil {
 				return value{}, err
 			}
-			converted, err := c.convert(item.Value)
+			converted, err := c.convert(item.Value, name)
 			if err != nil {
 				return value{}, err
 			}
@@ -112,7 +147,7 @@ func (c *yamlConverter) convert(node ast.Node) (value, error) {
 	case *ast.SequenceNode:
 		array := value{kind: kindArray}
 		for _, item := range n.Values {
-			converted, err := c.convert(item)
+			converted, err := c.convert(item, key)
 			if err != nil {
 				return value{}, err
 			}

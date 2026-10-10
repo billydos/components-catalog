@@ -14,20 +14,21 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"time"
+
+	"github.com/billydos/components-catalog/internal/storage"
 )
+
+// restsrvReadyRE — строка готовности restsrv с фактическим адресом
+// (порт выбирает сам хост при --addr=127.0.0.1:0).
+var restsrvReadyRE = regexp.MustCompile(`restsrv: ready http://(\S+)/api/v1`)
 
 // restSuite прогоняет сценарии REST на ноге (база — та же, что у CLI-ноги).
 func restSuite(ctx context.Context, r *report, srv, tmp string, l leg) {
 	r.section("phase: rest " + l.name)
 
-	port, err := freePort()
-	if err != nil {
-		r.check("rest/ready", "restsrv: свободный порт", false, err.Error())
-		return
-	}
-	base := fmt.Sprintf("http://127.0.0.1:%d/api/v1", port)
 	logPath := filepath.Join(tmp, "restsrv-"+l.name+".log")
 	logFile, err := os.Create(logPath)
 	if err != nil {
@@ -36,8 +37,9 @@ func restSuite(ctx context.Context, r *report, srv, tmp string, l leg) {
 	}
 	defer logFile.Close() //nolint:errcheck — лог прогона живёт до конца ноги
 
-	srvCmd := exec.Command(srv, append([]string{fmt.Sprintf("--addr=127.0.0.1:%d", port)}, l.dbArgs...)...)
+	srvCmd := exec.Command(srv, append([]string{"--addr=127.0.0.1:0"}, l.dbArgs...)...)
 	srvCmd.Stderr = logFile
+	srvCmd.WaitDelay = waitDelay
 	if err := srvCmd.Start(); err != nil {
 		r.check("rest/ready", "restsrv: запуск хоста", false, err.Error())
 		return
@@ -49,14 +51,41 @@ func restSuite(ctx context.Context, r *report, srv, tmp string, l leg) {
 		<-stopped
 	}()
 
+	// Порт выбирает сам restsrv и печатает фактический адрес строкой
+	// готовности — порт никем не освобождается до слушания. Успешный
+	// разбор выходит сразу, ранний выход — отмена прогона или падение
+	// хоста.
+	dsn := legDSN(l.dbArgs)
+	addr := ""
+	readyLine := false
+	deadline := time.Now().Add(20 * time.Second)
+	for !readyLine && time.Now().Before(deadline) {
+		select {
+		case <-ctx.Done():
+		case <-stopped:
+		case <-time.After(100 * time.Millisecond):
+			if data, err := os.ReadFile(logPath); err == nil {
+				if m := restsrvReadyRE.FindStringSubmatch(string(data)); m != nil {
+					addr, readyLine = m[1], true
+				}
+			}
+			continue
+		}
+		break
+	}
+	if !r.check("rest/addr", "restsrv: строка готовности — фактический адрес",
+		readyLine, maskTail(tailFile(logPath, 15), dsn)...) {
+		return
+	}
+
 	client := &http.Client{Timeout: requestTimeout}
-	cl := restClient{base: base, client: client}
+	cl := restClient{base: "http://" + addr + "/api/v1", client: client}
 
 	// Готовность: /kinds отвечает 200 (до 20 с — холодный старт postgres);
 	// успешный запрос выходит сразу, ранний выход — отмена прогона или
 	// падение хоста.
 	ready := false
-	deadline := time.Now().Add(20 * time.Second)
+	deadline = time.Now().Add(20 * time.Second)
 	for !ready && time.Now().Before(deadline) {
 		select {
 		case <-ctx.Done():
@@ -69,7 +98,7 @@ func restSuite(ctx context.Context, r *report, srv, tmp string, l leg) {
 		}
 		break
 	}
-	if !r.check("rest/ready", "restsrv: готовность", ready, tailFile(logPath, 15)...) {
+	if !r.check("rest/ready", "restsrv: готовность", ready, maskTail(tailFile(logPath, 15), dsn)...) {
 		return
 	}
 
@@ -254,6 +283,29 @@ func tailFile(path string, n int) []string {
 	lines := trimSpaceLines(string(data))
 	if len(lines) > n {
 		lines = lines[len(lines)-n:]
+	}
+	return lines
+}
+
+// legDSN — DSN ноги из флагов подключения (пусто для sqlite-ноги).
+func legDSN(dbArgs []string) string {
+	for i := 0; i+1 < len(dbArgs); i++ {
+		if dbArgs[i] == "--dsn" {
+			return dbArgs[i+1]
+		}
+	}
+	return ""
+}
+
+// maskTail маскирует исходный DSN в строках деталей отказа: лог хоста
+// может содержать строку подключения в тексте ошибки драйвера.
+func maskTail(lines []string, dsn string) []string {
+	if dsn == "" {
+		return lines
+	}
+	masked := storage.MaskDSN(dsn)
+	for i, l := range lines {
+		lines[i] = strings.ReplaceAll(l, dsn, masked)
 	}
 	return lines
 }

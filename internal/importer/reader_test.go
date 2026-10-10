@@ -198,9 +198,10 @@ func TestReadDocumentValueConditions(t *testing.T) {
 	}
 }
 
-// Числовой токен с непредставимым текстом (выход за диапазон float64,
-// YAML .inf/.nan) — одна проблема значения; ветки вызова не добавляют
-// вторую («unknown key»/повтор «must be a number»).
+// Числовой токен с непредставимым текстом (выход за диапазон float64) —
+// одна проблема значения; ветки вызова не добавляют вторую («unknown
+// key»/повтор «must be a number»). Не-конечные числа YAML отвергаются
+// ещё разбором формата (format_yaml.go).
 func TestReadDocumentUnparseableNumber(t *testing.T) {
 	root, snap := parseDoc(t, `{
 		"transistors": [
@@ -452,5 +453,55 @@ func TestReadCatalogSectionUnknownField(t *testing.T) {
 	want := "catalog: section units, «kV»: unknown field «simbol» (allowed: code)"
 	if issues[0].String() != want {
 		t.Fatalf("текст: %q", issues[0].String())
+	}
+}
+
+// Элементы набора условий отвергают неизвестные ключи: опечатка
+// fxed_value — проблема, а не молчаливая потеря fixed_value.
+func TestReadCatalogSectionConditionSetUnknownField(t *testing.T) {
+	v, err := parseJSONC([]byte(`{ "catalog": { "parameters": [ {
+		"code": "Ck", "group": "electrical", "value_type": "at_most",
+		"condition_sets": [ { "items": [
+			{ "condition": "Ukb", "mode": "required", "fxed_value": 5 }
+		] } ]
+	} ] } }`))
+	if err != nil {
+		t.Fatalf("разбор: %v", err)
+	}
+	catVal, _ := v.has("catalog")
+	in, issues := ReadCatalogSection(catVal)
+	if len(issues) != 1 {
+		t.Fatalf("проблем: %d: %v", len(issues), issueMessages(issues))
+	}
+	want := "catalog: section parameters, «Ck»: unknown field «fxed_value» (allowed: condition, mode, fixed_value)"
+	if issues[0].String() != want {
+		t.Fatalf("текст: %q, ожидался %q", issues[0].String(), want)
+	}
+	// Строка с проблемой не попадает во вход.
+	if len(in.Parameters) != 0 {
+		t.Fatalf("параметр с опечаткой попал во вход: %+v", in.Parameters)
+	}
+}
+
+// is_active: null — поле не задано (строка активна), как у прочих
+// необязательных полей каталога.
+func TestReadCatalogSectionIsActiveNull(t *testing.T) {
+	v, err := parseJSONC([]byte(`{ "catalog": {
+		"parameters": [ { "code": "vib", "group": "env", "value_type": "text", "is_active": null } ],
+		"attributes": [ { "code": "coating", "type": "enum", "enum_values": ["лак"], "is_active": null } ]
+	} }`))
+	if err != nil {
+		t.Fatalf("разбор: %v", err)
+	}
+	catVal, _ := v.has("catalog")
+	in, issues := ReadCatalogSection(catVal)
+	if len(issues) != 0 {
+		t.Fatalf("проблемы не ожидались: %v", issueMessages(issues))
+	}
+	if len(in.Parameters) != 1 || !in.Parameters[0].Active {
+		t.Fatalf("параметр: %+v", in.Parameters)
+	}
+	if len(in.Attributes) != 1 || !in.Attributes[0].Active {
+		t.Fatalf("атрибут: %+v", in.Attributes)
 	}
 }

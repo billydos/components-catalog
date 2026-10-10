@@ -13,13 +13,14 @@ import (
 // fakeStore — транспорт каталога для тестов кэша: ревизия и число загрузок.
 // gate (если задан) задерживает LoadSnapshot; snapRev (если не 0) — ревизия
 // возвращаемого снимка (модель загрузки, начатой до записи каталога);
-// entered сигнализирует вход в LoadSnapshot.
+// loadErr — отказ самой загрузки; entered сигнализирует вход в LoadSnapshot.
 type fakeStore struct {
 	mu      sync.Mutex
 	rev     int64
 	snapRev int64
 	loads   int
 	revErr  error
+	loadErr error
 	gate    chan struct{}
 	entered chan struct{}
 }
@@ -46,13 +47,16 @@ func (s *fakeStore) LoadSnapshot(context.Context) (*catalog.Snapshot, error) {
 	if rev == 0 {
 		rev = s.rev
 	}
-	gate, entered := s.gate, s.entered
+	gate, entered, err := s.gate, s.entered, s.loadErr
 	s.mu.Unlock()
 	if entered != nil {
 		entered <- struct{}{}
 	}
 	if gate != nil {
 		<-gate
+	}
+	if err != nil {
+		return nil, err
 	}
 	return &catalog.Snapshot{Revision: rev, Units: []catalog.UnitDef{{Code: "V"}}}, nil
 }
@@ -219,5 +223,106 @@ func TestCacheWaiterReloadsStaleLoad(t *testing.T) {
 	}
 	if snap.Revision != 2 {
 		t.Fatalf("кэш отвечает снимком ревизии %d, ожидалась 2", snap.Revision)
+	}
+}
+
+// Отмена вызова в ожидании чужой загрузки: ждущий возвращается сразу
+// с ошибкой собственного контекста, не дожидаясь завершения загрузки
+// и не принимая её результат/ошибку за свою; загрузка и кэш не страдают.
+func TestCacheWaiterContextCancel(t *testing.T) {
+	store := &fakeStore{gate: make(chan struct{}), entered: make(chan struct{}, 1)}
+	store.SetRev(1)
+	cache := catalog.NewCache(store)
+
+	var wg sync.WaitGroup
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		if _, err := cache.Snapshot(context.Background()); err != nil {
+			t.Error(err)
+		}
+	}()
+	<-store.entered // загрузка в полёте и держится открытой
+
+	ctx, cancel := context.WithCancel(context.Background())
+	waited := make(chan error, 1)
+	go func() {
+		_, err := cache.Snapshot(ctx)
+		waited <- err
+	}()
+	time.Sleep(20 * time.Millisecond) // ждущий успевает занять место ожидания
+	cancel()
+	select {
+	case err := <-waited:
+		if !errors.Is(err, context.Canceled) {
+			t.Fatalf("ошибка ждущего: %v, ожидалась отмена контекста", err)
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("отменённый ждущий не вернулся из ожидания загрузки")
+	}
+
+	// Загрузка завершается нормально: кэш работоспособен, повторной
+	// загрузки отменённый ждущий не спровоцировал.
+	close(store.gate)
+	wg.Wait()
+	snap, err := cache.Snapshot(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if snap.Revision != 1 {
+		t.Fatalf("кэш отвечает снимком ревизии %d, ожидалась 1", snap.Revision)
+	}
+	store.mu.Lock()
+	loads := store.loads
+	store.mu.Unlock()
+	if loads != 1 {
+		t.Fatalf("загрузок %d, ожидалась 1", loads)
+	}
+}
+
+// Ошибка единственной загрузки достаётся всем ждущим single-flight:
+// их собственный контекст здоров, данных нет — наследование реальной
+// ошибки загрузчика корректно; неудачная загрузка не повторяется толпой.
+func TestCacheSingleFlightLoadError(t *testing.T) {
+	want := errors.New("бд недоступна")
+	store := &fakeStore{gate: make(chan struct{}), entered: make(chan struct{}, 1)}
+	store.SetRev(1)
+	store.mu.Lock()
+	store.loadErr = want
+	store.mu.Unlock()
+	cache := catalog.NewCache(store)
+	ctx := context.Background()
+
+	const n = 4
+	errs := make(chan error, n)
+	go func() {
+		_, err := cache.Snapshot(ctx) // загрузчик
+		errs <- err
+	}()
+	<-store.entered
+	for range n - 1 {
+		go func() {
+			_, err := cache.Snapshot(ctx) // ждущие
+			errs <- err
+		}()
+	}
+	time.Sleep(20 * time.Millisecond) // ждущие успевают занять место ожидания
+	close(store.gate)
+	deadline := time.After(2 * time.Second)
+	for range n {
+		select {
+		case err := <-errs:
+			if !errors.Is(err, want) {
+				t.Fatalf("ошибка участника single-flight: %v", err)
+			}
+		case <-deadline:
+			t.Fatal("участник single-flight не вернулся после отказа загрузки")
+		}
+	}
+	store.mu.Lock()
+	loads := store.loads
+	store.mu.Unlock()
+	if loads != 1 {
+		t.Fatalf("загрузок %d, ожидалась 1", loads)
 	}
 }

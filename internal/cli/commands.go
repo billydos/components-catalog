@@ -14,6 +14,7 @@ import (
 	"github.com/billydos/components-catalog/internal/i18n"
 	"github.com/billydos/components-catalog/internal/importer"
 	"github.com/billydos/components-catalog/internal/service"
+	"github.com/billydos/components-catalog/internal/storage"
 )
 
 // Команды CLI — тонкие транспорты над сервисным слоем (справка из
@@ -27,7 +28,10 @@ func runInit(ctx context.Context, opts *options, pos []string, stdout, stderr io
 	}
 	defer app.Close() //nolint:errcheck — закрытие при выходе
 	_, dsn := opts.dsnOf()
-	fmt.Fprintf(stdout, "%s\n", i18n.Message(opts.langOf(), string(domain.MsgCliDbInitialized), dsn, appDialect(opts)))
+	// DSN отображается с маскированным паролем (sqlite-пути функция
+	// пропускает без изменений).
+	fmt.Fprintf(stdout, "%s\n", i18n.Message(opts.langOf(), string(domain.MsgCliDbInitialized),
+		storage.MaskDSN(dsn), appDialect(opts)))
 	return 0
 }
 
@@ -136,7 +140,7 @@ func runCatalog(ctx context.Context, opts *options, pos []string, stdout, stderr
 				domain.MsgCliCatalogExportArgs))
 			return 1
 		}
-		return runCatalogExport(ctx, opts, stdout, stderr)
+		return runCatalogExport(ctx, opts, rest, stdout, stderr)
 	case "import":
 		if len(rest) != 1 {
 			PrintError(stderr, opts.langOf(), domain.NewErrorf(domain.CodeValidationFailed,
@@ -157,7 +161,11 @@ func runCatalog(ctx context.Context, opts *options, pos []string, stdout, stderr
 	return 1
 }
 
-func runCatalogExport(ctx context.Context, opts *options, stdout, stderr io.Writer) int {
+// runCatalogExport — выгрузка каталога: без позиционных аргументов — в
+// stdout, с аргументом — в файл назначения («-» — stdout, как у import).
+// Формат — по --format (не по расширению файла); ошибки создания и записи
+// файла — доменные ошибки cli_file_write.
+func runCatalogExport(ctx context.Context, opts *options, pos []string, stdout, stderr io.Writer) int {
 	app, err := openApp(ctx, opts, false)
 	if err != nil {
 		return fail(stderr, opts.langOf(), err)
@@ -167,8 +175,24 @@ func runCatalogExport(ctx context.Context, opts *options, stdout, stderr io.Writ
 	if err != nil {
 		return fail(stderr, opts.langOf(), err)
 	}
-	if err := importer.New(app).ExportCatalog(ctx, stdout, format); err != nil {
-		return fail(stderr, opts.langOf(), err)
+	var out io.Writer = stdout
+	name := ""
+	if len(pos) == 1 && pos[0] != "-" {
+		name = pos[0]
+		f, err := os.Create(name)
+		if err != nil {
+			return fail(stderr, opts.langOf(), domain.NewErrorf(domain.CodeValidationFailed,
+				domain.MsgCliFileWrite, name, err))
+		}
+		out = f
+		defer f.Close() //nolint:errcheck — закрытие при выходе
+	}
+	if err := importer.New(app).ExportCatalog(ctx, out, format); err != nil {
+		if name == "" {
+			return fail(stderr, opts.langOf(), err)
+		}
+		return fail(stderr, opts.langOf(), domain.NewErrorf(domain.CodeValidationFailed,
+			domain.MsgCliFileWrite, name, err))
 	}
 	return 0
 }

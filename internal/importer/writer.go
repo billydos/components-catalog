@@ -89,47 +89,47 @@ func (m *Importer) ExportCatalog(ctx context.Context, w io.Writer, format Format
 	}
 }
 
-// exportKindRecords собирает деревья записей класса: страницы поиска
-// (порядок (kind, designation)) + пакетная загрузка карточек страницы —
+// exportKindRecords собирает деревья записей класса: единый список id в
+// порядке (designation) одним запросом + пакетная загрузка карточек —
 // одно чтение на дочернюю таблицу, без обращений на каждую запись.
+// Последовательный обход зафиксированного списка id не даёт дубли и
+// пропусков при конкурентных вставках/удалениях между пакетами.
 func (m *Importer) exportKindRecords(ctx context.Context, snap *catalog.Snapshot,
 	kind domain.Kind) ([]value, error) {
+	ids, err := m.app.Services().Devices.ListIDsByKind(ctx, kind)
+	if err != nil {
+		return nil, err
+	}
 	var out []value
-	const pageLimit = 200
-	offset := 0
-	for {
-		page, err := m.app.Services().Devices.Search(ctx, service.SearchQuery{
-			Kind: kind, Limit: pageLimit, Offset: offset,
-		})
-		if err != nil {
-			return nil, err
+	const batchSize = 200
+	for start := 0; start < len(ids); start += batchSize {
+		end := start + batchSize
+		if end > len(ids) {
+			end = len(ids)
 		}
-		ids := make([]int64, 0, len(page.Items))
-		for _, item := range page.Items {
-			ids = append(ids, item.ID)
-		}
-		// Порядок карточек — по порядку id входа (порядок страницы поиска);
-		// параллельно удалённые записи пропускаются.
-		cards, err := m.app.Services().Devices.GetByIDs(ctx, ids)
+		// Порядок карточек — по порядку id входа (список уже в порядке
+		// designation); параллельно удалённые записи пропускаются.
+		cards, err := m.app.Services().Devices.GetByIDs(ctx, ids[start:end])
 		if err != nil {
 			return nil, err
 		}
 		for _, card := range cards {
 			// Разбор обозначения над реестром семейств каталога — как при
 			// импорте: явные классификационные поля = хранимые минус
-			// продукты парсера (round-trip секции fields).
+			// продукты парсера (round-trip секции fields). Эволюция
+			// каталога/грамматики может сделать хранимое обозначение
+			// неразбираемым — запись выгружается без секции fields,
+			// экспорт продолжается; жёсткий отказ — только ошибки чтения.
 			p, err := m.app.Services().Designations.ParseForSystem(ctx,
 				card.Designation, card.System, card.Kind)
 			if err != nil {
-				return nil, err
+				out = append(out, recordTree(card, nil))
+				continue
 			}
 			out = append(out, recordTree(card, &p))
 		}
-		offset += pageLimit
-		if offset >= page.Total {
-			return out, nil
-		}
 	}
+	return out, nil
 }
 
 // recordTree строит дерево записи наполнения из карточки. Поля разбора

@@ -1,9 +1,11 @@
 package domain_test
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/billydos/components-catalog/internal/domain"
+	"github.com/billydos/components-catalog/internal/i18n"
 )
 
 // Канонизация (03 §2.4): trim, верхний регистр, удаление пробелов,
@@ -97,6 +99,8 @@ func TestParseForSystem(t *testing.T) {
 		t.Error("other без класса должен требовать явный класс")
 	} else if de, _ := domain.AsError(err); de.Code != domain.CodeKindAmbiguous {
 		t.Errorf("other без класса: %v", err)
+	} else if want := "designation system other does not determine the device kind; specify the kind explicitly"; err.Error() != want {
+		t.Errorf("other без класса:\n got:  %s\n want: %s", err.Error(), want)
 	}
 
 	// Несоответствие системы.
@@ -221,17 +225,25 @@ func TestParseForSystem(t *testing.T) {
 	}
 
 	// Явная system series: неизвестное семейство — перечень поддерживаемых
-	// (план 03 §2.1–2.2), а не generic-несоответствие системе.
+	// (план 03 §2.1–2.2), а не generic-несоответствие системе. Область
+	// перечня без класса — аргумент-сообщение families_all_scopes
+	// (канонический en-рендер — «all classes», ru — «все классы»).
 	_, err = domain.ParseDesignationForSystem("ЧТОТО", domain.SystemSeries, "")
 	if de, ok := domain.AsError(err); !ok || de.Code != domain.CodeInvalidDesignation {
 		t.Fatalf("ЧТОТО/series: %v", err)
 	}
-	want = "designation «ЧТОТО»: unknown family «ЧТОТО»; supported families (все классы): " +
+	want = "designation «ЧТОТО»: unknown family «ЧТОТО»; supported families (all classes): " +
 		"CFR, KNP, M55342, MPSA, OC, RB, RC, RL, RN, RW, TIP, " +
 		"БМ, ВК, ВС, Д, ДГ, КБГИ, КД, КИМ, КЛС, КМ, КПК, КСО, КЭГ, МБГО, МБГЧ, МБМ, " +
 		"МГТ, МЛТ, МП, МТ, ОМЛТ, П, ПЭ, ПЭВ, СГМ, СПО, УЛИ, ЭМ, ЭТО"
 	if err.Error() != want {
 		t.Errorf("\n got:  %s\n want: %s", err.Error(), want)
+	}
+	if de, ok := domain.AsError(err); ok {
+		ru := i18n.Message(i18n.Ru, string(de.MsgID), de.Args...)
+		if !strings.Contains(ru, "(все классы)") {
+			t.Errorf("ru-рендер family_unknown без «(все классы)»: %s", ru)
+		}
 	}
 
 	// С явным классом перечень ограничен классом.

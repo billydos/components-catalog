@@ -38,6 +38,10 @@ func TestParseResistorGostMessages(t *testing.T) {
 		{"С2", "designation «С2»: position 3: expected: hyphen, got end of designation"},
 		{"С2-", "designation «С2-»: position 4: expected: development number, got end of designation"},
 		{"С2-033", "designation «С2-033»: position 4: expected: development number without a leading zero (up to 3 digits), got «033»"},
+		// Превышение разрядности номера — отдельное сообщение (не про
+		// ведущий ноль).
+		{"С2-1234", "designation «С2-1234»: position 4: expected: development number of at most 3 digits, got «1234»"},
+		{"С2-12345", "designation «С2-12345»: position 4: expected: development number of at most 3 digits, got «12345»"},
 		{"С2-33НАБВ", "designation «С2-33НАБВ»: position 9: expected end of designation, got «В»"},
 		// Хвост мощности — строгий отказ с подсказкой (03 §2.2, D6).
 		{"С2-33Н-0.125", "designation «С2-33Н-0.125»: numeric tail after letters is a power suffix, an element of the full designation; use designation «С2-33Н» and the variants section"},
@@ -96,6 +100,7 @@ func TestParseResistorOstMessages(t *testing.T) {
 		{"Р3-1", "designation «Р3-1»: position 2: expected: material group digit 1–2, got «3»"},
 		{"Р1", "designation «Р1»: position 3: expected: hyphen, got end of designation"},
 		{"Р1-", "designation «Р1-»: position 4: expected: development number, got end of designation"},
+		{"Р1-1234", "designation «Р1-1234»: position 4: expected: development number of at most 3 digits, got «1234»"},
 		{"Р1-4В", "designation «Р1-4В»: position 5: expected end of designation, got «В»"},
 	}
 	for _, tc := range cases {

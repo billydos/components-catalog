@@ -130,7 +130,7 @@ var commands = map[string]*command{
 	"count": {usage: "count [--kind] [--db]", flags: append([]flagSpec{kindFlag}, dbFlags...), minArgs: 0, maxArgs: 0, run: runCount},
 	"export": {usage: "export [--kind] [--format jsonc|yaml|ndjson] [--db]",
 		flags: append([]flagSpec{kindFlag, {name: "format", hasValue: true}}, dbFlags...), minArgs: 0, maxArgs: 0, run: runExport},
-	"catalog": {usage: "catalog export [--format] [--db] | catalog import <файл> [--dry-run] [--db] | catalog list [--db]",
+	"catalog": {usage: "catalog export [<файл>] [--format] [--db] | catalog import <файл> [--dry-run] [--db] | catalog list [--db]",
 		flags:   append([]flagSpec{{name: "format", hasValue: true}, dryRunFlag}, dbFlags...),
 		minArgs: 1, maxArgs: 2, run: runCatalog},
 }
@@ -218,13 +218,23 @@ func (o *options) set(cmd, name, value string) error {
 		o.q = value
 	case "limit", "offset":
 		n, err := strconv.Atoi(value)
-		if err != nil || n < 0 || (name == "limit" && n == 0) {
+		if err != nil {
 			return domain.NewErrorf(domain.CodeValidationFailed,
 				domain.MsgCliFlagNonNegative, name, value)
 		}
 		if name == "limit" {
+			// Диапазон limit симметричен REST (api_limit_range): целое
+			// от 1 до потолка поиска; 0 — ошибка, а не «по умолчанию».
+			if n < 1 || n > service.SearchLimitMax {
+				return domain.NewErrorf(domain.CodeValidationFailed,
+					domain.MsgApiLimitRange, service.SearchLimitMax)
+			}
 			o.limit = n
 		} else {
+			if n < 0 {
+				return domain.NewErrorf(domain.CodeValidationFailed,
+					domain.MsgCliFlagNonNegative, name, value)
+			}
 			o.offset = n
 		}
 	case "material", "subclass", "adjustment", "category", "series", "letters":

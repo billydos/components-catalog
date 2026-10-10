@@ -42,6 +42,17 @@ type DeviceRule interface {
 	AllowsVariants() bool
 }
 
+// Коды именованных правил — стабильные ключи каталога: сиды и данные
+// наполнения ссылаются на правила только через эти константы;
+// соответствие реестру ruleRegistry закреплено пин-тестами сидов.
+const (
+	RuleCapDimensionsForm    = "cap_dimensions_form"
+	RuleCapVariantMatrix     = "cap_variant_matrix"
+	RuleResistorVariantPower = "resistor_variant_power"
+	RuleTempPair             = "temp_pair"
+	RuleYearRange            = "year_range"
+)
+
 // Реестр правил: код → реализация. Сиды validation_rules обязаны
 // соответствовать реестру (пин-тест seed); неизвестный код в данных
 // каталога — ошибка импорта каталога (громко, не молча).

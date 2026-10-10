@@ -9,6 +9,7 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"net"
 	"net/http"
 	"os"
 	"os/signal"
@@ -20,7 +21,16 @@ import (
 )
 
 func main() {
-	addr := flag.String("addr", "127.0.0.1:8080", "адрес прослушивания")
+	if err := run(); err != nil {
+		fmt.Fprintf(os.Stderr, "restsrv: %v\n", err)
+		os.Exit(1)
+	}
+}
+
+// run — тело main: отложенные закрытия (приложение, слушатель) выполняются
+// до выхода с ненулевым кодом — os.Exit только здесь, в main.
+func run() error {
+	addr := flag.String("addr", "127.0.0.1:8080", "адрес прослушивания (порт 0 — выбрать свободный)")
 	dialect := flag.String("dialect", "sqlite", "диалект хранилища: sqlite | postgres")
 	dsn := flag.String("dsn", "", "DSN postgres (приоритетнее -db)")
 	db := flag.String("db", "", "путь файла sqlite (по умолчанию catalog.db)")
@@ -42,13 +52,18 @@ func main() {
 		Dialect: *dialect, DSN: dsnValue, EnsureCreated: *ensure,
 	})
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "restsrv: %v\n", err)
-		os.Exit(1)
+		return err
 	}
 	defer app.Close() //nolint:errcheck — закрытие при выходе
 
+	// Порт выбирается здесь и держится до Serve — прогонщик передаёт
+	// --addr=127.0.0.1:0 и разбирает фактический адрес из строки
+	// готовности ниже.
+	ln, err := net.Listen("tcp", *addr)
+	if err != nil {
+		return err
+	}
 	srv := &http.Server{
-		Addr:              *addr,
 		Handler:           httpapi.New(app, httpapi.Config{}).Handler(),
 		ReadHeaderTimeout: 5 * time.Second,
 	}
@@ -59,9 +74,9 @@ func main() {
 		_ = srv.Shutdown(shutdownCtx)
 	}()
 
-	fmt.Fprintf(os.Stderr, "restsrv: http://%s/api/v1 (%s)\n", *addr, *dialect)
-	if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
-		fmt.Fprintf(os.Stderr, "restsrv: %v\n", err)
-		os.Exit(1)
+	fmt.Fprintf(os.Stderr, "restsrv: ready http://%s/api/v1 (%s)\n", ln.Addr(), *dialect)
+	if err := srv.Serve(ln); err != nil && !errors.Is(err, http.ErrServerClosed) {
+		return err
 	}
+	return nil
 }

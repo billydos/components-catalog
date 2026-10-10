@@ -23,7 +23,7 @@ var catalogSubsections = []string{
 
 // ReadCatalogSection читает дерево секции catalog в каталог. Значение
 // null/отсутствие — пустой вход. Строки NDJSON ({"catalog": {"<подраздел>":
-// […]}}) читаются тем же читателем и сливаются MergeCatalogInput.
+// […]}}) читаются тем же читателем и сливаются mergeCatalogTrees.
 func ReadCatalogSection(v value) (catalog.Input, []Issue) {
 	r := &catReader{}
 	if v.kind == kindNull {
@@ -64,23 +64,6 @@ func ReadCatalogSection(v value) (catalog.Input, []Issue) {
 		}
 	}
 	return r.in, r.issues
-}
-
-// MergeCatalogInput сливает вход каталога поверх dst (строки catalog
-// NDJSON сливаются до валидации метасхемы — docs/plan/04 §4).
-func MergeCatalogInput(dst *catalog.Input, add catalog.Input) {
-	dst.Kinds = append(dst.Kinds, add.Kinds...)
-	dst.Systems = append(dst.Systems, add.Systems...)
-	dst.SystemKinds = append(dst.SystemKinds, add.SystemKinds...)
-	dst.SeriesFamilies = append(dst.SeriesFamilies, add.SeriesFamilies...)
-	dst.Units = append(dst.Units, add.Units...)
-	dst.Categories = append(dst.Categories, add.Categories...)
-	dst.Conditions = append(dst.Conditions, add.Conditions...)
-	dst.Groups = append(dst.Groups, add.Groups...)
-	dst.Parameters = append(dst.Parameters, add.Parameters...)
-	dst.Attributes = append(dst.Attributes, add.Attributes...)
-	dst.Rules = append(dst.Rules, add.Rules...)
-	dst.KindRules = append(dst.KindRules, add.KindRules...)
 }
 
 type catReader struct {
@@ -275,7 +258,10 @@ func (r *catReader) readSeriesFamilies(v value) {
 		if !ok {
 			continue
 		}
-		tail, _ := r.str(row, "series_families", series, "tail_semantic", false)
+		tail, ok := r.str(row, "series_families", series, "tail_semantic", false)
+		if !ok {
+			continue
+		}
 		r.in.SeriesFamilies = append(r.in.SeriesFamilies, catalog.SeriesFamilyDef{
 			Series: series, Kind: domain.Kind(kind), TailSemantic: tail,
 		})
@@ -320,7 +306,10 @@ func (r *catReader) readConditions(v value) {
 		if !r.checkKeys("conditions", row, code, "code", "unit", "allow_negative") {
 			continue
 		}
-		unit, _ := r.str(row, "conditions", code, "unit", false)
+		unit, ok := r.str(row, "conditions", code, "unit", false)
+		if !ok {
+			continue
+		}
 		neg, ok := r.boolean(row, "conditions", code, "allow_negative")
 		if !ok {
 			continue
@@ -373,7 +362,10 @@ func (r *catReader) readParameters(v value) {
 			continue
 		}
 		p.Group = group
-		unit, _ := r.str(row, "parameters", code, "unit", false)
+		unit, ok := r.str(row, "parameters", code, "unit", false)
+		if !ok {
+			continue
+		}
 		p.Unit = unit
 		vt, ok := r.str(row, "parameters", code, "value_type", true)
 		if !ok {
@@ -402,22 +394,24 @@ func (r *catReader) readParameters(v value) {
 		} else {
 			continue
 		}
-		rule, _ := r.str(row, "parameters", code, "rule", false)
+		rule, ok := r.str(row, "parameters", code, "rule", false)
+		if !ok {
+			continue
+		}
 		p.ValidationRule = rule
 		if sortOrder, ok := r.integer(row, "parameters", code, "sort_order"); ok {
 			p.SortOrder = sortOrder
 		} else {
 			continue
 		}
-		// is_active отсутствует — строка активна; деактивация — явным
-		// "is_active": false.
-		if activeVal, has := row.has("is_active"); has {
-			if activeVal.kind == kindBool {
-				p.Active = activeVal.boolean
-			} else {
+		// is_active отсутствует либо null — строка активна; деактивация —
+		// явным "is_active": false.
+		if activeVal, has := row.has("is_active"); has && activeVal.kind != kindNull {
+			if activeVal.kind != kindBool {
 				r.fail(domain.MsgImportCatalogParamActiveBool, code)
 				continue
 			}
+			p.Active = activeVal.boolean
 		} else {
 			p.Active = true
 		}
@@ -443,14 +437,20 @@ func (r *catReader) readAttributes(v value) {
 			continue
 		}
 		a := catalog.AttributeDef{Code: code}
-		group, _ := r.str(row, "attributes", code, "group", false)
+		group, ok := r.str(row, "attributes", code, "group", false)
+		if !ok {
+			continue
+		}
 		a.GroupName = group
 		typ, ok := r.str(row, "attributes", code, "type", true)
 		if !ok {
 			continue
 		}
 		a.Type = catalog.AttrType(typ)
-		unit, _ := r.str(row, "attributes", code, "unit", false)
+		unit, ok := r.str(row, "attributes", code, "unit", false)
+		if !ok {
+			continue
+		}
 		a.Unit = unit
 		if kinds, ok := r.strSlice(row, "attributes", code, "kinds"); ok {
 			for _, k := range kinds {
@@ -464,22 +464,24 @@ func (r *catReader) readAttributes(v value) {
 		} else {
 			continue
 		}
-		rule, _ := r.str(row, "attributes", code, "rule", false)
+		rule, ok := r.str(row, "attributes", code, "rule", false)
+		if !ok {
+			continue
+		}
 		a.ValidationRule = rule
 		if sortOrder, ok := r.integer(row, "attributes", code, "sort_order"); ok {
 			a.SortOrder = sortOrder
 		} else {
 			continue
 		}
-		// is_active отсутствует — строка активна; деактивация — явным
-		// "is_active": false.
-		if activeVal, has := row.has("is_active"); has {
-			if activeVal.kind == kindBool {
-				a.Active = activeVal.boolean
-			} else {
+		// is_active отсутствует либо null — строка активна; деактивация —
+		// явным "is_active": false.
+		if activeVal, has := row.has("is_active"); has && activeVal.kind != kindNull {
+			if activeVal.kind != kindBool {
 				r.fail(domain.MsgImportCatalogAttrActiveBool, code)
 				continue
 			}
+			a.Active = activeVal.boolean
 		} else {
 			a.Active = true
 		}
@@ -550,6 +552,9 @@ func (r *catReader) conditionSets(v value, code string) ([]catalog.ConditionSet,
 		for j, itemVal := range itemsVal.items {
 			if itemVal.kind != kindObject {
 				r.fail(domain.MsgImportCatalogCondsetItemObject, code, i+1, j+1)
+				return nil, false
+			}
+			if !r.checkKeys("parameters", itemVal, code, "condition", "mode", "fixed_value") {
 				return nil, false
 			}
 			cond, ok := r.str(itemVal, "parameters", code, "condition", true)
