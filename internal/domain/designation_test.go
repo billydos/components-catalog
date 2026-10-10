@@ -1,11 +1,9 @@
 package domain_test
 
 import (
-	"strings"
 	"testing"
 
 	"github.com/billydos/components-catalog/internal/domain"
-	"github.com/billydos/components-catalog/internal/i18n"
 )
 
 // Канонизация (03 §2.4): trim, верхний регистр, удаление пробелов,
@@ -69,15 +67,17 @@ func TestCanonicalizeMessages(t *testing.T) {
 	}
 }
 
-// Автодетект: отказ с перечнем поддерживаемых систем (03 §2.4, риск R6).
+// Автодетект: отказ с перечнем поддерживаемых систем (03 §2.4, риск R6);
+// бывшие серийные обозначения (МЛТ-0.5, МП39, КСО-2) автодетектом не
+// опознаются — только явная система other.
 func TestAutodetectFail(t *testing.T) {
-	for _, in := range []string{"XYZ123", "JANTX2N3055", "ЧТОТО", "ФОБОС"} {
+	for _, in := range []string{"XYZ123", "JANTX2N3055", "ЧТОТО", "ФОБОС", "МЛТ-0.5", "МП39", "КСО-2", "TIP120"} {
 		_, err := domain.ParseDesignation(in)
 		if de, ok := domain.AsError(err); !ok || de.Code != domain.CodeInvalidDesignation {
 			t.Errorf("«%s»: ожидался invalid_designation, получено %v", in, err)
 			continue
 		}
-		want := "designation «" + in + "»: designation system not recognized (supported: gost, ost, pro, jedec, jis, series)"
+		want := "designation «" + in + "»: designation system not recognized (supported: gost, ost, pro, jedec, jis)"
 		if err.Error() != want {
 			t.Errorf("«%s»:\n got:  %s\n want: %s", in, err.Error(), want)
 		}
@@ -183,7 +183,6 @@ func TestParseForSystem(t *testing.T) {
 		{"BC547B", domain.SystemPro},
 		{"2N2222A", domain.SystemJedec},
 		{"2SA1015", domain.SystemJis},
-		{"МЛТ-0.5", domain.SystemSeries},
 	} {
 		if _, err := domain.ParseDesignationForSystem(tc.in, tc.system, ""); err != nil {
 			t.Errorf("«%s» %s: %v", tc.in, tc.system, err)
@@ -203,75 +202,14 @@ func TestParseForSystem(t *testing.T) {
 		t.Errorf("2N2222A/transistor: %v", err)
 	}
 
-	// Конфликт класса у семейства — симметрично строгим systemм.
-	for _, tc := range []struct {
-		in         string
-		kind       domain.Kind
-		actualKind string
-	}{
-		{"МЛТ-0.5", domain.KindCapacitor, "resistor"},
-		{"П214", domain.KindDiode, "transistor"},
-	} {
-		_, err := domain.ParseDesignationForSystem(tc.in, "", tc.kind)
-		if de, ok := domain.AsError(err); !ok || de.Code != domain.CodeDesignationMismatch {
-			t.Errorf("«%s»/%s: ожидался designation_mismatch, получено %v", tc.in, tc.kind, err)
-			continue
-		}
-		want := "designation «" + tc.in + "» belongs to kind " + tc.actualKind +
-			", kind " + string(tc.kind) + " was given"
-		if err.Error() != want {
-			t.Errorf("«%s»:\n got:  %s\n want: %s", tc.in, err.Error(), want)
-		}
+	// Система series исключена: явное указание — ожидаемая ошибка
+	// валидации (system_unknown), как и всякий посторонний код.
+	_, err = domain.ParseDesignationForSystem("МЛТ-0.5", domain.System("series"), domain.KindResistor)
+	if de, ok := domain.AsError(err); !ok || de.Code != domain.CodeValidationFailed {
+		t.Fatalf("МЛТ-0.5/series: %v", err)
 	}
-
-	// Явная system series: неизвестное семейство — перечень поддерживаемых
-	// (план 03 §2.1–2.2), а не generic-несоответствие системе. Область
-	// перечня без класса — аргумент-сообщение families_all_scopes
-	// (канонический en-рендер — «all classes», ru — «все классы»).
-	_, err = domain.ParseDesignationForSystem("ЧТОТО", domain.SystemSeries, "")
-	if de, ok := domain.AsError(err); !ok || de.Code != domain.CodeInvalidDesignation {
-		t.Fatalf("ЧТОТО/series: %v", err)
-	}
-	want = "designation «ЧТОТО»: unknown family «ЧТОТО»; supported families (all classes): " +
-		"CFR, KNP, M55342, MPSA, OC, RB, RC, RL, RN, RW, TIP, " +
-		"БМ, ВК, ВС, Д, ДГ, КБГИ, КД, КИМ, КЛС, КМ, КПК, КСО, КЭГ, МБГО, МБГЧ, МБМ, " +
-		"МГТ, МЛТ, МП, МТ, ОМЛТ, П, ПЭ, ПЭВ, СГМ, СПО, УЛИ, ЭМ, ЭТО"
-	if err.Error() != want {
+	if want := "unknown designation system «series»"; err.Error() != want {
 		t.Errorf("\n got:  %s\n want: %s", err.Error(), want)
-	}
-	if de, ok := domain.AsError(err); ok {
-		ru := i18n.Message(i18n.Ru, string(de.MsgID), de.Args...)
-		if !strings.Contains(ru, "(все классы)") {
-			t.Errorf("ru-рендер family_unknown без «(все классы)»: %s", ru)
-		}
-	}
-
-	// С явным классом перечень ограничен классом.
-	_, err = domain.ParseDesignationForSystem("ЧТОТО", domain.SystemSeries, domain.KindResistor)
-	if err == nil {
-		t.Fatal("ЧТОТО/series/resistor: ожидалась ошибка")
-	}
-	want = "designation «ЧТОТО»: unknown family «ЧТОТО»; supported families (resistor): " +
-		"CFR, KNP, M55342, RB, RC, RL, RN, RW, ВК, ВС, КИМ, МГТ, МЛТ, МТ, ОМЛТ, ПЭ, ПЭВ, СПО, УЛИ"
-	if err.Error() != want {
-		t.Errorf("\n got:  %s\n want: %s", err.Error(), want)
-	}
-
-	// По-позиционные ошибки хвоста опознанного семейства всплывают из
-	// автодетекта, а не затираются итоговым отказом.
-	for _, tc := range []struct{ in, want string }{
-		{"МЛТ-А", "designation «МЛТ-А»: position 5: expected: positive nominal power number, got «А»"},
-		{"КСО-", "designation «КСО-»: position 5: expected: family tail (digits and letters), got end of designation"},
-		{"Д99999999999999999999", "designation «Д99999999999999999999»: position 2: expected: number in the family tail (up to 5 digits), got «99999999999999999999»"},
-	} {
-		_, err := domain.ParseDesignation(tc.in)
-		if err == nil {
-			t.Errorf("«%s»: ожидалась ошибка", tc.in)
-			continue
-		}
-		if err.Error() != tc.want {
-			t.Errorf("«%s»:\n got:  %s\n want: %s", tc.in, err.Error(), tc.want)
-		}
 	}
 
 	// Ошибки класса и политики хвоста сохраняют код при явной системе.

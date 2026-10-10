@@ -73,7 +73,6 @@ func TestInvalidLanguageFallback(t *testing.T) {
 		{"KindName", func(l Language) string { return KindName(l, "transistor") }},
 		{"SystemName", func(l Language) string { return SystemName(l, "gost") }},
 		{"SystemDescription", func(l Language) string { return SystemDescription(l, "gost") }},
-		{"FamilyName", func(l Language) string { return FamilyName(l, "МЛТ") }},
 		{"UnitName", func(l Language) string { return UnitName(l, "ohm") }},
 		{"UnitSymbol", func(l Language) string { return UnitSymbol(l, "ohm") }},
 		{"ConditionName", func(l Language) string { return ConditionName(l, "temp") }},
@@ -112,9 +111,6 @@ func TestResolveFallbacks(t *testing.T) {
 	// расширения каталога данными).
 	if got := ParameterName(En, "NewParam"); got != "NewParam" {
 		t.Errorf("ParameterName(en, NewParam) = %q", got)
-	}
-	if got := FamilyName(Ru, "НОВОЕ"); got != "НОВОЕ" {
-		t.Errorf("FamilyName(ru, НОВОЕ) = %q", got)
 	}
 	// Отсутствие строки в ru с наличием в en — fallback на en.
 	if got := resolve(Ru, "field.material", "x"); got != "материал" {

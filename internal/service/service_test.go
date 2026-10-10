@@ -145,8 +145,15 @@ func seedTransistors(t *testing.T, svc *DeviceService) {
 			section("ratings", pvExact("UkeoMax", 45), pvExact("IkMax", 100)),
 		},
 	})
+	mpFields := []domain.Field{
+		domain.TextField("series", "МП"),
+		domain.NumField("dev_number", 39),
+	}
 	mustUpsert(t, svc, DeviceInput{
-		Name: "МП39",
+		Name:   "МП39",
+		System: domain.SystemOther,
+		Kind:   domain.KindTransistor,
+		Fields: &mpFields,
 		Attributes: []catalog.AttributeValue{
 			attrText("structure", "pnp"), attrText("description", "низкочастотный"),
 		},
@@ -584,29 +591,26 @@ func suiteAnalogs(t *testing.T, factory configFactory) {
 	}
 
 	// Структурная валидация: неизвестное обозначение, самоссылка, дубликат.
-	_, err := svc.Upsert(ctx, DeviceInput{
+	mp39 := DeviceInput{
 		Name:    "МП39",
+		System:  domain.SystemOther,
+		Kind:    domain.KindTransistor,
 		Analogs: &[]AnalogInput{{Designation: "НЕТ123"}},
-	})
+	}
+	_, err := svc.Upsert(ctx, mp39)
 	wantDomainError(t, err, domain.CodeNotFound, "analog «НЕТ123» not found in kind transistor")
 
-	_, err = svc.Upsert(ctx, DeviceInput{
-		Name:    "МП39",
-		Analogs: &[]AnalogInput{{Designation: "мп39"}},
-	})
+	mp39.Analogs = &[]AnalogInput{{Designation: "мп39"}}
+	_, err = svc.Upsert(ctx, mp39)
 	wantDomainError(t, err, domain.CodeValidationFailed, "record «МП39» cannot be an analog of itself")
 
-	_, err = svc.Upsert(ctx, DeviceInput{
-		Name:    "МП39",
-		Analogs: &[]AnalogInput{{Designation: "КТ315Б"}, {Designation: "кт315б"}},
-	})
+	mp39.Analogs = &[]AnalogInput{{Designation: "КТ315Б"}, {Designation: "кт315б"}}
+	_, err = svc.Upsert(ctx, mp39)
 	wantDomainError(t, err, domain.CodeValidationFailed, "analog «КТ315Б» is set more than once")
 
 	// Аналог из другого класса не разрешается (в пределах класса).
-	_, err = svc.Upsert(ctx, DeviceInput{
-		Name:    "МП39",
-		Analogs: &[]AnalogInput{{Designation: "К10-17Б"}},
-	})
+	mp39.Analogs = &[]AnalogInput{{Designation: "К10-17Б"}}
+	_, err = svc.Upsert(ctx, mp39)
 	wantDomainError(t, err, domain.CodeNotFound, "analog «К10-17Б» not found in kind transistor")
 }
 
@@ -862,9 +866,18 @@ func suiteSearch(t *testing.T, factory configFactory) {
 	}
 
 	// Система обозначений как фильтр.
-	page, err = svc.Search(ctx, SearchQuery{System: domain.SystemSeries})
+	page, err = svc.Search(ctx, SearchQuery{System: domain.SystemOther})
 	if err != nil || !slices.Equal(designations(page), []string{"МП39"}) {
-		t.Fatalf("system=series: %v err=%v", designations(page), err)
+		t.Fatalf("system=other: %v err=%v", designations(page), err)
+	}
+
+	// Явное поле серии записи other — сквозной текстовый фильтр.
+	page, err = svc.Search(ctx, SearchQuery{
+		Kind:   domain.KindTransistor,
+		Fields: []FieldFilter{{Field: "series", Text: "МП"}},
+	})
+	if err != nil || !slices.Equal(designations(page), []string{"МП39"}) {
+		t.Fatalf("series=МП: %v err=%v", designations(page), err)
 	}
 
 	// Count.
@@ -1132,7 +1145,7 @@ func suiteRevisions(t *testing.T, factory configFactory) {
 	}
 }
 
-// suiteCatalogImport — расширение каталога данными: новое семейство series
+// suiteCatalogImport — расширение каталога данными: новая категория
 // работает end-to-end без правки кода; неверный каталог отвергается целиком.
 func suiteCatalogImport(t *testing.T, factory configFactory) {
 	ctx := context.Background()
@@ -1140,39 +1153,39 @@ func suiteCatalogImport(t *testing.T, factory configFactory) {
 	svc := app.Services().Devices
 	cat := app.Services().Catalog
 
-	// Новое семейство — данными каталога.
+	// Новый код словаря — данными каталога.
 	err := cat.Import(ctx, catalog.Input{
-		SeriesFamilies: []catalog.SeriesFamilyDef{
-			{Series: "ФГТ", Kind: domain.KindTransistor},
+		Categories: []catalog.CategoryDef{
+			{Code: "choke"},
 		},
 	})
 	if err != nil {
-		t.Fatalf("импорт семейства: %v", err)
+		t.Fatalf("импорт категории: %v", err)
 	}
 	snap, err := cat.Snapshot(ctx)
 	if err != nil {
 		t.Fatalf("снимок: %v", err)
 	}
-	if _, ok := snap.Family("ФГТ", domain.KindTransistor); !ok {
-		t.Fatal("семейство не появилось в снимке")
+	if _, ok := snap.Category("choke"); !ok {
+		t.Fatal("категория не появилась в снимке")
 	}
 
-	// Запись нового семейства — end-to-end (автодетект по реестру каталога).
+	// Новая категория доступна записи — end-to-end.
+	drFields := []domain.Field{domain.TextField("category", "choke")}
 	if out := mustUpsert(t, svc, DeviceInput{
-		Name:       "ФГТ-5",
-		Attributes: []catalog.AttributeValue{attrText("structure", "npn")},
-		Sections: []SectionInput{
-			section("parameters", pvRange("h21e", 40, 200, cond("Uke", 5), cond("Ik", 5))),
-		},
+		Name:   "ДР1",
+		System: domain.SystemOther,
+		Kind:   domain.KindDiode,
+		Fields: &drFields,
 	}); out != OutcomeAdded {
 		t.Fatalf("исход: %s", out)
 	}
-	card, ok, err := svc.Get(ctx, "transistor", "ФГТ-5")
-	if err != nil || !ok || card.System != domain.SystemSeries {
-		t.Fatalf("карточка ФГТ-5: ok=%v err=%v system=%s", ok, err, card.System)
+	card, ok, err := svc.Get(ctx, "diode", "ДР1")
+	if err != nil || !ok {
+		t.Fatalf("карточка ДР1: ok=%v err=%v", ok, err)
 	}
-	if f, ok := card.FieldByName("series"); !ok || f.String() != "ФГТ" {
-		t.Fatalf("поле series: %+v", f)
+	if f, ok := card.FieldByName("category"); !ok || f.String() != "choke" {
+		t.Fatalf("поле category: %+v", f)
 	}
 
 	// Неверный каталог — проблемы метасхемы, применение целиком отменено.
@@ -1183,8 +1196,8 @@ func suiteCatalogImport(t *testing.T, factory configFactory) {
 		"catalog: section validation_rules: unknown rule «nosuch_rule»")
 
 	snap, _ = cat.Snapshot(ctx)
-	if _, ok := snap.Family("ФГТ", domain.KindTransistor); !ok {
-		t.Fatal("семейство потеряно при отвергнутом импорте")
+	if _, ok := snap.Category("choke"); !ok {
+		t.Fatal("категория потеряна при отвергнутом импорте")
 	}
 }
 
@@ -1196,19 +1209,30 @@ func suiteParseSuggest(t *testing.T, factory configFactory) {
 	ds := app.Services().Designations
 	seedTransistors(t, svc)
 
-	p, err := ds.Parse(ctx, "млт-0.5")
+	// Автодетект строгой грамматики.
+	p, err := ds.Parse(ctx, "кт315б")
 	if err != nil {
 		t.Fatalf("parse: %v", err)
 	}
-	if p.Kind != domain.KindResistor || p.System != domain.SystemSeries || p.Designation != "МЛТ-0.5" {
-		t.Fatalf("parse МЛТ-0.5: %+v", p)
+	if p.Kind != domain.KindTransistor || p.System != domain.SystemGost || p.Designation != "КТ315Б" {
+		t.Fatalf("parse КТ315Б: %+v", p)
 	}
-	if f, ok := p.FieldByName("power"); !ok || f.Num != 0.5 {
-		t.Fatalf("power: %+v", f)
+
+	// Бывшие серийные обозначения автодектом не опознаются — только
+	// явная система other (разбора нет, канонизация сохраняется).
+	p, err = ds.ParseForSystem(ctx, "млт-0.5", domain.SystemOther, domain.KindResistor)
+	if err != nil {
+		t.Fatalf("parse МЛТ-0.5/other: %v", err)
+	}
+	if p.Kind != domain.KindResistor || p.System != domain.SystemOther || p.Designation != "МЛТ-0.5" {
+		t.Fatalf("parse МЛТ-0.5/other: %+v", p)
+	}
+	if len(p.Fields) != 0 {
+		t.Fatalf("other без полей разбора: %+v", p.Fields)
 	}
 
 	if _, err := ds.Parse(ctx, "QXZ-1"); err == nil {
-		t.Fatal("неизвестное семейство должно ошибкой")
+		t.Fatal("бессистемное обозначение должно давать отказ автодетекта")
 	}
 
 	sugg, err := ds.Suggest(ctx, "КТ3", "", 10)
@@ -1279,11 +1303,17 @@ func suiteClassificationFields(t *testing.T, factory configFactory) {
 	_, err = svc.Upsert(ctx, DeviceInput{Name: "КТ315Б", Fields: &bad})
 	wantDomainError(t, err, domain.CodeValidationFailed,
 		"field «material» is derived from the designation by the gost parser and cannot be set explicitly")
-	// Грамматическое поле даже для other — не классификационное.
-	bad = []domain.Field{domain.TextField("dev_number", "315")}
+	// Грамматические поля — только записям other; для строгой системы
+	// они недопустимы (устанавливает парсер либо не задаются вовсе).
+	bad = []domain.Field{domain.NumField("dev_number", 315)}
+	_, err = svc.Upsert(ctx, DeviceInput{Name: "КТ315Б", Fields: &bad})
+	wantDomainError(t, err, domain.CodeValidationFailed,
+		"field «dev_number» is derived from the designation by the gost parser and cannot be set explicitly")
+	// Посторонний код поля отвергается и для other.
+	bad = []domain.Field{domain.TextField("bogus", "x")}
 	_, err = svc.Upsert(ctx, DeviceInput{Name: "MJE340", System: domain.SystemOther, Kind: domain.KindTransistor, Fields: &bad})
 	wantDomainError(t, err, domain.CodeValidationFailed,
-		"unknown classification field «dev_number» (allowed: material, subclass, adjustment, category, assembly)")
+		"unknown classification field «bogus» (allowed: material, subclass, adjustment, category, assembly)")
 	// Применимость к классу: adjustment — только резисторы/конденсаторы.
 	bad = []domain.Field{domain.TextField("adjustment", "variable")}
 	_, err = svc.Upsert(ctx, DeviceInput{Name: "MJE340", System: domain.SystemOther, Kind: domain.KindTransistor, Fields: &bad})
@@ -1307,6 +1337,36 @@ func suiteClassificationFields(t *testing.T, factory configFactory) {
 	_, err = svc.Upsert(ctx, DeviceInput{Name: "MJE340", System: domain.SystemOther, Kind: domain.KindTransistor, Fields: &bad})
 	wantDomainError(t, err, domain.CodeValidationFailed,
 		"classification field «material» is set more than once")
+
+	// Грамматические поля other: типы значений и канонизация.
+	bad = []domain.Field{domain.NumField("dev_number", 1.5)}
+	_, err = svc.Upsert(ctx, DeviceInput{Name: "MJE340", System: domain.SystemOther, Kind: domain.KindTransistor, Fields: &bad})
+	wantDomainError(t, err, domain.CodeValidationFailed,
+		"value of field dev_number must be a positive integer")
+	bad = []domain.Field{domain.TextField("series", "  ")}
+	_, err = svc.Upsert(ctx, DeviceInput{Name: "MJE340", System: domain.SystemOther, Kind: domain.KindTransistor, Fields: &bad})
+	wantDomainError(t, err, domain.CodeValidationFailed,
+		"value of field series must be a non-empty string")
+	other := []domain.Field{
+		domain.TextField("series", "мje"),
+		domain.NumField("dev_number", 340),
+		domain.TextField("letters", "A"),
+	}
+	if out := mustUpsert(t, svc, DeviceInput{
+		Name: "MJE340X", System: domain.SystemOther, Kind: domain.KindTransistor, Fields: &other,
+	}); out != OutcomeAdded {
+		t.Fatalf("исход: %v", out)
+	}
+	card, _, _ = svc.Get(ctx, domain.KindTransistor, "MJE340X")
+	if f, ok := card.FieldByName("series"); !ok || f.Text != "МJE" {
+		t.Fatalf("series после канонизации: %+v", f)
+	}
+	if f, ok := card.FieldByName("dev_number"); !ok || !f.IsNum || f.Num != 340 {
+		t.Fatalf("dev_number: %+v", f)
+	}
+	if f, ok := card.FieldByName("letters"); !ok || f.Text != "A" {
+		t.Fatalf("letters: %+v", f)
+	}
 
 	// Отвергнутый вход не меняет запись (атомарность).
 	card, _, _ = svc.Get(ctx, domain.KindTransistor, "MJE340")

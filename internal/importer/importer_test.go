@@ -99,10 +99,10 @@ func runImporterSuite(t *testing.T, factory configFactory) {
 		file := filepath.Join(t.TempDir(), "negative.jsonc")
 		write(t, file, `{
 			"transistors": [
-				{ "name": "МП39", "parameters": [ { "parameter": "h21e", "max": 50, "Uke": 5, "Ik": 5 } ] },
+				{ "name": "МП39", "system": "other", "parameters": [ { "parameter": "h21e", "max": 50, "Uke": 5, "Ik": 5 } ] },
 				"ГТ109Г",
 				{ "name": "2N9999ZZ", "system": "jedec" },
-				{ "name": "МП39", "ratings": [ { "parameter": "UkeoMax", "value": 0 } ] }
+				{ "name": "МП39", "system": "other", "ratings": [ { "parameter": "UkeoMax", "value": 0 } ] }
 			]
 		}`)
 		rep := importFile(t, app, file, false)
@@ -133,7 +133,7 @@ func runImporterSuite(t *testing.T, factory configFactory) {
 		file := filepath.Join(t.TempDir(), "analogs.jsonc")
 		write(t, file, `{
 			"transistors": [
-				{ "name": "МП39", "analogs": ["BC547B"] },
+				{ "name": "МП39", "system": "other", "analogs": ["BC547B"] },
 				{ "name": "BC547B" }
 			]
 		}`)
@@ -165,7 +165,7 @@ func runImporterSuite(t *testing.T, factory configFactory) {
 		file := filepath.Join(t.TempDir(), "mutual.jsonc")
 		write(t, file, `{
 			"diodes": [
-				{ "name": "Д226", "analogs": ["1N4007"] },
+				{ "name": "Д226", "system": "other", "analogs": ["1N4007"] },
 				{ "name": "1N4007", "analogs": ["Д226"] }
 			]
 		}`)
@@ -201,7 +201,7 @@ func runImporterSuite(t *testing.T, factory configFactory) {
 		app := openApp(t, factory)
 		file := filepath.Join(t.TempDir(), "broken.jsonc")
 		write(t, file, `{
-			"transistors": [ { "name": "МП39", "analogs": ["BC999ZZ"] } ]
+			"transistors": [ { "name": "МП39", "system": "other", "analogs": ["BC999ZZ"] } ]
 		}`)
 		rep := importFile(t, app, file, false)
 		if !rep.HasIssues() || rep.Rejected != 1 {
@@ -231,7 +231,7 @@ func runImporterSuite(t *testing.T, factory configFactory) {
 		// catalog после записи — проблема корневого уровня.
 		bad := filepath.Join(t.TempDir(), "bad.ndjson")
 		write(t, bad,
-			`{"transistors": {"name": "МП39"}}`+"\n"+
+			`{"transistors": {"name": "МП39", "system": "other"}}`+"\n"+
 				`{"catalog": {"units": [{"code": "kV"}]}}`+"\n")
 		rep = importFile(t, app, bad, false)
 		if len(rep.Issues) != 1 || rep.Issues[0].String() != "line 2: the catalog block must precede records" {
@@ -247,7 +247,7 @@ func runImporterSuite(t *testing.T, factory configFactory) {
 				"attributes": [ { "code": "coating", "type": "enum", "enum_values": ["лак", "эмаль"] } ]
 			},
 			"diodes": [
-				{ "name": "Д226", "attributes": { "coating": "лак" } }
+				{ "name": "Д226", "system": "other", "attributes": { "coating": "лак" } }
 			]
 		}`)
 		rep := importFile(t, app, file, false)
@@ -416,7 +416,7 @@ func runImporterSuite(t *testing.T, factory configFactory) {
 				name: "catalog не объект",
 				body: `{"catalog": []}`,
 				want: `catalog: catalog must be an object with subsections (allowed: kinds, ` +
-					`designation_systems, designation_system_kinds, series_families, units, ` +
+					`designation_systems, designation_system_kinds, units, ` +
 					`categories, conditions, parameter_groups, parameters, attributes, ` +
 					`validation_rules, kind_validation_rules)`,
 			},
@@ -501,7 +501,7 @@ func runImporterSuite(t *testing.T, factory configFactory) {
 		file := filepath.Join(t.TempDir(), "deadlock.jsonc")
 		write(t, file, `{
 			"diodes": [
-				{ "name": "Д226", "analogs": ["1N4007", "1N4007"] },
+				{ "name": "Д226", "system": "other", "analogs": ["1N4007", "1N4007"] },
 				{ "name": "1N4007", "analogs": ["Д226"] }
 			]
 		}`)
@@ -811,8 +811,8 @@ func TestExportSkipsUnparseableRecordFields(t *testing.T) {
 		t.Fatalf("импорт: %+v; %v", rep, issueMessages(rep.Issues))
 	}
 
-	// Напрямую через storage — запись с системой series и обозначением
-	// вне реестра семейств: текущим каталогом не разбирается.
+	// Напрямую через storage — запись с системой gost и обозначением,
+	// не разбираемым грамматикой: текущим каталогом не разбирается.
 	db, err := storage.Open(context.Background(), storage.Config{Dialect: "sqlite", DSN: path})
 	if err != nil {
 		t.Fatalf("storage: %v", err)
@@ -822,7 +822,7 @@ func TestExportSkipsUnparseableRecordFields(t *testing.T) {
 		t.Fatalf("tx: %v", err)
 	}
 	if _, _, err := tx.InsertDevice(context.Background(),
-		domain.KindTransistor, domain.SystemSeries, "ЪЪЪ5"); err != nil {
+		domain.KindTransistor, domain.SystemGost, "ЪЪЪ5"); err != nil {
 		t.Fatalf("вставка: %v", err)
 	}
 	if err := tx.Commit(); err != nil {
@@ -856,7 +856,7 @@ func TestExportSkipsUnparseableRecordFields(t *testing.T) {
 	if _, has := broken.has("fields"); has {
 		t.Fatalf("неразбираемая запись выгружена с fields:\n%s", buf.String())
 	}
-	if sysVal, _ := broken.has("system"); sysVal.str != string(domain.SystemSeries) {
+	if sysVal, _ := broken.has("system"); sysVal.str != string(domain.SystemGost) {
 		t.Fatalf("система неразбираемой записи: %v", sysVal)
 	}
 }

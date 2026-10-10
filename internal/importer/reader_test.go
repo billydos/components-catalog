@@ -300,7 +300,7 @@ func TestReadDocumentIssuesVerbatimTexts(t *testing.T) {
 	want := []string{
 		"unknown root key «widgets» (allowed: catalog, transistors, diodes, resistors, capacitors)",
 		"record no. 1: mandatory key \"name\" — a string with the designation",
-		"record «КТ315Б»: unknown designation system «star» (allowed: gost, ost, pro, jedec, jis, series, other)",
+		"record «КТ315Б»: unknown designation system «star» (allowed: gost, ost, pro, jedec, jis, other)",
 		"record «КТ315Б»: unknown field «voltparams» (allowed: name, system, fields, attributes, manufacturers, variants, analogs and group sections: parameters, ratings, dimensions)",
 		"record «КТ315Б»: section «parameters», value no. 1: key \"min\" must be a number",
 		"record no. 5: a record must be a string (designation) or an object, got: number",
@@ -434,7 +434,7 @@ func TestReadCatalogSectionUnknownSubsection(t *testing.T) {
 	if len(issues) != 1 {
 		t.Fatalf("проблем: %d", len(issues))
 	}
-	want := "catalog: unknown catalog subsection «paraneters» (allowed: kinds, designation_systems, designation_system_kinds, series_families, units, categories, conditions, parameter_groups, parameters, attributes, validation_rules, kind_validation_rules)"
+	want := "catalog: unknown catalog subsection «paraneters» (allowed: kinds, designation_systems, designation_system_kinds, units, categories, conditions, parameter_groups, parameters, attributes, validation_rules, kind_validation_rules)"
 	if issues[0].String() != want {
 		t.Fatalf("текст: %q", issues[0].String())
 	}

@@ -38,9 +38,6 @@ func (d *DB) LoadSnapshot(ctx context.Context) (*catalog.Snapshot, error) {
 	if snap.SystemKinds, err = loadSystemKinds(ctx, tx); err != nil {
 		return nil, err
 	}
-	if snap.SeriesFamilies, err = loadSeriesFamilies(ctx, tx); err != nil {
-		return nil, err
-	}
 	if snap.Units, err = loadUnits(ctx, tx); err != nil {
 		return nil, err
 	}
@@ -134,27 +131,6 @@ ORDER BY system_code, kind_code`)
 		if err := rows.Scan(&r.System, &r.Kind); err != nil {
 			return nil, err
 		}
-		out = append(out, r)
-	}
-	return out, rows.Err()
-}
-
-func loadSeriesFamilies(ctx context.Context, q queryer) ([]catalog.SeriesFamilyDef, error) {
-	rows, err := q.QueryContext(ctx, `
-SELECT series, kind_code, tail_semantic FROM series_families
-ORDER BY series, kind_code`)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var out []catalog.SeriesFamilyDef
-	for rows.Next() {
-		var r catalog.SeriesFamilyDef
-		var tail sql.NullString
-		if err := rows.Scan(&r.Series, &r.Kind, &tail); err != nil {
-			return nil, err
-		}
-		r.TailSemantic = nullableStr(tail)
 		out = append(out, r)
 	}
 	return out, rows.Err()

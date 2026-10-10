@@ -13,8 +13,11 @@ import "strings"
 // классификационные поля секции fields и каталожный словарь категорий.
 // Версия 5 — postgres-диалект переписывает INTEGER в BIGINT и REAL
 // в DOUBLE PRECISION (диапазон и точность sqlite: int64 и float64;
-// текст переносимого DDL не менялся).
-const SchemaVersion = 5
+// текст переносимого DML не менялся). Версия 6 — удалена таблица
+// series_families (система обозначений series исключена: бывшие
+// серийные записи — система other, семейство/номер/буквы — явные поля
+// секции fields, мощность — параметр Pnom).
+const SchemaVersion = 6
 
 // autoIncToken — маркер авто-PK в переносимом DDL; диалект заменяет его
 // своим определением в RewriteDDL (sqlite: PRIMARY KEY AUTOINCREMENT —
@@ -43,13 +46,6 @@ var ddlStatements = []string{
     system_code TEXT NOT NULL REFERENCES designation_systems(code) ON DELETE CASCADE,
     kind_code   TEXT NOT NULL REFERENCES kinds(code) ON DELETE CASCADE,
     PRIMARY KEY (system_code, kind_code)
-)`,
-
-	`CREATE TABLE IF NOT EXISTS series_families (
-    series        TEXT NOT NULL,
-    kind_code     TEXT NOT NULL REFERENCES kinds(code),
-    tail_semantic TEXT NULL,
-    PRIMARY KEY (series, kind_code)
 )`,
 
 	`CREATE TABLE IF NOT EXISTS units (

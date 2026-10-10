@@ -50,8 +50,8 @@ func TestSeedKindsAndSystemsPin(t *testing.T) {
 	}
 
 	// Применимость систем к классам — вся матрица.
-	if len(in.SystemKinds) != 19 {
-		t.Fatalf("привязок систем: %d, ожидалось 19", len(in.SystemKinds))
+	if len(in.SystemKinds) != 15 {
+		t.Fatalf("привязок систем: %d, ожидалось 15", len(in.SystemKinds))
 	}
 	for _, s := range wantSystems {
 		for _, k := range wantKinds {
@@ -62,29 +62,6 @@ func TestSeedKindsAndSystemsPin(t *testing.T) {
 			if got != want {
 				t.Errorf("привязка %s→%s: сиды %v, реестр %v", string(s), string(k), got, want)
 			}
-		}
-	}
-}
-
-// Реестр семейств series — сиды ⇄ domain.SeriesFamilies (tail_semantic
-// «power» ⇄ Power), 03 §2.1–2.3.
-func TestSeedSeriesFamiliesPin(t *testing.T) {
-	in := seed.Catalog()
-	want := domain.SeriesFamilies()
-	if len(in.SeriesFamilies) != len(want) {
-		t.Fatalf("семейств: %d, ожидалось %d", len(in.SeriesFamilies), len(want))
-	}
-	for i := range want {
-		got := in.SeriesFamilies[i]
-		if got.Series != want[i].Series || got.Kind != want[i].Kind {
-			t.Errorf("семейство #%d: %+v ≠ %+v", i, got, want[i])
-		}
-		tail := ""
-		if want[i].Power {
-			tail = catalog.TailSemanticPower
-		}
-		if got.TailSemantic != tail {
-			t.Errorf("семейство %s: семантика хвоста %q ≠ %q", want[i].Series, got.TailSemantic, tail)
 		}
 	}
 }
@@ -249,10 +226,10 @@ func TestSeedSpotChecks(t *testing.T) {
 }
 
 // expectedBundleKeys — полное ожидаемое множество ключей бандлов i18n:
-// коды сидов (классы, системы+описания, семейства, единицы имя+символ,
-// условия, группы, параметры, атрибуты, правила), материалы
-// domain.Materials и поля разбора domain.DesignationFieldCodes. Новая
-// группа ключей бандла обязана расширять это множество тем же изменением.
+// коды сидов (классы, системы+описания, единицы имя+символ, условия,
+// группы, параметры, атрибуты, правила), материалы domain.Materials
+// и поля разбора domain.DesignationFieldCodes. Новая группа ключей
+// бандла обязана расширять это множество тем же изменением.
 func expectedBundleKeys(t *testing.T) map[string]bool {
 	t.Helper()
 	snap, probs := catalog.ApplyCatalog(nil, seed.Catalog())
@@ -266,9 +243,6 @@ func expectedBundleKeys(t *testing.T) map[string]bool {
 	for _, s := range snap.Systems {
 		want["system."+string(s.Code)] = true
 		want["system."+string(s.Code)+".description"] = true
-	}
-	for _, f := range snap.SeriesFamilies {
-		want["family."+f.Series] = true
 	}
 	for _, u := range snap.Units {
 		want["unit."+u.Code+".name"] = true

@@ -356,11 +356,11 @@
       ]
     },
 
-    // series: советские семейства вне строгого ГОСТ; категория — атрибутом.
+    // other: советские семейства вне строгого ГОСТ; семейство — секцией fields.
     {
       "name": "Д226",
-      "system": "series",
-      "fields": { "material": "si", "subclass": "rectifier" },
+      "system": "other",
+      "fields": { "material": "si", "subclass": "rectifier", "series": "Д", "dev_number": 226 },
       "attributes": {
         "description": "выпрямительный",
         "datasheetUrl": "https://kazus.ru/post/2686188-d226"
@@ -379,8 +379,8 @@
     },
     {
       "name": "Д814А",                       // стабилитрон 7–8,5 В
-      "system": "series",
-      "fields": { "material": "si", "subclass": "zener" },
+      "system": "other",
+      "fields": { "material": "si", "subclass": "zener", "series": "Д", "dev_number": 814, "letters": "А" },
       "attributes": {
         "description": "стабилитрон",
         "datasheetUrl": "http://www.club155.ru/datasheet/D814A"
@@ -399,8 +399,8 @@
     },
     {
       "name": "Д2Б",                         // германиевый точечный
-      "system": "series",
-      "fields": { "material": "ge", "subclass": "rectifier" },
+      "system": "other",
+      "fields": { "material": "ge", "subclass": "rectifier", "series": "Д", "dev_number": 2, "letters": "Б" },
       "attributes": {
         "description": "универсальный (германиевый точечный)",
         "datasheetUrl": "https://www.radiolibrary.ru/reference/diod/d2b.html"

@@ -166,11 +166,6 @@ func SystemDescription(l Language, code string) string {
 	return resolve(l, "system."+code+".description", "")
 }
 
-// FamilyName возвращает расшифровку семейства системы series.
-func FamilyName(l Language, series string) string {
-	return resolve(l, "family."+series, series)
-}
-
 // UnitName возвращает отображаемое название единицы.
 func UnitName(l Language, code string) string {
 	return resolve(l, "unit."+code+".name", code)

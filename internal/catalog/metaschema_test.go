@@ -146,15 +146,6 @@ func TestMetaschemaViolations(t *testing.T) {
 		{"класс с секцией существующей группы", catalog.Input{Kinds: []catalog.KindDef{
 			{Code: "parameter"},
 		}}, "catalog: group «electrical»: section name «parameters» is reserved by the fill format"},
-		{"неизвестный класс семейства", catalog.Input{SeriesFamilies: []catalog.SeriesFamilyDef{
-			{Series: "XX", Kind: "thyristor"},
-		}}, "catalog: family «XX»: kind «thyristor» does not exist"},
-		{"неизвестная семантика хвоста", catalog.Input{SeriesFamilies: []catalog.SeriesFamilyDef{
-			{Series: "XX", Kind: domain.KindResistor, TailSemantic: "voltage"},
-		}}, "catalog: family «XX» (kind resistor): unknown tail semantic «voltage»"},
-		{"семейство разбирается строгой системой", catalog.Input{SeriesFamilies: []catalog.SeriesFamilyDef{
-			{Series: "ГТ308", Kind: domain.KindTransistor},
-		}}, "catalog: family «ГТ308»: the code is parsed by strict system «gost» — series registry invariant violated"},
 		{"несуществующая system применимости", catalog.Input{SystemKinds: []catalog.SystemKindRef{
 			{System: "din", Kind: domain.KindResistor},
 		}}, "catalog: system applicability: system «din» does not exist"},

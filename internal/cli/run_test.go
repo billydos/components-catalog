@@ -268,8 +268,8 @@ func TestImportIssuesReportedToStderr(t *testing.T) {
 	}
 	bad := filepath.Join(t.TempDir(), "bad.jsonc")
 	content := `{"transistors": [
-		{ "name": "МП39", "ratings": [ { "parameter": "UkeoMax", "value": -1 } ] },
-		"ГТ109Г"
+		{ "name": "ГТ109Г", "ratings": [ { "parameter": "UkeoMax", "value": -1 } ] },
+		"КТ315Б"
 	]}`
 	if err := os.WriteFile(bad, []byte(content), 0o644); err != nil {
 		t.Fatalf("запись: %v", err)
@@ -281,7 +281,7 @@ func TestImportIssuesReportedToStderr(t *testing.T) {
 	if !strings.Contains(stdout, "records: 2, added: 1") {
 		t.Fatalf("итог: %q", stdout)
 	}
-	want := "Problem: record «МП39»: parameter «UkeoMax»: value of key value must be positive\n"
+	want := "Problem: record «ГТ109Г»: parameter «UkeoMax»: value of key value must be positive\n"
 	if stderr != want {
 		t.Fatalf("stderr:\n got:  %q\n want: %q", stderr, want)
 	}

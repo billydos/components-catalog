@@ -2,7 +2,6 @@ package catalog_test
 
 import (
 	"slices"
-	"strings"
 	"testing"
 
 	"github.com/billydos/components-catalog/internal/catalog"
@@ -492,52 +491,5 @@ func TestAttributeValueTypes(t *testing.T) {
 			}
 			hasProblem(t, probs, tc.want)
 		})
-	}
-}
-
-// Записи системы series: семейство известно и обозначение не разбирается
-// строгими systemми (инвариант реестра, 03 §2.4).
-func TestSeriesRecords(t *testing.T) {
-	e := seedEngine(t)
-	t.Run("МЛТ-0.5", func(t *testing.T) {
-		d := catalog.Device{Kind: domain.KindResistor, System: domain.SystemSeries, Designation: "МЛТ-0.5"}
-		if probs := e.ValidateDevice(&d); len(probs) != 0 {
-			t.Fatalf(" got: %v", messages(probs))
-		}
-	})
-	t.Run("неизвестное семейство", func(t *testing.T) {
-		d := catalog.Device{Kind: domain.KindResistor, System: domain.SystemSeries, Designation: "ФУУ-1"}
-		probs := e.ValidateDevice(&d)
-		if len(probs) == 0 || probs[0].Message != "designation «ФУУ-1»: unknown family (system series, kind resistor)" {
-			t.Fatalf(" got: %v", messages(probs))
-		}
-	})
-	t.Run("строгое обозначение", func(t *testing.T) {
-		d := catalog.Device{Kind: domain.KindTransistor, System: domain.SystemSeries, Designation: "КТ315Б"}
-		var found bool
-		for _, m := range messages(e.ValidateDevice(&d)) {
-			if strings.Contains(m, "is parsed by strict system «gost» and cannot belong to system series") {
-				found = true
-			}
-		}
-		if !found {
-			t.Fatal("инвариант реестра series не диагностирован")
-		}
-	})
-}
-
-// MatchSeriesFamily — самое длинное совпадение префикса (ПЭВ раньше ПЭ).
-func TestMatchSeriesFamily(t *testing.T) {
-	snap := seedSnapshot(t)
-	fam, ok := snap.MatchSeriesFamily("ПЭВ-10", domain.KindResistor)
-	if !ok || fam.Series != "ПЭВ" {
-		t.Fatalf("ПЭВ-10: %+v", fam)
-	}
-	fam, ok = snap.MatchSeriesFamily("ПЭ-25", domain.KindResistor)
-	if !ok || fam.Series != "ПЭ" {
-		t.Fatalf("ПЭ-25: %+v", fam)
-	}
-	if _, ok := snap.MatchSeriesFamily("ПЭВ-10", domain.KindCapacitor); ok {
-		t.Error("ПЭВ не относится к конденсаторам")
 	}
 }

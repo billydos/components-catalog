@@ -59,7 +59,6 @@ var catalogTables = []string{
 	"conditions",
 	"units",
 	"categories",
-	"series_families",
 	"designation_system_kinds",
 	"designation_systems",
 	"kinds",

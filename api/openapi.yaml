@@ -112,11 +112,12 @@ paths:
         * фильтры полей обозначения — код поля как имя параметра:
           текстовые `material`, `subclass`, `letters`, `prefix`, `family`,
           `series`; числовые `junctions`, `group`, `dev_number`, `assembly`,
-          `feature`, `modification`, `chip`, `power` (равенство);
+          `feature`, `modification`, `chip` (равенство);
           значение `material` — стабильный код словаря (`si`, `ge`,
           `ga`, `in`, `sic`, `other`, `gaas`; D9) либо отображаемое
           название локали (канонизируется); прочие текстовые поля —
-          нормативные элементы обозначения;
+          нормативные элементы обозначения (для записей `other` поле
+          `series` задаётся секцией `fields`);
         * `attr.<код>=<значение>` — фильтр по атрибуту (текст либо число
           по типу атрибута; логические атрибуты не фильтруются);
         * `par.<код>.min=`, `par.<код>.max=`, `par.<код>.exact=` — границы
@@ -129,7 +130,7 @@ paths:
         Неизвестный параметр запроса — 400 validation_failed.
       parameters:
         - {name: kind, in: query, schema: {type: string}, description: "Класс приборов (transistor, diode, resistor, capacitor)."}
-        - {name: system, in: query, schema: {type: string}, description: "Система обозначений (gost, ost, pro, jedec, jis, series, other)."}
+        - {name: system, in: query, schema: {type: string}, description: "Система обозначений (gost, ost, pro, jedec, jis, other)."}
         - {name: q, in: query, schema: {type: string}, description: "Подстрока обозначения (регистр не важен)."}
         - {name: sort, in: query, schema: {type: string}, description: "Ключи сортировки через запятую, «-» — убывание (designation, id либо код поля разбора). К любому порядку добавляется финальный (kind, designation)."}
         - {name: limit, in: query, schema: {type: integer, minimum: 1, maximum: 200, default: 50}, description: "Размер страницы (≤ 200)."}
@@ -665,14 +666,6 @@ components:
       properties:
         system: {type: string}
         kind: {type: string}
-    SeriesFamily:
-      type: object
-      required: [series, kind]
-      properties:
-        series: {type: string}
-        kind: {type: string}
-        name: {type: string}
-        tail_semantic: {type: string, enum: ["", power]}
     RuleDef:
       type: object
       required: [code, description]
@@ -687,7 +680,7 @@ components:
         rule: {type: string}
     CatalogSnapshot:
       type: object
-      required: [revision, kinds, systems, system_kinds, series_families, units, conditions, groups, parameters, attributes, rules, kind_rules]
+      required: [revision, kinds, systems, system_kinds, units, conditions, groups, parameters, attributes, rules, kind_rules]
       properties:
         revision: {type: integer, format: int64, description: catalog_revision.}
         kinds:
@@ -699,9 +692,6 @@ components:
         system_kinds:
           type: array
           items: {$ref: "#/components/schemas/SystemKindRef"}
-        series_families:
-          type: array
-          items: {$ref: "#/components/schemas/SeriesFamily"}
         units:
           type: array
           items: {$ref: "#/components/schemas/UnitDef"}

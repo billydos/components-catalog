@@ -244,18 +244,17 @@ type statsJSON struct {
 // (snake_case по колонкам каталожных таблиц — docs/plan/04 §4).
 
 type catalogSnapshotJSON struct {
-	Revision       int64               `json:"revision"`
-	Kinds          []kindDefJSON       `json:"kinds"`
-	Systems        []systemDefJSON     `json:"systems"`
-	SystemKinds    []systemKindRefJSON `json:"system_kinds"`
-	SeriesFamilies []seriesFamilyJSON  `json:"series_families"`
-	Units          []unitDefJSON       `json:"units"`
-	Conditions     []conditionDefJSON  `json:"conditions"`
-	Groups         []groupDefJSON      `json:"groups"`
-	Parameters     []parameterDefJSON  `json:"parameters"`
-	Attributes     []attributeDefJSON  `json:"attributes"`
-	Rules          []ruleDefJSON       `json:"rules"`
-	KindRules      []kindRuleRefJSON   `json:"kind_rules"`
+	Revision    int64               `json:"revision"`
+	Kinds       []kindDefJSON       `json:"kinds"`
+	Systems     []systemDefJSON     `json:"systems"`
+	SystemKinds []systemKindRefJSON `json:"system_kinds"`
+	Units       []unitDefJSON       `json:"units"`
+	Conditions  []conditionDefJSON  `json:"conditions"`
+	Groups      []groupDefJSON      `json:"groups"`
+	Parameters  []parameterDefJSON  `json:"parameters"`
+	Attributes  []attributeDefJSON  `json:"attributes"`
+	Rules       []ruleDefJSON       `json:"rules"`
+	KindRules   []kindRuleRefJSON   `json:"kind_rules"`
 }
 
 type systemDefJSON struct {
@@ -267,13 +266,6 @@ type systemDefJSON struct {
 type systemKindRefJSON struct {
 	System string `json:"system"`
 	Kind   string `json:"kind"`
-}
-
-type seriesFamilyJSON struct {
-	Series       string `json:"series"`
-	Kind         string `json:"kind"`
-	Name         string `json:"name,omitempty"`
-	TailSemantic string `json:"tail_semantic,omitempty"`
 }
 
 type unitDefJSON struct {
@@ -366,13 +358,6 @@ func catalogToJSON(lang i18n.Language, s *catalog.Snapshot) catalogSnapshotJSON 
 	for _, ref := range s.SystemKinds {
 		out.SystemKinds = append(out.SystemKinds, systemKindRefJSON{
 			System: string(ref.System), Kind: string(ref.Kind),
-		})
-	}
-	for _, f := range s.SeriesFamilies {
-		out.SeriesFamilies = append(out.SeriesFamilies, seriesFamilyJSON{
-			Series: f.Series, Kind: string(f.Kind),
-			Name:         i18n.FamilyName(lang, f.Series),
-			TailSemantic: f.TailSemantic,
 		})
 	}
 	for _, u := range s.Units {

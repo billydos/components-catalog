@@ -13,17 +13,16 @@ type System string
 // (единая система, действующая кодификация — ГОСТ Р 57440-2017); грамматика
 // каждой предметной области — свой парсер.
 const (
-	SystemGost   System = "gost"
-	SystemOst    System = "ost"
-	SystemPro    System = "pro"
-	SystemJedec  System = "jedec"
-	SystemJis    System = "jis"
-	SystemSeries System = "series"
-	SystemOther  System = "other"
+	SystemGost  System = "gost"
+	SystemOst   System = "ost"
+	SystemPro   System = "pro"
+	SystemJedec System = "jedec"
+	SystemJis   System = "jis"
+	SystemOther System = "other"
 )
 
 // systemOrder — стабильный порядок реестра (порядок сидов и вывода).
-var systemOrder = []System{SystemGost, SystemOst, SystemPro, SystemJedec, SystemJis, SystemSeries, SystemOther}
+var systemOrder = []System{SystemGost, SystemOst, SystemPro, SystemJedec, SystemJis, SystemOther}
 
 // Systems возвращает системы обозначений стартового реестра в стабильном порядке.
 func Systems() []System {
@@ -38,13 +37,12 @@ func (s System) IsValid() bool {
 // systemKinds — применимость систем к классам (docs/plan/03-data-model.md §1.1);
 // пин-тест фиксирует матрицу целиком.
 var systemKinds = map[System][]Kind{
-	SystemGost:   {KindTransistor, KindDiode, KindResistor, KindCapacitor},
-	SystemOst:    {KindResistor},
-	SystemPro:    {KindTransistor, KindDiode},
-	SystemJedec:  {KindTransistor, KindDiode},
-	SystemJis:    {KindTransistor, KindDiode},
-	SystemSeries: {KindTransistor, KindDiode, KindResistor, KindCapacitor},
-	SystemOther:  {KindTransistor, KindDiode, KindResistor, KindCapacitor},
+	SystemGost:  {KindTransistor, KindDiode, KindResistor, KindCapacitor},
+	SystemOst:   {KindResistor},
+	SystemPro:   {KindTransistor, KindDiode},
+	SystemJedec: {KindTransistor, KindDiode},
+	SystemJis:   {KindTransistor, KindDiode},
+	SystemOther: {KindTransistor, KindDiode, KindResistor, KindCapacitor},
 }
 
 // SystemsForKind возвращает системы, применимые к классу, в стабильном порядке.

@@ -14,8 +14,8 @@ func TestParseProValid(t *testing.T) {
 		{"BY133", KindDiode, "material=si; subclass=rectifier; dev_number=133"},
 		{"AA112", KindDiode, "material=ge; subclass=signal; dev_number=112"},
 		{"ACY32", KindTransistor, "material=ge; subclass=bjt; dev_number=32"},
-		// ASZ15 — индустриальная регистрация, поэтому НЕ входит в реестр
-		// series (инвариант 03 §2.4).
+		// ASZ15 — индустриальная регистрация PRO ELECTRON (записью other
+		// не является — критерий 07 §7).
 		{"ASZ15", KindTransistor, "material=ge; subclass=bjt; dev_number=15"},
 		{"BZX85C5V1", KindDiode, "material=si; subclass=zener; dev_number=85; letters=C"},
 		{"BZY74-C6V3", KindDiode, "material=si; subclass=zener; dev_number=74"},
@@ -71,7 +71,7 @@ func TestParseProMessages(t *testing.T) {
 
 // Материал R и классы G/N/R/T/W — грамматически корректны, но класс вне
 // модуля; грамматика проверяется раньше класса (RC05 не разбирается как
-// PRO ELECTRON и доходит до реестра series — series_test.go).
+// PRO ELECTRON и завершается отказом автодетекта).
 func TestParseProKind(t *testing.T) {
 	unsupported := []string{"RPY84", "BGN10", "BNN10", "BRN10", "BTN10", "BWN10"}
 	for _, in := range unsupported {

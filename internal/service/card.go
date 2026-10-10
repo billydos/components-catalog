@@ -203,7 +203,7 @@ func condsFromStorage(conds []storage.Cond) []catalog.ConditionValue {
 // (Г/1, К/2 — физически равнозначные символы, записи раздельны:
 // docs/plan/01-architecture.md §2.1).
 func (s *DeviceService) Find(ctx context.Context, kind domain.Kind, designation string) (FindResult, error) {
-	p, err := s.app.designations.parse(ctx, designation, "", kind)
+	p, err := s.app.designations.ParseForSystem(ctx, designation, "", kind)
 	if err != nil {
 		return FindResult{}, err
 	}

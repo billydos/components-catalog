@@ -333,11 +333,13 @@ func (r *reader) record(kind domain.Kind, v value, line, no int) (service.Device
 	return rec.Input, true
 }
 
-// classificationFields читает секцию fields — объект «код классификацион-
-// ного поля → значение» (материал, подкласс, подстройка, категория —
-// строка-код; assembly — число). Читатель проверяет только форму ключей
-// и типов; принадлежность кодов словарям, применимость к классу и запрет
-// переопределения продуктов парсера проверяет сервисный слой.
+// classificationFields читает секцию fields — объект «код поля →
+// значение» (материал, подкласс, подстройка, категория, семейство,
+// буквы — строка; assembly, dev_number — число). Читатель проверяет
+// только форму ключей и типов; принадлежность кодов словарям,
+// применимость к классу, допустимость для системы записи (series/
+// dev_number/letters — только other) и запрет переопределения продуктов
+// парсера проверяет сервисный слой.
 func (r *reader) classificationFields(rec *Record, v value) ([]domain.Field, bool) {
 	if v.kind != kindObject {
 		r.recFail(rec, domain.MsgImportFieldsObject)
@@ -354,13 +356,21 @@ func (r *reader) classificationFields(rec *Record, v value) ([]domain.Field, boo
 			}
 		}
 		if !allowed {
+			for _, code := range domain.OtherFieldCodes {
+				if m.name == code {
+					allowed = true
+					break
+				}
+			}
+		}
+		if !allowed {
 			r.recFail(rec, domain.MsgImportFieldUnknown, m.name)
 			return nil, false
 		}
 		if m.value.kind == kindNull {
 			continue // null — поле не задаётся
 		}
-		if m.name == "assembly" {
+		if m.name == "assembly" || m.name == "dev_number" {
 			if m.value.kind != kindNumber {
 				r.recFail(rec, domain.MsgImportFieldNumber)
 				return nil, false
@@ -370,7 +380,7 @@ func (r *reader) classificationFields(rec *Record, v value) ([]domain.Field, boo
 				r.recFail(rec, domain.MsgImportFieldNumber)
 				return nil, false
 			}
-			out = append(out, domain.NumField("assembly", f))
+			out = append(out, domain.NumField(m.name, f))
 			continue
 		}
 		if m.value.kind != kindString {

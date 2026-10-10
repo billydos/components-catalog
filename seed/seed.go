@@ -1,8 +1,8 @@
 // Package seed — стартовые сиды каталога (docs/plan/03-data-model.md §3–§10):
 // единицы, условия, группы параметров, именованные правила, системы
-// обозначений и применимость к классам, реестр семейств series, параметры
-// и атрибуты четырёх классов с применимостью (parameter_kinds/
-// attribute_kinds — D7). Применяются при EnsureCreated на пустую базу
+// обозначений и применимость к классам, параметры и атрибуты четырёх
+// классов с применимостью (parameter_kinds/attribute_kinds — D7).
+// Применяются при EnsureCreated на пустую базу
 // (docs/plan/02-database.md §5); состав синхронизирован с реестрами internal/
 // domain и реестром правил internal/catalog пин-тестами (seed/seed_test.go).
 package seed
@@ -34,33 +34,23 @@ func Catalog() catalog.Input {
 		}
 	}
 
-	families := make([]catalog.SeriesFamilyDef, 0, 32)
-	for _, f := range domain.SeriesFamilies() {
-		def := catalog.SeriesFamilyDef{Series: f.Series, Kind: f.Kind}
-		if f.Power {
-			def.TailSemantic = catalog.TailSemanticPower
-		}
-		families = append(families, def)
-	}
-
 	rules := make([]catalog.RuleDef, 0, 8)
 	for _, r := range catalog.Rules() {
 		rules = append(rules, catalog.RuleDef{Code: r.Code()})
 	}
 
 	return catalog.Input{
-		Kinds:          kinds,
-		Systems:        systems,
-		SystemKinds:    systemKinds,
-		SeriesFamilies: families,
-		Units:          units(),
-		Categories:     categories(),
-		Conditions:     conditions(),
-		Groups:         groups(),
-		Parameters:     parameters(),
-		Attributes:     attributes(),
-		Rules:          rules,
-		KindRules:      kindRules(),
+		Kinds:       kinds,
+		Systems:     systems,
+		SystemKinds: systemKinds,
+		Units:       units(),
+		Categories:  categories(),
+		Conditions:  conditions(),
+		Groups:      groups(),
+		Parameters:  parameters(),
+		Attributes:  attributes(),
+		Rules:       rules,
+		KindRules:   kindRules(),
 	}
 }
 

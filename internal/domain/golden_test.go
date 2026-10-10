@@ -66,9 +66,6 @@ func TestGoldenAutodetect(t *testing.T) {
 		{"С4-2", domain.KindResistor, domain.SystemGost, "", "family=С; adjustment=fixed; group=4; dev_number=2"},
 		{"Р1-4", domain.KindResistor, domain.SystemOst, "", "family=Р; adjustment=fixed; group=1; dev_number=4"},
 		{"РП1-46", domain.KindResistor, domain.SystemOst, "", "family=РП; adjustment=variable; group=1; dev_number=46"},
-		{"МЛТ-0.5", domain.KindResistor, domain.SystemSeries, "", "series=МЛТ; power=0.5"},
-		{"ВС-0.5", domain.KindResistor, domain.SystemSeries, "", "series=ВС; power=0.5"},
-		{"ПЭВ-10", domain.KindResistor, domain.SystemSeries, "", "series=ПЭВ; power=10"},
 
 		// Конденсаторы (03 §2.3 + 06 §4).
 		{"К10-17Б", domain.KindCapacitor, domain.SystemGost, "", "prefix=К; adjustment=fixed; group=10; dev_number=17; letters=Б"},
@@ -79,33 +76,6 @@ func TestGoldenAutodetect(t *testing.T) {
 		{"КТ4-25", domain.KindCapacitor, domain.SystemGost, "", "prefix=КТ; adjustment=preset; group=4; dev_number=25"},
 		{"КН1-8", domain.KindCapacitor, domain.SystemGost, "", "prefix=КН; adjustment=fixed; group=1; dev_number=8"},
 		{"К10-47в", domain.KindCapacitor, domain.SystemGost, "К10-47В", "prefix=К; adjustment=fixed; group=10; dev_number=47; letters=В"},
-		{"КСО-2", domain.KindCapacitor, domain.SystemSeries, "", "series=КСО; dev_number=2"},
-		{"МБМ", domain.KindCapacitor, domain.SystemSeries, "", "series=МБМ"},
-		{"МБГЧ-1", domain.KindCapacitor, domain.SystemSeries, "", "series=МБГЧ; dev_number=1"},
-
-		// Семейства series (03 §2.1–2.3, реестр 07 §7).
-		{"МП39", domain.KindTransistor, domain.SystemSeries, "", "series=МП; dev_number=39"},
-		{"МП41А", domain.KindTransistor, domain.SystemSeries, "", "series=МП; dev_number=41; letters=А"},
-		{"П13", domain.KindTransistor, domain.SystemSeries, "", "series=П; dev_number=13"},
-		{"П214", domain.KindTransistor, domain.SystemSeries, "", "series=П; dev_number=214"},
-		{"OC44", domain.KindTransistor, domain.SystemSeries, "", "series=OC; dev_number=44"},
-		{"TIP120", domain.KindTransistor, domain.SystemSeries, "", "series=TIP; dev_number=120"},
-		{"MPSA42", domain.KindTransistor, domain.SystemSeries, "", "series=MPSA; dev_number=42"},
-		{"Д2Б", domain.KindDiode, domain.SystemSeries, "", "series=Д; dev_number=2; letters=Б"},
-		{"Д7А", domain.KindDiode, domain.SystemSeries, "", "series=Д; dev_number=7; letters=А"},
-		{"Д104", domain.KindDiode, domain.SystemSeries, "", "series=Д; dev_number=104"},
-		{"Д226", domain.KindDiode, domain.SystemSeries, "", "series=Д; dev_number=226"},
-		{"Д242", domain.KindDiode, domain.SystemSeries, "", "series=Д; dev_number=242"},
-		{"Д808", domain.KindDiode, domain.SystemSeries, "", "series=Д; dev_number=808"},
-		{"Д814А", domain.KindDiode, domain.SystemSeries, "", "series=Д; dev_number=814; letters=А"},
-		{"ДГ-Ц8", domain.KindDiode, domain.SystemSeries, "", "series=ДГ; dev_number=8; letters=Ц"},
-		{"КМ-4", domain.KindCapacitor, domain.SystemSeries, "", "series=КМ; dev_number=4"},
-		{"ЭТО-1", domain.KindCapacitor, domain.SystemSeries, "", "series=ЭТО; dev_number=1"},
-		{"БМ-2", domain.KindCapacitor, domain.SystemSeries, "", "series=БМ; dev_number=2"},
-		{"RC05", domain.KindResistor, domain.SystemSeries, "", "series=RC; dev_number=5"},
-		{"RN55", domain.KindResistor, domain.SystemSeries, "", "series=RN; dev_number=55"},
-		{"KNP-100", domain.KindResistor, domain.SystemSeries, "", "series=KNP; dev_number=100"},
-		{"CFR-25", domain.KindResistor, domain.SystemSeries, "", "series=CFR; dev_number=25"},
 
 		// Раздельность КТ312/2Т312 (критерий этапа 3): пара «буква/цифра»
 		// материала физически равнозначна, записи раздельные.

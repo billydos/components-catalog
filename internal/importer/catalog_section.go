@@ -16,7 +16,7 @@ import (
 
 // catalogSubsections — подразделы секции catalog (порядок экспорта).
 var catalogSubsections = []string{
-	"kinds", "designation_systems", "designation_system_kinds", "series_families",
+	"kinds", "designation_systems", "designation_system_kinds",
 	"units", "categories", "conditions", "parameter_groups", "parameters",
 	"attributes", "validation_rules", "kind_validation_rules",
 }
@@ -41,8 +41,6 @@ func ReadCatalogSection(v value) (catalog.Input, []Issue) {
 			r.readSystems(m.value)
 		case "designation_system_kinds":
 			r.readSystemKinds(m.value)
-		case "series_families":
-			r.readSeriesFamilies(m.value)
 		case "units":
 			r.readUnits(m.value)
 		case "categories":
@@ -240,30 +238,6 @@ func (r *catReader) readSystemKinds(v value) {
 		}
 		r.in.SystemKinds = append(r.in.SystemKinds, catalog.SystemKindRef{
 			System: domain.System(sys), Kind: domain.Kind(kind),
-		})
-	}
-}
-
-func (r *catReader) readSeriesFamilies(v value) {
-	rows, ok := r.rows("series_families", v)
-	if !ok {
-		return
-	}
-	for _, row := range rows {
-		series, _ := r.str(row, "series_families", "", "series", false)
-		if !r.checkKeys("series_families", row, series, "series", "kind", "tail_semantic") {
-			continue
-		}
-		kind, ok := r.str(row, "series_families", series, "kind", true)
-		if !ok {
-			continue
-		}
-		tail, ok := r.str(row, "series_families", series, "tail_semantic", false)
-		if !ok {
-			continue
-		}
-		r.in.SeriesFamilies = append(r.in.SeriesFamilies, catalog.SeriesFamilyDef{
-			Series: series, Kind: domain.Kind(kind), TailSemantic: tail,
 		})
 	}
 }

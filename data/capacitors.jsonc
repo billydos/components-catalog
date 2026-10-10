@@ -196,11 +196,11 @@
       ]
     },
 
-    // series: старые системы вне единой.
+    // other: старые системы вне единой; семейство — секцией fields.
     {
       "name": "КСО-2",                       // слюдяные опрессованные
-      "system": "series",
-      "fields": { "adjustment": "fixed" },
+      "system": "other",
+      "fields": { "adjustment": "fixed", "series": "КСО", "dev_number": 2 },
       "attributes": { "datasheetUrl": "https://rudatasheet.ru/capacitors/kso-2/" },
       "parameters": [
         { "parameter": "Cnom", "min": 100, "max": 2400 },
@@ -213,8 +213,8 @@
     },
     {
       "name": "МБМ",                         // металлобумажные малогабаритные
-      "system": "series",
-      "fields": { "adjustment": "fixed" },
+      "system": "other",
+      "fields": { "adjustment": "fixed", "series": "МБМ" },
       "attributes": { "datasheetUrl": "https://eandc.ru/pdf/kondensator/mbm.pdf" },
       "parameters": [
         { "parameter": "Dop", "max": 20 },
@@ -275,8 +275,8 @@
     },
     {
       "name": "МБГЧ-1",                      // металлобумажные герметизированные частотные
-      "system": "series",
-      "fields": { "adjustment": "fixed" },
+      "system": "other",
+      "fields": { "adjustment": "fixed", "series": "МБГЧ", "dev_number": 1 },
       "attributes": { "datasheetUrl": "https://asenergi.ru/catalog/kondensatory-puskovye/mbgch.html" },
       "parameters": [
         { "parameter": "Dop", "max": 20 },

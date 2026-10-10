@@ -173,11 +173,11 @@
       ]
     },
 
-    // series: семейство из реестра series_families + слабый хвост; классификация — секцией fields
+    // other: досистемные семейства и дом-номера; семейство и номер — секцией fields
     {
       "name": "МП39",
-      "system": "series",
-      "fields": { "material": "ge", "subclass": "bjt", "category": "audio" },
+      "system": "other",
+      "fields": { "material": "ge", "subclass": "bjt", "category": "audio", "series": "МП", "dev_number": 39 },
       "attributes": { "structure": "pnp", "description": "низкочастотный" },
       "parameters": [
         { "parameter": "h21e", "min": 20, "max": 50, "Uke": 5, "Ik": 5 },
@@ -193,8 +193,8 @@
     },
     {
       "name": "П214",
-      "system": "series",
-      "fields": { "material": "ge", "subclass": "bjt", "category": "power" },
+      "system": "other",
+      "fields": { "material": "ge", "subclass": "bjt", "category": "power", "series": "П", "dev_number": 214 },
       "attributes": { "structure": "pnp", "description": "низкочастотный мощный" },
       "parameters": [ { "parameter": "h21e", "min": 20, "max": 80, "Uke": 10, "Ik": 2000 } ],
       "ratings": [
@@ -207,8 +207,8 @@
     },
     {
       "name": "TIP120",
-      "system": "series",
-      "fields": { "material": "si", "subclass": "bjt", "category": "composite" },
+      "system": "other",
+      "fields": { "material": "si", "subclass": "bjt", "category": "composite", "series": "TIP", "dev_number": 120 },
       "attributes": { "structure": "npn", "description": "составной", "package": "TO-220" },
       "parameters": [ { "parameter": "h21e", "min": 1000, "max": 20000, "Uke": 3, "Ik": 3000 } ],
       "ratings": [
@@ -413,10 +413,11 @@
       "ratings": [ { "parameter": "UobrMax", "value": 400 }, { "parameter": "IprMax", "value": 1000 } ]
     },
 
-    // series: советские семейства вне строгого ГОСТ; категория — атрибутом
+    // other: советские семейства вне строгого ГОСТ; семейство — секцией fields
     {
       "name": "Д226",
-      "system": "series",
+      "system": "other",
+      "fields": { "series": "Д", "dev_number": 226 },
       "attributes": { "description": "выпрямительный" },
       "parameters": [
         { "parameter": "Upr", "max": 1, "Ipr": 300 },
@@ -432,7 +433,8 @@
     },
     {
       "name": "Д814А",
-      "system": "series",
+      "system": "other",
+      "fields": { "series": "Д", "dev_number": 814, "letters": "А" },
       "attributes": { "description": "стабилитрон" },
       "parameters": [
         { "parameter": "Ust", "min": 7, "max": 8.5, "Ist": 5 },
@@ -447,7 +449,8 @@
     },
     {
       "name": "Д2Б",
-      "system": "series",
+      "system": "other",
+      "fields": { "series": "Д", "dev_number": 2, "letters": "Б" },
       "attributes": { "description": "универсальный" },
       "parameters": [
         { "parameter": "Upr", "max": 1, "Ipr": 10 },
@@ -569,10 +572,11 @@
       "ratings": [ { "parameter": "Pnom", "value": 0.5 } ]
     },
 
-    // series: мощность — хвостом обозначения у семейств с tail_semantic = power
+    // other: досистемные семейства; семейство — полем fields, мощность — параметром Pnom
     {
       "name": "МЛТ-0.5",
-      "system": "series",
+      "system": "other",
+      "fields": { "series": "МЛТ" },
       "parameters": [
         { "parameter": "Rnom", "min": 1, "max": 5100000 },
         { "parameter": "Dop", "max": 10 },                        // ±2; ±5; ±10 %
@@ -591,7 +595,8 @@
     },
     {
       "name": "ВС-0.5",
-      "system": "series",
+      "system": "other",
+      "fields": { "series": "ВС" },
       "parameters": [
         { "parameter": "Rnom", "min": 27, "max": 10000000 },
         { "parameter": "Dop", "max": 20 },
@@ -601,7 +606,8 @@
     },
     {
       "name": "ПЭВ-10",
-      "system": "series",
+      "system": "other",
+      "fields": { "series": "ПЭВ" },
       "attributes": { "technology": "проволочные" },
       "parameters": [
         { "parameter": "Rnom", "min": 1.8, "max": 10000 },
@@ -706,10 +712,11 @@
       ]
     },
 
-    // series: слюдяные и металлобумажные семейства
+    // other: слюдяные и металлобумажные семейства; семейство — секцией fields
     {
       "name": "КСО-2",
-      "system": "series",
+      "system": "other",
+      "fields": { "series": "КСО", "dev_number": 2 },
       "parameters": [
         { "parameter": "Cnom", "min": 51, "max": 3300 },
         { "parameter": "Dop", "max": 10 },
@@ -722,7 +729,8 @@
     },
     {
       "name": "МБМ",
-      "system": "series",
+      "system": "other",
+      "fields": { "series": "МБМ" },
       "parameters": [
         { "parameter": "Cnom", "min": 47000, "max": 470000 },      // 0.047–0.47 мкФ
         { "parameter": "Dop", "max": 10 },
@@ -735,7 +743,8 @@
     },
     {
       "name": "МБГЧ-1",
-      "system": "series",
+      "system": "other",
+      "fields": { "series": "МБГЧ", "dev_number": 1 },
       "parameters": [
         { "parameter": "Cnom", "min": 100000, "max": 1000000 },    // 0.1–1 мкФ
         { "parameter": "Dop", "max": 10 },

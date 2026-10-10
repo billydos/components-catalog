@@ -43,19 +43,6 @@ WHERE NOT EXISTS (
 			return err
 		}
 	}
-	for _, r := range in.SeriesFamilies {
-		if err := t.upsert(ctx,
-			`UPDATE series_families SET tail_semantic = @tail
-WHERE series = @series AND kind_code = @kind`,
-			`INSERT INTO series_families(series, kind_code, tail_semantic)
-VALUES (@series, @kind, @tail)`,
-			map[string]any{
-				"series": r.Series, "kind": string(r.Kind),
-				"tail": nilIfEmpty(r.TailSemantic),
-			}); err != nil {
-			return err
-		}
-	}
 	for _, r := range in.Units {
 		if err := t.insertIfAbsent(ctx,
 			`INSERT INTO units(code)

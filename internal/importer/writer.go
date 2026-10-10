@@ -294,18 +294,6 @@ func catalogTree(snap *catalog.Snapshot) value {
 		cat.members = append(cat.members, pair("designation_system_kinds", array(skRows...)))
 	}
 
-	famRows := make([]value, 0, len(snap.SeriesFamilies))
-	for _, f := range snap.SeriesFamilies {
-		members := []member{pair("series", str(f.Series)), pair("kind", str(string(f.Kind)))}
-		if f.TailSemantic != "" {
-			members = append(members, pair("tail_semantic", str(f.TailSemantic)))
-		}
-		famRows = append(famRows, object(members...))
-	}
-	if len(famRows) > 0 {
-		cat.members = append(cat.members, pair("series_families", array(famRows...)))
-	}
-
 	unitRows := make([]value, 0, len(snap.Units))
 	for _, u := range snap.Units {
 		unitRows = append(unitRows, object(pair("code", str(u.Code))))

@@ -175,11 +175,11 @@
       }
     },
 
-    // series: досистемные семейства; мощность — хвостом обозначения.
+    // other: досистемные семейства; семейство — полем fields, мощность — параметром Pnom.
     {
       "name": "МЛТ-0.5",                     // металлоплёночные лакированные теплостойкие
-      "system": "series",
-      "fields": { "adjustment": "fixed" },
+      "system": "other",
+      "fields": { "adjustment": "fixed", "series": "МЛТ" },
       "attributes": {
         "technology": "металлоплёночные", "tu": "ОЖ0.467.180ТУ", "yearFrom": 1964,
         "datasheetUrl": "https://www.radiolibrary.ru/reference/resistor/mlt-0_5.html"
@@ -205,8 +205,8 @@
     },
     {
       "name": "ВС-0.5",                      // углеродистые высокостабильные; диапазон — по серии ВС
-      "system": "series",
-      "fields": { "adjustment": "fixed" },
+      "system": "other",
+      "fields": { "adjustment": "fixed", "series": "ВС" },
       "attributes": {
         "technology": "углеродистые",
         "datasheetUrl": "http://www.155la3.ru/vs.htm"
@@ -225,8 +225,8 @@
     },
     {
       "name": "ПЭВ-10",                      // проволочные эмалированные влагостойкие
-      "system": "series",
-      "fields": { "adjustment": "fixed" },
+      "system": "other",
+      "fields": { "adjustment": "fixed", "series": "ПЭВ" },
       "attributes": {
         "technology": "проволочные", "tu": "ОЖ0.467.576ТУ",
         "datasheetUrl": "https://eandc.ru/catalog/pev-10-10/"

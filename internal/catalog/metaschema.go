@@ -31,16 +31,13 @@ func metaProblem(id domain.MsgID, a ...any) Problem {
 
 // validateInputSelf — внутренняя согласованность входа: непустые и
 // уникальные коды в каждом разделе, известность правил, допустимость
-// литеральных перечислений (типы значений, режимы условий, семантика
-// хвоста семейств).
+// литеральных перечислений (типы значений, режимы условий).
 func validateInputSelf(in Input) []Problem {
 	var probs []Problem
 	probs = append(probs, checkCodes("kinds", in.Kinds, func(r KindDef) string { return string(r.Code) })...)
 	probs = append(probs, checkCodes("designation_systems", in.Systems, func(r SystemDef) string { return string(r.Code) })...)
 	probs = append(probs, checkPairCodes("designation_system_kinds", in.SystemKinds,
 		func(r SystemKindRef) string { return string(r.System) + "+" + string(r.Kind) })...)
-	probs = append(probs, checkPairCodes("series_families", in.SeriesFamilies,
-		func(r SeriesFamilyDef) string { return r.Series + "+" + string(r.Kind) })...)
 	probs = append(probs, checkCodes("units", in.Units, func(r UnitDef) string { return r.Code })...)
 	probs = append(probs, checkCodes("categories", in.Categories, func(r CategoryDef) string { return r.Code })...)
 	probs = append(probs, checkCodes("conditions", in.Conditions, func(r ConditionDef) string { return r.Code })...)
@@ -93,16 +90,6 @@ func validateInputSelf(in Input) []Problem {
 			if _, ok := RuleByCode(a.ValidationRule); !ok {
 				probs = append(probs, metaProblem(domain.MsgMetaAttrRuleUnknown, a.Code, a.ValidationRule))
 			}
-		}
-	}
-	for i := range in.SeriesFamilies {
-		f := &in.SeriesFamilies[i]
-		if f.Series == "" {
-			continue
-		}
-		if f.TailSemantic != "" && f.TailSemantic != TailSemanticPower {
-			probs = append(probs, metaProblem(domain.MsgMetaTailSemantic,
-				f.Series, string(f.Kind), f.TailSemantic))
 		}
 	}
 	return probs
@@ -163,9 +150,6 @@ func applyInput(out *Snapshot, in Input) {
 	sysKinds := indexRows(out.SystemKinds, func(r SystemKindRef) systemKindKey {
 		return systemKindKey{system: r.System, kind: r.Kind}
 	})
-	families := indexRows(out.SeriesFamilies, func(r SeriesFamilyDef) seriesKey {
-		return seriesKey{series: r.Series, kind: r.Kind}
-	})
 	units := indexRows(out.Units, func(r UnitDef) string { return r.Code })
 	categories := indexRows(out.Categories, func(r CategoryDef) string { return r.Code })
 	conditions := indexRows(out.Conditions, func(r ConditionDef) string { return r.Code })
@@ -194,13 +178,6 @@ func applyInput(out *Snapshot, in Input) {
 	for _, r := range in.SystemKinds {
 		if _, ok := sysKinds[systemKindKey{system: r.System, kind: r.Kind}]; !ok {
 			out.SystemKinds = append(out.SystemKinds, r)
-		}
-	}
-	for _, r := range in.SeriesFamilies {
-		if i, ok := families[seriesKey{series: r.Series, kind: r.Kind}]; ok {
-			out.SeriesFamilies[i] = r
-		} else {
-			out.SeriesFamilies = append(out.SeriesFamilies, r)
 		}
 	}
 	for _, r := range in.Units {
@@ -263,9 +240,9 @@ func applyInput(out *Snapshot, in Input) {
 // (docs/plan/03-data-model.md §11): ссылки (единицы/условия/группы/правила/
 // классы) существуют, enum непуст для enum-типа, text/enum без единиц,
 // наборы условий непусты и корректны, потолок положителен, порядок
-// неотрицателен, правило подходит уровню привязки, семейства series
-// не разбираются строгими системами, коды условий и имена секций групп
-// не совпадают с зарезервированными ключами формата наполнения.
+// неотрицателен, правило подходит уровню привязки, коды условий и имена
+// секций групп не совпадают с зарезервированными ключами формата
+// наполнения.
 func validateMetaschema(out *Snapshot) []Problem {
 	var probs []Problem
 	for i := range out.Kinds {
@@ -287,23 +264,6 @@ func validateMetaschema(out *Snapshot) []Problem {
 		}
 		if _, ok := out.Kind(r.Kind); !ok {
 			probs = append(probs, metaProblem(domain.MsgMetaSystemKindMissing, string(r.Kind)))
-		}
-	}
-	for i := range out.SeriesFamilies {
-		f := &out.SeriesFamilies[i]
-		if f.Series == "" {
-			probs = append(probs, metaProblem(domain.MsgMetaFamilyNoCode))
-			continue
-		}
-		if _, ok := out.Kind(f.Kind); !ok {
-			probs = append(probs, metaProblem(domain.MsgMetaFamilyKindMissing, f.Series, string(f.Kind)))
-		}
-		if f.TailSemantic != "" && f.TailSemantic != TailSemanticPower {
-			probs = append(probs, metaProblem(domain.MsgMetaTailSemantic,
-				f.Series, string(f.Kind), f.TailSemantic))
-		}
-		if sys, strict := seriesParsedStrictly(f.Series); strict {
-			probs = append(probs, metaProblem(domain.MsgMetaFamilyStrictInvariant, f.Series, string(sys)))
 		}
 	}
 	for i := range out.Units {
@@ -502,18 +462,4 @@ func indexOfRuleRow(rows []RuleDef, code string) (int, bool) {
 		}
 	}
 	return -1, false
-}
-
-// seriesParsedStrictly — проверка инварианта реестра series для кода
-// семейства (docs/plan/03-data-model.md §2.4): код не должен разбираться
-// строгими системами. Проверка по самому коду — огрубление: полная
-// проверка инварианта реестра — предметные тесты примеров обозначений
-// (internal/domain/series_test.go).
-func seriesParsedStrictly(series string) (domain.System, bool) {
-	for _, sys := range strictSystems {
-		if _, err := domain.ParseDesignationForSystem(series, sys, ""); err == nil {
-			return sys, true
-		}
-	}
-	return "", false
 }

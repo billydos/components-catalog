@@ -67,7 +67,7 @@ func (s *DeviceService) applyUpsert(ctx context.Context, in DeviceInput,
 		return "", err
 	}
 
-	p, err := s.app.designations.parse(ctx, in.Name, in.System, in.Kind)
+	p, err := s.app.designations.ParseForSystem(ctx, in.Name, in.System, in.Kind)
 	if err != nil {
 		return "", err
 	}

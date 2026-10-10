@@ -103,7 +103,12 @@ func seedDevices(t *testing.T, app *service.App) {
 	})
 	upsert(service.DeviceInput{
 		Name:   "МЛТ-0.5",
-		Fields: &[]domain.Field{domain.TextField("adjustment", "fixed")},
+		System: domain.SystemOther,
+		Kind:   domain.KindResistor,
+		Fields: &[]domain.Field{
+			domain.TextField("adjustment", "fixed"),
+			domain.TextField("series", "МЛТ"),
+		},
 		Sections: []service.SectionInput{
 			{Section: "parameters", Values: []catalog.ParameterValue{
 				{Parameter: "Rnom", Min: ptr(1.0), Max: ptr(5100000.0)},
@@ -310,13 +315,9 @@ func TestCatalogAndETag(t *testing.T) {
 		t.Fatal("ETag отсутствует")
 	}
 	snap := decode[catalogSnapshotJSON](t, string(data))
-	if snap.Revision == 0 || len(snap.Parameters) == 0 || len(snap.Systems) == 0 {
+	if snap.Revision == 0 || len(snap.Parameters) == 0 || len(snap.Systems) != 6 {
 		t.Fatalf("снимок каталога пуст: revision=%d params=%d systems=%d",
 			snap.Revision, len(snap.Parameters), len(snap.Systems))
-	}
-	if snap.SeriesFamilies[0].Series == "" || snap.SeriesFamilies[0].TailSemantic != "" &&
-		snap.SeriesFamilies[0].TailSemantic != "power" {
-		t.Fatalf("series_families: %+v", snap.SeriesFamilies[0])
 	}
 
 	// If-None-Match → 304 с тем же ETag.
@@ -342,7 +343,7 @@ func TestStats(t *testing.T) {
 		t.Fatalf("статус: %d", status)
 	}
 	st := decode[statsJSON](t, body)
-	if st.SchemaVersion != 5 || st.Total != 4 || st.Kinds["transistor"] != 2 || st.Kinds["capacitor"] != 1 {
+	if st.SchemaVersion != 6 || st.Total != 4 || st.Kinds["transistor"] != 2 || st.Kinds["capacitor"] != 1 {
 		t.Fatalf("статистика: %+v", st)
 	}
 	if st.CatalogRevision == 0 || st.DataRevision == 0 {
@@ -742,7 +743,7 @@ func TestPut(t *testing.T) {
 	// для системы other).
 	status, body, _ = do(t, srv, http.MethodPut,
 		apiPrefix+"/components/diode/"+esc("Д226"),
-		`{"name":"Д226","system":"series","attributes":{"description":"выпрямительный"}}`)
+		`{"name":"Д226","system":"other","attributes":{"description":"выпрямительный"}}`)
 	if status != http.StatusOK {
 		t.Fatalf("создание PUT: %d, тело %s", status, body)
 	}
@@ -792,12 +793,30 @@ func TestPut(t *testing.T) {
 	if _, ok := fieldJSON["category"]; ok {
 		t.Fatal("category не удалён заменой набора")
 	}
-	// Неклассификационное поле в fields — 400 (код читателя формата).
+	// Посторонний код поля в fields — 400 (код читателя формата);
+	// letters для other теперь допустим — негатив берём вне реестра.
 	status, _, eb = do(t, srv, http.MethodPut,
 		apiPrefix+"/components/transistor/"+esc("MJE350"),
-		`{"name":"MJE350","system":"other","fields":{"letters":"X"}}`)
+		`{"name":"MJE350","system":"other","fields":{"bogus":"X"}}`)
 	wantError(t, status, eb, http.StatusBadRequest, "invalid_import_file",
-		"unknown classification field «letters» (allowed: material, subclass, adjustment, category, assembly)")
+		"unknown classification field «bogus» (allowed: material, subclass, adjustment, category, assembly)")
+	// Грамматические поля other принимаются и канонизируются.
+	status, body, _ = do(t, srv, http.MethodPut,
+		apiPrefix+"/components/transistor/"+esc("MJE350"),
+		`{"name":"MJE350","system":"other","fields":{"series":"mje","dev_number":350,"letters":"A"}}`)
+	if status != http.StatusOK {
+		t.Fatalf("создание с грамматическими fields: %d, тело %s", status, body)
+	}
+	resp = decode[upsertResponseJSON](t, body)
+	seriesJSON := map[string]string{}
+	for _, f := range resp.Card.Fields {
+		if f.Text != nil {
+			seriesJSON[f.Name] = *f.Text
+		}
+	}
+	if seriesJSON["series"] != "MJE" || seriesJSON["letters"] != "A" {
+		t.Fatalf("грамматические поля: %+v", resp.Card.Fields)
+	}
 }
 
 func TestDelete(t *testing.T) {

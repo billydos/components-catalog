@@ -27,7 +27,7 @@ func TestKindsPin(t *testing.T) {
 }
 
 func TestSystemsPin(t *testing.T) {
-	want := []domain.System{"gost", "ost", "pro", "jedec", "jis", "series", "other"}
+	want := []domain.System{"gost", "ost", "pro", "jedec", "jis", "other"}
 	if !slices.Equal(domain.Systems(), want) {
 		t.Errorf("реестр систем изменился: %v", domain.Systems())
 	}
@@ -39,15 +39,18 @@ func TestSystemsPin(t *testing.T) {
 	if domain.System("din").IsValid() {
 		t.Error("посторонняя system ошибочно валидна")
 	}
+	if domain.System("series").IsValid() {
+		t.Error("исключённая система series ошибочно валидна")
+	}
 }
 
 // Применимость систем к классам — матрица 03 §1.1.
 func TestSystemsForKind(t *testing.T) {
 	cases := map[domain.Kind][]domain.System{
-		domain.KindTransistor: {"gost", "pro", "jedec", "jis", "series", "other"},
-		domain.KindDiode:      {"gost", "pro", "jedec", "jis", "series", "other"},
-		domain.KindResistor:   {"gost", "ost", "series", "other"},
-		domain.KindCapacitor:  {"gost", "series", "other"},
+		domain.KindTransistor: {"gost", "pro", "jedec", "jis", "other"},
+		domain.KindDiode:      {"gost", "pro", "jedec", "jis", "other"},
+		domain.KindResistor:   {"gost", "ost", "other"},
+		domain.KindCapacitor:  {"gost", "other"},
 	}
 	for kind, want := range cases {
 		got := domain.SystemsForKind(kind)
@@ -220,7 +223,7 @@ func TestDesignationFieldRegistry(t *testing.T) {
 		"adjustment": false, "category": false,
 		"assembly": true, "feature": true, "dev_number": true,
 		"modification": true, "chip": true, "junctions": true,
-		"group": true, "power": true,
+		"group": true,
 	} {
 		n, known := domain.NumericDesignationField(code)
 		if !domain.KnownDesignationField(code) || !known || n != numeric {
@@ -230,12 +233,15 @@ func TestDesignationFieldRegistry(t *testing.T) {
 	if _, known := domain.NumericDesignationField("bogus"); known {
 		t.Error("bogus не должно быть полем разбора")
 	}
+	if _, known := domain.NumericDesignationField("power"); known {
+		t.Error("поле power удалено вместе с системой series (мощность — Pnom)")
+	}
 	// Поля реальных разборов всех систем — только из реестра и с тем же
 	// разрядом.
 	for _, d := range []string{
 		"КТ315Б", "2Т914А-1", "ГТ109Г", "КДС111В", "2Т805А", "С2-33Н", "СП3-19А",
 		"Р1-4", "К50-35", "К10-17Б", "BC547B", "AD161", "BZX85C5V1", "2N2222A",
-		"1N4148", "2SA1015", "2SK1058", "МП39", "ПЭВ-10", "МЛТ-0.5", "TIP120",
+		"1N4148", "2SA1015", "2SK1058",
 	} {
 		p, err := domain.ParseDesignation(d)
 		if err != nil {
@@ -265,7 +271,6 @@ func TestParserFieldSets(t *testing.T) {
 		"BC547B":  {"material": true, "subclass": true, "category": false, "adjustment": false, "assembly": false},
 		"2N2222A": {"junctions": true, "material": false, "subclass": false, "assembly": false, "category": false},
 		"2SA1015": {"subclass": true, "material": false, "adjustment": false, "category": false},
-		"МЛТ-0.5": {"series": true, "material": false, "subclass": false, "adjustment": false, "category": false},
 	}
 	for d, fields := range parserOwned {
 		p, err := domain.ParseDesignation(d)

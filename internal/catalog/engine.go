@@ -29,12 +29,6 @@ func (e *Engine) Snapshot() *Snapshot {
 	return e.snap
 }
 
-// strictSystems — строгие системы обозначений (для инварианта реестра
-// series, docs/plan/03-data-model.md §2.4).
-var strictSystems = []domain.System{
-	domain.SystemGost, domain.SystemOst, domain.SystemPro, domain.SystemJedec, domain.SystemJis,
-}
-
 // ValidateDevice проверяет запись наполнения целиком: заголовок (класс,
 // система обозначений), атрибуты, значения параметров типа в целом,
 // исполнения и именованные правила. Пустой результат — запись корректна;
@@ -58,8 +52,7 @@ func (e *Engine) ValidateDevice(d *Device) []Problem {
 }
 
 // validateHeader — класс существует, система существует и применима
-// к классу; записи системы series — семейство известно реестру для класса
-// и обозначение не разбирается строгими системами (инвариант §2.4).
+// к классу (03-data-model.md §1.1).
 func (e *Engine) validateHeader(d *Device) []Problem {
 	var probs []Problem
 	if d.Kind == "" {
@@ -77,24 +70,6 @@ func (e *Engine) validateHeader(d *Device) []Problem {
 	if !e.snap.SystemAppliesTo(d.System, d.Kind) {
 		probs = append(probs, Problemf(domain.CodeValidationFailed, domain.MsgEngineSystemNotApplicable,
 			string(d.System), string(d.Kind)))
-	}
-	if d.System == domain.SystemSeries {
-		probs = append(probs, e.validateSeriesRecord(d)...)
-	}
-	return probs
-}
-
-func (e *Engine) validateSeriesRecord(d *Device) []Problem {
-	var probs []Problem
-	if _, ok := e.snap.MatchSeriesFamily(d.Designation, d.Kind); !ok {
-		probs = append(probs, Problemf(domain.CodeValidationFailed, domain.MsgEngineSeriesFamilyUnknown,
-			d.Designation, string(d.Kind)))
-	}
-	for _, sys := range strictSystems {
-		if _, err := domain.ParseDesignationForSystem(d.Designation, sys, d.Kind); err == nil {
-			probs = append(probs, Problemf(domain.CodeValidationFailed, domain.MsgEngineSeriesStrict,
-				d.Designation, string(sys)))
-		}
 	}
 	return probs
 }

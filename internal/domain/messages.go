@@ -27,17 +27,15 @@ const (
 	MsgScannerToken      MsgID = "scanner_token"
 	MsgScannerEof        MsgID = "scanner_eof"
 
-	MsgKindUnknown       MsgID = "kind_unknown"
-	MsgSystemUnknown     MsgID = "system_unknown"
-	MsgFamilyUnknown     MsgID = "family_unknown"
-	MsgFamiliesAllScopes MsgID = "families_all_scopes"
-	MsgUnknownMaterial   MsgID = "unknown_material"
-	MsgUnknownSubclass   MsgID = "unknown_subclass"
-	MsgUnknownAdjust     MsgID = "unknown_adjustment"
-	MsgUnknownCategory   MsgID = "unknown_category"
-	MsgPowerSuffix       MsgID = "power_suffix"
-	MsgDevNumberZeros    MsgID = "dev_number_leading_zero"
-	MsgDevNumberDigits   MsgID = "dev_number_digits"
+	MsgKindUnknown     MsgID = "kind_unknown"
+	MsgSystemUnknown   MsgID = "system_unknown"
+	MsgUnknownMaterial MsgID = "unknown_material"
+	MsgUnknownSubclass MsgID = "unknown_subclass"
+	MsgUnknownAdjust   MsgID = "unknown_adjustment"
+	MsgUnknownCategory MsgID = "unknown_category"
+	MsgPowerSuffix     MsgID = "power_suffix"
+	MsgDevNumberZeros  MsgID = "dev_number_leading_zero"
+	MsgDevNumberDigits MsgID = "dev_number_digits"
 
 	MsgCanonicalAlphabetMix MsgID = "canonical_alphabet_mix"
 	MsgCanonicalBadRune     MsgID = "canonical_bad_rune"
@@ -84,11 +82,6 @@ const (
 	MsgExpectResFamilyCS       MsgID = "expect_res_family_cs"
 	MsgExpectResFamilyR        MsgID = "expect_res_family_r"
 	MsgExpectHyphen            MsgID = "expect_hyphen"
-	MsgExpectPowerTailHyphen   MsgID = "expect_power_tail_hyphen"
-	MsgExpectPowerFraction     MsgID = "expect_power_fraction"
-	MsgExpectPowerPositive     MsgID = "expect_power_positive"
-	MsgExpectSeriesTailDigits  MsgID = "expect_series_tail_digits"
-	MsgExpectSeriesTail        MsgID = "expect_series_tail"
 	MsgExpectCapGroup          MsgID = "expect_cap_group"
 	MsgExpectCapPrefix         MsgID = "expect_cap_prefix"
 	MsgExpectCapSubclassGroup  MsgID = "expect_cap_subclass_group"
@@ -99,8 +92,6 @@ const (
 	MsgEngineKindMissing         MsgID = "engine_kind_missing"
 	MsgEngineKindNoVariants      MsgID = "engine_kind_no_variants"
 	MsgEngineSystemNotApplicable MsgID = "engine_system_not_applicable"
-	MsgEngineSeriesFamilyUnknown MsgID = "engine_series_family_unknown"
-	MsgEngineSeriesStrict        MsgID = "engine_series_strict"
 	MsgEngineAttrUnknown         MsgID = "engine_attr_unknown"
 	MsgEngineAttrInactive        MsgID = "engine_attr_inactive"
 	MsgEngineAttrNotApplicable   MsgID = "engine_attr_not_applicable"
@@ -146,18 +137,14 @@ const (
 	MsgRuleVariantPnomDup        MsgID = "rule_variant_pnom_dup"
 	MsgMetaSectionNoCode         MsgID = "meta_section_no_code"
 	MsgMetaSectionDupCode        MsgID = "meta_section_dup_code"
-	MsgMetaFamilyNoCode          MsgID = "meta_family_no_code"
 	MsgMetaRuleUnknownSection    MsgID = "meta_rule_unknown_section"
 	MsgMetaParamValueType        MsgID = "meta_param_value_type"
 	MsgMetaParamRuleUnknown      MsgID = "meta_param_rule_unknown"
 	MsgMetaCondModeUnknown       MsgID = "meta_cond_mode_unknown"
 	MsgMetaAttrValueType         MsgID = "meta_attr_value_type"
 	MsgMetaAttrRuleUnknown       MsgID = "meta_attr_rule_unknown"
-	MsgMetaTailSemantic          MsgID = "meta_tail_semantic"
 	MsgMetaSystemRefMissing      MsgID = "meta_system_ref_missing"
 	MsgMetaSystemKindMissing     MsgID = "meta_system_kind_missing"
-	MsgMetaFamilyKindMissing     MsgID = "meta_family_kind_missing"
-	MsgMetaFamilyStrictInvariant MsgID = "meta_family_strict_invariant"
 	MsgMetaCondUnitMissing       MsgID = "meta_cond_unit_missing"
 	MsgMetaCondCodeReserved      MsgID = "meta_cond_code_reserved"
 	MsgMetaGroupNoSection        MsgID = "meta_group_no_section"
@@ -308,6 +295,8 @@ const (
 	MsgSvcFieldParserOwned      MsgID = "svc_field_parser_owned"
 	MsgSvcFieldNotApplicable    MsgID = "svc_field_not_applicable"
 	MsgSvcFieldAssemblyRange    MsgID = "svc_field_assembly_range"
+	MsgSvcFieldTextExpected     MsgID = "svc_field_text_expected"
+	MsgSvcFieldDevNumber        MsgID = "svc_field_dev_number"
 
 	// Транспортные сообщения REST (internal/httpapi).
 	MsgApiRouteNotFound       MsgID = "api_route_not_found"
@@ -402,17 +391,15 @@ var msgRegistry = map[MsgID]struct{}{
 	MsgScannerToken:      {},
 	MsgScannerEof:        {},
 
-	MsgKindUnknown:       {},
-	MsgSystemUnknown:     {},
-	MsgFamilyUnknown:     {},
-	MsgFamiliesAllScopes: {},
-	MsgUnknownMaterial:   {},
-	MsgUnknownSubclass:   {},
-	MsgUnknownAdjust:     {},
-	MsgUnknownCategory:   {},
-	MsgPowerSuffix:       {},
-	MsgDevNumberZeros:    {},
-	MsgDevNumberDigits:   {},
+	MsgKindUnknown:     {},
+	MsgSystemUnknown:   {},
+	MsgUnknownMaterial: {},
+	MsgUnknownSubclass: {},
+	MsgUnknownAdjust:   {},
+	MsgUnknownCategory: {},
+	MsgPowerSuffix:     {},
+	MsgDevNumberZeros:  {},
+	MsgDevNumberDigits: {},
 
 	MsgCanonicalAlphabetMix: {},
 	MsgCanonicalBadRune:     {},
@@ -458,11 +445,6 @@ var msgRegistry = map[MsgID]struct{}{
 	MsgExpectResFamilyCS:              {},
 	MsgExpectResFamilyR:               {},
 	MsgExpectHyphen:                   {},
-	MsgExpectPowerTailHyphen:          {},
-	MsgExpectPowerFraction:            {},
-	MsgExpectPowerPositive:            {},
-	MsgExpectSeriesTailDigits:         {},
-	MsgExpectSeriesTail:               {},
 	MsgExpectCapGroup:                 {},
 	MsgExpectCapPrefix:                {},
 	MsgExpectCapSubclassGroup:         {},
@@ -471,8 +453,6 @@ var msgRegistry = map[MsgID]struct{}{
 	MsgEngineKindMissing:              {},
 	MsgEngineKindNoVariants:           {},
 	MsgEngineSystemNotApplicable:      {},
-	MsgEngineSeriesFamilyUnknown:      {},
-	MsgEngineSeriesStrict:             {},
 	MsgEngineAttrUnknown:              {},
 	MsgEngineAttrInactive:             {},
 	MsgEngineAttrNotApplicable:        {},
@@ -518,18 +498,14 @@ var msgRegistry = map[MsgID]struct{}{
 	MsgRuleVariantPnomDup:             {},
 	MsgMetaSectionNoCode:              {},
 	MsgMetaSectionDupCode:             {},
-	MsgMetaFamilyNoCode:               {},
 	MsgMetaRuleUnknownSection:         {},
 	MsgMetaParamValueType:             {},
 	MsgMetaParamRuleUnknown:           {},
 	MsgMetaCondModeUnknown:            {},
 	MsgMetaAttrValueType:              {},
 	MsgMetaAttrRuleUnknown:            {},
-	MsgMetaTailSemantic:               {},
 	MsgMetaSystemRefMissing:           {},
 	MsgMetaSystemKindMissing:          {},
-	MsgMetaFamilyKindMissing:          {},
-	MsgMetaFamilyStrictInvariant:      {},
 	MsgMetaCondUnitMissing:            {},
 	MsgMetaCondCodeReserved:           {},
 	MsgMetaGroupNoSection:             {},
@@ -674,6 +650,8 @@ var msgRegistry = map[MsgID]struct{}{
 	MsgSvcFieldParserOwned:            {},
 	MsgSvcFieldNotApplicable:          {},
 	MsgSvcFieldAssemblyRange:          {},
+	MsgSvcFieldTextExpected:           {},
+	MsgSvcFieldDevNumber:              {},
 	MsgApiRouteNotFound:               {},
 	MsgApiMethodNotAllowed:            {},
 	MsgApiPanic:                       {},

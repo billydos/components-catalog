@@ -91,16 +91,36 @@ var (
 	numericDesignationFields = map[string]bool{
 		"assembly": true, "feature": true, "dev_number": true,
 		"modification": true, "chip": true, "junctions": true,
-		"group": true, "power": true,
+		"group": true,
 	}
 )
 
 // ClassificationFieldCodes — коды классификационных полей, допустимых
 // в секции fields формата наполнения (документация формата и валидация
 // сервисного слоя). Поля грамматик систем (dev_number, letters, group,
-// series, …) явно не задаются: их даёт разбор обозначения.
+// …) парсер устанавливает сам; исключение — записи без разбора (other):
+// для них секция fields может задать поле семейства (D10).
 var ClassificationFieldCodes = []string{
 	"material", "subclass", "adjustment", "category", "assembly",
+}
+
+// OtherFieldCodes — грамматические поля, допустимые в секции fields
+// только для записей other (разбора нет — пер-полое правило D10
+// выполняется тривиально): семейство, номер разработки, буквы.
+// Значения свободные (не словарь): series/letters — непустой текст,
+// dev_number — положительное целое; применимость — все классы.
+var OtherFieldCodes = []string{
+	"series", "dev_number", "letters",
+}
+
+// OtherFieldKnown сообщает, входит ли имя в реестр полей для other.
+func OtherFieldKnown(name string) bool {
+	for _, code := range OtherFieldCodes {
+		if name == code {
+			return true
+		}
+	}
+	return false
 }
 
 // classificationFieldKinds — применимость классификационных полей к
@@ -158,12 +178,6 @@ var parserFieldSets = map[System]map[Kind][]string{
 	SystemJis: {
 		KindTransistor: {"junctions", "subclass", "dev_number", "letters"},
 		KindDiode:      {"junctions", "subclass", "dev_number", "letters"},
-	},
-	SystemSeries: {
-		KindTransistor: {"series", "power", "dev_number", "letters"},
-		KindDiode:      {"series", "power", "dev_number", "letters"},
-		KindResistor:   {"series", "power", "dev_number", "letters"},
-		KindCapacitor:  {"series", "power", "dev_number", "letters"},
 	},
 	SystemOther: {},
 }
@@ -427,8 +441,8 @@ func Canonicalize(text string) (string, error) {
 
 // ParseDesignation разбирает обозначение с автодетектом класса и системы
 // (порядок попыток — план 03 §2.4): полупроводник gost → pro → jedec → jis →
-// резистор gost/ost → конденсатор gost → series (класс — из реестра семейств).
-// Система other автодетекта не имеет — требует явного указания.
+// резистор gost/ost → конденсатор gost. Системы без разбора (other)
+// автодетекта не имеют — требуют явного указания.
 func ParseDesignation(text string) (ParsedDesignation, error) {
 	return parseDesignation(text, "", "")
 }
@@ -557,11 +571,6 @@ func parseWithSystem(scan func() *scanner, canonical string, system System, kind
 		return runStrict(scan, kind, parseJedec, mismatch)
 	case SystemJis:
 		return runStrict(scan, kind, parseJis, mismatch)
-	case SystemSeries:
-		// Семейство опознано или нет — в обоих случаях серия даёт
-		// собственную диагностику: неизвестное семейство с перечнем
-		// поддерживаемых, конфликт класса, ошибка хвоста.
-		return parseSeries(canonical, kind)
 	case SystemOther:
 		// Класс для other не определяется обозначением — он обязан быть
 		// указан явно (03 §2.1: автодетекта для other нет).
@@ -584,10 +593,10 @@ func runStrict(scan func() *scanner, kind Kind, parse strictParser,
 	return p, nil
 }
 
-// autodetect — порядок попыток фиксирован планом 03 §2.4: строгие системы
-// в порядке плана, затем series. Вердикты прерывают перебор; ошибка
-// опознанного семейства (включая по-позиционные ошибки хвоста) всплывает
-// как есть, а не затирается итоговым отказом.
+// autodetect — порядок попыток фиксирован планом 03 §2.4: только строгие
+// системы. Вердикты прерывают перебор; обозначения вне строгих грамматик
+// не опознаются — итоговый отказ autodetect_failed (явный ключ system
+// переопределяет автодетект).
 func autodetect(scan func() *scanner, canonical string, kind Kind) (ParsedDesignation, error) {
 	for _, parse := range []strictParser{
 		parseGostSemiconductor, parsePro, parseJedec, parseJis,
@@ -600,11 +609,6 @@ func autodetect(scan func() *scanner, canonical string, kind Kind) (ParsedDesign
 		if isVerdictError(err) {
 			return ParsedDesignation{}, err
 		}
-	}
-	if _, ok := matchSeriesFamily(canonical); ok {
-		// Префикс семейства опознан: parseSeries даёт либо результат,
-		// либо вердикт/по-позиционную ошибку — все сохраняются.
-		return parseSeries(canonical, kind)
 	}
 	return ParsedDesignation{}, NewErrorf(CodeInvalidDesignation, MsgAutodetectFailed, canonical)
 }

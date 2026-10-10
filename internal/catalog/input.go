@@ -9,18 +9,17 @@ import (
 // (docs/plan/02-database.md §5.4) через ApplyCatalog; разделы опциональны —
 // заданные применяются, отсутствующие не трогают.
 type Input struct {
-	Kinds          []KindDef
-	Systems        []SystemDef
-	SystemKinds    []SystemKindRef
-	SeriesFamilies []SeriesFamilyDef
-	Units          []UnitDef
-	Categories     []CategoryDef
-	Conditions     []ConditionDef
-	Groups         []GroupDef
-	Parameters     []ParameterDef
-	Attributes     []AttributeDef
-	Rules          []RuleDef
-	KindRules      []KindRuleRef
+	Kinds       []KindDef
+	Systems     []SystemDef
+	SystemKinds []SystemKindRef
+	Units       []UnitDef
+	Categories  []CategoryDef
+	Conditions  []ConditionDef
+	Groups      []GroupDef
+	Parameters  []ParameterDef
+	Attributes  []AttributeDef
+	Rules       []RuleDef
+	KindRules   []KindRuleRef
 }
 
 // Device — запись наполнения для валидации движком: класс, система

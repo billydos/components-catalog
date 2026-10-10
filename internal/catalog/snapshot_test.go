@@ -110,9 +110,6 @@ func TestSnapshotAPI(t *testing.T) {
 	if _, ok := snap.GroupBySection("no_such_section"); ok {
 		t.Error("несуществующая секция ошибочно найдена")
 	}
-	if f, ok := snap.Family("МЛТ", domain.KindResistor); !ok || f.TailSemantic != catalog.TailSemanticPower {
-		t.Fatalf("семейство МЛТ: %+v", f)
-	}
 	var nilSnap *catalog.Snapshot
 	if _, ok := nilSnap.Parameter("Kpd"); ok {
 		t.Error("nil-снимок не должен находить параметры")

@@ -2,9 +2,7 @@ package catalog
 
 import (
 	"slices"
-	"strings"
 	"sync"
-	"unicode/utf8"
 
 	"github.com/billydos/components-catalog/internal/domain"
 )
@@ -97,20 +95,6 @@ type SystemDef struct {
 type SystemKindRef struct {
 	System domain.System
 	Kind   domain.Kind
-}
-
-// TailSemanticPower — значение tail_semantic «мощность, Вт»
-// (series_families, docs/plan/02-database.md §2.2).
-const TailSemanticPower = "power"
-
-// SeriesFamilyDef — строка таблицы series_families: реестр семейств
-// системы series. TailSemantic — "" (общий слабый разбор хвоста) либо
-// "power" (хвост-число есть номинальная мощность, Вт). Расшифровка —
-// бандлы internal/i18n: family.<семейство> (D9).
-type SeriesFamilyDef struct {
-	Series       string
-	Kind         domain.Kind
-	TailSemantic string
 }
 
 // UnitDef — строка таблицы units: каноническая единица измерения (код —
@@ -241,27 +225,21 @@ func containsKind(kinds []domain.Kind, kind domain.Kind) bool {
 // не мутирует — кэш заменяет снимок целиком по указателю
 // (docs/plan/01-architecture.md §2.2).
 type Snapshot struct {
-	Revision       int64
-	Kinds          []KindDef
-	Systems        []SystemDef
-	SystemKinds    []SystemKindRef
-	SeriesFamilies []SeriesFamilyDef
-	Units          []UnitDef
-	Categories     []CategoryDef
-	Conditions     []ConditionDef
-	Groups         []GroupDef
-	Parameters     []ParameterDef
-	Attributes     []AttributeDef
-	Rules          []RuleDef
-	KindRules      []KindRuleRef
+	Revision    int64
+	Kinds       []KindDef
+	Systems     []SystemDef
+	SystemKinds []SystemKindRef
+	Units       []UnitDef
+	Categories  []CategoryDef
+	Conditions  []ConditionDef
+	Groups      []GroupDef
+	Parameters  []ParameterDef
+	Attributes  []AttributeDef
+	Rules       []RuleDef
+	KindRules   []KindRuleRef
 
 	once sync.Once
 	idx  *snapshotIndex
-}
-
-type seriesKey struct {
-	series string
-	kind   domain.Kind
 }
 
 type systemKindKey struct {
@@ -279,7 +257,6 @@ type snapshotIndex struct {
 	groupSections map[string]int
 	parameters    map[string]int
 	attributes    map[string]int
-	families      map[seriesKey]int
 	systemKinds   map[systemKindKey]bool
 	kindRules     map[domain.Kind][]string
 }
@@ -298,7 +275,6 @@ func (s *Snapshot) index() *snapshotIndex {
 			groupSections: make(map[string]int, len(s.Groups)),
 			parameters:    make(map[string]int, len(s.Parameters)),
 			attributes:    make(map[string]int, len(s.Attributes)),
-			families:      make(map[seriesKey]int, len(s.SeriesFamilies)),
 			systemKinds:   make(map[systemKindKey]bool, len(s.SystemKinds)),
 			kindRules:     make(map[domain.Kind][]string),
 		}
@@ -328,12 +304,6 @@ func (s *Snapshot) index() *snapshotIndex {
 		}
 		for i := range s.Attributes {
 			idx.attributes[s.Attributes[i].Code] = i
-		}
-		for i := range s.SeriesFamilies {
-			f := &s.SeriesFamilies[i]
-			if _, busy := idx.families[seriesKey{f.Series, f.Kind}]; !busy {
-				idx.families[seriesKey{f.Series, f.Kind}] = i
-			}
 		}
 		for i := range s.SystemKinds {
 			r := &s.SystemKinds[i]
@@ -378,40 +348,6 @@ func (s *Snapshot) SystemAppliesTo(system domain.System, kind domain.Kind) bool 
 		return false
 	}
 	return s.index().systemKinds[systemKindKey{system, kind}]
-}
-
-// Family ищет семейство системы series по коду и классу.
-func (s *Snapshot) Family(series string, kind domain.Kind) (SeriesFamilyDef, bool) {
-	if s == nil {
-		return SeriesFamilyDef{}, false
-	}
-	i, ok := s.index().families[seriesKey{series, kind}]
-	if !ok {
-		return SeriesFamilyDef{}, false
-	}
-	return s.SeriesFamilies[i], true
-}
-
-// MatchSeriesFamily ищет семейство класса kind по самому длинному
-// совпадению префикса обозначения (ПЭВ раньше ПЭ, ОМЛТ раньше МЛТ).
-func (s *Snapshot) MatchSeriesFamily(designation string, kind domain.Kind) (SeriesFamilyDef, bool) {
-	if s == nil {
-		return SeriesFamilyDef{}, false
-	}
-	best, bestLen := -1, 0
-	for i := range s.SeriesFamilies {
-		f := &s.SeriesFamilies[i]
-		if f.Kind != kind || !strings.HasPrefix(designation, f.Series) {
-			continue
-		}
-		if n := utf8.RuneCountInString(f.Series); n > bestLen {
-			best, bestLen = i, n
-		}
-	}
-	if best < 0 {
-		return SeriesFamilyDef{}, false
-	}
-	return s.SeriesFamilies[best], true
 }
 
 // Unit ищет единицу по коду.
@@ -526,19 +462,18 @@ func (s *Snapshot) Clone() *Snapshot {
 		return &Snapshot{}
 	}
 	out := &Snapshot{
-		Revision:       s.Revision,
-		Kinds:          slices.Clone(s.Kinds),
-		Systems:        slices.Clone(s.Systems),
-		SystemKinds:    slices.Clone(s.SystemKinds),
-		SeriesFamilies: slices.Clone(s.SeriesFamilies),
-		Units:          slices.Clone(s.Units),
-		Categories:     slices.Clone(s.Categories),
-		Conditions:     slices.Clone(s.Conditions),
-		Groups:         slices.Clone(s.Groups),
-		Parameters:     slices.Clone(s.Parameters),
-		Attributes:     slices.Clone(s.Attributes),
-		Rules:          slices.Clone(s.Rules),
-		KindRules:      slices.Clone(s.KindRules),
+		Revision:    s.Revision,
+		Kinds:       slices.Clone(s.Kinds),
+		Systems:     slices.Clone(s.Systems),
+		SystemKinds: slices.Clone(s.SystemKinds),
+		Units:       slices.Clone(s.Units),
+		Categories:  slices.Clone(s.Categories),
+		Conditions:  slices.Clone(s.Conditions),
+		Groups:      slices.Clone(s.Groups),
+		Parameters:  slices.Clone(s.Parameters),
+		Attributes:  slices.Clone(s.Attributes),
+		Rules:       slices.Clone(s.Rules),
+		KindRules:   slices.Clone(s.KindRules),
 	}
 	for i := range out.Parameters {
 		p := &out.Parameters[i]

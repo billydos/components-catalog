@@ -41,8 +41,7 @@ func appDialect(opts *options) string {
 }
 
 // runParse — разбор обозначений с автодетектом класса и системы;
-// без --db/--dsn работает над стартовым реестром домена, с базой —
-// над расширенным реестром семейств каталога.
+// без --db/--dsn работает над реестрами домена, с базой — над каталогом.
 func runParse(ctx context.Context, opts *options, pos []string, stdout, stderr io.Writer) int {
 	exit := 0
 	if opts.hasDB() {
