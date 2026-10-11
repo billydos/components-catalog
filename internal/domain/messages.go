@@ -397,8 +397,65 @@ const (
 	MsgCliGroupLine         MsgID = "cli_group_line"
 	MsgCliParamLine         MsgID = "cli_param_line"
 	MsgCliAttrListLine      MsgID = "cli_attr_list_line"
-	MsgCliUsage             MsgID = "cli_usage"
 	MsgCliUsageWord         MsgID = "cli_usage_word"
+
+	// Фрагменты общей справки (catalogctl help и вызов без аргументов):
+	// текст собирается генератором internal/cli/help.go по реестру команд
+	// (порядок, колонки, перенос строк), строки — каталог сообщений.
+	// Структурные: заголовок, заголовки секций, футер о префиксах ошибок
+	// (аргументы — вложенные сообщения префиксов).
+	MsgCliUsageHeader   MsgID = "cli_usage_header"
+	MsgCliUsageCommands MsgID = "cli_usage_commands"
+	MsgCliUsageOptions  MsgID = "cli_usage_options"
+	MsgCliUsageFooter   MsgID = "cli_usage_footer"
+
+	// Команды: синопсис и описание (list — с перечнем фильтров реестра).
+	MsgCliUsageCmdInit              MsgID = "cli_usage_cmd_init"
+	MsgCliUsageCmdInitDesc          MsgID = "cli_usage_cmd_init_desc"
+	MsgCliUsageCmdParse             MsgID = "cli_usage_cmd_parse"
+	MsgCliUsageCmdParseDesc         MsgID = "cli_usage_cmd_parse_desc"
+	MsgCliUsageCmdAdd               MsgID = "cli_usage_cmd_add"
+	MsgCliUsageCmdAddDesc           MsgID = "cli_usage_cmd_add_desc"
+	MsgCliUsageCmdImport            MsgID = "cli_usage_cmd_import"
+	MsgCliUsageCmdImportDesc        MsgID = "cli_usage_cmd_import_desc"
+	MsgCliUsageCmdList              MsgID = "cli_usage_cmd_list"
+	MsgCliUsageCmdListDesc          MsgID = "cli_usage_cmd_list_desc"
+	MsgCliUsageCmdInfo              MsgID = "cli_usage_cmd_info"
+	MsgCliUsageCmdInfoDesc          MsgID = "cli_usage_cmd_info_desc"
+	MsgCliUsageCmdFind              MsgID = "cli_usage_cmd_find"
+	MsgCliUsageCmdFindDesc          MsgID = "cli_usage_cmd_find_desc"
+	MsgCliUsageCmdDelete            MsgID = "cli_usage_cmd_delete"
+	MsgCliUsageCmdDeleteDesc        MsgID = "cli_usage_cmd_delete_desc"
+	MsgCliUsageCmdCount             MsgID = "cli_usage_cmd_count"
+	MsgCliUsageCmdCountDesc         MsgID = "cli_usage_cmd_count_desc"
+	MsgCliUsageCmdExport            MsgID = "cli_usage_cmd_export"
+	MsgCliUsageCmdExportDesc        MsgID = "cli_usage_cmd_export_desc"
+	MsgCliUsageCmdCatalogExport     MsgID = "cli_usage_cmd_catalog_export"
+	MsgCliUsageCmdCatalogExportDesc MsgID = "cli_usage_cmd_catalog_export_desc"
+	MsgCliUsageCmdCatalogImport     MsgID = "cli_usage_cmd_catalog_import"
+	MsgCliUsageCmdCatalogImportDesc MsgID = "cli_usage_cmd_catalog_import_desc"
+	MsgCliUsageCmdCatalogList       MsgID = "cli_usage_cmd_catalog_list"
+	MsgCliUsageCmdCatalogListDesc   MsgID = "cli_usage_cmd_catalog_list_desc"
+	MsgCliUsageCmdHelp              MsgID = "cli_usage_cmd_help"
+	MsgCliUsageCmdHelpDesc          MsgID = "cli_usage_cmd_help_desc"
+
+	// Общие опции: спецификация и описание.
+	MsgCliUsageOptDialect     MsgID = "cli_usage_opt_dialect"
+	MsgCliUsageOptDialectDesc MsgID = "cli_usage_opt_dialect_desc"
+	MsgCliUsageOptDb          MsgID = "cli_usage_opt_db"
+	MsgCliUsageOptDbDesc      MsgID = "cli_usage_opt_db_desc"
+	MsgCliUsageOptDsn         MsgID = "cli_usage_opt_dsn"
+	MsgCliUsageOptDsnDesc     MsgID = "cli_usage_opt_dsn_desc"
+	MsgCliUsageOptKind        MsgID = "cli_usage_opt_kind"
+	MsgCliUsageOptKindDesc    MsgID = "cli_usage_opt_kind_desc"
+	MsgCliUsageOptSystem      MsgID = "cli_usage_opt_system"
+	MsgCliUsageOptSystemDesc  MsgID = "cli_usage_opt_system_desc"
+	MsgCliUsageOptLang        MsgID = "cli_usage_opt_lang"
+	MsgCliUsageOptLangDesc    MsgID = "cli_usage_opt_lang_desc"
+	MsgCliUsageOptDryRun      MsgID = "cli_usage_opt_dry_run"
+	MsgCliUsageOptDryRunDesc  MsgID = "cli_usage_opt_dry_run_desc"
+	MsgCliUsageOptFormat      MsgID = "cli_usage_opt_format"
+	MsgCliUsageOptFormatDesc  MsgID = "cli_usage_opt_format_desc"
 )
 
 // msgRegistry — реестр MsgID (полнота против каталога — тест).
@@ -771,8 +828,55 @@ var msgRegistry = map[MsgID]struct{}{
 	MsgCliGroupLine:                   {},
 	MsgCliParamLine:                   {},
 	MsgCliAttrListLine:                {},
-	MsgCliUsage:                       {},
 	MsgCliUsageWord:                   {},
+	MsgCliUsageHeader:                 {},
+	MsgCliUsageCommands:               {},
+	MsgCliUsageOptions:                {},
+	MsgCliUsageFooter:                 {},
+	MsgCliUsageCmdInit:                {},
+	MsgCliUsageCmdInitDesc:            {},
+	MsgCliUsageCmdParse:               {},
+	MsgCliUsageCmdParseDesc:           {},
+	MsgCliUsageCmdAdd:                 {},
+	MsgCliUsageCmdAddDesc:             {},
+	MsgCliUsageCmdImport:              {},
+	MsgCliUsageCmdImportDesc:          {},
+	MsgCliUsageCmdList:                {},
+	MsgCliUsageCmdListDesc:            {},
+	MsgCliUsageCmdInfo:                {},
+	MsgCliUsageCmdInfoDesc:            {},
+	MsgCliUsageCmdFind:                {},
+	MsgCliUsageCmdFindDesc:            {},
+	MsgCliUsageCmdDelete:              {},
+	MsgCliUsageCmdDeleteDesc:          {},
+	MsgCliUsageCmdCount:               {},
+	MsgCliUsageCmdCountDesc:           {},
+	MsgCliUsageCmdExport:              {},
+	MsgCliUsageCmdExportDesc:          {},
+	MsgCliUsageCmdCatalogExport:       {},
+	MsgCliUsageCmdCatalogExportDesc:   {},
+	MsgCliUsageCmdCatalogImport:       {},
+	MsgCliUsageCmdCatalogImportDesc:   {},
+	MsgCliUsageCmdCatalogList:         {},
+	MsgCliUsageCmdCatalogListDesc:     {},
+	MsgCliUsageCmdHelp:                {},
+	MsgCliUsageCmdHelpDesc:            {},
+	MsgCliUsageOptDialect:             {},
+	MsgCliUsageOptDialectDesc:         {},
+	MsgCliUsageOptDb:                  {},
+	MsgCliUsageOptDbDesc:              {},
+	MsgCliUsageOptDsn:                 {},
+	MsgCliUsageOptDsnDesc:             {},
+	MsgCliUsageOptKind:                {},
+	MsgCliUsageOptKindDesc:            {},
+	MsgCliUsageOptSystem:              {},
+	MsgCliUsageOptSystemDesc:          {},
+	MsgCliUsageOptLang:                {},
+	MsgCliUsageOptLangDesc:            {},
+	MsgCliUsageOptDryRun:              {},
+	MsgCliUsageOptDryRunDesc:          {},
+	MsgCliUsageOptFormat:              {},
+	MsgCliUsageOptFormatDesc:          {},
 }
 
 // MsgIDs — все MsgID реестра (для теста полноты каталога).
