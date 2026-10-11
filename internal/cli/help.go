@@ -323,7 +323,7 @@ func wrapWords(s string, width int) []string {
 }
 
 // runHelpCmd — help [команда] [--lang en|ru] (команда реестра; разбор
-// флагов — urfave/cli): без позиционного аргумента — общая справка, с
+// флагов — strictFlags): без позиционного аргумента — общая справка, с
 // аргументом — карточка команды реестра (строка использования с полным
 // набором флагов и описания опций); «catalog <подкоманда>» — карточка
 // подкоманды, «catalog» — строки использования подкоманд, «help help» —
@@ -386,7 +386,7 @@ func runHelpCmd(_ context.Context, opts *options, pos []string, stdout, stderr i
 }
 
 // commandNames/subcommandNames (sorted) — детерминированный порядок
-// построения дерева urfave/cli и секции команд общей справки;
+// диспетчеризации по реестру и секции команд общей справки;
 // commandNames используется тестом полноты справки.
 func commandNames() []string {
 	names := make([]string, 0, len(commands))

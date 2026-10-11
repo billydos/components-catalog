@@ -138,7 +138,7 @@ func runImport(ctx context.Context, opts *options, pos []string, stdout, stderr 
 	return printReport(stdout, stderr, opts.langOf(), &rep)
 }
 
-// Подкоманды catalog — самостоятельные команды urfave/cli со своими
+// Подкоманды catalog — самостоятельные команды реестра со своими
 // флагами (строгость: флаг соседней подкоманды — ошибка); адаптеры
 // приводят их к общей сигнатуре исполнителей реестра.
 

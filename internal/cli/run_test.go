@@ -823,6 +823,39 @@ func TestFlagLexingStrict(t *testing.T) {
 	}
 }
 
+// «--» — конец флагов: всё после него — позиционные аргументы (похожие
+// на флаги токены разбираются как обозначения, повторный «--» — тоже
+// позиционный); одиночный «-» — позиционный аргумент, не форма флага.
+func TestDoubleDashPositionals(t *testing.T) {
+	// Обозначение после «--» разбирается как обычно.
+	stdout, _, code := run(t, "parse", "--", "КТ315Б")
+	if code != 0 || !strings.Contains(stdout, "КТ315Б: transistor") {
+		t.Fatalf("parse -- КТ315Б: код %d, stdout %q", code, stdout)
+	}
+	// Флаги до «--» применяются; «--» не входит в позиционные.
+	stdout, _, code = run(t, "parse", "--lang", "ru", "--", "КТ315Б")
+	if code != 0 || !strings.Contains(stdout, "номер разработки: 315") {
+		t.Fatalf("parse --lang ru -- КТ315Б: код %d, stdout %q", code, stdout)
+	}
+	// Токены после «--» — не флаги: «--lang» и «ru» разбираются как
+	// обозначения (ошибки), обозначение до «--» — корректно.
+	_, stderr, code := run(t, "parse", "КТ315Б", "--", "--lang", "ru")
+	if code != 1 || !strings.Contains(stderr, "«--LANG»") || !strings.Contains(stderr, "«RU»") {
+		t.Fatalf("parse КТ315Б -- --lang ru: код %d, stderr %q", code, stderr)
+	}
+	// Повторный «--» — сам позиционный аргумент.
+	_, stderr, code = run(t, "parse", "КТ315Б", "--", "--", "КТ315Б")
+	if code != 1 || !strings.Contains(stderr, "designation «--»") {
+		t.Fatalf("parse КТ315Б -- -- КТ315Б: код %d, stderr %q", code, stderr)
+	}
+	// Одиночный «-» — позиционный аргумент (не неизвестный флаг).
+	_, stderr, code = run(t, "parse", "-", "КТ315Б")
+	if code != 1 || !strings.Contains(stderr, "designation «-»") ||
+		strings.Contains(stderr, "unknown flag") {
+		t.Fatalf("parse - КТ315Б: код %d, stderr %q", code, stderr)
+	}
+}
+
 // --dsn postgres://… без --dialect выводит диалект из схемы DSN;
 // противоречие с явным --dialect sqlite — подсказка, а не непрозрачная
 // ошибка драйвера.

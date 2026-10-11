@@ -2,13 +2,10 @@ package cli
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"io"
 	"strconv"
 	"strings"
-
-	cliv3 "github.com/urfave/cli/v3"
 
 	"github.com/billydos/components-catalog/internal/domain"
 	"github.com/billydos/components-catalog/internal/i18n"
@@ -18,20 +15,16 @@ import (
 // progName — имя утилиты в справке и сообщениях об ошибках.
 const progName = "catalogctl"
 
-// errExit — ошибки уже напечатаны с контрактным префиксом, код выхода 1
-// (действия печатают вывод сами; urfave/cli получает ошибку только как
-// признак неуспеха — без собственного вывода и os.Exit).
-var errExit = errors.New("cli: exit code 1")
-
 // Run выполняет команду catalogctl и возвращает код выхода
-// (docs/plan/04-module-functionality.md §3). urfave/cli v3 — дерево
-// команд по реестру commands, диспетчеризация и позиционные аргументы;
-// strictFlags — контрактная лексика флагов и последовательная валидация
-// значений (каждое вхождение на месте, повторное — перезаписывает).
-// Общие опции: --dialect, --db, --dsn, --kind, --system, --dry-run,
-// --lang en|ru (локаль вывода — D9, по умолчанию en); опции задаются
-// после команды. Ожидаемые ошибки выводятся с префиксом «Ошибка: »,
-// прочие — «Непредвиденная ошибка: », код выхода 1.
+// (docs/plan/04-module-functionality.md §3). Разбор — по реестру
+// commands: strictFlags одним проходом разбирает флаги (контрактная
+// лексика и последовательная валидация значений; каждое вхождение на
+// месте, повторное — перезаписывает) и собирает позиционные аргументы,
+// реестр — диспетчеризация команды/подкоманды и границы числа
+// аргументов. Общие опции: --dialect, --db, --dsn, --kind, --system,
+// --dry-run, --lang en|ru (локаль вывода — D9, по умолчанию en); опции
+// задаются после команды. Ожидаемые ошибки выводятся с префиксом
+// «Ошибка: », прочие — «Непредвиденная ошибка: », код выхода 1.
 func Run(args []string, stdout, stderr io.Writer) int {
 	if len(args) == 0 {
 		fmt.Fprint(stderr, usageText(i18n.En))
@@ -49,60 +42,57 @@ func Run(args []string, stdout, stderr io.Writer) int {
 			domain.MsgCliOptionsAfterCmd, name))
 		return 1
 	}
-	// help — вне реестра commands (справка по реестру: цикл инициализации),
-	// разбирается тем же контуром urfave/cli.
-	var opts *options
-	var err error
-	if name != "help" {
-		cmd, ok := commands[name]
-		if !ok {
-			PrintError(stderr, earlyLang, domain.NewErrorf(domain.CodeValidationFailed,
-				domain.MsgCliUnknownCommand, name))
-			return 1
-		}
-		// Строгая лексика и последовательная валидация значений — до
-		// разбора urfave/cli: его парсер принимает формы, которые контракт
-		// отвергает, и держит последнее значение флага (промежуточные
-		// вхождения не проверяет); см. strictFlags.
-		full, specs, tail := name, cmd.flags, args[1:]
-		if cmd.subcommands != nil {
-			if len(tail) > 0 {
-				sub, known := cmd.subcommands[tail[0]]
-				if !known {
-					PrintError(stderr, earlyLang, unknownSubcommand(name, tail[0]))
-					return 1
-				}
-				full, specs, tail = name+" "+tail[0], sub.flags, tail[1:]
-			}
-		}
-		opts, err = strictFlags(full, tail, specs)
+	// help — вне реестра commands (справка читает реестр: цикл
+	// инициализации); границы числа аргументов проверяет сам исполнитель.
+	if name == "help" {
+		opts, pos, err := strictFlags(name, args[1:], helpFlags)
 		if err != nil {
 			PrintError(stderr, earlyLang, err)
 			return 1
 		}
-	} else {
-		opts, err = strictFlags(name, args[1:], helpFlags)
-		if err != nil {
-			PrintError(stderr, earlyLang, err)
-			return 1
-		}
+		return runHelpCmd(context.Background(), opts, pos, stdout, stderr)
 	}
-	return dispatch(stdout, stderr, earlyLang, args, opts)
-}
-
-// dispatch — запуск дерева urfave/cli: диспетчеризация и позиционные
-// аргументы. Опции уже разобраны и провалидированы в strictFlags по
-// той же первой позиционной лексеме, по которой диспетчеризует
-// urfave/cli, — действия читают готовые опции из env.
-func dispatch(stdout, stderr io.Writer, earlyLang i18n.Language, args []string, opts *options) int {
-	if opts == nil {
-		opts = newOptions()
-	}
-	root := newRoot(stdout, stderr, earlyLang, opts)
-	if err := root.Run(context.Background(), append([]string{progName}, args...)); err != nil {
+	cmd, ok := commands[name]
+	if !ok {
+		PrintError(stderr, earlyLang, domain.NewErrorf(domain.CodeValidationFailed,
+			domain.MsgCliUnknownCommand, name))
 		return 1
 	}
-	return 0
+	// Подкоманда обязана идти первой после имени команды (флаги до неё
+	// не переносятся к подкоманде и не игнорируются молча).
+	full, specs, tail := name, cmd.flags, args[1:]
+	var target *command
+	switch {
+	case cmd.subcommands == nil:
+		target = cmd
+	case len(tail) > 0:
+		sub, known := cmd.subcommands[tail[0]]
+		if !known {
+			PrintError(stderr, earlyLang, unknownSubcommand(name, tail[0]))
+			return 1
+		}
+		full, specs, tail = name+" "+tail[0], sub.flags, tail[1:]
+		target = sub
+	}
+	opts, pos, err := strictFlags(full, tail, specs)
+	if err != nil {
+		PrintError(stderr, earlyLang, err)
+		return 1
+	}
+	if target == nil {
+		// «catalog» без подкоманды.
+		PrintError(stderr, earlyLang, domain.NewErrorf(domain.CodeValidationFailed,
+			domain.MsgCliCatalogSubMissing))
+		return 1
+	}
+	if len(pos) < target.minArgs || (target.maxArgs >= 0 && len(pos) > target.maxArgs) {
+		// Строка использования — аргумент-сообщение (use + полный перечень
+		// флагов реестра): совпадает с карточкой help <команда>.
+		PrintError(stderr, earlyLang, domain.NewErrorf(domain.CodeValidationFailed,
+			domain.MsgCliArgCount, full, domain.MsgArg(target.use, flagHints(target.flags))))
+		return 1
+	}
+	return target.run(context.Background(), opts, pos, stdout, stderr)
 }
 
 // unknownSubcommand — ошибка первой лексемы после «catalog»: флаг до
@@ -120,35 +110,38 @@ func unknownSubcommand(name, sub string) error {
 		domain.MsgCliCatalogSubUnknown, sub)
 }
 
-// strictFlags — строгая лексика флагов контракта CLI и последовательная
-// валидация их значений, поверх разбора urfave/cli: форма флага — ровно
-// два дефиса («-имя» и «---имя» — неизвестный флаг с этим именем),
-// значение флага не может быть следующим флагом или отсутствовать,
-// булев флаг не принимает форму «--имя=значение», «--» — конец флагов;
-// каждое вхождение значимого флага проверяется на месте (повторное
-// вхождение перезаписывает значение — как в контракте, без
-// «последнее-выигрывает» парсера библиотеки, пропускающего промежуточные
-// значения). Диспетчеризация команд и позиционные аргументы — urfave/cli.
-func strictFlags(cmd string, args []string, specs []flagSpec) (*options, error) {
+// strictFlags — строгая лексика флагов контракта CLI, последовательная
+// валидация их значений и сбор позиционных аргументов, одним проходом:
+// форма флага — ровно два дефиса («-имя» и «---имя» — неизвестный флаг
+// с этим именем), значение флага не может быть следующим флагом или
+// отсутствовать, булев флаг не принимает форму «--имя=значение»,
+// «--» — конец флагов (всё после него — позиционные аргументы), токен
+// без префикса «-» (и сам «-») — позиционный аргумент; каждое вхождение
+// значимого флага проверяется на месте (повторное вхождение перезаписывает
+// значение — как в контракте).
+func strictFlags(cmd string, args []string, specs []flagSpec) (*options, []string, error) {
 	byName := make(map[string]flagSpec, len(specs))
 	for _, s := range specs {
 		byName[s.name] = s
 	}
 	o := newOptions()
+	var pos []string
 	for i := 0; i < len(args); i++ {
 		arg := args[i]
 		if arg == "--" {
-			return o, nil
+			pos = append(pos, args[i+1:]...)
+			return o, pos, nil
 		}
 		if !strings.HasPrefix(arg, "--") {
 			if strings.HasPrefix(arg, "-") && arg != "-" {
 				// одиночный дефис: «-lang» — не форма флага, неизвестный
 				// флаг с этим именем (утроенный «---lang» отвергается ниже
 				// сам собой: имя после двух дефисов сохраняет лишний).
-				return nil, domain.NewErrorf(domain.CodeValidationFailed,
+				return nil, nil, domain.NewErrorf(domain.CodeValidationFailed,
 					domain.MsgCliUnknownFlag, strings.TrimLeft(arg, "-"), cmd, cmd)
 			}
-			continue // позиционный аргумент
+			pos = append(pos, arg) // позиционный аргумент
+			continue
 		}
 		name, value := arg[2:], ""
 		hasEq := false
@@ -157,16 +150,16 @@ func strictFlags(cmd string, args []string, specs []flagSpec) (*options, error) 
 		}
 		spec, known := byName[name]
 		if !known {
-			return nil, domain.NewErrorf(domain.CodeValidationFailed,
+			return nil, nil, domain.NewErrorf(domain.CodeValidationFailed,
 				domain.MsgCliUnknownFlag, name, cmd, cmd)
 		}
 		if !spec.hasValue {
 			if hasEq {
-				return nil, domain.NewErrorf(domain.CodeValidationFailed,
+				return nil, nil, domain.NewErrorf(domain.CodeValidationFailed,
 					domain.MsgCliFlagNoValue, name)
 			}
 			if err := o.set(cmd, name, "true"); err != nil {
-				return nil, err
+				return nil, nil, err
 			}
 			continue
 		}
@@ -174,17 +167,17 @@ func strictFlags(cmd string, args []string, specs []flagSpec) (*options, error) 
 			// Значение обязательно и не может быть следующим флагом
 			// («--kind --system» — не kind="--system").
 			if i+1 >= len(args) || strings.HasPrefix(args[i+1], "--") {
-				return nil, domain.NewErrorf(domain.CodeValidationFailed,
+				return nil, nil, domain.NewErrorf(domain.CodeValidationFailed,
 					domain.MsgCliFlagValueRequired, name)
 			}
 			i++ // значение флага — не позиция
 			value = args[i]
 		}
 		if err := o.set(cmd, name, value); err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 	}
-	return o, nil
+	return o, pos, nil
 }
 
 // newOptions — пустые опции с инициализированными картами фильтров.
@@ -194,11 +187,10 @@ func newOptions() *options {
 
 // command — команда CLI по реестру: строка использования (сообщение
 // каталога: путь и позиционные аргументы, полный перечень флагов
-// подставляется генератором справки), спецификации флагов (из них же
-// строятся флаги urfave/cli), границы числа аргументов и исполнитель.
-// Подкоманды (subcommands != nil) несут собственные наборы флагов —
-// объединённый набор принимал бы флаги соседних подкоманд и молча
-// игнорировал их.
+// подставляется генератором справки), спецификации флагов, границы
+// числа аргументов и исполнитель. Подкоманды (subcommands != nil) несут
+// собственные наборы флагов — объединённый набор принимал бы флаги
+// соседних подкоманд и молча игнорировал их.
 type command struct {
 	use         domain.MsgID
 	flags       []flagSpec
@@ -234,7 +226,8 @@ type options struct {
 }
 
 // set присваивает значение флага; числовые флаги и локаль разбираются
-// на месте (вызывается после разбора urfave/cli — значения строковые).
+// на месте (значения флагов — строки, разбор — в терминах каталога
+// сообщений).
 func (o *options) set(cmd, name, value string) error {
 	o.seen[name] = true
 	switch name {
@@ -320,8 +313,8 @@ var (
 )
 
 // commands — реестр команд (полный набор — 04-module-functionality.md
-// §3); из него строятся дерево urfave/cli, справка и строки
-// использования ошибок числа аргументов.
+// §3); из него строятся диспетчеризация, справка и строки использования
+// ошибок числа аргументов.
 var commands = map[string]*command{
 	"init": {use: domain.MsgCliUseInit,
 		flags: dbFlags, minArgs: 0, maxArgs: 0, run: runInit},
@@ -366,148 +359,6 @@ var commands = map[string]*command{
 // helpFlags — флаги команды help (вне реестра commands: справка читает
 // реестр, запись в него замкнула бы цикл инициализации).
 var helpFlags = []flagSpec{langFlag}
-
-// env — окружение действий: потоки вывода, локаль ошибок разбора
-// (ранняя локаль прогона — значение --lang из полных аргументов) и
-// опции, разобранные strictFlags (диспетчеризация urfave/cli идёт по
-// той же первой позиционной лексеме, что и strictFlags).
-type env struct {
-	stdout, stderr io.Writer
-	lang           i18n.Language
-	opts           *options
-}
-
-// action — действие urfave/cli для команды реестра: контроль числа
-// позиционных аргументов, исполнитель. Ошибки печатаются здесь с
-// контрактным префиксом; неуспех — errExit. Строка использования в
-// ошибке — аргумент-сообщение (use + полный перечень флагов реестра):
-// канонический en-рендер и локализованный совпадают с карточкой
-// help <команда>.
-func (e *env) action(full string, use domain.MsgID, hints string, minArgs, maxArgs int,
-	run func(context.Context, *options, []string, io.Writer, io.Writer) int,
-) cliv3.ActionFunc {
-	return func(ctx context.Context, c *cliv3.Command) error {
-		pos := c.Args().Slice()
-		if len(pos) < minArgs || (maxArgs >= 0 && len(pos) > maxArgs) {
-			PrintError(e.stderr, e.lang, domain.NewErrorf(domain.CodeValidationFailed,
-				domain.MsgCliArgCount, full, domain.MsgArg(use, hints)))
-			return errExit
-		}
-		if run(ctx, e.opts, pos, e.stdout, e.stderr) != 0 {
-			return errExit
-		}
-		return nil
-	}
-}
-
-// flagsOf — флаги urfave/cli по спецификациям команды (значимые —
-// строковые: валидация значений — за options.set, чтобы сохранить
-// тексты ошибок каталога сообщений).
-func flagsOf(specs []flagSpec) []cliv3.Flag {
-	out := make([]cliv3.Flag, 0, len(specs))
-	for _, s := range specs {
-		if s.hasValue {
-			out = append(out, &cliv3.StringFlag{Name: s.name})
-			continue
-		}
-		out = append(out, &cliv3.BoolFlag{Name: s.name})
-	}
-	return out
-}
-
-// mapParseError — перевод ошибки разбора urfave/cli в доменную ошибку
-// каталога сообщений. Строки-префиксы стабильны (парсер библиотеки
-// воспроизводит формулировки стандартного flag-пакета); путь
-// оборонительный — строгость лексики до разбора держит strictFlags.
-func mapParseError(cmd string, err error) error {
-	s := err.Error()
-	if name, ok := strings.CutPrefix(s, "flag provided but not defined: -"); ok {
-		return domain.NewErrorf(domain.CodeValidationFailed,
-			domain.MsgCliUnknownFlag, name, cmd, cmd)
-	}
-	if name, ok := strings.CutPrefix(s, "flag needs an argument: "); ok {
-		return domain.NewErrorf(domain.CodeValidationFailed,
-			domain.MsgCliFlagValueRequired, strings.TrimLeft(name, "-"))
-	}
-	return domain.NewErrorf(domain.CodeValidationFailed,
-		domain.MsgCliUnknownFlagSet, s, cmd)
-}
-
-// newRoot — корневая команда urfave/cli по реестру commands. Справка и
-// тексты ошибок локализованы каталогом сообщений, поэтому встроенные
-// help-флаги и help-команда библиотеки скрыты (HideHelp,
-// HideHelpCommand): -h/--help обрабатывает Run, справку — команда help.
-// Значения флагов разбирает strictFlags (контрактная лексика и
-// последовательная валидация); urfave/cli — диспетчеризация команд и
-// позиционные аргументы.
-func newRoot(stdout, stderr io.Writer, earlyLang i18n.Language, opts *options) *cliv3.Command {
-	e := &env{stdout: stdout, stderr: stderr, lang: earlyLang, opts: opts}
-	onUsageError := func(_ context.Context, c *cliv3.Command, err error, _ bool) error {
-		PrintError(stderr, earlyLang, mapParseError(c.FullName(), err))
-		return errExit
-	}
-	var cmds []*cliv3.Command
-	for _, name := range commandNames() {
-		cmd := commands[name]
-		if cmd.subcommands != nil {
-			var subs []*cliv3.Command
-			for _, subName := range subcommandNames(cmd) {
-				sub := cmd.subcommands[subName]
-				subs = append(subs, &cliv3.Command{
-					Name:         subName,
-					Flags:        flagsOf(sub.flags),
-					Action:       e.action(name+" "+subName, sub.use, flagHints(sub.flags), sub.minArgs, sub.maxArgs, sub.run),
-					OnUsageError: onUsageError,
-				})
-			}
-			cmds = append(cmds, &cliv3.Command{
-				Name:     name,
-				Commands: subs,
-				Action: func(_ context.Context, _ *cliv3.Command) error {
-					PrintError(stderr, earlyLang, domain.NewErrorf(domain.CodeValidationFailed,
-						domain.MsgCliCatalogSubMissing))
-					return errExit
-				},
-				OnUsageError: onUsageError,
-			})
-			continue
-		}
-		cmds = append(cmds, &cliv3.Command{
-			Name:         name,
-			Flags:        flagsOf(cmd.flags),
-			Action:       e.action(name, cmd.use, flagHints(cmd.flags), cmd.minArgs, cmd.maxArgs, cmd.run),
-			OnUsageError: onUsageError,
-		})
-	}
-	// help — отдельной командой (реестр читает; см. helpFlags).
-	cmds = append(cmds, &cliv3.Command{
-		Name:         "help",
-		Flags:        flagsOf(helpFlags),
-		Action:       e.action("help", domain.MsgCliUseHelp, flagHints(helpFlags), 0, -1, runHelpCmd),
-		OnUsageError: onUsageError,
-	})
-	return &cliv3.Command{
-		Name:            progName,
-		HideHelp:        true,
-		HideHelpCommand: true,
-		Writer:          stdout,
-		ErrWriter:       stderr,
-		Commands:        cmds,
-		Action: func(_ context.Context, c *cliv3.Command) error {
-			// Оборонительный путь: Run отвергает неизвестные команды и
-			// пустой вызов до urfave/cli; сюда прямая передача аргументов
-			// не доходит.
-			if c.Args().Len() == 0 {
-				fmt.Fprint(stderr, usageText(i18n.En))
-				return errExit
-			}
-			PrintError(stderr, earlyLang, domain.NewErrorf(domain.CodeValidationFailed,
-				domain.MsgCliUnknownCommand, c.Args().First()))
-			return errExit
-		},
-		OnUsageError: onUsageError,
-	}
-}
 
 // dsnOf — строка подключения: --dsn приоритетнее --db (путь sqlite);
 // по умолчанию catalog.db в текущем каталоге. --dsn postgres://… без
