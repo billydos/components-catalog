@@ -20,7 +20,7 @@ jobs:
       ci_done: ${{ steps.check.outputs.ci_done }}
     steps:
       - name: Checkout
-        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7b6c9 # v5.1.0
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
       - name: Look up a successful CI run on the same commit
         id: check
         env:
