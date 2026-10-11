@@ -4,7 +4,7 @@
 
 Форма секций групп параметров **едина для всех групп** (`parameters`, `ratings`, `dimensions`) — список объектов `{ "parameter": <код>, значение, условия }`; значение — `value` (exact) | `min`/`max` | `text` (text/enum). Условия — соседние ключи по коду условия.
 
-Примеры разбиты по классам — один блок кода соответствует секции одного класса в файле наполнения. Внутри блока записи сгруппированы по системам обозначений, **по три записи на систему**. Записи минимальны: они демонстрируют форму записи и отличия систем обозначений, а не полноту данных типа; поля грамматик систем в файле не задаются — их даёт разбор обозначения; классификационные словарные поля (материал, подкласс, подстройка, категория) для систем, не кодирующих их обозначением, — секцией `fields` (D10). Ключ `system` проставлен каждой записи явно — чтобы система читалась из самой записи, без комментариев; в рабочем наполнении он нужен только для `other` (автодетекта нет) и при неоднозначности автодетекта, в остальных случаях систему определяет автодетект (формы `gost`/`ost` у резисторов не пересекаются — `С`/`СП` против `Р`/`РП`). Аналоги в примерах ссылаются только на записи своего блока; ссылки направленные (`03-data-model.md` §8): секция `analogs` записи задаёт её исходящие ссылки (встречные отображаются на карточке получателя). Предметные атрибуции примеров выверены — `07-r1-verification.md`.
+Примеры разбиты по классам — один блок кода соответствует секции одного класса в файле наполнения. Внутри блока записи сгруппированы по системам обозначений, **по две–три записи на систему, всего до десяти записей на класс**. Записи минимальны: они демонстрируют форму записи и отличия систем обозначений, а не полноту данных типа; поля грамматик систем в файле не задаются — их даёт разбор обозначения; классификационные словарные поля (материал, подкласс, подстройка, категория) для систем, не кодирующих их обозначением, — секцией `fields` (D10). Ключ `system` проставлен каждой записи явно — чтобы система читалась из самой записи, без комментариев; в рабочем наполнении он нужен только для `other` (автодетекта нет) и при неоднозначности автодетекта, в остальных случаях систему определяет автодетект (формы `gost`/`ost` у резисторов не пересекаются — `С`/`СП` против `Р`/`РП`). Аналоги в примерах ссылаются только на записи своего блока; ссылки направленные (`03-data-model.md` §8): секция `analogs` записи задаёт её исходящие ссылки (встречные отображаются на карточке получателя). Предметные атрибуции примеров выверены — `07-r1-verification.md`.
 
 ## 1. Транзисторы
 
@@ -46,18 +46,6 @@
         { "parameter": "TempMax", "value": 70 }
       ]
     },
-    {
-      "name": "2Т914А-1",                   // пара «2Т» ≡ «КТ» физически равнозначна, записи раздельные; -1 — бескорпусное
-      "system": "gost",
-      "attributes": { "structure": "npn" },
-      "parameters": [ { "parameter": "PVyh", "min": 2, "freq": 400 } ],
-      "ratings": [
-        { "parameter": "UkeoMax", "value": 36 },
-        { "parameter": "PkMax", "value": 5000 },
-        { "parameter": "TempMin", "value": -60 },
-        { "parameter": "TempMax", "value": 100 }
-      ]
-    },
 
     // pro (PRO ELECTRON): материал и класс прибора — первые две буквы
     {
@@ -87,32 +75,8 @@
         { "parameter": "TempMax", "value": 90 }
       ]
     },
-    {
-      "name": "BF245",                      // полевой: электрические параметры полевых (ток стока, отсечка) — вне стартового каталога
-                                           // `03-data-model.md` §6.1; предельные для полевых — UsiMax/IsiMax (§6.2)
-      "system": "pro",
-      "attributes": { "structure": "n-канал" },
-      "ratings": [
-        { "parameter": "UsiMax", "value": 30 },
-        { "parameter": "IsiMax", "value": 25 },
-        { "parameter": "PkMax", "value": 300 }
-      ]
-    },
 
     // jedec: материал/подкласс/категория не кодируются — секцией fields; один номер — много производителей
-    {
-      "name": "2N2222A",
-      "system": "jedec",
-      "fields": { "material": "si", "subclass": "bjt", "category": "general_purpose" },
-      "attributes": { "structure": "npn", "description": "универсальный", "package": "TO-18" },
-      "parameters": [ { "parameter": "h21e", "min": 100, "max": 300, "Uke": 10, "Ik": 10 } ],
-      "ratings": [
-        { "parameter": "UkeoMax", "value": 40 },
-        { "parameter": "IkMax", "value": 800 },
-        { "parameter": "TempMin", "value": -65 },
-        { "parameter": "TempMax", "value": 150 }
-      ]
-    },
     {
       "name": "2N3055",
       "system": "jedec",
@@ -141,17 +105,6 @@
 
     // jis (JIS/EIAJ): переходы и класс кодируются — A p-n-p ВЧ, C n-p-n ВЧ, K n-канал ПТ
     {
-      "name": "2SA1015",
-      "system": "jis",
-      "attributes": { "structure": "pnp", "package": "TO-92" },
-      "parameters": [ { "parameter": "h21e", "min": 120, "max": 240, "Uke": 6, "Ik": 2 } ],
-      "ratings": [
-        { "parameter": "UkeoMax", "value": 50 },
-        { "parameter": "IkMax", "value": 150 },
-        { "parameter": "PkMax", "value": 400 }
-      ]
-    },
-    {
       "name": "2SC1815",                    // группа hFE — суффиксом обозначения
       "system": "jis",
       "attributes": { "structure": "npn", "package": "TO-92" },
@@ -173,24 +126,7 @@
       ]
     },
 
-    // other: досистемные семейства и дом-номера; семейство и номер — секцией fields
-    {
-      "name": "МП39",
-      "system": "other",
-      "fields": { "material": "ge", "subclass": "bjt", "category": "audio", "series": "МП", "dev_number": 39 },
-      "attributes": { "structure": "pnp", "description": "низкочастотный" },
-      "parameters": [
-        { "parameter": "h21e", "min": 20, "max": 50, "Uke": 5, "Ik": 5 },
-        { "parameter": "Ikbo", "max": 15, "Ukb": 5 }
-      ],
-      "ratings": [
-        { "parameter": "UkeoMax", "value": 15 },
-        { "parameter": "IkMax", "value": 150 },
-        { "parameter": "PkMax", "value": 150 },
-        { "parameter": "TempMin", "value": -60 },
-        { "parameter": "TempMax", "value": 70 }
-      ]
-    },
+    // other: досистемные семейства и MIL-формы — разбора нет, ключ system обязателен; семейство и классификация — секцией fields
     {
       "name": "П214",
       "system": "other",
@@ -204,42 +140,6 @@
         { "parameter": "TempMax", "value": 85 }
       ],
       "analogs": ["AD161"]                              // пара из разных систем — главный случай
-    },
-    {
-      "name": "TIP120",
-      "system": "other",
-      "fields": { "material": "si", "subclass": "bjt", "category": "composite", "series": "TIP", "dev_number": 120 },
-      "attributes": { "structure": "npn", "description": "составной", "package": "TO-220" },
-      "parameters": [ { "parameter": "h21e", "min": 1000, "max": 20000, "Uke": 3, "Ik": 3000 } ],
-      "ratings": [
-        { "parameter": "UkeoMax", "value": 60 },
-        { "parameter": "IkMax", "value": 5000 },
-        { "parameter": "PkMax", "value": 65000 }
-      ]
-    },
-
-    // other: разбора нет, ключ system обязателен; классификация — секцией fields
-    {
-      "name": "MJE340",
-      "system": "other",
-      "fields": { "material": "si", "subclass": "bjt", "category": "general_purpose" },
-      "attributes": { "structure": "npn", "description": "универсальный", "package": "TO-126" },
-      "ratings": [
-        { "parameter": "UkeoMax", "value": 300 },
-        { "parameter": "IkMax", "value": 500 },
-        { "parameter": "PkMax", "value": 20000 }
-      ]
-    },
-    {
-      "name": "IRF540",
-      "system": "other",
-      "fields": { "material": "si", "subclass": "fet", "category": "power" },
-      "attributes": { "structure": "n-канал", "description": "МОП мощный", "package": "TO-220" },
-      "ratings": [
-        { "parameter": "UsiMax", "value": 100 },
-        { "parameter": "IsiMax", "value": 28000 },
-        { "parameter": "PkMax", "value": 150000 }
-      ]
     },
     {
       "name": "JANTX2N3055",                // MIL-форма на базе JEDEC-номера — вне строгих систем
@@ -262,15 +162,6 @@
 {
   "diodes": [
     // gost (ГОСТ 10862-64): Д выпрямительный, ДС сборка, С стабилитрон, Л светодиод
-    {
-      "name": "КДС111В",                    // сборка: признак С после подкласса Д
-      "system": "gost",
-      "parameters": [ { "parameter": "Upr", "max": 1, "Ipr": 5 } ],
-      "ratings": [
-        { "parameter": "UobrMax", "value": 50 },
-        { "parameter": "IprMax", "value": 20 }
-      ]
-    },
     {
       "name": "КС168А",                     // стабилитрон 6.8 В
       "system": "gost",
@@ -311,19 +202,6 @@
         { "parameter": "UobrMax", "value": 45 },
         { "parameter": "IprMax", "value": 100 },
         { "parameter": "TempMax", "value": 70 }
-      ]
-    },
-    {
-      "name": "BY133",
-      "system": "pro",
-      "parameters": [
-        { "parameter": "Upr", "max": 1.1, "Ipr": 1000 },
-        { "parameter": "Iobr", "max": 5, "Uobr": 600 }
-      ],
-      "ratings": [
-        { "parameter": "UobrMax", "value": 600 },
-        { "parameter": "IprMax", "value": 1000 },
-        { "parameter": "TempJunctionMax", "value": 150 }
       ]
     },
     {
@@ -372,17 +250,6 @@
         { "parameter": "TempJunctionMax", "value": 150 }
       ]
     },
-    {
-      "name": "1N5408",
-      "system": "jedec",
-      "attributes": { "description": "выпрямительный" },
-      "parameters": [ { "parameter": "Upr", "max": 1.1, "Ipr": 3000 } ],
-      "ratings": [
-        { "parameter": "UobrMax", "value": 1000 },
-        { "parameter": "IprMax", "value": 3000 },
-        { "parameter": "TempJunctionMax", "value": 150 }
-      ]
-    },
 
     // jis: 1S — диод; S переключный, R выпрямительный; старые регистрации — без буквы класса
     {
@@ -394,13 +261,6 @@
         { "parameter": "trr", "max": 4, "Ipr": 10 }
       ],
       "ratings": [ { "parameter": "UobrMax", "value": 60 }, { "parameter": "IprMax", "value": 100 } ]
-    },
-    {
-      "name": "1SS352",
-      "system": "jis",
-      "attributes": { "description": "импульсный" },
-      "parameters": [ { "parameter": "trr", "max": 4, "Ipr": 10 } ],
-      "ratings": [ { "parameter": "UobrMax", "value": 35 }, { "parameter": "IprMax", "value": 100 } ]
     },
     {
       "name": "1SR154-400",                 // суффикс — напряжение
@@ -431,35 +291,8 @@
       ],
       "analogs": [ { "name": "1N4007", "note": "с ограничениями: запас по напряжению и току" } ]
     },
-    {
-      "name": "Д814А",
-      "system": "other",
-      "fields": { "series": "Д", "dev_number": 814, "letters": "А" },
-      "attributes": { "description": "стабилитрон" },
-      "parameters": [
-        { "parameter": "Ust", "min": 7, "max": 8.5, "Ist": 5 },
-        { "parameter": "Rdiff", "max": 6, "Ist": 5 },
-        { "parameter": "TkUst", "max": 0.07, "Ist": 5 }
-      ],
-      "ratings": [
-        { "parameter": "Pmax", "value": 340 },
-        { "parameter": "IstMin", "value": 3 },
-        { "parameter": "IstMax", "value": 40 }
-      ]
-    },
-    {
-      "name": "Д2Б",
-      "system": "other",
-      "fields": { "series": "Д", "dev_number": 2, "letters": "Б" },
-      "attributes": { "description": "универсальный" },
-      "parameters": [
-        { "parameter": "Upr", "max": 1, "Ipr": 10 },
-        { "parameter": "Iobr", "max": 100, "Uobr": 30 }
-      ],
-      "ratings": [ { "parameter": "UobrMax", "value": 30 }, { "parameter": "IprMax", "value": 25 } ]
-    },
 
-    // other: фирменные варианты JEDEC-номеров и MIL-форма; ключ system обязателен
+    // other: фирменные варианты JEDEC-номеров; ключ system обязателен
     {
       "name": "LL4148",
       "system": "other",
@@ -470,22 +303,6 @@
       ],
       "ratings": [ { "parameter": "UobrMax", "value": 100 }, { "parameter": "IprMax", "value": 200 } ],
       "analogs": ["1N4148"]
-    },
-    {
-      "name": "UF4007",
-      "system": "other",
-      "attributes": { "description": "выпрямительный быстрый" },
-      "parameters": [
-        { "parameter": "Upr", "max": 1.7, "Ipr": 1000 },
-        { "parameter": "trr", "max": 75, "Ipr": 1000 }
-      ],
-      "ratings": [ { "parameter": "UobrMax", "value": 1000 }, { "parameter": "IprMax", "value": 1000 } ]
-    },
-    {
-      "name": "JAN1N4007",
-      "system": "other",
-      "attributes": { "description": "выпрямительный", "militaryGrade": true },
-      "ratings": [ { "parameter": "UobrMax", "value": 1000 }, { "parameter": "IprMax", "value": 1000 } ]
     }
   ]
 }
@@ -592,17 +409,6 @@
         { "parameter": "TempMax", "value": 70 }
       ],
       "analogs": ["С2-33Н"]
-    },
-    {
-      "name": "ВС-0.5",
-      "system": "other",
-      "fields": { "series": "ВС" },
-      "parameters": [
-        { "parameter": "Rnom", "min": 27, "max": 10000000 },
-        { "parameter": "Dop", "max": 20 },
-        { "parameter": "TKS", "max": 2000 }
-      ],
-      "ratings": [ { "parameter": "Pnom", "value": 0.5 }, { "parameter": "Umax", "value": 500 } ]
     },
     {
       "name": "ПЭВ-10",
