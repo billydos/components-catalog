@@ -180,25 +180,25 @@ func TestSeedSpotChecks(t *testing.T) {
 	}
 	// Полевые транзисторы: собственные коды величин стока/затвора, без
 	// пересечений с биполярными (03 §6.1–6.2).
-	psi := check("PdMax")
-	if psi.Unit != "mW" || psi.ValueType != catalog.ValueExact || len(psi.ConditionSets) != 0 ||
-		!psi.AppliesTo(domain.KindTransistor) {
-		t.Errorf("PdMax: %+v", psi)
+	pdMax := check("PdMax")
+	if pdMax.Unit != "mW" || pdMax.ValueType != catalog.ValueExact || len(pdMax.ConditionSets) != 0 ||
+		!pdMax.AppliesTo(domain.KindTransistor) {
+		t.Errorf("PdMax: %+v", pdMax)
 	}
-	isiPulse := check("IdPulseMax")
-	if len(isiPulse.ConditionSets) != 1 || len(isiPulse.ConditionSets[0].Items) != 1 ||
-		isiPulse.ConditionSets[0].Items[0].Mode != catalog.ModeRequired ||
-		isiPulse.ConditionSets[0].Items[0].Condition != "pulse_duration" {
-		t.Errorf("IdPulseMax: набор условий %+v", isiPulse.ConditionSets)
+	idPulse := check("IdPulseMax")
+	if len(idPulse.ConditionSets) != 1 || len(idPulse.ConditionSets[0].Items) != 1 ||
+		idPulse.ConditionSets[0].Items[0].Mode != catalog.ModeRequired ||
+		idPulse.ConditionSets[0].Items[0].Condition != "pulse_duration" {
+		t.Errorf("IdPulseMax: набор условий %+v", idPulse.ConditionSets)
 	}
 	if s, _ := snap.Parameter("gfs"); s.Unit != "mA_per_V" || s.ValueType != catalog.ValueAtLeast ||
 		len(s.ConditionSets) != 2 {
 		t.Errorf("gfs: единица %q, тип %s, наборы %+v", s.Unit, string(s.ValueType), s.ConditionSets)
 	}
-	ots := check("VgsOff")
-	if !ots.AllowNegative || ots.ValueType != catalog.ValueRange ||
-		len(ots.ConditionSets) != 1 || ots.ConditionSets[0].Items[0].Condition != "Id" {
-		t.Errorf("VgsOff: %+v", ots)
+	vgsOff := check("VgsOff")
+	if !vgsOff.AllowNegative || vgsOff.ValueType != catalog.ValueRange ||
+		len(vgsOff.ConditionSets) != 1 || vgsOff.ConditionSets[0].Items[0].Condition != "Id" {
+		t.Errorf("VgsOff: %+v", vgsOff)
 	}
 	if c, ok := snap.Condition("Vgs"); !ok || c.Unit != "V" || !c.AllowNegative {
 		t.Errorf("условие Vgs: %+v", c)
@@ -212,8 +212,8 @@ func TestSeedSpotChecks(t *testing.T) {
 	if u, _ := snap.Parameter("Vnoise"); u.Unit != "" {
 		t.Errorf("Vnoise: единица %q (должна быть NULL)", u.Unit)
 	}
-	if cp, _ := snap.Parameter("Cratio"); cp.Unit != "" {
-		t.Errorf("Cratio: единица %q (должна быть NULL)", cp.Unit)
+	if cr, _ := snap.Parameter("Cratio"); cr.Unit != "" {
+		t.Errorf("Cratio: единица %q (должна быть NULL)", cr.Unit)
 	}
 	for _, code := range []string{"massMax", "length", "width", "height", "diameter", "leadLength", "leadPitch"} {
 		if p := check(code); p.ValidationRule != "cap_dimensions_form" || p.ValueType != catalog.ValueExact {

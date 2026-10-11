@@ -156,7 +156,7 @@ var bundleEn = map[string]string{
 
 	// Параметры (parameters): транзисторы — electrical.
 	"param.hfe":       "static current transfer ratio h21E",
-	"param.hfb":       "common-base current transfer ratio h21B",
+	"param.hfb":       "common-base current transfer ratio hFB",
 	"param.fT":        "transition frequency",
 	"param.VceCutoff": "cutoff voltage",
 	"param.VceSat":    "collector-emitter saturation voltage",
