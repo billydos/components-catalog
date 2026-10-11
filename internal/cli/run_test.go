@@ -2,6 +2,7 @@ package cli_test
 
 import (
 	"bytes"
+	"fmt"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -671,6 +672,95 @@ func TestLimitRangeValidation(t *testing.T) {
 	want := "Ошибка: параметр limit: ожидается целое от 1 до 200\n"
 	if code != 1 || stderr != want {
 		t.Fatalf("--limit 0 (ru): код %d, %q (want %q)", code, stderr, want)
+	}
+}
+
+// TestListAll — позиционный аргумент «all»: все записи без пагинации
+// (CLI итерирует страницы поиска; потолок limit ≤ 200 — контракт сервиса).
+// Датасет 205 записей перекрывает потолок — проверяется сшивка страниц;
+// «all» несовместим с --limit/--offset, иной позиционный аргумент — ошибка.
+func TestListAll(t *testing.T) {
+	db := testDB(t)
+	run(t, "init", "--db", db)
+	var ds strings.Builder
+	for i := 0; i < 205; i++ {
+		fmt.Fprintf(&ds, "{\"transistors\":{\"name\":\"2N%d\",\"system\":\"jedec\"}}\n", 1000+i)
+	}
+	path := filepath.Join(t.TempDir(), "many.ndjson")
+	if err := os.WriteFile(path, []byte(ds.String()), 0o600); err != nil {
+		t.Fatalf("датасет: %v", err)
+	}
+	stdout, stderr, code := run(t, "import", path, "--db", db)
+	if code != 0 || stderr != "" || !strings.Contains(stdout, "records: 205, added: 205") {
+		t.Fatalf("import: код %d, %q, %q", code, stdout, stderr)
+	}
+
+	// Без «all» — страница по умолчанию (50 записей).
+	stdout, stderr, code = run(t, "list", "--db", db)
+	if code != 0 || stderr != "" || strings.Count(stdout, "\n") != 50 {
+		t.Fatalf("list без all: код %d, строк %d, %q", code, strings.Count(stdout, "\n"), stderr)
+	}
+
+	// «all» — все 205 записей (200 + хвост второй страницы), без
+	// дублей и пропусков, порядок детерминирован (kind, designation).
+	stdout, stderr, code = run(t, "list", "all", "--db", db)
+	if code != 0 || stderr != "" {
+		t.Fatalf("list all: код %d, %q", code, stderr)
+	}
+	lines := strings.Split(strings.TrimRight(stdout, "\n"), "\n")
+	if len(lines) != 205 {
+		t.Fatalf("list all: строк %d, ожидается 205", len(lines))
+	}
+	seen := make(map[string]bool, len(lines))
+	for i, line := range lines {
+		fields := strings.Fields(line)
+		if len(fields) != 3 || fields[1] != "transistor" || fields[2] != "jedec" {
+			t.Fatalf("строка %d не из трёх полей записи: %q", i+1, line)
+		}
+		if seen[fields[0]] {
+			t.Fatalf("дубликат обозначения: %q", fields[0])
+		}
+		seen[fields[0]] = true
+	}
+	if fields := strings.Fields(lines[0]); fields[0] != "2N1000" {
+		t.Fatalf("первая строка: %q", lines[0])
+	}
+	if fields := strings.Fields(lines[204]); fields[0] != "2N1204" {
+		t.Fatalf("последняя строка: %q", lines[204])
+	}
+
+	// Фильтры совместно с «all».
+	stdout, stderr, code = run(t, "list", "all", "--kind", "transistor", "--db", db)
+	if code != 0 || stderr != "" || strings.Count(stdout, "\n") != 205 {
+		t.Fatalf("list all --kind: код %d, строк %d, %q", code, strings.Count(stdout, "\n"), stderr)
+	}
+
+	// «all» несовместим с --limit/--offset — в том числе с явным
+	// no-op значением --offset 0 (молчаливое игнорирование запрещено).
+	for _, args := range [][]string{
+		{"--limit", "10"},
+		{"--offset", "0"},
+	} {
+		_, stderr, code = run(t, append([]string{"list", "all"}, args...)...)
+		if code != 1 ||
+			!strings.HasPrefix(stderr, "Error: argument «all» cannot be combined with --limit/--offset") {
+			t.Fatalf("list all %v: код %d, %q", args, code, stderr)
+		}
+	}
+	_, stderr, code = run(t, "list", "all", "--offset", "5", "--lang", "ru", "--db", db)
+	if code != 1 || !strings.HasPrefix(stderr, "Ошибка: аргумент «all» несовместим с --limit/--offset") {
+		t.Fatalf("list all --offset (ru): код %d, %q", code, stderr)
+	}
+
+	// Единственный допустимый позиционный аргумент — «all».
+	_, stderr, code = run(t, "list", "everything", "--db", db)
+	if code != 1 ||
+		stderr != "Error: unknown argument «everything» of list; the only accepted argument is «all»\n" {
+		t.Fatalf("list everything: код %d, %q", code, stderr)
+	}
+	_, stderr, code = run(t, "list", "all", "all", "--db", db)
+	if code != 1 || !strings.HasPrefix(stderr, "Error: wrong number of arguments for command list") {
+		t.Fatalf("list all all: код %d, %q", code, stderr)
 	}
 }
 

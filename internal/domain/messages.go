@@ -347,6 +347,8 @@ const (
 	MsgCliDsnDialect        MsgID = "cli_dsn_dialect_mismatch"
 	MsgCliArgCount          MsgID = "cli_arg_count"
 	MsgCliHelpArgs          MsgID = "cli_help_args"
+	MsgCliListArg           MsgID = "cli_list_arg"
+	MsgCliListAllFlags      MsgID = "cli_list_all_flags"
 	MsgCliUnknownFlag       MsgID = "cli_unknown_flag"
 	MsgCliFlagValueRequired MsgID = "cli_flag_value_required"
 	MsgCliFlagNoValue       MsgID = "cli_flag_no_value"
@@ -839,6 +841,8 @@ var msgRegistry = map[MsgID]struct{}{
 	MsgCliDsnDialect:                  {},
 	MsgCliArgCount:                    {},
 	MsgCliHelpArgs:                    {},
+	MsgCliListArg:                     {},
+	MsgCliListAllFlags:                {},
 	MsgCliUnknownFlag:                 {},
 	MsgCliFlagValueRequired:           {},
 	MsgCliFlagNoValue:                 {},

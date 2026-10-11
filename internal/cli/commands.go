@@ -289,7 +289,22 @@ func canonicalizeFilter(name, value string, snap *catalog.Snapshot) (string, err
 	return value, nil
 }
 
+// runList — список записей с фильтрами; необязательный позиционный
+// аргумент «all» — вывод всех записей без пагинации: CLI итерирует
+// страницы поиска по потолку limit (контракт сервиса ≤ 200 не меняется),
+// с --limit/--offset аргумент несовместим.
 func runList(ctx context.Context, opts *options, pos []string, stdout, stderr io.Writer) int {
+	all := len(pos) == 1
+	if all {
+		if pos[0] != "all" {
+			return fail(stderr, opts.langOf(), domain.NewErrorf(domain.CodeValidationFailed,
+				domain.MsgCliListArg, pos[0]))
+		}
+		if opts.seen["limit"] || opts.seen["offset"] {
+			return fail(stderr, opts.langOf(), domain.NewErrorf(domain.CodeValidationFailed,
+				domain.MsgCliListAllFlags))
+		}
+	}
 	app, err := openApp(ctx, opts, false)
 	if err != nil {
 		return fail(stderr, opts.langOf(), err)
@@ -304,8 +319,11 @@ func runList(ctx context.Context, opts *options, pos []string, stdout, stderr io
 		Kind:   opts.kindFlagOf(),
 		System: domain.System(opts.system),
 		Query:  opts.q,
-		Limit:  opts.limit,
-		Offset: opts.offset,
+	}
+	if all {
+		query.Limit = service.SearchLimitMax
+	} else {
+		query.Limit, query.Offset = opts.limit, opts.offset
 	}
 	for _, name := range []string{"material", "subclass", "adjustment", "category", "series", "letters"} {
 		if v, ok := opts.texts[name]; ok {
@@ -328,13 +346,22 @@ func runList(ctx context.Context, opts *options, pos []string, stdout, stderr io
 			query.Fields = append(query.Fields, service.FieldFilter{Field: field, Num: v, HasNum: true, Op: service.OpEq})
 		}
 	}
-	page, err := app.Services().Devices.Search(ctx, query)
-	if err != nil {
-		return fail(stderr, opts.langOf(), err)
-	}
 	tw := tabwriter.NewWriter(stdout, 2, 8, 2, ' ', 0)
-	for _, item := range page.Items {
-		fmt.Fprintf(tw, "%s\t%s\t%s\n", item.Designation, string(item.Kind), string(item.System))
+	for {
+		page, err := app.Services().Devices.Search(ctx, query)
+		if err != nil {
+			return fail(stderr, opts.langOf(), err)
+		}
+		for _, item := range page.Items {
+			fmt.Fprintf(tw, "%s\t%s\t%s\n", item.Designation, string(item.Kind), string(item.System))
+		}
+		// «all»: короткая страница — выборка исчерпана; иначе — следующая
+		// страница поиска (сортировка детерминирована финальным
+		// (kind, designation)).
+		if !all || len(page.Items) < query.Limit {
+			break
+		}
+		query.Offset += len(page.Items)
 	}
 	if err := tw.Flush(); err != nil {
 		return fail(stderr, opts.langOf(), err)

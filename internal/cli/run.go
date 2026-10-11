@@ -189,7 +189,7 @@ func strictFlags(cmd string, args []string, specs []flagSpec) (*options, error) 
 
 // newOptions — пустые опции с инициализированными картами фильтров.
 func newOptions() *options {
-	return &options{texts: map[string]string{}, nums: map[string]float64{}}
+	return &options{texts: map[string]string{}, nums: map[string]float64{}, seen: map[string]bool{}}
 }
 
 // command — команда CLI по реестру: строка использования (сообщение
@@ -230,11 +230,13 @@ type options struct {
 	offset  int
 	texts   map[string]string // текстовые фильтры полей обозначения
 	nums    map[string]float64
+	seen    map[string]bool // явно заданные флаги (семантические конфликты значений)
 }
 
 // set присваивает значение флага; числовые флаги и локаль разбираются
 // на месте (вызывается после разбора urfave/cli — значения строковые).
 func (o *options) set(cmd, name, value string) error {
+	o.seen[name] = true
 	switch name {
 	case "dialect":
 		o.dialect = value
@@ -338,7 +340,7 @@ var commands = map[string]*command{
 			{name: "series", hasValue: true}, {name: "number", hasValue: true},
 			{name: "letters", hasValue: true}, {name: "q", hasValue: true},
 			{name: "limit", hasValue: true}, {name: "offset", hasValue: true},
-		}, dbFlags...), minArgs: 0, maxArgs: 0, run: runList},
+		}, dbFlags...), minArgs: 0, maxArgs: 1, run: runList},
 	"info": {use: domain.MsgCliUseInfo, flags: append([]flagSpec{kindFlag}, dbFlags...), minArgs: 1, maxArgs: 1, run: runInfo},
 	"find": {use: domain.MsgCliUseFind, flags: append([]flagSpec{kindFlag}, dbFlags...), minArgs: 1, maxArgs: 1, run: runFind},
 	"delete": {use: domain.MsgCliUseDelete,
