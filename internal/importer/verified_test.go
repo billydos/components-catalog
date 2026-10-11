@@ -167,16 +167,16 @@ func runVerifiedSuite(t *testing.T, factory configFactory) {
 		if len(card.Variants) < 8 {
 			t.Fatalf("К50-35: исполнений %d, ожидался ряд напряжений (≥8)", len(card.Variants))
 		}
-		seenUnom := map[float64]bool{}
+		seenVnom := map[float64]bool{}
 		for _, v := range card.Variants {
-			var unom, diameter, mass float64
+			var vnom, diameter, mass float64
 			hasCnom, hasDiameter := false, false
 			for _, g := range v.Groups {
 				for _, val := range g.Values {
 					switch val.Parameter {
 					case "Vnom":
 						if val.Exact != nil {
-							unom = *val.Exact
+							vnom = *val.Exact
 						}
 					case "Cnom":
 						if val.Min != nil && val.Max != nil {
@@ -202,10 +202,10 @@ func runVerifiedSuite(t *testing.T, factory configFactory) {
 			if diameter > 0 && diameter < 4 {
 				t.Errorf("вариант «%s»: подозрительный диаметр %v мм", v.Label, diameter)
 			}
-			if seenUnom[unom] {
-				t.Errorf("вариант «%s»: Vnom %v повторяется", v.Label, unom)
+			if seenVnom[vnom] {
+				t.Errorf("вариант «%s»: Vnom %v повторяется", v.Label, vnom)
 			}
-			seenUnom[unom] = true
+			seenVnom[vnom] = true
 		}
 	})
 

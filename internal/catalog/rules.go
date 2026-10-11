@@ -191,23 +191,23 @@ func (capVariantMatrixRule) AllowsVariants() bool { return true }
 
 func (capVariantMatrixRule) CheckDevice(e *Engine, d *Device) []Problem {
 	var probs []Problem
-	seenUnom := make(map[float64]string, len(d.Variants))
+	seenVnom := make(map[float64]string, len(d.Variants))
 	seenLabel := make(map[string]bool, len(d.Variants))
 	for i := range d.Variants {
 		v := &d.Variants[i]
 		name := variantName(v, i)
 		if _, ok := paramAny(v.Values, "Vnom"); !ok {
-			probs = append(probs, ruleProblem(domain.MsgRuleVariantUnomMissing, name))
+			probs = append(probs, ruleProblem(domain.MsgRuleVariantVnomMissing, name))
 		}
 		if _, ok := paramAny(v.Values, "Cnom"); !ok {
 			probs = append(probs, ruleProblem(domain.MsgRuleVariantCnomMissing, name))
 		}
 		probs = append(probs, capDimensionsFormRule{}.CheckValues(e, d.Kind, v.Values)...)
-		if unom, ok := paramExact(v.Values, "Vnom"); ok {
-			if prev, dup := seenUnom[unom]; dup {
-				probs = append(probs, ruleProblem(domain.MsgRuleVariantUnomDup, name, prev))
+		if vnom, ok := paramExact(v.Values, "Vnom"); ok {
+			if prev, dup := seenVnom[vnom]; dup {
+				probs = append(probs, ruleProblem(domain.MsgRuleVariantVnomDup, name, prev))
 			} else {
-				seenUnom[unom] = name
+				seenVnom[vnom] = name
 			}
 		}
 		if v.Label != "" {

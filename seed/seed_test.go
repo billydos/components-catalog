@@ -89,10 +89,10 @@ func TestSeedRulesPin(t *testing.T) {
 	}
 }
 
-// Enum ТКЕ — выверенная таблица (03 §6.8, 07 §6): нормируемый и
+// Enum ТКЕ (TCC) — выверенная таблица (03 §6.8, 07 §6): нормируемый и
 // ненормируемый ряды, варианты написания — отдельные значения;
 // международные коды EIA (класс 1 и класс 2, 07 §6/S9).
-func TestSeedTKEEnum(t *testing.T) {
+func TestSeedTCCEnum(t *testing.T) {
 	snap, probs := catalog.ApplyCatalog(nil, seed.Catalog())
 	if len(probs) != 0 {
 		t.Fatalf("проблемы применения сидов: %v", probs)
@@ -108,7 +108,7 @@ func TestSeedTKEEnum(t *testing.T) {
 		"C0G", "NP0", "U2J", "X5R", "X6S", "X7R", "X7S", "X8R", "Y5V", "Z5U",
 	}
 	if !slices.Equal(p.EnumValues, want) {
-		t.Fatalf("ТКЕ:\n got:  %v\n want: %v", p.EnumValues, want)
+		t.Fatalf("TCC:\n got:  %v\n want: %v", p.EnumValues, want)
 	}
 	if p.Unit != "" || p.ValueType != catalog.ValueEnum {
 		t.Fatalf("TCC: тип %s, единица %q", string(p.ValueType), p.Unit)
@@ -153,8 +153,8 @@ func TestSeedSpotChecks(t *testing.T) {
 		}
 		return p
 	}
-	if kpd := check("Eta"); kpd.Ceiling == nil || *kpd.Ceiling != 100 {
-		t.Errorf("Eta: потолок %v, ожидался 100", kpd.Ceiling)
+	if eta := check("Eta"); eta.Ceiling == nil || *eta.Ceiling != 100 {
+		t.Errorf("Eta: потолок %v, ожидался 100", eta.Ceiling)
 	}
 	tmin := check("TempMin")
 	if !tmin.AllowNegative || tmin.ValidationRule != "temp_pair" {
@@ -163,9 +163,9 @@ func TestSeedSpotChecks(t *testing.T) {
 	if !slices.Equal(tmin.Kinds, []domain.Kind{domain.KindTransistor, domain.KindDiode, domain.KindResistor}) {
 		t.Errorf("TempMin: применимость %v", tmin.Kinds)
 	}
-	dop := check("Tolerance")
-	if !dop.AppliesTo(domain.KindResistor) || !dop.AppliesTo(domain.KindCapacitor) || dop.AppliesTo(domain.KindTransistor) {
-		t.Errorf("Tolerance: применимость %v", dop.Kinds)
+	tolerance := check("Tolerance")
+	if !tolerance.AppliesTo(domain.KindResistor) || !tolerance.AppliesTo(domain.KindCapacitor) || tolerance.AppliesTo(domain.KindTransistor) {
+		t.Errorf("Tolerance: применимость %v", tolerance.Kinds)
 	}
 	esr := check("Esr")
 	if len(esr.ConditionSets) != 1 || len(esr.ConditionSets[0].Items) != 1 ||

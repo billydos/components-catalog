@@ -131,9 +131,9 @@ const (
 	MsgRuleCapCylIncomplete      MsgID = "rule_cap_cyl_incomplete"
 	MsgRuleCapFormMix            MsgID = "rule_cap_form_mix"
 	MsgRuleCapRectIncomplete     MsgID = "rule_cap_rect_incomplete"
-	MsgRuleVariantUnomMissing    MsgID = "rule_variant_unom_missing"
+	MsgRuleVariantVnomMissing    MsgID = "rule_variant_vnom_missing"
 	MsgRuleVariantCnomMissing    MsgID = "rule_variant_cnom_missing"
-	MsgRuleVariantUnomDup        MsgID = "rule_variant_unom_dup"
+	MsgRuleVariantVnomDup        MsgID = "rule_variant_vnom_dup"
 	MsgRuleVariantLabelDup       MsgID = "rule_variant_label_dup"
 	MsgRuleVariantPnomMissing    MsgID = "rule_variant_pnom_missing"
 	MsgRuleVariantPnomDup        MsgID = "rule_variant_pnom_dup"
@@ -637,9 +637,9 @@ var msgRegistry = map[MsgID]struct{}{
 	MsgRuleCapCylIncomplete:           {},
 	MsgRuleCapFormMix:                 {},
 	MsgRuleCapRectIncomplete:          {},
-	MsgRuleVariantUnomMissing:         {},
+	MsgRuleVariantVnomMissing:         {},
 	MsgRuleVariantCnomMissing:         {},
-	MsgRuleVariantUnomDup:             {},
+	MsgRuleVariantVnomDup:             {},
 	MsgRuleVariantLabelDup:            {},
 	MsgRuleVariantPnomMissing:         {},
 	MsgRuleVariantPnomDup:             {},
