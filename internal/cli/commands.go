@@ -21,6 +21,17 @@ import (
 // каталога — catalog list). Вывод детерминирован для закрепления
 // тестами.
 
+// Version — версия сборки catalogctl: значение внедряется релизной
+// сборкой (-ldflags "-X …/internal/cli.Version=v1.2.3",
+// .github/workflows/release.yml); локальная сборка — «(devel)».
+var Version = "(devel)"
+
+// runVersion — version: печать версии сборки.
+func runVersion(_ context.Context, opts *options, _ []string, stdout, _ io.Writer) int {
+	fmt.Fprintln(stdout, i18n.Message(opts.langOf(), string(domain.MsgCliVersion), Version))
+	return 0
+}
+
 func runInit(ctx context.Context, opts *options, pos []string, stdout, stderr io.Writer) int {
 	app, err := openApp(ctx, opts, true)
 	if err != nil {

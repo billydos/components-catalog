@@ -55,7 +55,8 @@ catalogctl export --format ndjson --db catalog.db            # round-trip экс
 | `count [--kind]` | число записей |
 | `export [--kind] [--format]` | экспорт записей (jsonc \| yaml \| ndjson) |
 | `catalog export \| import \| list` | экспорт каталога, расширение, справочник параметров |
-| `help [команда]` | справка |
+| `version` | версия сборки |
+| `help [команда]` | справка; `help <команда>` — строка использования и опции команды |
 
 Общие опции: `--dialect sqlite|postgres`, `--db <путь>` (по умолчанию `catalog.db`), `--dsn <строка>`, `--lang en|ru`, `--dry-run`. Полная справка — `catalogctl help`.
 

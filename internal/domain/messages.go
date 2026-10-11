@@ -344,7 +344,6 @@ const (
 	// Интерфейсные строки CLI (internal/cli).
 	MsgCliUnknownCommand    MsgID = "cli_unknown_command"
 	MsgCliOptionsAfterCmd   MsgID = "cli_options_after_command"
-	MsgCliHelpUsage         MsgID = "cli_help_usage"
 	MsgCliDsnDialect        MsgID = "cli_dsn_dialect_mismatch"
 	MsgCliArgCount          MsgID = "cli_arg_count"
 	MsgCliHelpArgs          MsgID = "cli_help_args"
@@ -456,6 +455,68 @@ const (
 	MsgCliUsageOptDryRunDesc  MsgID = "cli_usage_opt_dry_run_desc"
 	MsgCliUsageOptFormat      MsgID = "cli_usage_opt_format"
 	MsgCliUsageOptFormatDesc  MsgID = "cli_usage_opt_format_desc"
+
+	// Строка использования команды (карточка help <команда> и ошибки
+	// числа аргументов): путь и позиционные аргументы, %[1]s — полный
+	// перечень флагов реестра команды («[--имя] …», генерируется).
+	MsgCliUseInit          MsgID = "cli_use_init"
+	MsgCliUseParse         MsgID = "cli_use_parse"
+	MsgCliUseAdd           MsgID = "cli_use_add"
+	MsgCliUseImport        MsgID = "cli_use_import"
+	MsgCliUseList          MsgID = "cli_use_list"
+	MsgCliUseInfo          MsgID = "cli_use_info"
+	MsgCliUseFind          MsgID = "cli_use_find"
+	MsgCliUseDelete        MsgID = "cli_use_delete"
+	MsgCliUseCount         MsgID = "cli_use_count"
+	MsgCliUseExport        MsgID = "cli_use_export"
+	MsgCliUseCatalogExport MsgID = "cli_use_catalog_export"
+	MsgCliUseCatalogImport MsgID = "cli_use_catalog_import"
+	MsgCliUseCatalogList   MsgID = "cli_use_catalog_list"
+	MsgCliUseVersion       MsgID = "cli_use_version"
+	MsgCliUseHelp          MsgID = "cli_use_help"
+
+	// Карточка команды: заголовок секции опций.
+	MsgCliUsageFlags MsgID = "cli_usage_flags"
+
+	// Фильтры list (спецификации и описания опций карточек и общей
+	// справки).
+	MsgCliUsageOptMaterial       MsgID = "cli_usage_opt_material"
+	MsgCliUsageOptMaterialDesc   MsgID = "cli_usage_opt_material_desc"
+	MsgCliUsageOptSubclass       MsgID = "cli_usage_opt_subclass"
+	MsgCliUsageOptSubclassDesc   MsgID = "cli_usage_opt_subclass_desc"
+	MsgCliUsageOptAdjustment     MsgID = "cli_usage_opt_adjustment"
+	MsgCliUsageOptAdjustmentDesc MsgID = "cli_usage_opt_adjustment_desc"
+	MsgCliUsageOptCategory       MsgID = "cli_usage_opt_category"
+	MsgCliUsageOptCategoryDesc   MsgID = "cli_usage_opt_category_desc"
+	MsgCliUsageOptJunctions      MsgID = "cli_usage_opt_junctions"
+	MsgCliUsageOptJunctionsDesc  MsgID = "cli_usage_opt_junctions_desc"
+	MsgCliUsageOptGroup          MsgID = "cli_usage_opt_group"
+	MsgCliUsageOptGroupDesc      MsgID = "cli_usage_opt_group_desc"
+	MsgCliUsageOptSeries         MsgID = "cli_usage_opt_series"
+	MsgCliUsageOptSeriesDesc     MsgID = "cli_usage_opt_series_desc"
+	MsgCliUsageOptNumber         MsgID = "cli_usage_opt_number"
+	MsgCliUsageOptNumberDesc     MsgID = "cli_usage_opt_number_desc"
+	MsgCliUsageOptLetters        MsgID = "cli_usage_opt_letters"
+	MsgCliUsageOptLettersDesc    MsgID = "cli_usage_opt_letters_desc"
+	MsgCliUsageOptQ              MsgID = "cli_usage_opt_q"
+	MsgCliUsageOptQDesc          MsgID = "cli_usage_opt_q_desc"
+	MsgCliUsageOptLimit          MsgID = "cli_usage_opt_limit"
+	MsgCliUsageOptLimitDesc      MsgID = "cli_usage_opt_limit_desc"
+	MsgCliUsageOptOffset         MsgID = "cli_usage_opt_offset"
+	MsgCliUsageOptOffsetDesc     MsgID = "cli_usage_opt_offset_desc"
+
+	// Примеры и примечание об позиции опций общей справки.
+	MsgCliUsageExamples MsgID = "cli_usage_examples"
+	MsgCliUsageExInit   MsgID = "cli_usage_ex_init"
+	MsgCliUsageExImport MsgID = "cli_usage_ex_import"
+	MsgCliUsageExList   MsgID = "cli_usage_ex_list"
+	MsgCliUsageExInfo   MsgID = "cli_usage_ex_info"
+	MsgCliUsagePosition MsgID = "cli_usage_position"
+
+	// Команда version.
+	MsgCliUsageCmdVersion     MsgID = "cli_usage_cmd_version"
+	MsgCliUsageCmdVersionDesc MsgID = "cli_usage_cmd_version_desc"
+	MsgCliVersion             MsgID = "cli_version"
 )
 
 // msgRegistry — реестр MsgID (полнота против каталога — тест).
@@ -775,7 +836,6 @@ var msgRegistry = map[MsgID]struct{}{
 	MsgInternalError:                  {},
 	MsgCliUnknownCommand:              {},
 	MsgCliOptionsAfterCmd:             {},
-	MsgCliHelpUsage:                   {},
 	MsgCliDsnDialect:                  {},
 	MsgCliArgCount:                    {},
 	MsgCliHelpArgs:                    {},
@@ -877,6 +937,55 @@ var msgRegistry = map[MsgID]struct{}{
 	MsgCliUsageOptDryRunDesc:          {},
 	MsgCliUsageOptFormat:              {},
 	MsgCliUsageOptFormatDesc:          {},
+	MsgCliUseInit:                     {},
+	MsgCliUseParse:                    {},
+	MsgCliUseAdd:                      {},
+	MsgCliUseImport:                   {},
+	MsgCliUseList:                     {},
+	MsgCliUseInfo:                     {},
+	MsgCliUseFind:                     {},
+	MsgCliUseDelete:                   {},
+	MsgCliUseCount:                    {},
+	MsgCliUseExport:                   {},
+	MsgCliUseCatalogExport:            {},
+	MsgCliUseCatalogImport:            {},
+	MsgCliUseCatalogList:              {},
+	MsgCliUseVersion:                  {},
+	MsgCliUseHelp:                     {},
+	MsgCliUsageFlags:                  {},
+	MsgCliUsageOptMaterial:            {},
+	MsgCliUsageOptMaterialDesc:        {},
+	MsgCliUsageOptSubclass:            {},
+	MsgCliUsageOptSubclassDesc:        {},
+	MsgCliUsageOptAdjustment:          {},
+	MsgCliUsageOptAdjustmentDesc:      {},
+	MsgCliUsageOptCategory:            {},
+	MsgCliUsageOptCategoryDesc:        {},
+	MsgCliUsageOptJunctions:           {},
+	MsgCliUsageOptJunctionsDesc:       {},
+	MsgCliUsageOptGroup:               {},
+	MsgCliUsageOptGroupDesc:           {},
+	MsgCliUsageOptSeries:              {},
+	MsgCliUsageOptSeriesDesc:          {},
+	MsgCliUsageOptNumber:              {},
+	MsgCliUsageOptNumberDesc:          {},
+	MsgCliUsageOptLetters:             {},
+	MsgCliUsageOptLettersDesc:         {},
+	MsgCliUsageOptQ:                   {},
+	MsgCliUsageOptQDesc:               {},
+	MsgCliUsageOptLimit:               {},
+	MsgCliUsageOptLimitDesc:           {},
+	MsgCliUsageOptOffset:              {},
+	MsgCliUsageOptOffsetDesc:          {},
+	MsgCliUsageExamples:               {},
+	MsgCliUsageExInit:                 {},
+	MsgCliUsageExImport:               {},
+	MsgCliUsageExList:                 {},
+	MsgCliUsageExInfo:                 {},
+	MsgCliUsagePosition:               {},
+	MsgCliUsageCmdVersion:             {},
+	MsgCliUsageCmdVersionDesc:         {},
+	MsgCliVersion:                     {},
 }
 
 // MsgIDs — все MsgID реестра (для теста полноты каталога).

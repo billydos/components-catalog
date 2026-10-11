@@ -4,11 +4,12 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/billydos/components-catalog/internal/domain"
 	"github.com/billydos/components-catalog/internal/i18n"
 )
 
-// Пин-тесты общей справки (генерация по реестру commands): таблица
-// сообщений не расходится с реестром команд и флагов, раскладка — в
+// Пин-тесты справки (генерация по реестру commands): таблицы сообщений
+// не расходятся с реестром команд и флагов, карточки и общая справка — в
 // пределах ширины, описание list следует набору фильтров реестра.
 
 // registryCmdKeys — ключи секции команд по реестру: команды commandNames,
@@ -71,20 +72,88 @@ func registryFlags() map[string]bool {
 	return out
 }
 
+// leafCommands — листовые команды реестра (без подкоманд) и подкоманды.
+func leafCommands() map[string]*command {
+	out := map[string]*command{}
+	for _, name := range commandNames() {
+		cmd := commands[name]
+		if cmd.subcommands != nil {
+			for _, sub := range subcommandNames(cmd) {
+				out[name+" "+sub] = cmd.subcommands[sub]
+			}
+			continue
+		}
+		out[name] = cmd
+	}
+	return out
+}
+
 func TestUsageOptionsAreRegistryFlags(t *testing.T) {
 	flags := registryFlags()
-	documented := map[string]bool{}
-	for _, o := range usageOpts {
-		if !flags[o.flag] {
-			t.Errorf("общая опция «--%s» не встречается ни в одной команде реестра", o.flag)
+	for _, name := range usageOpts {
+		if !flags[name] {
+			t.Errorf("общая опция «--%s» не встречается ни в одной команде реестра", name)
 		}
-		documented[o.flag] = true
 	}
 	// Опции подключения обязаны быть задокументированы как общие.
 	for _, f := range dbFlags {
-		if !documented[f.name] {
+		if !contains(usageOpts, f.name) {
 			t.Errorf("опция подключения «--%s» не документирована в общих опциях", f.name)
 		}
+	}
+}
+
+func contains(xs []string, v string) bool {
+	for _, x := range xs {
+		if x == v {
+			return true
+		}
+	}
+	return false
+}
+
+// Каждый флаг реестра и helpFlags описан в usageFlagMsgs; каждая листовая
+// команда имеет строку использования — новый флаг или команда не
+// останутся без описаний справки.
+func TestUsageFlagsAndUseLinesCovered(t *testing.T) {
+	flags := registryFlags()
+	for _, f := range helpFlags {
+		flags[f.name] = true
+	}
+	for name := range flags {
+		if _, ok := usageFlagMsgs[name]; !ok {
+			t.Errorf("флаг «--%s» реестра не описан в usageFlagMsgs", name)
+		}
+	}
+	for name, cmd := range leafCommands() {
+		if cmd.use == "" {
+			t.Errorf("команда %q без строки использования (use)", name)
+		}
+	}
+}
+
+// Карточки команд: раскладка в пределах ширины, без хвостовых пробелов,
+// в обеих локалях (листовые команды, подкоманды и родитель catalog).
+func TestUsageCardsLayout(t *testing.T) {
+	check := func(what, text string, lang i18n.Language) {
+		t.Helper()
+		for i, line := range strings.Split(strings.TrimSuffix(text, "\n"), "\n") {
+			if n := len([]rune(line)); n > usageWidth {
+				t.Errorf("локаль %s: %s, строка %d шире %d колонок (%d): %q",
+					string(lang), what, i+1, usageWidth, n, line)
+			}
+			if strings.HasSuffix(line, " ") {
+				t.Errorf("локаль %s: %s, строка %d завершается пробелами: %q",
+					string(lang), what, i+1, line)
+			}
+		}
+	}
+	for _, lang := range i18n.Languages() {
+		for name, cmd := range leafCommands() {
+			check("карточка "+name, usageCard(lang, cmd.use, cmd.flags), lang)
+		}
+		check("карточка help", usageCard(lang, domain.MsgCliUseHelp, helpFlags), lang)
+		check("каталог", usageSubLines(lang, commands["catalog"]), lang)
 	}
 }
 
@@ -107,6 +176,15 @@ func TestUsageLayout(t *testing.T) {
 				t.Errorf("локаль %s: синопсис %q команды %s отсутствует в справке",
 					string(lang), syn, key)
 			}
+		}
+		// Примеры и примечание о позиции опций — в справке.
+		for _, ex := range usageExamples {
+			if !strings.Contains(text, ex.cmd) {
+				t.Errorf("локаль %s: пример %q отсутствует в справке", string(lang), ex.cmd)
+			}
+		}
+		if !strings.Contains(text, "«--»") {
+			t.Errorf("локаль %s: примечание о «--» отсутствует в справке", string(lang))
 		}
 	}
 }

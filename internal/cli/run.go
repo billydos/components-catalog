@@ -192,13 +192,15 @@ func newOptions() *options {
 	return &options{texts: map[string]string{}, nums: map[string]float64{}}
 }
 
-// command — команда CLI по реестру: спецификации флагов (из них же
+// command — команда CLI по реестру: строка использования (сообщение
+// каталога: путь и позиционные аргументы, полный перечень флагов
+// подставляется генератором справки), спецификации флагов (из них же
 // строятся флаги urfave/cli), границы числа аргументов и исполнитель.
 // Подкоманды (subcommands != nil) несут собственные наборы флагов —
 // объединённый набор принимал бы флаги соседних подкоманд и молча
 // игнорировал их.
 type command struct {
-	usage       string
+	use         domain.MsgID
 	flags       []flagSpec
 	minArgs     int
 	maxArgs     int // -1 — без потолка
@@ -316,17 +318,18 @@ var (
 )
 
 // commands — реестр команд (полный набор — 04-module-functionality.md
-// §3); из него строятся дерево urfave/cli и справка.
+// §3); из него строятся дерево urfave/cli, справка и строки
+// использования ошибок числа аргументов.
 var commands = map[string]*command{
-	"init": {usage: "init [--dialect sqlite|postgres] [--db <путь>] [--dsn <строка>]",
+	"init": {use: domain.MsgCliUseInit,
 		flags: dbFlags, minArgs: 0, maxArgs: 0, run: runInit},
-	"parse": {usage: "parse <обозначение>… [--kind] [--system] [--db]",
+	"parse": {use: domain.MsgCliUseParse,
 		flags: append([]flagSpec{kindFlag, systemFlag}, dbFlags...), minArgs: 1, maxArgs: -1, run: runParse},
-	"add": {usage: "add <обозначение>… [--kind] [--system] [--db]",
+	"add": {use: domain.MsgCliUseAdd,
 		flags: append([]flagSpec{kindFlag, systemFlag}, dbFlags...), minArgs: 1, maxArgs: -1, run: runAdd},
-	"import": {usage: "import <файл> [--dry-run] [--db]",
+	"import": {use: domain.MsgCliUseImport,
 		flags: append([]flagSpec{dryRunFlag}, dbFlags...), minArgs: 1, maxArgs: 1, run: runImport},
-	"list": {usage: "list [--kind] [--system] [--material] [--subclass] [--adjustment] [--category] [--junctions] [--group] [--series] [--number] [--letters] [--q] [--limit] [--offset] [--db]",
+	"list": {use: domain.MsgCliUseList,
 		flags: append([]flagSpec{
 			kindFlag, systemFlag,
 			{name: "material", hasValue: true}, {name: "subclass", hasValue: true},
@@ -336,26 +339,26 @@ var commands = map[string]*command{
 			{name: "letters", hasValue: true}, {name: "q", hasValue: true},
 			{name: "limit", hasValue: true}, {name: "offset", hasValue: true},
 		}, dbFlags...), minArgs: 0, maxArgs: 0, run: runList},
-	"info": {usage: "info <обозначение> [--kind] [--db]", flags: append([]flagSpec{kindFlag}, dbFlags...), minArgs: 1, maxArgs: 1, run: runInfo},
-	"find": {usage: "find <обозначение> [--kind] [--db]", flags: append([]flagSpec{kindFlag}, dbFlags...), minArgs: 1, maxArgs: 1, run: runFind},
-	"delete": {usage: "delete <обозначение>… [--dry-run] [--kind] [--db]",
+	"info": {use: domain.MsgCliUseInfo, flags: append([]flagSpec{kindFlag}, dbFlags...), minArgs: 1, maxArgs: 1, run: runInfo},
+	"find": {use: domain.MsgCliUseFind, flags: append([]flagSpec{kindFlag}, dbFlags...), minArgs: 1, maxArgs: 1, run: runFind},
+	"delete": {use: domain.MsgCliUseDelete,
 		flags: append([]flagSpec{dryRunFlag, kindFlag}, dbFlags...), minArgs: 1, maxArgs: -1, run: runDelete},
-	"count": {usage: "count [--kind] [--db]", flags: append([]flagSpec{kindFlag}, dbFlags...), minArgs: 0, maxArgs: 0, run: runCount},
-	"export": {usage: "export [--kind] [--format jsonc|yaml|ndjson] [--db]",
+	"count": {use: domain.MsgCliUseCount, flags: append([]flagSpec{kindFlag}, dbFlags...), minArgs: 0, maxArgs: 0, run: runCount},
+	"export": {use: domain.MsgCliUseExport,
 		flags: append([]flagSpec{kindFlag, {name: "format", hasValue: true}}, dbFlags...), minArgs: 0, maxArgs: 0, run: runExport},
+	"version": {use: domain.MsgCliUseVersion, flags: []flagSpec{langFlag}, minArgs: 0, maxArgs: 0, run: runVersion},
 	// Подкоманды каталога несут собственные наборы флагов (строгость:
 	// флаг соседней подкоманды — ошибка, а не молчаливое игнорирование).
-	"catalog": {usage: "catalog export [<файл>] [--format jsonc|yaml|ndjson] [--db] | catalog import <файл> [--dry-run] [--db] | catalog list [--db]",
-		subcommands: map[string]*command{
-			"export": {usage: "catalog export [<файл>] [--format jsonc|yaml|ndjson] [--db]",
-				flags:   append([]flagSpec{{name: "format", hasValue: true}}, dbFlags...),
-				minArgs: 0, maxArgs: 1, run: runCatalogExport},
-			"import": {usage: "catalog import <файл> [--dry-run] [--db]",
-				flags:   append([]flagSpec{dryRunFlag}, dbFlags...),
-				minArgs: 1, maxArgs: 1, run: runCatalogImportCmd},
-			"list": {usage: "catalog list [--db]",
-				flags: dbFlags, minArgs: 0, maxArgs: 0, run: runCatalogListCmd},
-		}},
+	"catalog": {subcommands: map[string]*command{
+		"export": {use: domain.MsgCliUseCatalogExport,
+			flags:   append([]flagSpec{{name: "format", hasValue: true}}, dbFlags...),
+			minArgs: 0, maxArgs: 1, run: runCatalogExport},
+		"import": {use: domain.MsgCliUseCatalogImport,
+			flags:   append([]flagSpec{dryRunFlag}, dbFlags...),
+			minArgs: 1, maxArgs: 1, run: runCatalogImportCmd},
+		"list": {use: domain.MsgCliUseCatalogList,
+			flags: dbFlags, minArgs: 0, maxArgs: 0, run: runCatalogListCmd},
+	}},
 }
 
 // helpFlags — флаги команды help (вне реестра commands: справка читает
@@ -374,15 +377,18 @@ type env struct {
 
 // action — действие urfave/cli для команды реестра: контроль числа
 // позиционных аргументов, исполнитель. Ошибки печатаются здесь с
-// контрактным префиксом; неуспех — errExit.
-func (e *env) action(full, usage string, minArgs, maxArgs int,
+// контрактным префиксом; неуспех — errExit. Строка использования в
+// ошибке — аргумент-сообщение (use + полный перечень флагов реестра):
+// канонический en-рендер и локализованный совпадают с карточкой
+// help <команда>.
+func (e *env) action(full string, use domain.MsgID, hints string, minArgs, maxArgs int,
 	run func(context.Context, *options, []string, io.Writer, io.Writer) int,
 ) cliv3.ActionFunc {
 	return func(ctx context.Context, c *cliv3.Command) error {
 		pos := c.Args().Slice()
 		if len(pos) < minArgs || (maxArgs >= 0 && len(pos) > maxArgs) {
 			PrintError(e.stderr, e.lang, domain.NewErrorf(domain.CodeValidationFailed,
-				domain.MsgCliArgCount, full, usage))
+				domain.MsgCliArgCount, full, domain.MsgArg(use, hints)))
 			return errExit
 		}
 		if run(ctx, e.opts, pos, e.stdout, e.stderr) != 0 {
@@ -448,7 +454,7 @@ func newRoot(stdout, stderr io.Writer, earlyLang i18n.Language, opts *options) *
 				subs = append(subs, &cliv3.Command{
 					Name:         subName,
 					Flags:        flagsOf(sub.flags),
-					Action:       e.action(name+" "+subName, sub.usage, sub.minArgs, sub.maxArgs, sub.run),
+					Action:       e.action(name+" "+subName, sub.use, flagHints(sub.flags), sub.minArgs, sub.maxArgs, sub.run),
 					OnUsageError: onUsageError,
 				})
 			}
@@ -467,7 +473,7 @@ func newRoot(stdout, stderr io.Writer, earlyLang i18n.Language, opts *options) *
 		cmds = append(cmds, &cliv3.Command{
 			Name:         name,
 			Flags:        flagsOf(cmd.flags),
-			Action:       e.action(name, cmd.usage, cmd.minArgs, cmd.maxArgs, cmd.run),
+			Action:       e.action(name, cmd.use, flagHints(cmd.flags), cmd.minArgs, cmd.maxArgs, cmd.run),
 			OnUsageError: onUsageError,
 		})
 	}
@@ -475,7 +481,7 @@ func newRoot(stdout, stderr io.Writer, earlyLang i18n.Language, opts *options) *
 	cmds = append(cmds, &cliv3.Command{
 		Name:         "help",
 		Flags:        flagsOf(helpFlags),
-		Action:       e.action("help", "", 0, -1, runHelpCmd),
+		Action:       e.action("help", domain.MsgCliUseHelp, flagHints(helpFlags), 0, -1, runHelpCmd),
 		OnUsageError: onUsageError,
 	})
 	return &cliv3.Command{

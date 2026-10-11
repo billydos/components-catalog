@@ -63,6 +63,12 @@ func cliSuite(ctx context.Context, r *report, ctl, root, tmp string, l leg) {
 	r.section("phase: cli " + l.name)
 	c := cliRunner{bin: ctl, root: root, db: l.dbArgs}
 
+	// version: версия сборки (не требует базы и флагов подключения).
+	ver := runCmd(ctx, root, cmdTimeout, ctl, "version")
+	r.check("cli/version", "version: версия утилиты",
+		ver.code == 0 && strings.HasPrefix(ver.output, "catalogctl "),
+		envDetails(ver, 10)...)
+
 	// init: база создаётся и инициализируется сидами каталога.
 	res := c.run(ctx, "init")
 	r.check("cli/init", "init: база инициализирована",

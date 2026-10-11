@@ -64,7 +64,7 @@ jobs:
           mkdir -p dist
           bin=catalogctl
           if [ "$GOOS" = windows ]; then bin=catalogctl.exe; fi
-          go build -trimpath -ldflags "-s -w" -o "dist/$bin" ./cmd/catalogctl
+          go build -trimpath -ldflags "-s -w -X github.com/billydos/components-catalog/internal/cli.Version=${GITHUB_REF_NAME}" -o "dist/$bin" ./cmd/catalogctl
       - name: Package (tar.gz)
         if: matrix.goos != 'windows'
         run: tar -czf "dist/catalogctl-${{ matrix.goos }}-${{ matrix.goarch }}.tar.gz" -C dist catalogctl

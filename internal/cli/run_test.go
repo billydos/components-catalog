@@ -59,13 +59,98 @@ func TestHelp(t *testing.T) {
 	if code != 0 || !strings.Contains(stdout, "catalog import <file>") {
 		t.Fatalf("справка: код %d", code)
 	}
+	// Примеры и примечание о позиции опций — в общей справке.
+	if !strings.Contains(stdout, "catalogctl init --db catalog.db") ||
+		!strings.Contains(stdout, "«--»") {
+		t.Fatalf("общая справка без примеров/примечания: %q", stdout)
+	}
 	stdout, _, code = run(t, "help", "import")
-	if code != 0 || !strings.Contains(stdout, "usage: catalogctl import") {
+	if code != 0 || !strings.HasPrefix(stdout, "usage: catalogctl import") {
 		t.Fatalf("справка import: код %d, %q", code, stdout)
+	}
+	// Карточка локализована и содержит полный набор флагов реестра.
+	if !strings.Contains(stdout, "import <file> [--dry-run] [--dialect] [--db] [--dsn] [--lang]") ||
+		strings.Contains(stdout, "<файл>") {
+		t.Fatalf("карточка import: %q", stdout)
 	}
 	_, errOut, code := run(t, "help", "frobnicate")
 	if code != 1 || !strings.HasPrefix(errOut, "Error: ") {
 		t.Fatalf("справка об ошибке: код %d, %q", code, errOut)
+	}
+}
+
+// Карточки команд: строка использования с полным набором флагов и
+// описания опций (в том числе фильтры list); подкоманды каталога —
+// «help catalog <подкоманда>», «help catalog» — строки использования.
+func TestHelpCommandCards(t *testing.T) {
+	stdout, _, code := run(t, "help", "list")
+	if code != 0 || !strings.HasPrefix(stdout, "usage: catalogctl list") {
+		t.Fatalf("карточка list: код %d, %q", code, stdout)
+	}
+	for _, want := range []string{
+		"Options:", "--kind <code>", "--material <code>",
+		"--q <text>", "--limit <n>", "1–200", "--offset <n>",
+	} {
+		if !strings.Contains(stdout, want) {
+			t.Fatalf("карточка list без %q:\n%s", want, stdout)
+		}
+	}
+
+	stdout, _, code = run(t, "help", "catalog", "export")
+	if code != 0 || !strings.HasPrefix(stdout, "usage: catalogctl catalog export") ||
+		!strings.Contains(stdout, "--format jsonc|yaml|ndjson") {
+		t.Fatalf("карточка catalog export: код %d, %q", code, stdout)
+	}
+
+	stdout, _, code = run(t, "help", "catalog")
+	if code != 0 ||
+		strings.Count(stdout, "usage: catalogctl catalog") != 3 {
+		t.Fatalf("карточка catalog (три подкоманды): код %d, %q", code, stdout)
+	}
+
+	// Карточка на локали: плейсхолдеры локализованы.
+	stdout, _, code = run(t, "help", "parse", "--lang", "ru")
+	if code != 0 || !strings.HasPrefix(stdout, "формат: catalogctl parse") ||
+		!strings.Contains(stdout, "<обозначение>…") || strings.Contains(stdout, "<designation>") {
+		t.Fatalf("карточка parse (ru): код %d, %q", code, stdout)
+	}
+
+	// Неизвестная подкоманда и лишний аргумент — локализованные ошибки.
+	_, errOut, code := run(t, "help", "catalog", "bogus")
+	if code != 1 || !strings.HasPrefix(errOut, "Error: ") {
+		t.Fatalf("help catalog bogus: код %d, %q", code, errOut)
+	}
+	_, errOut, code = run(t, "help", "catalog", "export", "extra")
+	if code != 1 || !strings.HasPrefix(errOut, "Error: ") {
+		t.Fatalf("help catalog export extra: код %d, %q", code, errOut)
+	}
+}
+
+// version — версия сборки (локальная сборка — «(devel)»); в общей
+// справке команда присутствует.
+func TestVersionCommand(t *testing.T) {
+	stdout, stderr, code := run(t, "version")
+	if code != 0 || stderr != "" || stdout != "catalogctl (devel)\n" {
+		t.Fatalf("version: код %d, stdout %q, stderr %q", code, stdout, stderr)
+	}
+	stdout, _, code = run(t, "help")
+	if code != 0 || !strings.Contains(stdout, "  version") {
+		t.Fatalf("общая справка без version: %q", stdout)
+	}
+}
+
+// Строка использования в ошибке числа аргументов — аргумент-сообщение:
+// канонический en и локализованный ru совпадают с карточкой команды.
+func TestArgCountUsageLocalized(t *testing.T) {
+	_, stderr, code := run(t, "import", "a", "b")
+	if code != 1 ||
+		!strings.Contains(stderr, "usage: import <file> [--dry-run] [--dialect] [--db] [--dsn] [--lang]") ||
+		strings.Contains(stderr, "<файл>") {
+		t.Fatalf("import a b (en): код %d, %q", code, stderr)
+	}
+	_, stderr, code = run(t, "import", "a", "b", "--lang", "ru")
+	if code != 1 || !strings.Contains(stderr, "формат: import <файл> [--dry-run]") {
+		t.Fatalf("import a b (ru): код %d, %q", code, stderr)
 	}
 }
 
@@ -408,16 +493,45 @@ func TestHelpLangVariants(t *testing.T) {
 	if code != 1 || stderr != "Ошибка: неизвестная команда «nosuch»; справка: catalogctl help\n" {
 		t.Fatalf("help nosuch (ru): код %d, %q", code, stderr)
 	}
-	// Лишний позиционный аргумент после команды — ошибка.
+	// Лишний позиционный аргумент после команды — ошибка; строка
+	// использования — та же, что в карточке «help help».
 	_, stderr, code = run(t, "help", "parse", "extra")
 	if code != 1 ||
-		stderr != "Error: wrong number of arguments; usage: catalogctl help [command]\n" {
+		stderr != "Error: wrong number of arguments; usage: catalogctl help [command] [--lang]\n" {
 		t.Fatalf("help лишний аргумент: код %d, %q", code, stderr)
 	}
 	_, stderr, code = run(t, "help", "--lang", "ru", "parse", "extra")
 	if code != 1 ||
-		stderr != "Ошибка: неверное число аргументов; формат: catalogctl help [команда]\n" {
+		stderr != "Ошибка: неверное число аргументов; формат: catalogctl help [команда] [--lang]\n" {
 		t.Fatalf("help лишний аргумент (ru): код %d, %q", code, stderr)
+	}
+}
+
+// --help/-h — маршрутизация в команду help: общая справка в stdout,
+// код 0; опции после флага разбираются командой help (карточка).
+func TestHelpFlagRouting(t *testing.T) {
+	for _, flag := range []string{"--help", "-h"} {
+		stdout, stderr, code := run(t, flag)
+		if code != 0 || stderr != "" || !strings.HasPrefix(stdout, "catalogctl — ") {
+			t.Fatalf("%s: код %d, stdout %q, stderr %q", flag, code, stdout, stderr)
+		}
+	}
+	stdout, _, code := run(t, "--help", "list")
+	if code != 0 || !strings.HasPrefix(stdout, "usage: catalogctl list") {
+		t.Fatalf("--help list: код %d, %q", code, stdout)
+	}
+}
+
+// Строгая лексика флагов у самой справки и версии: посторонний флаг —
+// неизвестный флаг, а не молчаливое игнорирование.
+func TestHelpAndVersionFlagLexing(t *testing.T) {
+	_, stderr, code := run(t, "help", "--bogus")
+	if code != 1 || !strings.HasPrefix(stderr, "Error: unknown flag «--bogus»") {
+		t.Fatalf("help --bogus: код %d, %q", code, stderr)
+	}
+	_, stderr, code = run(t, "version", "--db", "x.db")
+	if code != 1 || !strings.HasPrefix(stderr, "Error: unknown flag «--db»") {
+		t.Fatalf("version --db: код %d, %q", code, stderr)
 	}
 }
 
