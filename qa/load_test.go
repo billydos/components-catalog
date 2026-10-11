@@ -218,8 +218,8 @@ func TestLoad(t *testing.T) {
 		_, err := devices.Search(ctx, service.SearchQuery{
 			Kind: domain.KindTransistor,
 			Parameters: []service.ParameterFilter{
-				{Parameter: "h21e", Min: &h21eMin},
-				{Parameter: "UkeoMax", Max: &ukeoMax},
+				{Parameter: "hfe", Min: &h21eMin},
+				{Parameter: "VceoMax", Max: &ukeoMax},
 			},
 			Limit: 50,
 		})
@@ -229,7 +229,7 @@ func TestLoad(t *testing.T) {
 		h21sel := 195.0
 		_, err := devices.Search(ctx, service.SearchQuery{
 			Kind:       domain.KindTransistor,
-			Parameters: []service.ParameterFilter{{Parameter: "h21e", Min: &h21sel}},
+			Parameters: []service.ParameterFilter{{Parameter: "hfe", Min: &h21sel}},
 			Limit:      50,
 		})
 		return err
@@ -363,8 +363,8 @@ func writeLoadDataset(path string, scale int) error {
 		mass := 0.2 + float64(i%50)/100
 		fmt.Fprintf(w,
 			`{"transistors":{"name":"2N%d%s","system":"jedec","attributes":{"package":"TO-92","structure":"n-p-n"},`+
-				`"parameters":[{"parameter":"h21e","min":%d,"max":%d,"Ik":1,"Uke":5},{"parameter":"FGran","min":%d,"Ik":1,"Uke":5}],`+
-				`"ratings":[{"parameter":"UkeoMax","value":%d},{"parameter":"PkMax","value":%d}],`+
+				`"parameters":[{"parameter":"hfe","min":%d,"max":%d,"Ic":1,"Vce":5},{"parameter":"fT","min":%d,"Ic":1,"Vce":5}],`+
+				`"ratings":[{"parameter":"VceoMax","value":%d},{"parameter":"PcMax","value":%d}],`+
 				`"dimensions":[{"parameter":"massMax","value":%.2f}]}}`+"\n",
 			number, suffix, h21min, h21min+20+i%60, fgran, ukeo, pk, mass)
 	}

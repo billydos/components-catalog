@@ -180,8 +180,8 @@ func (capDimensionsFormRule) CheckValues(_ *Engine, _ domain.Kind, vals []Parame
 }
 
 // capVariantMatrixRule — вариант электролитического конденсатора обязан
-// иметь Unom и Cnom; при наличии габаритов — согласованный набор формы
-// корпуса; уникальность Unom и метки в пределах записи (привязка — класс
+// иметь Vnom и Cnom; при наличии габаритов — согласованный набор формы
+// корпуса; уникальность Vnom и метки в пределах записи (привязка — класс
 // capacitor, kind_validation_rules).
 type capVariantMatrixRule struct{}
 
@@ -196,14 +196,14 @@ func (capVariantMatrixRule) CheckDevice(e *Engine, d *Device) []Problem {
 	for i := range d.Variants {
 		v := &d.Variants[i]
 		name := variantName(v, i)
-		if _, ok := paramAny(v.Values, "Unom"); !ok {
+		if _, ok := paramAny(v.Values, "Vnom"); !ok {
 			probs = append(probs, ruleProblem(domain.MsgRuleVariantUnomMissing, name))
 		}
 		if _, ok := paramAny(v.Values, "Cnom"); !ok {
 			probs = append(probs, ruleProblem(domain.MsgRuleVariantCnomMissing, name))
 		}
 		probs = append(probs, capDimensionsFormRule{}.CheckValues(e, d.Kind, v.Values)...)
-		if unom, ok := paramExact(v.Values, "Unom"); ok {
+		if unom, ok := paramExact(v.Values, "Vnom"); ok {
 			if prev, dup := seenUnom[unom]; dup {
 				probs = append(probs, ruleProblem(domain.MsgRuleVariantUnomDup, name, prev))
 			} else {

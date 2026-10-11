@@ -211,10 +211,10 @@ func cliSuite(ctx context.Context, r *report, ctl, root, tmp string, l leg) {
 			envDetails(res, 10)...)
 	}
 
-	// catalog list: справка из каталога (параметры, код h21e).
+	// catalog list: справка из каталога (параметры, код hfe).
 	res = c.run(ctx, "catalog", "list")
 	r.check("cli/catalog-list", "catalog list: справка из каталога",
 		res.code == 0 && strings.Contains(res.output, "Parameters:") &&
-			strings.Contains(res.output, "h21e"),
+			strings.Contains(res.output, "hfe"),
 		envDetails(res, 15)...)
 }

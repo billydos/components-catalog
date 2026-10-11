@@ -75,8 +75,8 @@ func seedDevices(t *testing.T, app *service.App) {
 		},
 		Sections: []service.SectionInput{
 			{Section: "parameters", Values: []catalog.ParameterValue{
-				{Parameter: "h21e", Min: ptr(200.0), Max: ptr(450.0), Conditions: []catalog.ConditionValue{
-					{Condition: "Uke", Value: 5}, {Condition: "Ik", Value: 2},
+				{Parameter: "hfe", Min: ptr(200.0), Max: ptr(450.0), Conditions: []catalog.ConditionValue{
+					{Condition: "Vce", Value: 5}, {Condition: "Ic", Value: 2},
 				}},
 			}},
 		},
@@ -89,12 +89,12 @@ func seedDevices(t *testing.T, app *service.App) {
 		},
 		Sections: []service.SectionInput{
 			{Section: "parameters", Values: []catalog.ParameterValue{
-				{Parameter: "h21e", Min: ptr(50.0), Max: ptr(350.0), Conditions: []catalog.ConditionValue{
-					{Condition: "Uke", Value: 10}, {Condition: "Ik", Value: 1},
+				{Parameter: "hfe", Min: ptr(50.0), Max: ptr(350.0), Conditions: []catalog.ConditionValue{
+					{Condition: "Vce", Value: 10}, {Condition: "Ic", Value: 1},
 				}},
 			}},
 			{Section: "ratings", Values: []catalog.ParameterValue{
-				{Parameter: "UkeoMax", Exact: ptr(20.0)},
+				{Parameter: "VceoMax", Exact: ptr(20.0)},
 				{Parameter: "TempMin", Exact: ptr(-60.0)},
 			}},
 		},
@@ -126,7 +126,7 @@ func seedDevices(t *testing.T, app *service.App) {
 		Variants: &[]service.VariantInput{
 			{Label: "160 В", Sections: []service.SectionInput{
 				{Section: "parameters", Values: []catalog.ParameterValue{
-					{Parameter: "Unom", Exact: ptr(160.0)},
+					{Parameter: "Vnom", Exact: ptr(160.0)},
 					{Parameter: "Cnom", Min: ptr(1000000.0), Max: ptr(10000000.0)},
 				}},
 				{Section: "dimensions", Values: []catalog.ParameterValue{
@@ -136,7 +136,7 @@ func seedDevices(t *testing.T, app *service.App) {
 			}},
 			{Label: "25 В", Sections: []service.SectionInput{
 				{Section: "parameters", Values: []catalog.ParameterValue{
-					{Parameter: "Unom", Exact: ptr(25.0)},
+					{Parameter: "Vnom", Exact: ptr(25.0)},
 					{Parameter: "Cnom", Min: ptr(47000000.0), Max: ptr(4700000000.0)},
 				}},
 				{Section: "dimensions", Values: []catalog.ParameterValue{
@@ -372,7 +372,7 @@ func TestSearch(t *testing.T) {
 		{"подстройка (код)", "adjustment=fixed", []string{"К50-35", "МЛТ-0.5"}, false},
 		{"подстройка (ru название)", "adjustment=%D0%BF%D0%BE%D1%81%D1%82%D0%BE%D1%8F%D0%BD%D0%BD%D1%8B%D0%B9", []string{"К50-35", "МЛТ-0.5"}, false},
 		{"категория (код каталога)", "category=general_purpose", nil, false},
-		{"параметр", "par.h21e.min=150", []string{"BC547B"}, false},
+		{"параметр", "par.hfe.min=150", []string{"BC547B"}, false},
 		{"точный параметр", "par.Pnom.exact=0.5", []string{"МЛТ-0.5"}, false},
 		{"атрибут", "attr.structure=npn", []string{"BC547B", "КТ315Б"}, false},
 		{"атрибут number", "attr.yearFrom=1967", []string{"КТ315Б"}, false},
@@ -426,15 +426,15 @@ func TestSearch(t *testing.T) {
 	_ = body
 
 	// вариантный параметрический фильтр — в пределах одного исполнения:
-	// Unom=25 И diameter≤9 — у К50-35 диаметр 10 на 25 В → пусто.
+	// Vnom=25 И diameter≤9 — у К50-35 диаметр 10 на 25 В → пусто.
 	_, body, _ = do(t, srv, http.MethodGet,
-		apiPrefix+"/components?kind=capacitor&par.Unom.exact=25&par.diameter.max=9", "")
+		apiPrefix+"/components?kind=capacitor&par.Vnom.exact=25&par.diameter.max=9", "")
 	page = decode[searchPageJSON](t, body)
 	if len(page.Items) != 0 {
 		t.Fatalf("вариантный фильтр дал сочетание разных исполнений: %v", page.Items)
 	}
 	_, body, _ = do(t, srv, http.MethodGet,
-		apiPrefix+"/components?kind=capacitor&par.Unom.exact=25&par.diameter.max=10", "")
+		apiPrefix+"/components?kind=capacitor&par.Vnom.exact=25&par.diameter.max=10", "")
 	page = decode[searchPageJSON](t, body)
 	if len(page.Items) != 1 || page.Items[0].Designation != "К50-35" {
 		t.Fatalf("вариантный фильтр: %v", page.Items)
@@ -474,14 +474,14 @@ func TestSearchErrors(t *testing.T) {
 		{"system=bogus", "validation_failed", "unknown designation system «bogus»"},
 		{"par.bogus.min=1", "unknown_parameter", "unknown parameter «bogus»"},
 		{"attr.bogus=npn", "unknown_attribute", "unknown attribute «bogus»"},
-		{"kind=resistor&par.h21e.min=1", "parameter_not_applicable",
-			"parameter «h21e» is not applicable to kind resistor"},
+		{"kind=resistor&par.hfe.min=1", "parameter_not_applicable",
+			"parameter «hfe» is not applicable to kind resistor"},
 		{"kind=resistor&attr.structure=npn", "attribute_not_applicable",
 			"attribute «structure» is not applicable to kind resistor"},
 		{"attr.polarized=true", "validation_failed",
 			"attribute filter «polarized»: boolean attributes are not supported in filters"},
 		{"attr.structure=1967", "validation_failed", "attribute filter «structure»: a text value is expected"},
-		{"par.h21e.avg=5", "validation_failed", "unknown query parameter «par.h21e.avg»"},
+		{"par.hfe.avg=5", "validation_failed", "unknown query parameter «par.hfe.avg»"},
 		{"limit=0", "validation_failed", "parameter limit: an integer from 1 to 200 is expected"},
 		{"limit=201", "validation_failed", "parameter limit: an integer from 1 to 200 is expected"},
 		{"limit=abc", "validation_failed", "parameter limit: an integer from 1 to 200 is expected"},
@@ -489,8 +489,8 @@ func TestSearchErrors(t *testing.T) {
 		{"sort=bogus", "validation_failed", "parameter sort: unknown sort key «bogus»"},
 		{"bogus=1", "validation_failed", "unknown query parameter «bogus»"},
 		{"junctions=abc", "validation_failed", "parameter «junctions»: a number is expected"},
-		{"par.h21e.min=1&par.h21e.min=2", "validation_failed",
-			"query parameter «par.h21e.min» is set more than once"},
+		{"par.hfe.min=1&par.hfe.min=2", "validation_failed",
+			"query parameter «par.hfe.min» is set more than once"},
 		{"q=a&q=b", "validation_failed", "query parameter «q» is set more than once"},
 		{"kind=transistor&kind=diode", "validation_failed",
 			"query parameter «kind» is set more than once"},
@@ -499,8 +499,8 @@ func TestSearchErrors(t *testing.T) {
 			"query parameter «material» is set more than once"},
 		{"attr.structure=npn&attr.structure=pnp", "validation_failed",
 			"query parameter «attr.structure» is set more than once"},
-		{"par.h21e.min=abc", "validation_failed", "parameter «par.h21e.min»: a number is expected"},
-		{"par.h21e.text=1", "validation_failed", "parameter filter «h21e»: a number is expected"},
+		{"par.hfe.min=abc", "validation_failed", "parameter «par.hfe.min»: a number is expected"},
+		{"par.hfe.text=1", "validation_failed", "parameter filter «hfe»: a number is expected"},
 	}
 	for _, tc := range cases {
 		t.Run(tc.query, func(t *testing.T) {
@@ -530,7 +530,7 @@ func TestCard(t *testing.T) {
 		t.Fatalf("атрибуты: %+v", card.Attributes)
 	}
 	if len(card.Groups) != 2 || card.Groups[0].Section != "parameters" ||
-		card.Groups[0].Values[0].Parameter != "h21e" ||
+		card.Groups[0].Values[0].Parameter != "hfe" ||
 		*card.Groups[0].Values[0].Min != 50 || len(card.Groups[0].Values[0].Conditions) != 2 {
 		t.Fatalf("группы значений: %+v", card.Groups)
 	}
@@ -941,7 +941,7 @@ func TestSearchETagPerQuery(t *testing.T) {
 	// Сервисная валидация (семантика фильтров) также предшествует 304:
 	// невалидный запрос отвечает 400 и для If-None-Match: *.
 	for _, query := range []string{
-		"kind=bogus", "par.nosuch.min=1", "par.h21e.min=1&kind=resistor",
+		"kind=bogus", "par.nosuch.min=1", "par.hfe.min=1&kind=resistor",
 	} {
 		if resp := get(query, "*"); resp.StatusCode != http.StatusBadRequest {
 			t.Fatalf("сервисная валидация до ETag (%s): %d", query, resp.StatusCode)

@@ -126,10 +126,10 @@ func seedTransistors(t *testing.T, svc *DeviceService) {
 		},
 		Sections: []SectionInput{
 			section("parameters",
-				pvRange("h21e", 50, 350, cond("Uke", 10), cond("Ik", 1)),
-				pvAtMost("Ikbo", 0.5, cond("Ukb", 10), cond("temp", 25))),
+				pvRange("hfe", 50, 350, cond("Vce", 10), cond("Ic", 1)),
+				pvAtMost("Icbo", 0.5, cond("Vcb", 10), cond("temp", 25))),
 			section("ratings",
-				pvExact("UkeoMax", 20), pvExact("TempMin", -60), pvExact("TempMax", 100)),
+				pvExact("VceoMax", 20), pvExact("TempMin", -60), pvExact("TempMax", 100)),
 		},
 		Manufacturers: &[]string{"Восход", "Терма"},
 	})
@@ -140,9 +140,9 @@ func seedTransistors(t *testing.T, svc *DeviceService) {
 		},
 		Sections: []SectionInput{
 			section("parameters",
-				pvRange("h21e", 200, 450, cond("Uke", 5), cond("Ik", 2)),
-				pvAtLeast("FGran", 300, cond("Uke", 5), cond("Ik", 2))),
-			section("ratings", pvExact("UkeoMax", 45), pvExact("IkMax", 100)),
+				pvRange("hfe", 200, 450, cond("Vce", 5), cond("Ic", 2)),
+				pvAtLeast("fT", 300, cond("Vce", 5), cond("Ic", 2))),
+			section("ratings", pvExact("VceoMax", 45), pvExact("IcMax", 100)),
 		},
 	})
 	mpFields := []domain.Field{
@@ -158,8 +158,8 @@ func seedTransistors(t *testing.T, svc *DeviceService) {
 			attrText("structure", "pnp"), attrText("description", "низкочастотный"),
 		},
 		Sections: []SectionInput{
-			section("parameters", pvRange("h21e", 20, 50, cond("Uke", 5), cond("Ik", 5))),
-			section("ratings", pvExact("UkeoMax", 15), pvExact("PkMax", 150)),
+			section("parameters", pvRange("hfe", 20, 50, cond("Vce", 5), cond("Ic", 5))),
+			section("ratings", pvExact("VceoMax", 15), pvExact("PcMax", 150)),
 		},
 	})
 }
@@ -197,9 +197,9 @@ func suiteUpsertSections(t *testing.T, factory configFactory) {
 		},
 		Sections: []SectionInput{
 			section("parameters",
-				pvRange("h21e", 50, 350, cond("Uke", 10), cond("Ik", 1)),
-				pvAtMost("Ikbo", 0.5, cond("Ukb", 10), cond("temp", 25))),
-			section("ratings", pvExact("UkeoMax", 20), pvExact("TempMin", -60), pvExact("TempMax", 100)),
+				pvRange("hfe", 50, 350, cond("Vce", 10), cond("Ic", 1)),
+				pvAtMost("Icbo", 0.5, cond("Vcb", 10), cond("temp", 25))),
+			section("ratings", pvExact("VceoMax", 20), pvExact("TempMin", -60), pvExact("TempMax", 100)),
 		},
 		Manufacturers: &[]string{"Восход", "Терма"},
 	}
@@ -234,10 +234,10 @@ func suiteUpsertSections(t *testing.T, factory configFactory) {
 		card.Groups[1].Section != "ratings" || len(card.Groups[1].Values) != 3 {
 		t.Fatalf("группы: %+v", card.Groups)
 	}
-	h21e := card.Groups[0].Values[0]
-	if *h21e.Min != 50 || *h21e.Max != 350 || len(h21e.Conditions) != 2 ||
-		h21e.Conditions[0] != cond("Ik", 1) || h21e.Conditions[1] != cond("Uke", 10) {
-		t.Fatalf("h21e: %+v", h21e)
+	hfe := card.Groups[0].Values[0]
+	if *hfe.Min != 50 || *hfe.Max != 350 || len(hfe.Conditions) != 2 ||
+		hfe.Conditions[0] != cond("Ic", 1) || hfe.Conditions[1] != cond("Vce", 10) {
+		t.Fatalf("hfe: %+v", hfe)
 	}
 	if !slices.Equal(card.Manufacturers, []string{"Восход", "Терма"}) {
 		t.Fatalf("производители: %v", card.Manufacturers)
@@ -307,18 +307,18 @@ func suiteAtomicOnError(t *testing.T, factory configFactory) {
 	_, err := svc.Upsert(ctx, DeviceInput{
 		Name: "КТ315Б",
 		Sections: []SectionInput{
-			section("ratings", pvExact("UkeoMax", 0), pvExact("TempMin", -60), pvExact("TempMax", 100)),
+			section("ratings", pvExact("VceoMax", 0), pvExact("TempMin", -60), pvExact("TempMax", 100)),
 		},
 	})
 	wantDomainError(t, err, domain.CodeValidationFailed,
-		"parameter «UkeoMax»: value of key value must be positive")
+		"parameter «VceoMax»: value of key value must be positive")
 
 	_, err = svc.Upsert(ctx, DeviceInput{
 		Name:     "КТ315Б",
-		Sections: []SectionInput{section("parameters", pvRange("h21e", 50, 350))},
+		Sections: []SectionInput{section("parameters", pvRange("hfe", 50, 350))},
 	})
 	wantDomainError(t, err, domain.CodeValidationFailed,
-		"parameter «h21e»: the combination of conditions does not match any condition set of the parameter")
+		"parameter «hfe»: the combination of conditions does not match any condition set of the parameter")
 
 	// Запись не изменилась.
 	card, _, _ := svc.Get(ctx, "transistor", "КТ315Б")
@@ -332,7 +332,7 @@ func suiteAtomicOnError(t *testing.T, factory configFactory) {
 	// temp_pair: TempMin >= TempMax — ошибка слитого состояния.
 	_, err = svc.Upsert(ctx, DeviceInput{
 		Name:     "КТ315Б",
-		Sections: []SectionInput{section("ratings", pvExact("TempMin", 100), pvExact("TempMax", 50), pvExact("UkeoMax", 25))},
+		Sections: []SectionInput{section("ratings", pvExact("TempMin", 100), pvExact("TempMax", 50), pvExact("VceoMax", 25))},
 	})
 	wantDomainError(t, err, domain.CodeValidationFailed,
 		"parameter «TempMin» must be less than parameter «TempMax»")
@@ -376,21 +376,21 @@ func suiteVariants(t *testing.T, factory configFactory) {
 	resistor := DeviceInput{
 		Name: "С2-33Н",
 		Sections: []SectionInput{
-			section("parameters", pvRange("Rnom", 1, 10000000), pvAtMost("Dop", 5)),
+			section("parameters", pvRange("Rnom", 1, 10000000), pvAtMost("Tolerance", 5)),
 			section("ratings", pvExact("TempMin", -60), pvExact("TempMax", 125)),
 		},
 		Variants: &[]VariantInput{
 			{
 				Label: "0.125 Вт",
 				Sections: []SectionInput{
-					section("ratings", pvExact("Pnom", 0.125), pvExact("Umax", 250)),
+					section("ratings", pvExact("Pnom", 0.125), pvExact("Vmax", 250)),
 					section("dimensions", pvExact("massMax", 0.15)),
 				},
 			},
 			{
 				Label: "1 Вт",
 				Sections: []SectionInput{
-					section("ratings", pvExact("Pnom", 1), pvExact("Umax", 500)),
+					section("ratings", pvExact("Pnom", 1), pvExact("Vmax", 500)),
 					section("dimensions", pvExact("massMax", 0.8)),
 				},
 			},
@@ -444,7 +444,7 @@ func suiteVariants(t *testing.T, factory configFactory) {
 
 	// Вариант без Pnom — ошибка правила.
 	badVariants := []VariantInput{{Label: "0.5 Вт", Sections: []SectionInput{
-		section("ratings", pvExact("Umax", 350)),
+		section("ratings", pvExact("Vmax", 350)),
 	}}}
 	_, err := svc.Upsert(ctx, DeviceInput{Name: "С2-33Н", Variants: &badVariants})
 	wantDomainError(t, err, domain.CodeValidationFailed,
@@ -452,15 +452,15 @@ func suiteVariants(t *testing.T, factory configFactory) {
 
 	// Транзисторы — без исполнений.
 	tv := []VariantInput{{Label: "x", Sections: []SectionInput{
-		section("ratings", pvExact("UkeoMax", 20)),
+		section("ratings", pvExact("VceoMax", 20)),
 	}}}
 	_, err = svc.Upsert(ctx, DeviceInput{Name: "КТ315Б", Variants: &tv})
 	wantDomainError(t, err, domain.CodeValidationFailed,
 		"kind transistor does not support variants")
 
-	// Матрица конденсатора: вариант обязан иметь Unom и Cnom.
+	// Матрица конденсатора: вариант обязан иметь Vnom и Cnom.
 	cv := []VariantInput{{Label: "25 В", Sections: []SectionInput{
-		section("parameters", pvExact("Unom", 25)),
+		section("parameters", pvExact("Vnom", 25)),
 	}}}
 	_, err = svc.Upsert(ctx, DeviceInput{Name: "К50-35", Variants: &cv})
 	wantDomainError(t, err, domain.CodeValidationFailed,
@@ -477,20 +477,20 @@ func suiteVariantFilters(t *testing.T, factory configFactory) {
 	mustUpsert(t, svc, DeviceInput{
 		Name: "К50-35",
 		Sections: []SectionInput{
-			section("parameters", pvAtMost("Dop", 20), pvAtMost("Tgd", 0.15, cond("temp", 20))),
+			section("parameters", pvAtMost("Tolerance", 20), pvAtMost("DF", 0.15, cond("temp", 20))),
 		},
 		Variants: &[]VariantInput{
 			{
 				Label: "25 В",
 				Sections: []SectionInput{
-					section("parameters", pvExact("Unom", 25), pvRange("Cnom", 47000000, 4700000000)),
+					section("parameters", pvExact("Vnom", 25), pvRange("Cnom", 47000000, 4700000000)),
 					section("dimensions", pvExact("diameter", 10), pvExact("leadLength", 16), pvExact("massMax", 3)),
 				},
 			},
 			{
 				Label: "160 В",
 				Sections: []SectionInput{
-					section("parameters", pvExact("Unom", 160), pvRange("Cnom", 1000000, 10000000)),
+					section("parameters", pvExact("Vnom", 160), pvRange("Cnom", 1000000, 10000000)),
 					section("dimensions", pvExact("diameter", 8), pvExact("leadLength", 12), pvExact("massMax", 1.5)),
 				},
 			},
@@ -510,30 +510,30 @@ func suiteVariantFilters(t *testing.T, factory configFactory) {
 		return out
 	}
 
-	// Unom=25 и diameter ≤ 10 — один вариант (25 В) удовлетворяет обоим.
+	// Vnom=25 и diameter ≤ 10 — один вариант (25 В) удовлетворяет обоим.
 	got := search(
-		ParameterFilter{Parameter: "Unom", Exact: ptr(25.0)},
+		ParameterFilter{Parameter: "Vnom", Exact: ptr(25.0)},
 		ParameterFilter{Parameter: "diameter", Max: ptr(10.0)},
 	)
 	if !slices.Equal(got, []string{"К50-35"}) {
-		t.Fatalf("Unom=25, diameter≤10: %v", got)
+		t.Fatalf("Vnom=25, diameter≤10: %v", got)
 	}
-	// Unom=25 и diameter ≤ 6: у 25 В диаметр 10, у 160 В — 8, но другой Unom:
+	// Vnom=25 и diameter ≤ 6: у 25 В диаметр 10, у 160 В — 8, но другой Vnom:
 	// перекрёстные сочетания исполнений не сопоставляются.
 	got = search(
-		ParameterFilter{Parameter: "Unom", Exact: ptr(25.0)},
+		ParameterFilter{Parameter: "Vnom", Exact: ptr(25.0)},
 		ParameterFilter{Parameter: "diameter", Max: ptr(6.0)},
 	)
 	if len(got) != 0 {
-		t.Fatalf("Unom=25, diameter≤6: %v (перекрёстное сочетание исполнений)", got)
+		t.Fatalf("Vnom=25, diameter≤6: %v (перекрёстное сочетание исполнений)", got)
 	}
-	// Данные типа в целом участвуют вместе с вариантом: Dop — тип, Unom — вариант.
+	// Данные типа в целом участвуют вместе с вариантом: Tolerance — тип, Vnom — вариант.
 	got = search(
-		ParameterFilter{Parameter: "Unom", Exact: ptr(160.0)},
-		ParameterFilter{Parameter: "Dop", Max: ptr(20.0)},
+		ParameterFilter{Parameter: "Vnom", Exact: ptr(160.0)},
+		ParameterFilter{Parameter: "Tolerance", Max: ptr(20.0)},
 	)
 	if !slices.Equal(got, []string{"К50-35"}) {
-		t.Fatalf("Unom=160 + Dop≤20: %v", got)
+		t.Fatalf("Vnom=160 + Tolerance≤20: %v", got)
 	}
 }
 
@@ -626,7 +626,7 @@ func suiteFind(t *testing.T, factory configFactory) {
 		Name:       "2Т312",
 		Attributes: []catalog.AttributeValue{attrText("structure", "npn")},
 		Sections: []SectionInput{
-			section("parameters", pvRange("h21e", 50, 280, cond("Uke", 5), cond("Ik", 10))),
+			section("parameters", pvRange("hfe", 50, 280, cond("Vce", 5), cond("Ic", 10))),
 		},
 	})
 	res, err := svc.Find(ctx, "", "КТ312")
@@ -660,7 +660,7 @@ func suiteFind(t *testing.T, factory configFactory) {
 	mustUpsert(t, svc, DeviceInput{
 		Name: "2N2222A",
 		Sections: []SectionInput{
-			section("parameters", pvRange("h21e", 100, 300, cond("Uke", 10), cond("Ik", 10))),
+			section("parameters", pvRange("hfe", 100, 300, cond("Vce", 10), cond("Ic", 10))),
 		},
 	})
 	res, err = svc.Find(ctx, "", "2N2222A")
@@ -744,7 +744,7 @@ func suiteSearch(t *testing.T, factory configFactory) {
 		Name: "К10-17Б",
 		Sections: []SectionInput{
 			section("parameters",
-				pvRange("Cnom", 22, 1000000), pvText("TKE", "Н30"), pvExact("Unom", 25)),
+				pvRange("Cnom", 22, 1000000), pvText("TCC", "Н30"), pvExact("Vnom", 25)),
 			section("dimensions",
 				pvExact("massMax", 1), pvExact("length", 6), pvExact("width", 4), pvExact("height", 5)),
 		},
@@ -818,27 +818,27 @@ func suiteSearch(t *testing.T, factory configFactory) {
 	// диапазона / точное значение) и точные значения.
 	page, err = svc.Search(ctx, SearchQuery{
 		Kind:       domain.KindTransistor,
-		Parameters: []ParameterFilter{{Parameter: "h21e", Min: ptr(50.0)}},
+		Parameters: []ParameterFilter{{Parameter: "hfe", Min: ptr(50.0)}},
 	})
 	if err != nil || !slices.Equal(designations(page), []string{"BC547B", "КТ315Б"}) {
-		t.Fatalf("h21e≥50: %v err=%v", designations(page), err)
+		t.Fatalf("hfe≥50: %v err=%v", designations(page), err)
 	}
 	page, err = svc.Search(ctx, SearchQuery{
 		Kind:       domain.KindTransistor,
-		Parameters: []ParameterFilter{{Parameter: "h21e", Min: ptr(300.0)}},
+		Parameters: []ParameterFilter{{Parameter: "hfe", Min: ptr(300.0)}},
 	})
 	if err != nil || len(page.Items) != 0 {
-		t.Fatalf("h21e≥300 (гарантированная граница): %v err=%v", designations(page), err)
+		t.Fatalf("hfe≥300 (гарантированная граница): %v err=%v", designations(page), err)
 	}
 	page, err = svc.Search(ctx, SearchQuery{
 		Kind: domain.KindCapacitor,
 		Parameters: []ParameterFilter{
-			{Parameter: "Unom", Exact: ptr(25.0)},
-			{Parameter: "TKE", Text: "Н30"},
+			{Parameter: "Vnom", Exact: ptr(25.0)},
+			{Parameter: "TCC", Text: "Н30"},
 		},
 	})
 	if err != nil || !slices.Equal(designations(page), []string{"К10-17Б"}) {
-		t.Fatalf("Unom=25, TKE=Н30: %v err=%v", designations(page), err)
+		t.Fatalf("Vnom=25, TCC=Н30: %v err=%v", designations(page), err)
 	}
 
 	// Сортировка обозначения по убыванию + финальный (kind, designation).
@@ -916,10 +916,10 @@ func suiteSearchValidation(t *testing.T, factory configFactory) {
 
 	_, err = svc.Search(ctx, SearchQuery{
 		Kind:       domain.KindResistor,
-		Parameters: []ParameterFilter{{Parameter: "h21e", Min: ptr(1.0)}},
+		Parameters: []ParameterFilter{{Parameter: "hfe", Min: ptr(1.0)}},
 	})
 	wantDomainError(t, err, domain.CodeParameterNotApplicable,
-		"parameter «h21e» is not applicable to kind resistor")
+		"parameter «hfe» is not applicable to kind resistor")
 
 	_, err = svc.Search(ctx, SearchQuery{
 		Attributes: []AttributeFilter{{Attribute: "nosuch", Text: "x"}},

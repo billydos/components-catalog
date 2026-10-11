@@ -217,19 +217,19 @@ func TestResistorVariants(t *testing.T) {
 		Kind: domain.KindResistor, System: domain.SystemGost, Designation: "С2-33Н",
 		Values: []catalog.ParameterValue{
 			{Parameter: "Rnom", Section: "parameters", Min: f(1), Max: f(10000000)},
-			{Parameter: "Dop", Section: "parameters", Max: f(5)},
+			{Parameter: "Tolerance", Section: "parameters", Max: f(5)},
 			{Parameter: "TempMin", Section: "ratings", Exact: f(-60)},
 			{Parameter: "TempMax", Section: "ratings", Exact: f(125)},
 		},
 		Variants: []catalog.Variant{
 			{Label: "0.125 Вт", Values: []catalog.ParameterValue{
 				{Parameter: "Pnom", Section: "ratings", Exact: f(0.125)},
-				{Parameter: "Umax", Section: "ratings", Exact: f(250)},
+				{Parameter: "Vmax", Section: "ratings", Exact: f(250)},
 				{Parameter: "massMax", Section: "dimensions", Exact: f(0.15)},
 			}},
 			{Label: "1 Вт", Values: []catalog.ParameterValue{
 				{Parameter: "Pnom", Section: "ratings", Exact: f(1)},
-				{Parameter: "Umax", Section: "ratings", Exact: f(500)},
+				{Parameter: "Vmax", Section: "ratings", Exact: f(500)},
 				{Parameter: "massMax", Section: "dimensions", Exact: f(0.8)},
 			}},
 		},
@@ -241,7 +241,7 @@ func TestResistorVariants(t *testing.T) {
 	t.Run("вариант без Pnom", func(t *testing.T) {
 		d := base
 		d.Variants = []catalog.Variant{{Label: "0.5 Вт", Values: []catalog.ParameterValue{
-			{Parameter: "Umax", Section: "ratings", Exact: f(350)},
+			{Parameter: "Vmax", Section: "ratings", Exact: f(350)},
 		}}}
 		probs := e.ValidateDevice(&d)
 		if len(probs) != 1 || probs[0].Message != "variant «0.5 Вт»: mandatory parameter Pnom is missing" {
@@ -280,7 +280,7 @@ func TestResistorVariants(t *testing.T) {
 		d := catalog.Device{
 			Kind: domain.KindTransistor, System: domain.SystemGost, Designation: "КТ315Б",
 			Variants: []catalog.Variant{{Label: "бис", Values: []catalog.ParameterValue{
-				{Parameter: "UkeoMax", Section: "ratings", Exact: f(20)},
+				{Parameter: "VceoMax", Section: "ratings", Exact: f(20)},
 			}}},
 		}
 		probs := e.ValidateDevice(&d)
@@ -296,23 +296,23 @@ func TestCapacitorVariants(t *testing.T) {
 		Kind: domain.KindCapacitor, System: domain.SystemGost, Designation: "К50-35",
 		Attributes: []catalog.AttributeValue{
 			{Attribute: "polarized", Bool: b(true)},
-			{Attribute: "tu", Text: s("ОЖ0.464.036ТУ")},
+			{Attribute: "spec", Text: s("ОЖ0.464.036ТУ")},
 			{Attribute: "yearFrom", Num: f(1980)},
 		},
 		Values: []catalog.ParameterValue{
-			{Parameter: "Dop", Section: "parameters", Max: f(20)},
-			{Parameter: "Tgd", Section: "parameters", Max: f(0.15), Conditions: []catalog.ConditionValue{{Condition: "temp", Value: 20}}},
+			{Parameter: "Tolerance", Section: "parameters", Max: f(20)},
+			{Parameter: "DF", Section: "parameters", Max: f(0.15), Conditions: []catalog.ConditionValue{{Condition: "temp", Value: 20}}},
 		},
 		Variants: []catalog.Variant{
 			{Label: "160 В", Values: []catalog.ParameterValue{
-				{Parameter: "Unom", Section: "parameters", Exact: f(160)},
+				{Parameter: "Vnom", Section: "parameters", Exact: f(160)},
 				{Parameter: "Cnom", Section: "parameters", Min: f(1000000), Max: f(10000000)},
 				{Parameter: "diameter", Section: "dimensions", Exact: f(8)},
 				{Parameter: "leadLength", Section: "dimensions", Exact: f(12)},
 				{Parameter: "massMax", Section: "dimensions", Exact: f(1.5)},
 			}},
 			{Label: "25 В", Values: []catalog.ParameterValue{
-				{Parameter: "Unom", Section: "parameters", Exact: f(25)},
+				{Parameter: "Vnom", Section: "parameters", Exact: f(25)},
 				{Parameter: "Cnom", Section: "parameters", Min: f(47000000), Max: f(4700000000)},
 				{Parameter: "diameter", Section: "dimensions", Exact: f(10)},
 				{Parameter: "leadLength", Section: "dimensions", Exact: f(16)},
@@ -327,28 +327,28 @@ func TestCapacitorVariants(t *testing.T) {
 	t.Run("вариант без Cnom", func(t *testing.T) {
 		d := base
 		d.Variants = []catalog.Variant{{Label: "160 В", Values: []catalog.ParameterValue{
-			{Parameter: "Unom", Section: "parameters", Exact: f(160)},
+			{Parameter: "Vnom", Section: "parameters", Exact: f(160)},
 		}}}
 		probs := e.ValidateDevice(&d)
 		if len(probs) != 1 || probs[0].Message != "variant «160 В»: mandatory parameter Cnom is missing" {
 			t.Fatalf(" got: %v", messages(probs))
 		}
 	})
-	t.Run("повтор Unom", func(t *testing.T) {
+	t.Run("повтор Vnom", func(t *testing.T) {
 		d := base
 		d.Variants = append(slices.Clone(d.Variants), catalog.Variant{Label: "160 В ", Values: []catalog.ParameterValue{
-			{Parameter: "Unom", Section: "parameters", Exact: f(160)},
+			{Parameter: "Vnom", Section: "parameters", Exact: f(160)},
 			{Parameter: "Cnom", Section: "parameters", Min: f(1), Max: f(2)},
 		}})
 		probs := e.ValidateDevice(&d)
-		if len(probs) != 1 || probs[0].Message != "variant «160 В »: Unom repeats (already set by variant «160 В»)" {
+		if len(probs) != 1 || probs[0].Message != "variant «160 В »: Vnom repeats (already set by variant «160 В»)" {
 			t.Fatalf(" got: %v", messages(probs))
 		}
 	})
 	t.Run("габариты варианта несогласованы", func(t *testing.T) {
 		d := base
 		d.Variants = []catalog.Variant{{Label: "63 В", Values: []catalog.ParameterValue{
-			{Parameter: "Unom", Section: "parameters", Exact: f(63)},
+			{Parameter: "Vnom", Section: "parameters", Exact: f(63)},
 			{Parameter: "Cnom", Section: "parameters", Min: f(1), Max: f(2)},
 			{Parameter: "length", Section: "dimensions", Exact: f(10)},
 		}}}
@@ -360,8 +360,8 @@ func TestCapacitorVariants(t *testing.T) {
 			Kind: domain.KindCapacitor, System: domain.SystemGost, Designation: "К10-17Б",
 			Values: []catalog.ParameterValue{
 				{Parameter: "Cnom", Section: "parameters", Min: f(22), Max: f(1000000)},
-				{Parameter: "TKE", Section: "parameters", Text: s("Н30")},
-				{Parameter: "Unom", Section: "parameters", Exact: f(25)},
+				{Parameter: "TCC", Section: "parameters", Text: s("Н30")},
+				{Parameter: "Vnom", Section: "parameters", Exact: f(25)},
 				{Parameter: "massMax", Section: "dimensions", Exact: f(1)},
 				{Parameter: "length", Section: "dimensions", Exact: f(6)},
 				{Parameter: "width", Section: "dimensions", Exact: f(4)},

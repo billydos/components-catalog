@@ -100,8 +100,8 @@ func TestSameState(t *testing.T) {
 		},
 		{
 			name: "условия: порядок не значим",
-			a:    &deviceState{groupValues: group(exact("P", 5, cond("Uke", 10), cond("Ik", 1)))},
-			b:    &deviceState{groupValues: group(exact("P", 5, cond("Ik", 1), cond("Uke", 10)))},
+			a:    &deviceState{groupValues: group(exact("P", 5, cond("Vce", 10), cond("Ic", 1)))},
+			b:    &deviceState{groupValues: group(exact("P", 5, cond("Ic", 1), cond("Vce", 10)))},
 			want: true,
 		},
 		{

@@ -134,7 +134,7 @@ func restSuite(ctx context.Context, r *report, srv, tmp string, l leg) {
 
 	// GET /components: параметрический фильтр и негативные случаи
 	// (400 unknown_parameter / validation_failed).
-	status, body, _ = cl.do(ctx, http.MethodGet, "/components?kind=transistor&par.h21e.min=50", "", nil)
+	status, body, _ = cl.do(ctx, http.MethodGet, "/components?kind=transistor&par.hfe.min=50", "", nil)
 	r.check("rest/components-parfilter", "GET /components: параметрический фильтр",
 		status == http.StatusOK, detail(status, body)...)
 	status, body, _ = cl.do(ctx, http.MethodGet, "/components?kind=transistor&par.bogus.min=1", "", nil)

@@ -140,16 +140,16 @@ func runVerifiedSuite(t *testing.T, factory configFactory) {
 			_, byKind := readVerifiedDocument(t, app, name)
 			for kind, inputs := range byKind {
 				for _, in := range inputs {
-					var tu, url bool
+					var spec, url bool
 					for _, a := range in.Attributes {
 						switch a.Attribute {
-						case "tu":
-							tu = a.Text != nil && *a.Text != ""
+						case "spec":
+							spec = a.Text != nil && *a.Text != ""
 						case "datasheetUrl":
 							url = a.Text != nil && *a.Text != ""
 						}
 					}
-					if !tu && !url {
+					if !spec && !url {
 						t.Errorf("data/%s: %s «%s»: нет ни ТУ, ни datasheetUrl", name, kind, in.Name)
 					}
 				}
@@ -174,7 +174,7 @@ func runVerifiedSuite(t *testing.T, factory configFactory) {
 			for _, g := range v.Groups {
 				for _, val := range g.Values {
 					switch val.Parameter {
-					case "Unom":
+					case "Vnom":
 						if val.Exact != nil {
 							unom = *val.Exact
 						}
@@ -203,7 +203,7 @@ func runVerifiedSuite(t *testing.T, factory configFactory) {
 				t.Errorf("вариант «%s»: подозрительный диаметр %v мм", v.Label, diameter)
 			}
 			if seenUnom[unom] {
-				t.Errorf("вариант «%s»: Unom %v повторяется", v.Label, unom)
+				t.Errorf("вариант «%s»: Vnom %v повторяется", v.Label, unom)
 			}
 			seenUnom[unom] = true
 		}

@@ -300,7 +300,7 @@ func TestParseYAMLNonFiniteRejected(t *testing.T) {
 		{"value: -.inf", "-.inf", 1},
 		{"value: .nan", ".nan", 1},
 		{"value: -.nan", "-.nan", 1},
-		{"parameters:\n  - parameter: h21e\n    value: .inf\n", ".inf", 3},
+		{"parameters:\n  - parameter: hfe\n    value: .inf\n", ".inf", 3},
 	}
 	for _, tc := range cases {
 		_, err := parseYAML([]byte(tc.src))

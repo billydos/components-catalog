@@ -110,10 +110,10 @@ func runImporterSuite(t *testing.T, factory configFactory) {
 		file := filepath.Join(t.TempDir(), "negative.jsonc")
 		write(t, file, `{
 			"transistors": [
-				{ "name": "МП39", "system": "other", "parameters": [ { "parameter": "h21e", "max": 50, "Uke": 5, "Ik": 5 } ] },
+				{ "name": "МП39", "system": "other", "parameters": [ { "parameter": "hfe", "max": 50, "Vce": 5, "Ic": 5 } ] },
 				"ГТ109Г",
 				{ "name": "2N9999ZZ", "system": "jedec" },
-				{ "name": "МП39", "system": "other", "ratings": [ { "parameter": "UkeoMax", "value": 0 } ] }
+				{ "name": "МП39", "system": "other", "ratings": [ { "parameter": "VceoMax", "value": 0 } ] }
 			]
 		}`)
 		rep := importFile(t, app, file, false)
@@ -121,8 +121,8 @@ func runImporterSuite(t *testing.T, factory configFactory) {
 			t.Fatalf("проблем: %d, ожидалось 2: %v", len(rep.Issues), issueMessages(rep.Issues))
 		}
 		want := []string{
-			"record «МП39»: parameter «h21e»: value type range requires keys min and max",
-			"record «МП39»: parameter «UkeoMax»: value of key value must be positive",
+			"record «МП39»: parameter «hfe»: value type range requires keys min and max",
+			"record «МП39»: parameter «VceoMax»: value of key value must be positive",
 		}
 		got := issueMessages(rep.Issues)
 		for _, w := range want {
@@ -480,13 +480,13 @@ func runImporterSuite(t *testing.T, factory configFactory) {
 		// «неактивными»: побайтово тот же повторный импорт обязан
 		// оставаться Skipped (сравнение до валидации), запись в БД нет.
 		file := filepath.Join(t.TempDir(), "dev.ndjson")
-		write(t, file, `{"transistors": { "name": "КТ315Б", "ratings": [ { "parameter": "UkeoMax", "value": 20 } ] }}`+"\n")
+		write(t, file, `{"transistors": { "name": "КТ315Б", "ratings": [ { "parameter": "VceoMax", "value": 20 } ] }}`+"\n")
 		rep := importFile(t, app, file, false)
 		if rep.Added != 1 || rep.Skipped != 0 {
 			t.Fatalf("первичный импорт: %+v", rep)
 		}
 		cat := filepath.Join(t.TempDir(), "deact.jsonc")
-		write(t, cat, `{"catalog": {"parameters": [ { "code": "UkeoMax", "group": "limiting",
+		write(t, cat, `{"catalog": {"parameters": [ { "code": "VceoMax", "group": "limiting",
 	"unit": "V", "value_type": "exact", "is_active": false } ]}}`)
 		if rep, err := importCatalogFile(t, app, cat, false); err != nil || rep.CatalogApplied != true {
 			t.Fatalf("деактивация: %v %+v", err, rep)
@@ -826,22 +826,22 @@ func runImporterSuite(t *testing.T, factory configFactory) {
 		if err != nil || !found {
 			t.Fatalf("карточка: %v", err)
 		}
-		var h21e *struct{}
+		var hfe *struct{}
 		for _, g := range card.Groups {
 			for _, v := range g.Values {
-				if v.Parameter == "h21e" {
+				if v.Parameter == "hfe" {
 					if v.Min == nil || *v.Min != 50 || v.Max == nil || *v.Max != 350 {
-						t.Fatalf("h21e: %+v", v)
+						t.Fatalf("hfe: %+v", v)
 					}
 					if len(v.Conditions) != 2 {
-						t.Fatalf("условия h21e: %+v", v.Conditions)
+						t.Fatalf("условия hfe: %+v", v.Conditions)
 					}
-					h21e = &struct{}{}
+					hfe = &struct{}{}
 				}
 			}
 		}
-		if h21e == nil {
-			t.Fatal("h21e не найден в карточке")
+		if hfe == nil {
+			t.Fatal("hfe не найден в карточке")
 		}
 	})
 

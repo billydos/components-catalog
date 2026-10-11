@@ -68,16 +68,16 @@ func TestValidateDeviceTransistorExample(t *testing.T) {
 		Attributes: []catalog.AttributeValue{
 			{Attribute: "structure", Text: s("npn")},
 			{Attribute: "package", Text: s("КТ-13")},
-			{Attribute: "tu", Text: s("ЖК3.365.200ТУ")},
+			{Attribute: "spec", Text: s("ЖК3.365.200ТУ")},
 			{Attribute: "yearFrom", Num: f(1967)},
 			{Attribute: "yearTo", Num: f(1992)},
 		},
 		Values: []catalog.ParameterValue{
-			{Parameter: "h21e", Section: "parameters", Min: f(50), Max: f(350),
-				Conditions: []catalog.ConditionValue{{Condition: "Uke", Value: 10}, {Condition: "Ik", Value: 1}}},
-			{Parameter: "Ikbo", Section: "parameters", Max: f(0.5),
-				Conditions: []catalog.ConditionValue{{Condition: "Ukb", Value: 10}, {Condition: "temp", Value: 25}}},
-			{Parameter: "UkeoMax", Section: "ratings", Exact: f(20)},
+			{Parameter: "hfe", Section: "parameters", Min: f(50), Max: f(350),
+				Conditions: []catalog.ConditionValue{{Condition: "Vce", Value: 10}, {Condition: "Ic", Value: 1}}},
+			{Parameter: "Icbo", Section: "parameters", Max: f(0.5),
+				Conditions: []catalog.ConditionValue{{Condition: "Vcb", Value: 10}, {Condition: "temp", Value: 25}}},
+			{Parameter: "VceoMax", Section: "ratings", Exact: f(20)},
 			{Parameter: "TempMin", Section: "ratings", Exact: f(-60)},
 			{Parameter: "TempMax", Section: "ratings", Exact: f(100)},
 		},
@@ -122,7 +122,7 @@ func TestUnknownAndNotApplicable(t *testing.T) {
 		},
 		Values: []catalog.ParameterValue{
 			{Parameter: "nosuch", Section: "parameters", Exact: f(1)},
-			{Parameter: "Dop", Section: "parameters", Max: f(5)},
+			{Parameter: "Tolerance", Section: "parameters", Max: f(5)},
 		},
 	}
 	probs := e.ValidateDevice(&d)
@@ -139,7 +139,7 @@ func TestUnknownAndNotApplicable(t *testing.T) {
 		"unknown attribute «nosuch»",
 		"attribute «polarized» is not applicable to kind transistor",
 		"unknown parameter «nosuch»",
-		"parameter «Dop» is not applicable to kind transistor",
+		"parameter «Tolerance» is not applicable to kind transistor",
 	}
 	if !slices.Equal(messages(probs), wantMsgs) {
 		t.Fatalf("тексты проблем:\n got:  %v\n want: %v", messages(probs), wantMsgs)
@@ -150,9 +150,9 @@ func TestUnknownAndNotApplicable(t *testing.T) {
 // файлом не поддерживается — только деактивация, 02 §5.4).
 func TestDeactivatedParameter(t *testing.T) {
 	snap := seedSnapshot(t)
-	row, ok := snap.Parameter("Kpd")
+	row, ok := snap.Parameter("Eta")
 	if !ok {
-		t.Fatal("Kpd отсутствует в каталоге")
+		t.Fatal("Eta отсутствует в каталоге")
 	}
 	inactive := *row
 	inactive.Active = false
@@ -162,10 +162,10 @@ func TestDeactivatedParameter(t *testing.T) {
 	}
 	d := catalog.Device{
 		Kind: domain.KindTransistor, System: domain.SystemGost, Designation: "КТ315Б",
-		Values: []catalog.ParameterValue{{Parameter: "Kpd", Min: f(60), Conditions: []catalog.ConditionValue{{Condition: "freq", Value: 400}}}},
+		Values: []catalog.ParameterValue{{Parameter: "Eta", Min: f(60), Conditions: []catalog.ConditionValue{{Condition: "freq", Value: 400}}}},
 	}
 	got := catalog.NewEngine(snap2).ValidateDevice(&d)
-	if len(got) != 1 || got[0].Message != "parameter «Kpd» is deactivated" {
+	if len(got) != 1 || got[0].Message != "parameter «Eta» is deactivated" {
 		t.Fatalf(" got: %v", messages(got))
 	}
 }
@@ -180,37 +180,37 @@ func TestValueShapes(t *testing.T) {
 		want string // пустая — значения корректны
 	}{
 		{"exact без value", domain.KindCapacitor,
-			catalog.ParameterValue{Parameter: "Unom", Section: "parameters", Min: f(25)},
-			"parameter «Unom»: value type exact requires key value"},
+			catalog.ParameterValue{Parameter: "Vnom", Section: "parameters", Min: f(25)},
+			"parameter «Vnom»: value type exact requires key value"},
 		{"exact с min", domain.KindTransistor,
-			catalog.ParameterValue{Parameter: "UkeoMax", Section: "ratings", Exact: f(20), Min: f(1)},
-			"parameter «UkeoMax»: value type exact does not allow key min"},
+			catalog.ParameterValue{Parameter: "VceoMax", Section: "ratings", Exact: f(20), Min: f(1)},
+			"parameter «VceoMax»: value type exact does not allow key min"},
 		{"at_least без min", domain.KindTransistor,
-			catalog.ParameterValue{Parameter: "FGran", Section: "parameters", Max: f(100)},
-			"parameter «FGran»: value type at_least requires key min"},
+			catalog.ParameterValue{Parameter: "fT", Section: "parameters", Max: f(100)},
+			"parameter «fT»: value type at_least requires key min"},
 		{"at_least с text", domain.KindTransistor,
-			catalog.ParameterValue{Parameter: "FGran", Section: "parameters", Min: f(100), Text: s("много")},
-			"parameter «FGran»: value type at_least does not allow key text"},
+			catalog.ParameterValue{Parameter: "fT", Section: "parameters", Min: f(100), Text: s("много")},
+			"parameter «fT»: value type at_least does not allow key text"},
 		{"at_most без max", domain.KindDiode,
-			catalog.ParameterValue{Parameter: "Upr", Section: "parameters", Min: f(1)},
-			"parameter «Upr»: value type at_most requires key max"},
+			catalog.ParameterValue{Parameter: "Vf", Section: "parameters", Min: f(1)},
+			"parameter «Vf»: value type at_most requires key max"},
 		{"at_most с min", domain.KindTransistor,
-			catalog.ParameterValue{Parameter: "KShum", Section: "parameters", Min: f(1), Max: f(2), Conditions: []catalog.ConditionValue{{Condition: "freq", Value: 10}}},
-			"parameter «KShum»: value type at_most does not allow key min"},
+			catalog.ParameterValue{Parameter: "NF", Section: "parameters", Min: f(1), Max: f(2), Conditions: []catalog.ConditionValue{{Condition: "freq", Value: 10}}},
+			"parameter «NF»: value type at_most does not allow key min"},
 		{"range неполный", domain.KindTransistor,
-			catalog.ParameterValue{Parameter: "h21e", Section: "parameters", Min: f(50), Conditions: []catalog.ConditionValue{{Condition: "Uke", Value: 10}, {Condition: "Ik", Value: 1}}},
-			"parameter «h21e»: value type range requires keys min and max"},
+			catalog.ParameterValue{Parameter: "hfe", Section: "parameters", Min: f(50), Conditions: []catalog.ConditionValue{{Condition: "Vce", Value: 10}, {Condition: "Ic", Value: 1}}},
+			"parameter «hfe»: value type range requires keys min and max"},
 		{"range min>max", domain.KindTransistor,
-			catalog.ParameterValue{Parameter: "h21e", Section: "parameters", Min: f(350), Max: f(50), Conditions: []catalog.ConditionValue{{Condition: "Uke", Value: 10}, {Condition: "Ik", Value: 1}}},
-			"parameter «h21e»: min exceeds max"},
+			catalog.ParameterValue{Parameter: "hfe", Section: "parameters", Min: f(350), Max: f(50), Conditions: []catalog.ConditionValue{{Condition: "Vce", Value: 10}, {Condition: "Ic", Value: 1}}},
+			"parameter «hfe»: min exceeds max"},
 		{"range равные границы", domain.KindCapacitor,
 			catalog.ParameterValue{Parameter: "Cnom", Section: "parameters", Min: f(100000), Max: f(100000)}, ""},
 		{"enum без text", domain.KindCapacitor,
-			catalog.ParameterValue{Parameter: "TKE", Section: "parameters", Exact: f(1)},
-			"parameter «TKE»: value type enum does not allow key value"},
+			catalog.ParameterValue{Parameter: "TCC", Section: "parameters", Exact: f(1)},
+			"parameter «TCC»: value type enum does not allow key value"},
 		{"enum вне списка", domain.KindCapacitor,
-			catalog.ParameterValue{Parameter: "TKE", Section: "parameters", Text: s("Н80")},
-			"parameter «TKE»: value «Н80» is not among the allowed ones (П100, П120, П60, П33, МП0, М33, М47, М75, М150, М220, М330, М470, М750, М700, М1500, М1300, М2200, Н10, Н20, Н30, Н50, Н70, Н90, C0G, NP0, U2J, X5R, X6S, X7R, X7S, X8R, Y5V, Z5U)"},
+			catalog.ParameterValue{Parameter: "TCC", Section: "parameters", Text: s("Н80")},
+			"parameter «TCC»: value «Н80» is not among the allowed ones (П100, П120, П60, П33, МП0, М33, М47, М75, М150, М220, М330, М470, М750, М700, М1500, М1300, М2200, Н10, Н20, Н30, Н50, Н70, Н90, C0G, NP0, U2J, X5R, X6S, X7R, X7S, X8R, Y5V, Z5U)"},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -237,8 +237,8 @@ func TestPositivityAndCeiling(t *testing.T) {
 		want string
 	}{
 		{"отрицательное значение", domain.KindTransistor,
-			catalog.ParameterValue{Parameter: "UkeoMax", Section: "ratings", Exact: f(-20)},
-			"parameter «UkeoMax»: value of key value must be positive"},
+			catalog.ParameterValue{Parameter: "VceoMax", Section: "ratings", Exact: f(-20)},
+			"parameter «VceoMax»: value of key value must be positive"},
 		{"отрицательный min", domain.KindResistor,
 			catalog.ParameterValue{Parameter: "Rnom", Section: "parameters", Min: f(-1), Max: f(10)},
 			"parameter «Rnom»: value of key min must be positive"},
@@ -248,10 +248,10 @@ func TestPositivityAndCeiling(t *testing.T) {
 		{"отрицательная температура разрешена", domain.KindTransistor,
 			catalog.ParameterValue{Parameter: "TempMin", Section: "ratings", Exact: f(-60)}, ""},
 		{"потолок превышен", domain.KindTransistor,
-			catalog.ParameterValue{Parameter: "Kpd", Section: "parameters", Min: f(101), Conditions: []catalog.ConditionValue{{Condition: "freq", Value: 400}}},
-			"parameter «Kpd»: value of key min exceeds the ceiling 100"},
+			catalog.ParameterValue{Parameter: "Eta", Section: "parameters", Min: f(101), Conditions: []catalog.ConditionValue{{Condition: "freq", Value: 400}}},
+			"parameter «Eta»: value of key min exceeds the ceiling 100"},
 		{"потолок достигнут", domain.KindTransistor,
-			catalog.ParameterValue{Parameter: "Kpd", Section: "parameters", Min: f(100), Conditions: []catalog.ConditionValue{{Condition: "freq", Value: 400}}},
+			catalog.ParameterValue{Parameter: "Eta", Section: "parameters", Min: f(100), Conditions: []catalog.ConditionValue{{Condition: "freq", Value: 400}}},
 			""},
 	}
 	for _, tc := range cases {
@@ -279,12 +279,12 @@ func TestConditionSets(t *testing.T) {
 			Values: []catalog.ParameterValue{{Parameter: parameter, Section: "parameters", Max: f(10), Conditions: conds}},
 		}
 	}
-	t.Run("оба набора h21e", func(t *testing.T) {
+	t.Run("оба набора hfe", func(t *testing.T) {
 		for _, conds := range [][]catalog.ConditionValue{
-			{{Condition: "Uke", Value: 10}, {Condition: "Ik", Value: 1}},
-			{{Condition: "Ukb", Value: 1}, {Condition: "Ie", Value: 10}},
+			{{Condition: "Vce", Value: 10}, {Condition: "Ic", Value: 1}},
+			{{Condition: "Vcb", Value: 1}, {Condition: "Ie", Value: 10}},
 		} {
-			d := valP("h21e", conds...)
+			d := valP("hfe", conds...)
 			d.Values[0].Min, d.Values[0].Max = f(50), f(350)
 			if probs := e.ValidateDevice(d); len(probs) != 0 {
 				t.Fatalf("набор %v: %v", conds, messages(probs))
@@ -292,27 +292,27 @@ func TestConditionSets(t *testing.T) {
 		}
 	})
 	t.Run("смешение наборов", func(t *testing.T) {
-		d := valP("h21e",
-			catalog.ConditionValue{Condition: "Uke", Value: 10}, catalog.ConditionValue{Condition: "Ie", Value: 1})
+		d := valP("hfe",
+			catalog.ConditionValue{Condition: "Vce", Value: 10}, catalog.ConditionValue{Condition: "Ie", Value: 1})
 		d.Values[0].Min, d.Values[0].Max = f(50), f(350)
 		hasProblem(t, e.ValidateDevice(d),
-			"parameter «h21e»: the combination of conditions does not match any condition set of the parameter")
+			"parameter «hfe»: the combination of conditions does not match any condition set of the parameter")
 	})
 	t.Run("постороннее условие", func(t *testing.T) {
-		probs := e.ValidateDevice(valP("Ikbo",
-			catalog.ConditionValue{Condition: "Ukb", Value: 10}, catalog.ConditionValue{Condition: "freq", Value: 1}))
+		probs := e.ValidateDevice(valP("Icbo",
+			catalog.ConditionValue{Condition: "Vcb", Value: 10}, catalog.ConditionValue{Condition: "freq", Value: 1}))
 		if len(probs) != 1 || probs[0].Message !=
-			"parameter «Ikbo»: the combination of conditions does not match any condition set of the parameter" {
+			"parameter «Icbo»: the combination of conditions does not match any condition set of the parameter" {
 			t.Fatalf(" got: %v", messages(probs))
 		}
 	})
 	t.Run("неизвестное условие", func(t *testing.T) {
-		probs := e.ValidateDevice(valP("Ikbo",
-			catalog.ConditionValue{Condition: "Ukb", Value: 10}, catalog.ConditionValue{Condition: "no_such", Value: 1}))
+		probs := e.ValidateDevice(valP("Icbo",
+			catalog.ConditionValue{Condition: "Vcb", Value: 10}, catalog.ConditionValue{Condition: "no_such", Value: 1}))
 		if !slices.Contains(codes(probs), domain.CodeUnknownCondition) {
 			t.Fatalf(" got: %v", messages(probs))
 		}
-		hasProblem(t, probs, "parameter «Ikbo»: unknown condition «no_such»")
+		hasProblem(t, probs, "parameter «Icbo»: unknown condition «no_such»")
 	})
 	t.Run("fixed_value опущено", func(t *testing.T) {
 		d := valP("Esr")
@@ -339,7 +339,7 @@ func TestConditionSets(t *testing.T) {
 	t.Run("обязательное pulse_duration", func(t *testing.T) {
 		d := catalog.Device{
 			Kind: domain.KindTransistor, System: domain.SystemGost,
-			Values: []catalog.ParameterValue{{Parameter: "IkPulseMax", Section: "ratings", Exact: f(100)}},
+			Values: []catalog.ParameterValue{{Parameter: "IcPulseMax", Section: "ratings", Exact: f(100)}},
 		}
 		if probs := e.ValidateDevice(&d); len(probs) != 1 {
 			t.Fatalf(" got: %v", messages(probs))
@@ -352,7 +352,7 @@ func TestConditionSets(t *testing.T) {
 	t.Run("набор из одних optional", func(t *testing.T) {
 		d := catalog.Device{
 			Kind: domain.KindCapacitor, System: domain.SystemGost,
-			Values: []catalog.ParameterValue{{Parameter: "Tgd", Section: "parameters", Max: f(0.15)}},
+			Values: []catalog.ParameterValue{{Parameter: "DF", Section: "parameters", Max: f(0.15)}},
 		}
 		if probs := e.ValidateDevice(&d); len(probs) != 0 {
 			t.Fatalf(" got: %v", messages(probs))
@@ -376,15 +376,15 @@ func TestConditionSets(t *testing.T) {
 		}
 	})
 	t.Run("позитивность условия", func(t *testing.T) {
-		probs := e.ValidateDevice(valP("Ikbo",
-			catalog.ConditionValue{Condition: "Ukb", Value: -10}))
-		if len(probs) != 1 || probs[0].Message != "parameter «Ikbo»: condition «Ukb» — value must be positive" {
+		probs := e.ValidateDevice(valP("Icbo",
+			catalog.ConditionValue{Condition: "Vcb", Value: -10}))
+		if len(probs) != 1 || probs[0].Message != "parameter «Icbo»: condition «Vcb» — value must be positive" {
 			t.Fatalf(" got: %v", messages(probs))
 		}
 	})
 	t.Run("отрицательная температура условия", func(t *testing.T) {
-		if probs := e.ValidateDevice(valP("Ikbo",
-			catalog.ConditionValue{Condition: "Ukb", Value: 10}, catalog.ConditionValue{Condition: "temp", Value: -60})); len(probs) != 0 {
+		if probs := e.ValidateDevice(valP("Icbo",
+			catalog.ConditionValue{Condition: "Vcb", Value: 10}, catalog.ConditionValue{Condition: "temp", Value: -60})); len(probs) != 0 {
 			t.Fatalf(" got: %v", messages(probs))
 		}
 	})
@@ -392,12 +392,12 @@ func TestConditionSets(t *testing.T) {
 		d := catalog.Device{
 			Kind: domain.KindTransistor, System: domain.SystemGost,
 			Values: []catalog.ParameterValue{
-				{Parameter: "Ikbo", Section: "parameters", Max: f(1), Conditions: []catalog.ConditionValue{{Condition: "Ukb", Value: 10}}},
-				{Parameter: "Ikbo", Section: "parameters", Max: f(2), Conditions: []catalog.ConditionValue{{Condition: "Ukb", Value: 10}}},
+				{Parameter: "Icbo", Section: "parameters", Max: f(1), Conditions: []catalog.ConditionValue{{Condition: "Vcb", Value: 10}}},
+				{Parameter: "Icbo", Section: "parameters", Max: f(2), Conditions: []catalog.ConditionValue{{Condition: "Vcb", Value: 10}}},
 			},
 		}
 		probs := e.ValidateDevice(&d)
-		if len(probs) != 1 || probs[0].Message != "parameter «Ikbo»: duplicate value with the same conditions" {
+		if len(probs) != 1 || probs[0].Message != "parameter «Icbo»: duplicate value with the same conditions" {
 			t.Fatalf(" got: %v", messages(probs))
 		}
 	})
@@ -419,12 +419,12 @@ func TestConditionSets(t *testing.T) {
 			t.Fatalf(" got: %v", messages(probs))
 		}
 	})
-	t.Run("Ikbo при двух температурах", func(t *testing.T) {
+	t.Run("Icbo при двух температурах", func(t *testing.T) {
 		d := catalog.Device{
 			Kind: domain.KindTransistor, System: domain.SystemGost,
 			Values: []catalog.ParameterValue{
-				{Parameter: "Ikbo", Section: "parameters", Max: f(0.5), Conditions: []catalog.ConditionValue{{Condition: "Ukb", Value: 10}, {Condition: "temp", Value: 25}}},
-				{Parameter: "Ikbo", Section: "parameters", Max: f(15), Conditions: []catalog.ConditionValue{{Condition: "Ukb", Value: 10}, {Condition: "temp", Value: 85}}},
+				{Parameter: "Icbo", Section: "parameters", Max: f(0.5), Conditions: []catalog.ConditionValue{{Condition: "Vcb", Value: 10}, {Condition: "temp", Value: 25}}},
+				{Parameter: "Icbo", Section: "parameters", Max: f(15), Conditions: []catalog.ConditionValue{{Condition: "Vcb", Value: 10}, {Condition: "temp", Value: 85}}},
 			},
 		}
 		if probs := e.ValidateDevice(&d); len(probs) != 0 {
@@ -441,14 +441,14 @@ func TestSectionMismatch(t *testing.T) {
 	d := catalog.Device{
 		Kind: domain.KindTransistor, System: domain.SystemGost,
 		Values: []catalog.ParameterValue{
-			{Parameter: "h21e", Section: "ratings", Min: f(50), Max: f(350),
-				Conditions: []catalog.ConditionValue{{Condition: "Uke", Value: 10}, {Condition: "Ik", Value: 1}}},
-			{Parameter: "UkeoMax", Section: "ratings", Exact: f(20)},
+			{Parameter: "hfe", Section: "ratings", Min: f(50), Max: f(350),
+				Conditions: []catalog.ConditionValue{{Condition: "Vce", Value: 10}, {Condition: "Ic", Value: 1}}},
+			{Parameter: "VceoMax", Section: "ratings", Exact: f(20)},
 		},
 	}
 	probs := e.ValidateDevice(&d)
 	if len(probs) != 1 || probs[0].Message !=
-		"parameter «h21e» is set in section «ratings» but belongs to section «parameters»" {
+		"parameter «hfe» is set in section «ratings» but belongs to section «parameters»" {
 		t.Fatalf(" got: %v", messages(probs))
 	}
 
@@ -456,7 +456,7 @@ func TestSectionMismatch(t *testing.T) {
 	d.Values[1].Section = ""
 	probs = e.ValidateDevice(&d)
 	if len(probs) != 2 || probs[1].Message !=
-		"parameter «UkeoMax» is set in section «» but belongs to section «ratings»" {
+		"parameter «VceoMax» is set in section «» but belongs to section «ratings»" {
 		t.Fatalf(" got: %v", messages(probs))
 	}
 }

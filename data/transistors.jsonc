@@ -10,20 +10,20 @@
       "name": "КТ315Б",                      // h21э 50–350; UкэR 20 В
       "system": "gost",
       "attributes": {
-        "structure": "npn", "package": "КТ-13", "tu": "ЖК3.365.200ТУ",
+        "structure": "npn", "package": "КТ-13", "spec": "ЖК3.365.200ТУ",
         "yearFrom": 1967, "datasheetUrl": "https://esociety.ru/poznavatelnoe/tranzistor-kt315-harakteristiki-markirovka-tsokolevka-i-analogi/"
       },
       "manufacturers": ["Кремний (Брянск)", "Элькор (Нальчик)", "НИИПП (Томск)"],
       "parameters": [
-        { "parameter": "h21e", "min": 50, "max": 350, "Uke": 10, "Ik": 1 },
-        { "parameter": "Ikbo", "max": 0.5, "Ukb": 10, "temp": 25 }
+        { "parameter": "hfe", "min": 50, "max": 350, "Vce": 10, "Ic": 1 },
+        { "parameter": "Icbo", "max": 0.5, "Vcb": 10, "temp": 25 }
       ],
       "ratings": [
-        { "parameter": "UkeoMax", "value": 20 },
-        { "parameter": "UkbMax", "value": 20 },
-        { "parameter": "UbeMax", "value": 6 },
-        { "parameter": "IkMax", "value": 100 },
-        { "parameter": "PkMax", "value": 150 },
+        { "parameter": "VceoMax", "value": 20 },
+        { "parameter": "VcbMax", "value": 20 },
+        { "parameter": "VebMax", "value": 6 },
+        { "parameter": "IcMax", "value": 100 },
+        { "parameter": "PcMax", "value": 150 },
         { "parameter": "TempMin", "value": -60 },
         { "parameter": "TempMax", "value": 100 },
         { "parameter": "TempJunctionMax", "value": 125 }
@@ -34,19 +34,19 @@
       "name": "КТ315Г",                      // отличия от Б: напряжения 35 В
       "system": "gost",
       "attributes": {
-        "structure": "npn", "package": "КТ-13", "tu": "ЖК3.365.200ТУ",
+        "structure": "npn", "package": "КТ-13", "spec": "ЖК3.365.200ТУ",
         "yearFrom": 1967, "datasheetUrl": "https://esociety.ru/poznavatelnoe/tranzistor-kt315-harakteristiki-markirovka-tsokolevka-i-analogi/"
       },
       "parameters": [
-        { "parameter": "h21e", "min": 50, "max": 350, "Uke": 10, "Ik": 1 },
-        { "parameter": "Ikbo", "max": 0.5, "Ukb": 10, "temp": 25 }
+        { "parameter": "hfe", "min": 50, "max": 350, "Vce": 10, "Ic": 1 },
+        { "parameter": "Icbo", "max": 0.5, "Vcb": 10, "temp": 25 }
       ],
       "ratings": [
-        { "parameter": "UkeoMax", "value": 35 },
-        { "parameter": "UkbMax", "value": 35 },
-        { "parameter": "UbeMax", "value": 6 },
-        { "parameter": "IkMax", "value": 100 },
-        { "parameter": "PkMax", "value": 150 },
+        { "parameter": "VceoMax", "value": 35 },
+        { "parameter": "VcbMax", "value": 35 },
+        { "parameter": "VebMax", "value": 6 },
+        { "parameter": "IcMax", "value": 100 },
+        { "parameter": "PcMax", "value": 150 },
         { "parameter": "TempMin", "value": -60 },
         { "parameter": "TempMax", "value": 100 },
         { "parameter": "TempJunctionMax", "value": 125 }
@@ -56,19 +56,19 @@
       "name": "КТ361А",                      // pnp-комплемент КТ315
       "system": "gost",
       "attributes": {
-        "structure": "pnp", "tu": "ФЫО.336.201ТУ",
+        "structure": "pnp", "spec": "ФЫО.336.201ТУ",
         "datasheetUrl": "https://r9al.ru/data/transistors/rus/kt361/index.htm"
       },
       "parameters": [
-        { "parameter": "h21e", "min": 20, "max": 90, "Uke": 10, "Ik": 1 },
-        { "parameter": "Ikbo", "max": 1, "Ukb": 10, "temp": 25 }
+        { "parameter": "hfe", "min": 20, "max": 90, "Vce": 10, "Ic": 1 },
+        { "parameter": "Icbo", "max": 1, "Vcb": 10, "temp": 25 }
       ],
       "ratings": [
-        { "parameter": "UkeoMax", "value": 25 },
-        { "parameter": "UkbMax", "value": 25 },
-        { "parameter": "UbeMax", "value": 4 },
-        { "parameter": "IkMax", "value": 50 },
-        { "parameter": "PkMax", "value": 150 },
+        { "parameter": "VceoMax", "value": 25 },
+        { "parameter": "VcbMax", "value": 25 },
+        { "parameter": "VebMax", "value": 4 },
+        { "parameter": "IcMax", "value": 50 },
+        { "parameter": "PcMax", "value": 150 },
         { "parameter": "TempMin", "value": -60 },
         { "parameter": "TempMax", "value": 100 },
         { "parameter": "TempJunctionMax", "value": 120 }
@@ -81,16 +81,16 @@
         "structure": "npn", "datasheetUrl": "https://r9al.ru/data/transistors/rus/kt3102/index.htm"
       },
       "parameters": [
-        { "parameter": "h21e", "min": 100, "max": 250, "Uke": 5, "Ik": 2 },
-        { "parameter": "Ikbo", "max": 0.05, "Ukb": 50, "temp": 25 }
+        { "parameter": "hfe", "min": 100, "max": 250, "Vce": 5, "Ic": 2 },
+        { "parameter": "Icbo", "max": 0.05, "Vcb": 50, "temp": 25 }
       ],
       "ratings": [
-        { "parameter": "UkeoMax", "value": 50 },
-        { "parameter": "UkbMax", "value": 50 },
-        { "parameter": "UbeMax", "value": 5 },
-        { "parameter": "IkMax", "value": 100 },
-        { "parameter": "IkPulseMax", "value": 200, "pulse_duration": 40 },
-        { "parameter": "PkMax", "value": 250 },
+        { "parameter": "VceoMax", "value": 50 },
+        { "parameter": "VcbMax", "value": 50 },
+        { "parameter": "VebMax", "value": 5 },
+        { "parameter": "IcMax", "value": 100 },
+        { "parameter": "IcPulseMax", "value": 200, "pulse_duration": 40 },
+        { "parameter": "PcMax", "value": 250 },
         { "parameter": "TempMin", "value": -40 },
         { "parameter": "TempMax", "value": 85 },
         { "parameter": "TempJunctionMax", "value": 125 }
@@ -103,15 +103,15 @@
         "structure": "npn", "datasheetUrl": "http://www.5v.ru/ds/trnz/kt3102.htm"
       },
       "parameters": [
-        { "parameter": "h21e", "min": 200, "max": 500, "Uke": 5, "Ik": 2 },
-        { "parameter": "Ikbo", "max": 0.05, "Ukb": 50, "temp": 25 }
+        { "parameter": "hfe", "min": 200, "max": 500, "Vce": 5, "Ic": 2 },
+        { "parameter": "Icbo", "max": 0.05, "Vcb": 50, "temp": 25 }
       ],
       "ratings": [
-        { "parameter": "UkeoMax", "value": 50 },
-        { "parameter": "UkbMax", "value": 50 },
-        { "parameter": "UbeMax", "value": 5 },
-        { "parameter": "IkMax", "value": 100 },
-        { "parameter": "PkMax", "value": 250 },
+        { "parameter": "VceoMax", "value": 50 },
+        { "parameter": "VcbMax", "value": 50 },
+        { "parameter": "VebMax", "value": 5 },
+        { "parameter": "IcMax", "value": 100 },
+        { "parameter": "PcMax", "value": 250 },
         { "parameter": "TempMin", "value": -40 },
         { "parameter": "TempMax", "value": 85 },
         { "parameter": "TempJunctionMax", "value": 125 }
@@ -126,15 +126,15 @@
         "datasheetUrl": "https://elektrouzel.ru/reference/transistors/163-tranzistory-tipa-gt109a-gt109b-gt109v-gt109g-gt109d-gt109e-gt109zh-gt109i.html"
       },
       "parameters": [
-        { "parameter": "h21e", "min": 110, "max": 250, "Ukb": 5, "Ie": 1 },
-        { "parameter": "Ikbo", "max": 5, "Ukb": 5, "temp": 25 },
-        { "parameter": "FGran", "min": 1, "Ukb": 5, "Ie": 1 }
+        { "parameter": "hfe", "min": 110, "max": 250, "Vcb": 5, "Ie": 1 },
+        { "parameter": "Icbo", "max": 5, "Vcb": 5, "temp": 25 },
+        { "parameter": "fT", "min": 1, "Vcb": 5, "Ie": 1 }
       ],
       "ratings": [
-        { "parameter": "UkeoMax", "value": 6 },
-        { "parameter": "UkbMax", "value": 10 },
-        { "parameter": "IkMax", "value": 20 },
-        { "parameter": "PkMax", "value": 30 },
+        { "parameter": "VceoMax", "value": 6 },
+        { "parameter": "VcbMax", "value": 10 },
+        { "parameter": "IcMax", "value": 20 },
+        { "parameter": "PcMax", "value": 30 },
         { "parameter": "TempMin", "value": -45 },
         { "parameter": "TempMax", "value": 55 },
         { "parameter": "TempJunctionMax", "value": 85 }
@@ -148,14 +148,14 @@
         "datasheetUrl": "https://rudatasheet.ru/transistors/kt805/"
       },
       "parameters": [
-        { "parameter": "h21e", "min": 15, "max": 35, "Uke": 10, "Ik": 2000 }
+        { "parameter": "hfe", "min": 15, "max": 35, "Vce": 10, "Ic": 2000 }
       ],
       "ratings": [
-        { "parameter": "UkeoMax", "value": 160 },
-        { "parameter": "UkbMax", "value": 180 },
-        { "parameter": "UbeMax", "value": 5 },
-        { "parameter": "IkMax", "value": 5000 },
-        { "parameter": "PkMax", "value": 30000 },
+        { "parameter": "VceoMax", "value": 160 },
+        { "parameter": "VcbMax", "value": 180 },
+        { "parameter": "VebMax", "value": 5 },
+        { "parameter": "IcMax", "value": 5000 },
+        { "parameter": "PcMax", "value": 30000 },
         { "parameter": "TempMax", "value": 100 },
         { "parameter": "TempJunctionMax", "value": 150 }
       ]
@@ -171,15 +171,15 @@
       },
       "manufacturers": ["Fairchild", "Philips", "onsemi"],
       "parameters": [
-        { "parameter": "h21e", "min": 200, "max": 450, "Uke": 5, "Ik": 2 },
-        { "parameter": "Ikbo", "max": 0.015, "Ukb": 30 }
+        { "parameter": "hfe", "min": 200, "max": 450, "Vce": 5, "Ic": 2 },
+        { "parameter": "Icbo", "max": 0.015, "Vcb": 30 }
       ],
       "ratings": [
-        { "parameter": "UkeoMax", "value": 45 },
-        { "parameter": "UkbMax", "value": 50 },
-        { "parameter": "UbeMax", "value": 6 },
-        { "parameter": "IkMax", "value": 100 },
-        { "parameter": "PkMax", "value": 500 },
+        { "parameter": "VceoMax", "value": 45 },
+        { "parameter": "VcbMax", "value": 50 },
+        { "parameter": "VebMax", "value": 6 },
+        { "parameter": "IcMax", "value": 100 },
+        { "parameter": "PcMax", "value": 500 },
         { "parameter": "TempMin", "value": -65 },
         { "parameter": "TempMax", "value": 150 },
         { "parameter": "TempJunctionMax", "value": 150 }
@@ -194,15 +194,15 @@
       },
       "manufacturers": ["onsemi", "Philips"],
       "parameters": [
-        { "parameter": "h21e", "min": 180, "max": 460, "Uke": 5, "Ik": 2 },
-        { "parameter": "Ikbo", "max": 0.1, "Ukb": 20 }
+        { "parameter": "hfe", "min": 180, "max": 460, "Vce": 5, "Ic": 2 },
+        { "parameter": "Icbo", "max": 0.1, "Vcb": 20 }
       ],
       "ratings": [
-        { "parameter": "UkeoMax", "value": 45 },
-        { "parameter": "UkbMax", "value": 50 },
-        { "parameter": "UbeMax", "value": 5 },
-        { "parameter": "IkMax", "value": 100 },
-        { "parameter": "PkMax", "value": 625 },
+        { "parameter": "VceoMax", "value": 45 },
+        { "parameter": "VcbMax", "value": 50 },
+        { "parameter": "VebMax", "value": 5 },
+        { "parameter": "IcMax", "value": 100 },
+        { "parameter": "PcMax", "value": 625 },
         { "parameter": "TempMin", "value": -55 },
         { "parameter": "TempMax", "value": 150 },
         { "parameter": "TempJunctionMax", "value": 150 }
@@ -229,16 +229,16 @@
       },
       "manufacturers": ["ST", "Motorola", "Texas Instruments"],
       "parameters": [
-        { "parameter": "h21e", "min": 100, "max": 300, "Uke": 10, "Ik": 10 },
-        { "parameter": "FGran", "min": 300, "Uke": 20, "Ik": 20 },
-        { "parameter": "Ikbo", "max": 0.01, "Ukb": 60 }
+        { "parameter": "hfe", "min": 100, "max": 300, "Vce": 10, "Ic": 10 },
+        { "parameter": "fT", "min": 300, "Vce": 20, "Ic": 20 },
+        { "parameter": "Icbo", "max": 0.01, "Vcb": 60 }
       ],
       "ratings": [
-        { "parameter": "UkeoMax", "value": 40 },
-        { "parameter": "UkbMax", "value": 75 },
-        { "parameter": "UbeMax", "value": 6 },
-        { "parameter": "IkMax", "value": 600 },
-        { "parameter": "PkMax", "value": 500 },
+        { "parameter": "VceoMax", "value": 40 },
+        { "parameter": "VcbMax", "value": 75 },
+        { "parameter": "VebMax", "value": 6 },
+        { "parameter": "IcMax", "value": 600 },
+        { "parameter": "PcMax", "value": 500 },
         { "parameter": "TempMin", "value": -65 },
         { "parameter": "TempMax", "value": 175 },
         { "parameter": "TempJunctionMax", "value": 175 }
@@ -254,16 +254,16 @@
       },
       "manufacturers": ["ST", "onsemi", "Motorola", "RCA"],
       "parameters": [
-        { "parameter": "h21e", "min": 20, "max": 70, "Uke": 4, "Ik": 4000 },
-        { "parameter": "FGran", "min": 2.5, "Uke": 10, "Ik": 500 },
-        { "parameter": "Ikeo", "max": 700, "Uke": 30 }
+        { "parameter": "hfe", "min": 20, "max": 70, "Vce": 4, "Ic": 4000 },
+        { "parameter": "fT", "min": 2.5, "Vce": 10, "Ic": 500 },
+        { "parameter": "Iceo", "max": 700, "Vce": 30 }
       ],
       "ratings": [
-        { "parameter": "UkeoMax", "value": 60 },
-        { "parameter": "UkbMax", "value": 100 },
-        { "parameter": "UbeMax", "value": 7 },
-        { "parameter": "IkMax", "value": 15000 },
-        { "parameter": "PkMax", "value": 115000 },
+        { "parameter": "VceoMax", "value": 60 },
+        { "parameter": "VcbMax", "value": 100 },
+        { "parameter": "VebMax", "value": 7 },
+        { "parameter": "IcMax", "value": 15000 },
+        { "parameter": "PcMax", "value": 115000 },
         { "parameter": "TempMin", "value": -65 },
         { "parameter": "TempMax", "value": 200 },
         { "parameter": "TempJunctionMax", "value": 200 }
@@ -279,15 +279,15 @@
       },
       "manufacturers": ["onsemi", "Motorola", "MCC"],
       "parameters": [
-        { "parameter": "h21e", "min": 100, "max": 300, "Uke": 1, "Ik": 10 },
-        { "parameter": "FGran", "min": 300, "Uke": 20, "Ik": 10 }
+        { "parameter": "hfe", "min": 100, "max": 300, "Vce": 1, "Ic": 10 },
+        { "parameter": "fT", "min": 300, "Vce": 20, "Ic": 10 }
       ],
       "ratings": [
-        { "parameter": "UkeoMax", "value": 40 },
-        { "parameter": "UkbMax", "value": 60 },
-        { "parameter": "UbeMax", "value": 6 },
-        { "parameter": "IkMax", "value": 200 },
-        { "parameter": "PkMax", "value": 625 },
+        { "parameter": "VceoMax", "value": 40 },
+        { "parameter": "VcbMax", "value": 60 },
+        { "parameter": "VebMax", "value": 6 },
+        { "parameter": "IcMax", "value": 200 },
+        { "parameter": "PcMax", "value": 625 },
         { "parameter": "TempMin", "value": -55 },
         { "parameter": "TempMax", "value": 150 },
         { "parameter": "TempJunctionMax", "value": 150 }
@@ -304,16 +304,16 @@
       },
       "manufacturers": ["Toshiba"],
       "parameters": [
-        { "parameter": "h21e", "min": 70, "max": 400, "Uke": 6, "Ik": 2 },
-        { "parameter": "FGran", "min": 80, "Uke": 10, "Ik": 1 },
-        { "parameter": "Ikbo", "max": 0.1, "Ukb": 50 }
+        { "parameter": "hfe", "min": 70, "max": 400, "Vce": 6, "Ic": 2 },
+        { "parameter": "fT", "min": 80, "Vce": 10, "Ic": 1 },
+        { "parameter": "Icbo", "max": 0.1, "Vcb": 50 }
       ],
       "ratings": [
-        { "parameter": "UkeoMax", "value": 50 },
-        { "parameter": "UkbMax", "value": 50 },
-        { "parameter": "UbeMax", "value": 5 },
-        { "parameter": "IkMax", "value": 150 },
-        { "parameter": "PkMax", "value": 400 },
+        { "parameter": "VceoMax", "value": 50 },
+        { "parameter": "VcbMax", "value": 50 },
+        { "parameter": "VebMax", "value": 5 },
+        { "parameter": "IcMax", "value": 150 },
+        { "parameter": "PcMax", "value": 400 },
         { "parameter": "TempMin", "value": -55 },
         { "parameter": "TempMax", "value": 125 },
         { "parameter": "TempJunctionMax", "value": 125 }
@@ -328,23 +328,23 @@
       },
       "manufacturers": ["Toshiba"],
       "parameters": [
-        { "parameter": "h21e", "min": 70, "max": 700, "Uke": 6, "Ik": 2 },
-        { "parameter": "FGran", "min": 80, "Uke": 10, "Ik": 1 },
-        { "parameter": "Ikbo", "max": 0.1, "Ukb": 60 }
+        { "parameter": "hfe", "min": 70, "max": 700, "Vce": 6, "Ic": 2 },
+        { "parameter": "fT", "min": 80, "Vce": 10, "Ic": 1 },
+        { "parameter": "Icbo", "max": 0.1, "Vcb": 60 }
       ],
       "ratings": [
-        { "parameter": "UkeoMax", "value": 50 },
-        { "parameter": "UkbMax", "value": 60 },
-        { "parameter": "UbeMax", "value": 5 },
-        { "parameter": "IkMax", "value": 150 },
-        { "parameter": "PkMax", "value": 400 },
+        { "parameter": "VceoMax", "value": 50 },
+        { "parameter": "VcbMax", "value": 60 },
+        { "parameter": "VebMax", "value": 5 },
+        { "parameter": "IcMax", "value": 150 },
+        { "parameter": "PcMax", "value": 400 },
         { "parameter": "TempMin", "value": -55 },
         { "parameter": "TempMax", "value": 125 },
         { "parameter": "TempJunctionMax", "value": 125 }
       ]
     },
     {
-      "name": "2SK1058",                     // мощной МОП (Hitachi); мощность стока — PsiMax (полевые — собственные коды)
+      "name": "2SK1058",                     // мощной МОП (Hitachi); мощность стока — PdMax (полевые — собственные коды)
       "system": "jis",
       "attributes": {
         "structure": "n-канал", "package": "TO-3P",
@@ -352,9 +352,9 @@
       },
       "manufacturers": ["Hitachi"],
       "ratings": [
-        { "parameter": "UsiMax", "value": 160 },
-        { "parameter": "IsiMax", "value": 7000 },
-        { "parameter": "PsiMax", "value": 100000 },
+        { "parameter": "VdsMax", "value": 160 },
+        { "parameter": "IdMax", "value": 7000 },
+        { "parameter": "PdMax", "value": 100000 },
         { "parameter": "TempMin", "value": -55 },
         { "parameter": "TempMax", "value": 150 },
         { "parameter": "TempJunctionMax", "value": 150 }
@@ -372,14 +372,14 @@
       },
       "manufacturers": ["Светлана (Ленинград)", "Кремний", "Планета (Великий Новгород)"],
       "parameters": [
-        { "parameter": "Ikbo", "max": 15, "Ukb": 5, "temp": 20 }
+        { "parameter": "Icbo", "max": 15, "Vcb": 5, "temp": 20 }
       ],
       "ratings": [
-        { "parameter": "UkeoMax", "value": 15 },
-        { "parameter": "UkbMax", "value": 15 },
-        { "parameter": "UbeMax", "value": 10 },
-        { "parameter": "IkMax", "value": 30 },
-        { "parameter": "PkMax", "value": 150 },
+        { "parameter": "VceoMax", "value": 15 },
+        { "parameter": "VcbMax", "value": 15 },
+        { "parameter": "VebMax", "value": 10 },
+        { "parameter": "IcMax", "value": 30 },
+        { "parameter": "PcMax", "value": 150 },
         { "parameter": "TempMin", "value": -60 },
         { "parameter": "TempMax", "value": 70 },
         { "parameter": "TempJunctionMax", "value": 85 },
@@ -395,15 +395,15 @@
         "datasheetUrl": "https://elektrouzel.ru/reference/transistors/215-tranzistory-tipa-mp39-mp39b-mp40-mp40a-mp41-mp41a.html"
       },
       "parameters": [
-        { "parameter": "h21e", "min": 50, "max": 100, "Ukb": 5, "Ie": 1 },
-        { "parameter": "Ikbo", "max": 15, "Ukb": 5, "temp": 20 }
+        { "parameter": "hfe", "min": 50, "max": 100, "Vcb": 5, "Ie": 1 },
+        { "parameter": "Icbo", "max": 15, "Vcb": 5, "temp": 20 }
       ],
       "ratings": [
-        { "parameter": "UkeoMax", "value": 15 },
-        { "parameter": "UkbMax", "value": 15 },
-        { "parameter": "UbeMax", "value": 10 },
-        { "parameter": "IkMax", "value": 30 },
-        { "parameter": "PkMax", "value": 150 },
+        { "parameter": "VceoMax", "value": 15 },
+        { "parameter": "VcbMax", "value": 15 },
+        { "parameter": "VebMax", "value": 10 },
+        { "parameter": "IcMax", "value": 30 },
+        { "parameter": "PcMax", "value": 150 },
         { "parameter": "TempMin", "value": -60 },
         { "parameter": "TempMax", "value": 70 },
         { "parameter": "TempJunctionMax", "value": 85 }
@@ -418,17 +418,17 @@
         "datasheetUrl": "http://d-vt.ru/p214.html"
       },
       "parameters": [
-        { "parameter": "h21e", "min": 20, "max": 60, "Uke": 5, "Ik": 200 },
-        { "parameter": "Ikbo", "max": 300, "Ukb": 60, "temp": 20 },
-        { "parameter": "FGran", "min": 0.15, "Ukb": 10, "Ie": 100 }
+        { "parameter": "hfe", "min": 20, "max": 60, "Vce": 5, "Ic": 200 },
+        { "parameter": "Icbo", "max": 300, "Vcb": 60, "temp": 20 },
+        { "parameter": "fT", "min": 0.15, "Vcb": 10, "Ie": 100 }
       ],
       "ratings": [
-        { "parameter": "UkeoMax", "value": 60 },
-        { "parameter": "UkbMax", "value": 60 },
-        { "parameter": "UbeMax", "value": 15 },
+        { "parameter": "VceoMax", "value": 60 },
+        { "parameter": "VcbMax", "value": 60 },
+        { "parameter": "VebMax", "value": 15 },
         { "parameter": "IbMax", "value": 500 },
-        { "parameter": "IkMax", "value": 5000 },
-        { "parameter": "PkMax", "value": 10000 },
+        { "parameter": "IcMax", "value": 5000 },
+        { "parameter": "PcMax", "value": 10000 },
         { "parameter": "TempMin", "value": -60 },
         { "parameter": "TempMax", "value": 70 },
         { "parameter": "TempJunctionMax", "value": 85 },
@@ -445,15 +445,15 @@
       },
       "manufacturers": ["ST", "onsemi"],
       "parameters": [
-        { "parameter": "Ikbo", "max": 200, "Ukb": 60 },
-        { "parameter": "Ikeo", "max": 500, "Uke": 30 }
+        { "parameter": "Icbo", "max": 200, "Vcb": 60 },
+        { "parameter": "Iceo", "max": 500, "Vce": 30 }
       ],
       "ratings": [
-        { "parameter": "UkeoMax", "value": 60 },
-        { "parameter": "UkbMax", "value": 60 },
-        { "parameter": "UbeMax", "value": 5 },
-        { "parameter": "IkMax", "value": 5000 },
-        { "parameter": "PkMax", "value": 65000 },
+        { "parameter": "VceoMax", "value": 60 },
+        { "parameter": "VcbMax", "value": 60 },
+        { "parameter": "VebMax", "value": 5 },
+        { "parameter": "IcMax", "value": 5000 },
+        { "parameter": "PcMax", "value": 65000 },
         { "parameter": "TempMin", "value": -65 },
         { "parameter": "TempMax", "value": 150 },
         { "parameter": "TempJunctionMax", "value": 150 }
@@ -469,15 +469,15 @@
       },
       "manufacturers": ["onsemi", "Philips"],
       "parameters": [
-        { "parameter": "FGran", "min": 50, "Uke": 20, "Ik": 10 },
-        { "parameter": "Ikbo", "max": 0.1, "Ukb": 200 }
+        { "parameter": "fT", "min": 50, "Vce": 20, "Ic": 10 },
+        { "parameter": "Icbo", "max": 0.1, "Vcb": 200 }
       ],
       "ratings": [
-        { "parameter": "UkeoMax", "value": 300 },
-        { "parameter": "UkbMax", "value": 300 },
-        { "parameter": "UbeMax", "value": 6 },
-        { "parameter": "IkMax", "value": 500 },
-        { "parameter": "PkMax", "value": 625 },
+        { "parameter": "VceoMax", "value": 300 },
+        { "parameter": "VcbMax", "value": 300 },
+        { "parameter": "VebMax", "value": 6 },
+        { "parameter": "IcMax", "value": 500 },
+        { "parameter": "PcMax", "value": 625 },
         { "parameter": "TempMin", "value": -55 },
         { "parameter": "TempMax", "value": 150 },
         { "parameter": "TempJunctionMax", "value": 150 }
@@ -495,9 +495,9 @@
       },
       "manufacturers": ["Vishay Siliconix", "International Rectifier"],
       "ratings": [
-        { "parameter": "UsiMax", "value": 100 },
-        { "parameter": "IsiMax", "value": 28000 },
-        { "parameter": "PsiMax", "value": 150000 },
+        { "parameter": "VdsMax", "value": 100 },
+        { "parameter": "IdMax", "value": 28000 },
+        { "parameter": "PdMax", "value": 150000 },
         { "parameter": "TempMin", "value": -55 },
         { "parameter": "TempMax", "value": 175 },
         { "parameter": "TempJunctionMax", "value": 175 }
@@ -513,15 +513,15 @@
       },
       "manufacturers": ["ST", "onsemi"],
       "parameters": [
-        { "parameter": "h21e", "min": 30, "max": 240, "Uke": 10, "Ik": 50 },
-        { "parameter": "Ikbo", "max": 100, "Ukb": 300 }
+        { "parameter": "hfe", "min": 30, "max": 240, "Vce": 10, "Ic": 50 },
+        { "parameter": "Icbo", "max": 100, "Vcb": 300 }
       ],
       "ratings": [
-        { "parameter": "UkeoMax", "value": 300 },
-        { "parameter": "UkbMax", "value": 300 },
-        { "parameter": "UbeMax", "value": 3 },
-        { "parameter": "IkMax", "value": 500 },
-        { "parameter": "PkMax", "value": 20800 },
+        { "parameter": "VceoMax", "value": 300 },
+        { "parameter": "VcbMax", "value": 300 },
+        { "parameter": "VebMax", "value": 3 },
+        { "parameter": "IcMax", "value": 500 },
+        { "parameter": "PcMax", "value": 20800 },
         { "parameter": "TempMin", "value": -65 },
         { "parameter": "TempMax", "value": 150 },
         { "parameter": "TempJunctionMax", "value": 150 }

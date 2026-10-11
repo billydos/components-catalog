@@ -56,7 +56,7 @@ categories(code TEXT PRIMARY KEY)
 conditions(code TEXT PRIMARY KEY,
            unit_code TEXT NULL REFERENCES units(code),
            allow_negative INTEGER NOT NULL DEFAULT 0)
-    -- условия измерения/контекста значения: Uke «напряжение коллектор-эмиттер, V»,
+    -- условия измерения/контекста значения: Vce «напряжение коллектор-эмиттер, V»,
     -- freq «частота, MHz», pulse_duration «длительность импульса, us» …
     -- unit_code NULL — безразмерное условие; allow_negative = 1 (temp) — значению
     -- условия разрешено быть неположительным, по умолчанию условия положительны;
@@ -89,7 +89,7 @@ parameter_kinds(parameter_code TEXT NOT NULL REFERENCES parameters(code) ON DELE
                 kind_code TEXT NOT NULL REFERENCES kinds(code) ON DELETE CASCADE,
                 PRIMARY KEY (parameter_code, kind_code))
     -- применимость параметра к классам (D7): пустой набор = «все классы», включая
-    -- добавленные в будущем; непустой — явный список (Dop: resistor + capacitor);
+    -- добавленные в будущем; непустой — явный список (Tolerance: resistor + capacitor);
     -- значение неприменимого параметра у записи — ошибка валидации
     -- (parameter_not_applicable); ключ параметра в файле — код (внутри объекта
     -- значения по ключу "parameter")
@@ -116,7 +116,7 @@ parameter_condition_set_items(parameter_code TEXT NOT NULL, set_no INTEGER NOT N
                                   ON DELETE CASCADE)
     -- семантика набора: required — обязательны, optional — допустимы, остальные — запрещены
     -- (допустимые комбинации условий как данные); набор может состоять и из одних
-    -- optional (Tgd с опциональной temp); fixed_value допустим только при mode = required
+    -- optional (DF с опциональной temp); fixed_value допустим только при mode = required
 
 attributes(code TEXT PRIMARY KEY,
            group TEXT NULL,
@@ -217,9 +217,9 @@ parameter_values(id PK,
                  value_text TEXT NULL,       -- для text/enum
                  sort_order INTEGER NOT NULL DEFAULT 0)
     -- строка на значение: variant_id NULL — данные типа в целом (ТКЕ, tg δ, допуски),
-    -- иначе — данные исполнения (Unom=160 и Cnom=1…10 и diameter=8 в одном варианте);
+    -- иначе — данные исполнения (Vnom=160 и Cnom=1…10 и diameter=8 в одном варианте);
     -- один параметр при нескольких наборах условий = несколько строк
-    -- (например, «Ikbo при 25 °C и при 85 °C» — две строки одного параметра);
+    -- (например, «Icbo при 25 °C и при 85 °C» — две строки одного параметра);
     -- enum-параметры допускают несколько строк и при одних условиях —
     -- многозначный словарь (ряды номиналов, 07-r1-verification.md §11)
 
@@ -259,9 +259,9 @@ device_analogs(device_id NOT NULL REFERENCES devices(id) ON DELETE CASCADE,
 | `devices (system_code)` | фильтр/подсчёт по системе обозначений (в т.ч. совместно с `kind_code`) |
 | `device_designation_fields (field, text_value)`, `(field, num_value)` | фильтры списка: материал, подкласс, серия, группа, номер… |
 | `device_attribute_values (attribute_code, text_value)`, `(attribute_code, num_value)` | фильтры по атрибутам |
-| `parameter_values (parameter_code, value_min)`, `(parameter_code, value_max)` | фильтры-диапазоны по параметрам (например, h21e ≥ 50) |
-| `parameter_values (parameter_code, value_exact)` | фильтры-равенства по точным значениям (например, `Unom = 25`) |
-| `parameter_values (parameter_code, value_text)` | фильтры-равенства по enum/текстовым значениям (например, `TKE = М47`) |
+| `parameter_values (parameter_code, value_min)`, `(parameter_code, value_max)` | фильтры-диапазоны по параметрам (например, hfe ≥ 50) |
+| `parameter_values (parameter_code, value_exact)` | фильтры-равенства по точным значениям (например, `Vnom = 25`) |
+| `parameter_values (parameter_code, value_text)` | фильтры-равенства по enum/текстовым значениям (например, `TCC = М47`) |
 | `parameter_values (device_id)` | карточка устройства |
 | `parameter_values (variant_id)` | группировка значений по исполнению (карточка-матрица, вариантные фильтры) |
 | `device_variants (device_id)` | сборка карточки: исполнения записи |

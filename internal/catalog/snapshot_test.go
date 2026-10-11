@@ -111,7 +111,7 @@ func TestSnapshotAPI(t *testing.T) {
 		t.Error("несуществующая секция ошибочно найдена")
 	}
 	var nilSnap *catalog.Snapshot
-	if _, ok := nilSnap.Parameter("Kpd"); ok {
+	if _, ok := nilSnap.Parameter("Eta"); ok {
 		t.Error("nil-снимок не должен находить параметры")
 	}
 	if nilSnap.SystemAppliesTo(domain.SystemGost, domain.KindDiode) {

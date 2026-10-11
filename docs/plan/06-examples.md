@@ -16,16 +16,16 @@
       "name": "КТ315Б",
       "system": "gost",
       "attributes": {
-        "structure": "npn", "package": "КТ-13", "tu": "ЖК3.365.200ТУ",
+        "structure": "npn", "package": "КТ-13", "spec": "ЖК3.365.200ТУ",
         "yearFrom": 1967, "yearTo": 1992
       },
       "manufacturers": ["Восход", "Терма"],
       "parameters": [
-        { "parameter": "h21e",  "min": 50, "max": 350, "Uke": 10, "Ik": 1 },
-        { "parameter": "Ikbo",  "max": 0.5, "Ukb": 10, "temp": 25 }
+        { "parameter": "hfe",  "min": 50, "max": 350, "Vce": 10, "Ic": 1 },
+        { "parameter": "Icbo",  "max": 0.5, "Vcb": 10, "temp": 25 }
       ],
       "ratings": [
-        { "parameter": "UkeoMax", "value": 20 },
+        { "parameter": "VceoMax", "value": 20 },
         { "parameter": "TempMin", "value": -60 },
         { "parameter": "TempMax", "value": 100 }
       ],
@@ -36,12 +36,12 @@
       "system": "gost",
       "attributes": { "structure": "pnp" },
       "parameters": [
-        { "parameter": "h21e", "min": 50, "max": 120, "Uke": 5, "Ik": 10 },
-        { "parameter": "Ikbo", "max": 100, "Ukb": 5 }
+        { "parameter": "hfe", "min": 50, "max": 120, "Vce": 5, "Ic": 10 },
+        { "parameter": "Icbo", "max": 100, "Vcb": 5 }
       ],
       "ratings": [
-        { "parameter": "UkeoMax", "value": 15 },
-        { "parameter": "PkMax", "value": 150 },
+        { "parameter": "VceoMax", "value": 15 },
+        { "parameter": "PcMax", "value": 150 },
         { "parameter": "TempMin", "value": -60 },
         { "parameter": "TempMax", "value": 70 }
       ]
@@ -53,24 +53,24 @@
       "system": "pro",
       "attributes": { "structure": "npn", "package": "TO-92" },
       "parameters": [
-        { "parameter": "h21e", "min": 200, "max": 450, "Uke": 5, "Ik": 2 },
-        { "parameter": "FGran", "min": 300, "Uke": 5, "Ik": 2 }
+        { "parameter": "hfe", "min": 200, "max": 450, "Vce": 5, "Ic": 2 },
+        { "parameter": "fT", "min": 300, "Vce": 5, "Ic": 2 }
       ],
       "ratings": [
-        { "parameter": "UkeoMax", "value": 45 },
-        { "parameter": "IkMax", "value": 100 },
-        { "parameter": "PkMax", "value": 500 }
+        { "parameter": "VceoMax", "value": 45 },
+        { "parameter": "IcMax", "value": 100 },
+        { "parameter": "PcMax", "value": 500 }
       ]
     },
     {
       "name": "AD161",                      // A — германий, D — мощный НЧ
       "system": "pro",
       "attributes": { "structure": "pnp", "package": "TO-66" },
-      "parameters": [ { "parameter": "h21e", "min": 80, "max": 200, "Uke": 2, "Ik": 500 } ],
+      "parameters": [ { "parameter": "hfe", "min": 80, "max": 200, "Vce": 2, "Ic": 500 } ],
       "ratings": [
-        { "parameter": "UkeoMax", "value": 32 },
-        { "parameter": "IkMax", "value": 1000 },
-        { "parameter": "PkMax", "value": 6000 },
+        { "parameter": "VceoMax", "value": 32 },
+        { "parameter": "IcMax", "value": 1000 },
+        { "parameter": "PcMax", "value": 6000 },
         { "parameter": "TempMin", "value": -40 },
         { "parameter": "TempMax", "value": 90 }
       ]
@@ -85,11 +85,11 @@
         "structure": "npn", "description": "низкочастотный мощный", "package": "TO-3"
       },
       "manufacturers": ["Motorola", "RCA", "ST"],
-      "parameters": [ { "parameter": "h21e", "min": 20, "max": 70, "Uke": 4, "Ik": 4000 } ],
+      "parameters": [ { "parameter": "hfe", "min": 20, "max": 70, "Vce": 4, "Ic": 4000 } ],
       "ratings": [
-        { "parameter": "UkeoMax", "value": 60 },
-        { "parameter": "IkMax", "value": 15000 },
-        { "parameter": "PkMax", "value": 115000 },
+        { "parameter": "VceoMax", "value": 60 },
+        { "parameter": "IcMax", "value": 15000 },
+        { "parameter": "PcMax", "value": 115000 },
         { "parameter": "TempJunctionMax", "value": 200 }
       ]
     },
@@ -98,8 +98,8 @@
       "system": "jedec",
       "fields": { "material": "si", "subclass": "bjt", "category": "general_purpose" },
       "attributes": { "structure": "npn", "description": "универсальный", "package": "TO-92" },
-      "parameters": [ { "parameter": "h21e", "min": 100, "max": 300, "Uke": 10, "Ik": 10 } ],
-      "ratings": [ { "parameter": "UkeoMax", "value": 40 }, { "parameter": "IkMax", "value": 200 } ],
+      "parameters": [ { "parameter": "hfe", "min": 100, "max": 300, "Vce": 10, "Ic": 10 } ],
+      "ratings": [ { "parameter": "VceoMax", "value": 40 }, { "parameter": "IcMax", "value": 200 } ],
       "analogs": ["КТ315Б"]
     },
 
@@ -108,11 +108,11 @@
       "name": "2SC1815",                    // группа hFE — суффиксом обозначения
       "system": "jis",
       "attributes": { "structure": "npn", "package": "TO-92" },
-      "parameters": [ { "parameter": "h21e", "min": 70, "max": 700, "Uke": 6, "Ik": 2 } ],
+      "parameters": [ { "parameter": "hfe", "min": 70, "max": 700, "Vce": 6, "Ic": 2 } ],
       "ratings": [
-        { "parameter": "UkeoMax", "value": 50 },
-        { "parameter": "IkMax", "value": 150 },
-        { "parameter": "PkMax", "value": 400 }
+        { "parameter": "VceoMax", "value": 50 },
+        { "parameter": "IcMax", "value": 150 },
+        { "parameter": "PcMax", "value": 400 }
       ]
     },
     {
@@ -120,9 +120,9 @@
       "system": "jis",
       "attributes": { "structure": "n-канал", "package": "TO-3P" },
       "ratings": [
-        { "parameter": "UsiMax", "value": 160 },
-        { "parameter": "IsiMax", "value": 7000 },
-        { "parameter": "PsiMax", "value": 100000 }
+        { "parameter": "VdsMax", "value": 160 },
+        { "parameter": "IdMax", "value": 7000 },
+        { "parameter": "PdMax", "value": 100000 }
       ]
     },
 
@@ -132,11 +132,11 @@
       "system": "other",
       "fields": { "material": "ge", "subclass": "bjt", "category": "power", "series": "П", "dev_number": 214 },
       "attributes": { "structure": "pnp", "description": "низкочастотный мощный" },
-      "parameters": [ { "parameter": "h21e", "min": 20, "max": 80, "Uke": 10, "Ik": 2000 } ],
+      "parameters": [ { "parameter": "hfe", "min": 20, "max": 80, "Vce": 10, "Ic": 2000 } ],
       "ratings": [
-        { "parameter": "UkeoMax", "value": 60 },
-        { "parameter": "IkMax", "value": 5000 },
-        { "parameter": "PkMax", "value": 10000 },
+        { "parameter": "VceoMax", "value": 60 },
+        { "parameter": "IcMax", "value": 5000 },
+        { "parameter": "PcMax", "value": 10000 },
         { "parameter": "TempMax", "value": 85 }
       ],
       "analogs": ["AD161"]                              // пара из разных систем — главный случай
@@ -147,9 +147,9 @@
       "fields": { "material": "si", "subclass": "bjt", "category": "power" },
       "attributes": { "structure": "npn", "description": "низкочастотный мощный", "package": "TO-3", "militaryGrade": true },
       "ratings": [
-        { "parameter": "UkeoMax", "value": 60 },
-        { "parameter": "IkMax", "value": 15000 },
-        { "parameter": "PkMax", "value": 115000 }
+        { "parameter": "VceoMax", "value": 60 },
+        { "parameter": "IcMax", "value": 15000 },
+        { "parameter": "PcMax", "value": 115000 }
       ]
     }
   ]
@@ -166,14 +166,14 @@
       "name": "КС168А",                     // стабилитрон 6.8 В
       "system": "gost",
       "parameters": [
-        { "parameter": "Ust", "min": 6.5, "max": 7.1, "Ist": 5 },
-        { "parameter": "Rdiff", "max": 25, "Ist": 5 },
-        { "parameter": "TkUst", "max": 0.05, "Ist": 5 }
+        { "parameter": "Vz", "min": 6.5, "max": 7.1, "Iz": 5 },
+        { "parameter": "Rdiff", "max": 25, "Iz": 5 },
+        { "parameter": "AlphaVz", "max": 0.05, "Iz": 5 }
       ],
       "ratings": [
         { "parameter": "Pmax", "value": 300 },
-        { "parameter": "IstMin", "value": 5 },
-        { "parameter": "IstMax", "value": 40 },
+        { "parameter": "IzMin", "value": 5 },
+        { "parameter": "IzMax", "value": 40 },
         { "parameter": "TempMin", "value": -60 },
         { "parameter": "TempMax", "value": 100 }
       ]
@@ -182,13 +182,13 @@
       "name": "АЛ307Б",                     // светодиод красный
       "system": "gost",
       "parameters": [
-        { "parameter": "Upr", "max": 2, "Ipr": 10 },
-        { "parameter": "Iv", "min": 0.5, "max": 2, "Ipr": 10 },
+        { "parameter": "Vf", "max": 2, "If": 10 },
+        { "parameter": "Iv", "min": 0.5, "max": 2, "If": 10 },
         { "parameter": "Lambda", "min": 650, "max": 675 }
       ],
       "ratings": [
-        { "parameter": "IprMax", "value": 20 },
-        { "parameter": "UobrMax", "value": 5 },
+        { "parameter": "IfMax", "value": 20 },
+        { "parameter": "VrMax", "value": 5 },
         { "parameter": "Pmax", "value": 100 }
       ]
     },
@@ -197,10 +197,10 @@
     {
       "name": "AA119",
       "system": "pro",
-      "parameters": [ { "parameter": "Upr", "max": 1, "Ipr": 10 } ],
+      "parameters": [ { "parameter": "Vf", "max": 1, "If": 10 } ],
       "ratings": [
-        { "parameter": "UobrMax", "value": 45 },
-        { "parameter": "IprMax", "value": 100 },
+        { "parameter": "VrMax", "value": 45 },
+        { "parameter": "IfMax", "value": 100 },
         { "parameter": "TempMax", "value": 70 }
       ]
     },
@@ -208,13 +208,13 @@
       "name": "BZX85C5V1",                  // BZX85 — базовый номер (B кремний, Z стабилитрон, X85 промышленная регистрация); суффикс C5V1 — допуск ±5 %, 5,1 В (V — десятичная запятая)
       "system": "pro",
       "parameters": [
-        { "parameter": "Ust", "min": 4.8, "max": 5.4, "Ist": 45 },
-        { "parameter": "Rdiff", "max": 15, "Ist": 45 }
+        { "parameter": "Vz", "min": 4.8, "max": 5.4, "Iz": 45 },
+        { "parameter": "Rdiff", "max": 15, "Iz": 45 }
       ],
       "ratings": [
         { "parameter": "Pmax", "value": 1300 },
-        { "parameter": "IstMin", "value": 5 },
-        { "parameter": "IstMax", "value": 240 }
+        { "parameter": "IzMin", "value": 5 },
+        { "parameter": "IzMax", "value": 240 }
       ]
     },
 
@@ -224,13 +224,13 @@
       "system": "jedec",
       "attributes": { "description": "импульсный" },
       "parameters": [
-        { "parameter": "Upr", "max": 1, "Ipr": 10 },
-        { "parameter": "trr", "max": 4, "Ipr": 10 },
-        { "parameter": "Iobr", "max": 0.025, "Uobr": 20 }
+        { "parameter": "Vf", "max": 1, "If": 10 },
+        { "parameter": "trr", "max": 4, "If": 10 },
+        { "parameter": "Ir", "max": 0.025, "Vr": 20 }
       ],
       "ratings": [
-        { "parameter": "UobrMax", "value": 100 },
-        { "parameter": "IprMax", "value": 200 },
+        { "parameter": "VrMax", "value": 100 },
+        { "parameter": "IfMax", "value": 200 },
         { "parameter": "Pmax", "value": 500 },
         { "parameter": "TempMin", "value": -65 },
         { "parameter": "TempMax", "value": 150 }
@@ -241,12 +241,12 @@
       "system": "jedec",
       "attributes": { "description": "выпрямительный" },
       "parameters": [
-        { "parameter": "Upr", "max": 1.1, "Ipr": 1000 },
-        { "parameter": "Iobr", "max": 10, "Uobr": 700 }
+        { "parameter": "Vf", "max": 1.1, "If": 1000 },
+        { "parameter": "Ir", "max": 10, "Vr": 700 }
       ],
       "ratings": [
-        { "parameter": "UobrMax", "value": 1000 },
-        { "parameter": "IprMax", "value": 1000 },
+        { "parameter": "VrMax", "value": 1000 },
+        { "parameter": "IfMax", "value": 1000 },
         { "parameter": "TempJunctionMax", "value": 150 }
       ]
     },
@@ -257,20 +257,20 @@
       "system": "jis",
       "attributes": { "description": "импульсный" },
       "parameters": [
-        { "parameter": "Upr", "max": 1, "Ipr": 10 },
-        { "parameter": "trr", "max": 4, "Ipr": 10 }
+        { "parameter": "Vf", "max": 1, "If": 10 },
+        { "parameter": "trr", "max": 4, "If": 10 }
       ],
-      "ratings": [ { "parameter": "UobrMax", "value": 60 }, { "parameter": "IprMax", "value": 100 } ]
+      "ratings": [ { "parameter": "VrMax", "value": 60 }, { "parameter": "IfMax", "value": 100 } ]
     },
     {
       "name": "1SR154-400",                 // суффикс — напряжение
       "system": "jis",
       "attributes": { "description": "выпрямительный быстрый" },
       "parameters": [
-        { "parameter": "Upr", "max": 1.3, "Ipr": 1000 },
-        { "parameter": "trr", "max": 60, "Ipr": 1000 }
+        { "parameter": "Vf", "max": 1.3, "If": 1000 },
+        { "parameter": "trr", "max": 60, "If": 1000 }
       ],
-      "ratings": [ { "parameter": "UobrMax", "value": 400 }, { "parameter": "IprMax", "value": 1000 } ]
+      "ratings": [ { "parameter": "VrMax", "value": 400 }, { "parameter": "IfMax", "value": 1000 } ]
     },
 
     // other: советские семейства вне строгого ГОСТ; семейство — секцией fields
@@ -280,12 +280,12 @@
       "fields": { "series": "Д", "dev_number": 226 },
       "attributes": { "description": "выпрямительный" },
       "parameters": [
-        { "parameter": "Upr", "max": 1, "Ipr": 300 },
-        { "parameter": "Iobr", "max": 100, "Uobr": 400 }
+        { "parameter": "Vf", "max": 1, "If": 300 },
+        { "parameter": "Ir", "max": 100, "Vr": 400 }
       ],
       "ratings": [
-        { "parameter": "UobrMax", "value": 400 },
-        { "parameter": "IprMax", "value": 300 },
+        { "parameter": "VrMax", "value": 400 },
+        { "parameter": "IfMax", "value": 300 },
         { "parameter": "TempMin", "value": -60 },
         { "parameter": "TempMax", "value": 70 }
       ],
@@ -298,10 +298,10 @@
       "system": "other",
       "attributes": { "description": "импульсный", "package": "miniMELF" },
       "parameters": [
-        { "parameter": "Upr", "max": 1, "Ipr": 10 },
-        { "parameter": "trr", "max": 4, "Ipr": 10 }
+        { "parameter": "Vf", "max": 1, "If": 10 },
+        { "parameter": "trr", "max": 4, "If": 10 }
       ],
-      "ratings": [ { "parameter": "UobrMax", "value": 100 }, { "parameter": "IprMax", "value": 200 } ],
+      "ratings": [ { "parameter": "VrMax", "value": 100 }, { "parameter": "IfMax", "value": 200 } ],
       "analogs": ["1N4148"]
     }
   ]
@@ -321,8 +321,8 @@
       "attributes": { "technology": "металлодиэлектрические" },
       "parameters": [
         { "parameter": "Rnom", "min": 1, "max": 10000000 },
-        { "parameter": "Dop", "max": 5 },
-        { "parameter": "TKS", "max": 500 }
+        { "parameter": "Tolerance", "max": 5 },
+        { "parameter": "TCR", "max": 500 }
       ],
       "ratings": [
         { "parameter": "TempMin", "value": -60 },
@@ -331,12 +331,12 @@
       "variants": [                                     // ряд мощностей — варианты с обязательным Pnom (правило resistor_variant_power)
         {
           "label": "0.125 Вт",
-          "ratings": [ { "parameter": "Pnom", "value": 0.125 }, { "parameter": "Umax", "value": 250 } ],
+          "ratings": [ { "parameter": "Pnom", "value": 0.125 }, { "parameter": "Vmax", "value": 250 } ],
           "dimensions": [ { "parameter": "massMax", "value": 0.15 } ]
         },
         {
           "label": "1 Вт",
-          "ratings": [ { "parameter": "Pnom", "value": 1 }, { "parameter": "Umax", "value": 500 } ],
+          "ratings": [ { "parameter": "Pnom", "value": 1 }, { "parameter": "Vmax", "value": 500 } ],
           "dimensions": [ { "parameter": "massMax", "value": 0.8 } ]
         }
       ]
@@ -347,8 +347,8 @@
       "attributes": { "functionalChar": "А" },
       "parameters": [
         { "parameter": "Rnom", "min": 1000, "max": 2200000 },
-        { "parameter": "Dop", "max": 20 },
-        { "parameter": "TKS", "max": 1500 }
+        { "parameter": "Tolerance", "max": 20 },
+        { "parameter": "TCR", "max": 1500 }
       ],
       "ratings": [ { "parameter": "Pnom", "value": 0.5 } ]
     },
@@ -358,13 +358,13 @@
       "attributes": { "technology": "проволочные" },
       "parameters": [
         { "parameter": "Rnom", "min": 0.1, "max": 100000 },
-        { "parameter": "Dop", "max": 1 },
-        { "parameter": "TKS", "max": 100 },
-        { "parameter": "Ush", "max": 1 }
+        { "parameter": "Tolerance", "max": 1 },
+        { "parameter": "TCR", "max": 100 },
+        { "parameter": "Vnoise", "max": 1 }
       ],
       "ratings": [
         { "parameter": "Pnom", "value": 10 },
-        { "parameter": "Umax", "value": 750 },
+        { "parameter": "Vmax", "value": 750 },
         { "parameter": "TempMin", "value": -60 },
         { "parameter": "TempMax", "value": 155 }
       ]
@@ -378,14 +378,14 @@
       "name": "Р1-4",
       "system": "ost",
       "attributes": { "technology": "непроволочные" },
-      "parameters": [ { "parameter": "Rnom", "min": 1, "max": 1000000 }, { "parameter": "Dop", "max": 10 } ],
-      "ratings": [ { "parameter": "Pnom", "value": 0.25 }, { "parameter": "Umax", "value": 250 } ]
+      "parameters": [ { "parameter": "Rnom", "min": 1, "max": 1000000 }, { "parameter": "Tolerance", "max": 10 } ],
+      "ratings": [ { "parameter": "Pnom", "value": 0.25 }, { "parameter": "Vmax", "value": 250 } ]
     },
     {
       "name": "РП1-46",
       "system": "ost",
       "attributes": { "functionalChar": "Б" },
-      "parameters": [ { "parameter": "Rnom", "min": 1000, "max": 1000000 }, { "parameter": "Dop", "max": 20 } ],
+      "parameters": [ { "parameter": "Rnom", "min": 1000, "max": 1000000 }, { "parameter": "Tolerance", "max": 20 } ],
       "ratings": [ { "parameter": "Pnom", "value": 0.5 } ]
     },
 
@@ -396,15 +396,15 @@
       "fields": { "series": "МЛТ" },
       "parameters": [
         { "parameter": "Rnom", "min": 1, "max": 5100000 },
-        { "parameter": "Dop", "max": 10 },                        // ±2; ±5; ±10 %
+        { "parameter": "Tolerance", "max": 10 },                        // ±2; ±5; ±10 %
         { "parameter": "nominalRow", "text": "E24" },             // ряды номиналов: E24 при ±5/±10 %,
         { "parameter": "nominalRow", "text": "E96" },             // E96 при ±2 %
-        { "parameter": "TKS", "max": 1200 },
-        { "parameter": "Riz", "min": 10000000000 }
+        { "parameter": "TCR", "max": 1200 },
+        { "parameter": "Rins", "min": 10000000000 }
       ],
       "ratings": [
         { "parameter": "Pnom", "value": 0.5 },
-        { "parameter": "Umax", "value": 350 },
+        { "parameter": "Vmax", "value": 350 },
         { "parameter": "TempMin", "value": -60 },
         { "parameter": "TempMax", "value": 70 }
       ],
@@ -417,10 +417,10 @@
       "attributes": { "technology": "проволочные" },
       "parameters": [
         { "parameter": "Rnom", "min": 1.8, "max": 10000 },
-        { "parameter": "Dop", "max": 10 },
-        { "parameter": "TKS", "max": 300 }
+        { "parameter": "Tolerance", "max": 10 },
+        { "parameter": "TCR", "max": 300 }
       ],
-      "ratings": [ { "parameter": "Pnom", "value": 10 }, { "parameter": "Umax", "value": 1500 } ]
+      "ratings": [ { "parameter": "Pnom", "value": 10 }, { "parameter": "Vmax", "value": 1500 } ]
     },
 
     // other: фирменные имена и MIL-форма; ключ system обязателен
@@ -428,13 +428,13 @@
       "name": "KNP-100",
       "system": "other",
       "attributes": { "package": "цементный" },
-      "parameters": [ { "parameter": "Rnom", "min": 0.1, "max": 100000 }, { "parameter": "Dop", "max": 5 } ],
+      "parameters": [ { "parameter": "Rnom", "min": 0.1, "max": 100000 }, { "parameter": "Tolerance", "max": 5 } ],
       "ratings": [ { "parameter": "Pnom", "value": 5 } ]
     },
     {
       "name": "CFR-25",
       "system": "other",
-      "parameters": [ { "parameter": "Rnom", "min": 1, "max": 10000000 }, { "parameter": "Dop", "max": 5 } ],
+      "parameters": [ { "parameter": "Rnom", "min": 1, "max": 10000000 }, { "parameter": "Tolerance", "max": 5 } ],
       "ratings": [ { "parameter": "Pnom", "value": 0.25 } ]
     },
     {
@@ -458,16 +458,16 @@
     {
       "name": "К50-35",
       "system": "gost",
-      "attributes": { "polarized": true, "tu": "ОЖ0.464.214ТУ" },
+      "attributes": { "polarized": true, "spec": "ОЖ0.464.214ТУ" },
       "parameters": [                       // тип в целом (variant_id NULL)
-        { "parameter": "Dop", "max": 50 },                              // +50/−20 %
-        { "parameter": "Tgd", "max": 30, "temp": 20 }                   // 30 % (6,3–16 В) … 10 % (160 В)
+        { "parameter": "Tolerance", "max": 50 },                              // +50/−20 %
+        { "parameter": "DF", "max": 30, "temp": 20 }                   // 30 % (6,3–16 В) … 10 % (160 В)
       ],
       "variants": [
         {
           "label": "160 В",
           "parameters": [
-            { "parameter": "Unom", "value": 160 },
+            { "parameter": "Vnom", "value": 160 },
             { "parameter": "Cnom", "min": 1000000, "max": 100000000 }  // 1–100 мкФ
           ],
           "dimensions": [ { "parameter": "diameter", "value": 18 },    // радиальный цилиндрический набор
@@ -477,7 +477,7 @@
         {
           "label": "25 В",
           "parameters": [
-            { "parameter": "Unom", "value": 25 },
+            { "parameter": "Vnom", "value": 25 },
             { "parameter": "Cnom", "min": 22000000, "max": 4700000000 }   // 22–4700 мкФ
           ],
           "dimensions": [ { "parameter": "diameter", "value": 16 },
@@ -492,11 +492,11 @@
     {
       "name": "К10-17Б",
       "system": "gost",
-      "attributes": { "package": "монолитный", "tu": "ОЖ0.460.172ТУ" },
+      "attributes": { "package": "монолитный", "spec": "ОЖ0.460.172ТУ" },
       "parameters": [
         { "parameter": "Cnom", "min": 2.2, "max": 2200000 },        // 2,2 пФ – 2,2 мкФ (по группам ТКЕ)
-        { "parameter": "TKE", "text": "Н50" },
-        { "parameter": "Unom", "value": 50 }
+        { "parameter": "TCC", "text": "Н50" },
+        { "parameter": "Vnom", "value": 50 }
       ],
       "dimensions": [ { "parameter": "massMax", "value": 1 },
                       { "parameter": "length", "value": 6 },
@@ -509,10 +509,10 @@
       "system": "gost",
       "parameters": [
         { "parameter": "Cnom", "min": 10000, "max": 1000000 },     // 0.01–1 мкФ
-        { "parameter": "Dop", "max": 10 },
-        { "parameter": "Unom", "value": 250 },
-        { "parameter": "Tgd", "max": 1 },
-        { "parameter": "Riz", "min": 10000000000 },
+        { "parameter": "Tolerance", "max": 10 },
+        { "parameter": "Vnom", "value": 250 },
+        { "parameter": "DF", "max": 1 },
+        { "parameter": "Rins", "min": 10000000000 },
         { "parameter": "opTempMin", "value": -60 },
         { "parameter": "opTempMax", "value": 70 }
       ]
@@ -525,10 +525,10 @@
       "fields": { "series": "КСО", "dev_number": 2 },
       "parameters": [
         { "parameter": "Cnom", "min": 51, "max": 3300 },
-        { "parameter": "Dop", "max": 10 },
-        { "parameter": "Unom", "value": 500 },
-        { "parameter": "Tgd", "max": 0.1 },
-        { "parameter": "Riz", "min": 10000000000 },
+        { "parameter": "Tolerance", "max": 10 },
+        { "parameter": "Vnom", "value": 500 },
+        { "parameter": "DF", "max": 0.1 },
+        { "parameter": "Rins", "min": 10000000000 },
         { "parameter": "opTempMin", "value": -60 },
         { "parameter": "opTempMax", "value": 70 }
       ]
@@ -539,9 +539,9 @@
       "fields": { "series": "МБМ" },
       "parameters": [
         { "parameter": "Cnom", "min": 47000, "max": 470000 },      // 0.047–0.47 мкФ
-        { "parameter": "Dop", "max": 10 },
-        { "parameter": "Unom", "value": 250 },
-        { "parameter": "Tgd", "max": 1 },
+        { "parameter": "Tolerance", "max": 10 },
+        { "parameter": "Vnom", "value": 250 },
+        { "parameter": "DF", "max": 1 },
         { "parameter": "opTempMin", "value": -60 },
         { "parameter": "opTempMax", "value": 70 }
       ],
@@ -553,9 +553,9 @@
       "fields": { "series": "МБГЧ", "dev_number": 1 },
       "parameters": [
         { "parameter": "Cnom", "min": 100000, "max": 1000000 },    // 0.1–1 мкФ
-        { "parameter": "Dop", "max": 10 },
-        { "parameter": "Unom", "value": 500 },
-        { "parameter": "Tgd", "max": 1 },
+        { "parameter": "Tolerance", "max": 10 },
+        { "parameter": "Vnom", "value": 500 },
+        { "parameter": "DF", "max": 1 },
         { "parameter": "opTempMin", "value": -60 },
         { "parameter": "opTempMax", "value": 70 }
       ]
@@ -573,8 +573,8 @@
       "attributes": { "technology": "керамика X7R", "package": "0603" },
       "parameters": [
         { "parameter": "Cnom", "min": 100000, "max": 100000 },     // 0.1 мкФ — единичный номинал кода, границы равны
-        { "parameter": "Dop", "max": 10 },
-        { "parameter": "Unom", "value": 50 },
+        { "parameter": "Tolerance", "max": 10 },
+        { "parameter": "Vnom", "value": 50 },
         { "parameter": "opTempMin", "value": -55 },
         { "parameter": "opTempMax", "value": 125 }
       ]
@@ -585,9 +585,9 @@
       "attributes": { "polarized": true, "technology": "танталовые", "package": "B" },
       "parameters": [
         { "parameter": "Cnom", "min": 47000000, "max": 47000000 }, // 47 мкФ
-        { "parameter": "Dop", "max": 10 },
-        { "parameter": "Unom", "value": 16 },
-        { "parameter": "Iut", "max": 8, "Unom": 16 },
+        { "parameter": "Tolerance", "max": 10 },
+        { "parameter": "Vnom", "value": 16 },
+        { "parameter": "Ileak", "max": 8, "Vnom": 16 },
         { "parameter": "opTempMin", "value": -55 },
         { "parameter": "opTempMax", "value": 125 }
       ]

@@ -354,7 +354,7 @@ func TestImportIssuesReportedToStderr(t *testing.T) {
 	}
 	bad := filepath.Join(t.TempDir(), "bad.jsonc")
 	content := `{"transistors": [
-		{ "name": "ГТ109Г", "ratings": [ { "parameter": "UkeoMax", "value": -1 } ] },
+		{ "name": "ГТ109Г", "ratings": [ { "parameter": "VceoMax", "value": -1 } ] },
 		"КТ315Б"
 	]}`
 	if err := os.WriteFile(bad, []byte(content), 0o644); err != nil {
@@ -367,7 +367,7 @@ func TestImportIssuesReportedToStderr(t *testing.T) {
 	if !strings.Contains(stdout, "records: 2, added: 1") {
 		t.Fatalf("итог: %q", stdout)
 	}
-	want := "Problem: record «ГТ109Г»: parameter «UkeoMax»: value of key value must be positive\n"
+	want := "Problem: record «ГТ109Г»: parameter «VceoMax»: value of key value must be positive\n"
 	if stderr != want {
 		t.Fatalf("stderr:\n got:  %q\n want: %q", stderr, want)
 	}
@@ -440,7 +440,7 @@ func TestCatalogCommands(t *testing.T) {
 
 	stdout, stderr, code = run(t, "catalog", "list", "--db", db2)
 	if code != 0 || stderr != "" || !strings.Contains(stdout, "Parameters:") ||
-		!strings.Contains(stdout, "h21e —") || !strings.Contains(stdout, "Attributes:") {
+		!strings.Contains(stdout, "hfe —") || !strings.Contains(stdout, "Attributes:") {
 		t.Fatalf("catalog list: код %d, %q", code, stdout)
 	}
 }

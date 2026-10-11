@@ -97,9 +97,9 @@ func TestSeedTKEEnum(t *testing.T) {
 	if len(probs) != 0 {
 		t.Fatalf("проблемы применения сидов: %v", probs)
 	}
-	p, ok := snap.Parameter("TKE")
+	p, ok := snap.Parameter("TCC")
 	if !ok {
-		t.Fatal("TKE отсутствует")
+		t.Fatal("TCC отсутствует")
 	}
 	want := []string{
 		"П100", "П120", "П60", "П33", "МП0", "М33", "М47", "М75",
@@ -111,7 +111,7 @@ func TestSeedTKEEnum(t *testing.T) {
 		t.Fatalf("ТКЕ:\n got:  %v\n want: %v", p.EnumValues, want)
 	}
 	if p.Unit != "" || p.ValueType != catalog.ValueEnum {
-		t.Fatalf("TKE: тип %s, единица %q", string(p.ValueType), p.Unit)
+		t.Fatalf("TCC: тип %s, единица %q", string(p.ValueType), p.Unit)
 	}
 }
 
@@ -153,8 +153,8 @@ func TestSeedSpotChecks(t *testing.T) {
 		}
 		return p
 	}
-	if kpd := check("Kpd"); kpd.Ceiling == nil || *kpd.Ceiling != 100 {
-		t.Errorf("Kpd: потолок %v, ожидался 100", kpd.Ceiling)
+	if kpd := check("Eta"); kpd.Ceiling == nil || *kpd.Ceiling != 100 {
+		t.Errorf("Eta: потолок %v, ожидался 100", kpd.Ceiling)
 	}
 	tmin := check("TempMin")
 	if !tmin.AllowNegative || tmin.ValidationRule != "temp_pair" {
@@ -163,57 +163,57 @@ func TestSeedSpotChecks(t *testing.T) {
 	if !slices.Equal(tmin.Kinds, []domain.Kind{domain.KindTransistor, domain.KindDiode, domain.KindResistor}) {
 		t.Errorf("TempMin: применимость %v", tmin.Kinds)
 	}
-	dop := check("Dop")
+	dop := check("Tolerance")
 	if !dop.AppliesTo(domain.KindResistor) || !dop.AppliesTo(domain.KindCapacitor) || dop.AppliesTo(domain.KindTransistor) {
-		t.Errorf("Dop: применимость %v", dop.Kinds)
+		t.Errorf("Tolerance: применимость %v", dop.Kinds)
 	}
 	esr := check("Esr")
 	if len(esr.ConditionSets) != 1 || len(esr.ConditionSets[0].Items) != 1 ||
 		esr.ConditionSets[0].Items[0].FixedValue == nil || *esr.ConditionSets[0].Items[0].FixedValue != 0.1 {
 		t.Errorf("Esr: набор условий %+v", esr.ConditionSets)
 	}
-	pulse := check("IkPulseMax")
+	pulse := check("IcPulseMax")
 	if len(pulse.ConditionSets) != 1 || len(pulse.ConditionSets[0].Items) != 1 ||
 		pulse.ConditionSets[0].Items[0].Mode != catalog.ModeRequired ||
 		pulse.ConditionSets[0].Items[0].Condition != "pulse_duration" {
-		t.Errorf("IkPulseMax: набор условий %+v", pulse.ConditionSets)
+		t.Errorf("IcPulseMax: набор условий %+v", pulse.ConditionSets)
 	}
 	// Полевые транзисторы: собственные коды величин стока/затвора, без
 	// пересечений с биполярными (03 §6.1–6.2).
-	psi := check("PsiMax")
+	psi := check("PdMax")
 	if psi.Unit != "mW" || psi.ValueType != catalog.ValueExact || len(psi.ConditionSets) != 0 ||
 		!psi.AppliesTo(domain.KindTransistor) {
-		t.Errorf("PsiMax: %+v", psi)
+		t.Errorf("PdMax: %+v", psi)
 	}
-	isiPulse := check("IsiPulseMax")
+	isiPulse := check("IdPulseMax")
 	if len(isiPulse.ConditionSets) != 1 || len(isiPulse.ConditionSets[0].Items) != 1 ||
 		isiPulse.ConditionSets[0].Items[0].Mode != catalog.ModeRequired ||
 		isiPulse.ConditionSets[0].Items[0].Condition != "pulse_duration" {
-		t.Errorf("IsiPulseMax: набор условий %+v", isiPulse.ConditionSets)
+		t.Errorf("IdPulseMax: набор условий %+v", isiPulse.ConditionSets)
 	}
-	if s, _ := snap.Parameter("S"); s.Unit != "mA_per_V" || s.ValueType != catalog.ValueAtLeast ||
+	if s, _ := snap.Parameter("gfs"); s.Unit != "mA_per_V" || s.ValueType != catalog.ValueAtLeast ||
 		len(s.ConditionSets) != 2 {
-		t.Errorf("S: единица %q, тип %s, наборы %+v", s.Unit, string(s.ValueType), s.ConditionSets)
+		t.Errorf("gfs: единица %q, тип %s, наборы %+v", s.Unit, string(s.ValueType), s.ConditionSets)
 	}
-	ots := check("UziOts")
+	ots := check("VgsOff")
 	if !ots.AllowNegative || ots.ValueType != catalog.ValueRange ||
-		len(ots.ConditionSets) != 1 || ots.ConditionSets[0].Items[0].Condition != "Isi" {
-		t.Errorf("UziOts: %+v", ots)
+		len(ots.ConditionSets) != 1 || ots.ConditionSets[0].Items[0].Condition != "Id" {
+		t.Errorf("VgsOff: %+v", ots)
 	}
-	if c, ok := snap.Condition("Uzi"); !ok || c.Unit != "V" || !c.AllowNegative {
-		t.Errorf("условие Uzi: %+v", c)
+	if c, ok := snap.Condition("Vgs"); !ok || c.Unit != "V" || !c.AllowNegative {
+		t.Errorf("условие Vgs: %+v", c)
 	}
-	if c, ok := snap.Condition("Isi"); !ok || c.Unit != "mA" || c.AllowNegative {
-		t.Errorf("условие Isi: %+v", c)
+	if c, ok := snap.Condition("Id"); !ok || c.Unit != "mA" || c.AllowNegative {
+		t.Errorf("условие Id: %+v", c)
 	}
 	if u, ok := snap.Unit("nA"); !ok {
 		t.Errorf("единица nA: %+v", u)
 	}
-	if u, _ := snap.Parameter("Ush"); u.Unit != "" {
-		t.Errorf("Ush: единица %q (должна быть NULL)", u.Unit)
+	if u, _ := snap.Parameter("Vnoise"); u.Unit != "" {
+		t.Errorf("Vnoise: единица %q (должна быть NULL)", u.Unit)
 	}
-	if cp, _ := snap.Parameter("Cp"); cp.Unit != "" {
-		t.Errorf("Cp: единица %q (должна быть NULL)", cp.Unit)
+	if cp, _ := snap.Parameter("Cratio"); cp.Unit != "" {
+		t.Errorf("Cratio: единица %q (должна быть NULL)", cp.Unit)
 	}
 	for _, code := range []string{"massMax", "length", "width", "height", "diameter", "leadLength", "leadPitch"} {
 		if p := check(code); p.ValidationRule != "cap_dimensions_form" || p.ValueType != catalog.ValueExact {

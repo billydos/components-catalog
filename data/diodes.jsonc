@@ -8,16 +8,16 @@
       "name": "КДС111В",                     // сборка из двух выпрямительных диодов, общий катод
       "system": "gost",
       "attributes": {
-        "description": "выпрямительная сборка", "tu": "3.362.145ТУ",
+        "description": "выпрямительная сборка", "spec": "3.362.145ТУ",
         "datasheetUrl": "https://eandc.ru/catalog/detail.php?ID=8815"
       },
       "parameters": [
-        { "parameter": "Upr", "max": 1.2, "Ipr": 100 },
-        { "parameter": "Iobr", "max": 3, "Uobr": 300 }
+        { "parameter": "Vf", "max": 1.2, "If": 100 },
+        { "parameter": "Ir", "max": 3, "Vr": 300 }
       ],
       "ratings": [
-        { "parameter": "UobrMax", "value": 300 },
-        { "parameter": "IprMax", "value": 200 },
+        { "parameter": "VrMax", "value": 300 },
+        { "parameter": "IfMax", "value": 200 },
         { "parameter": "TempMin", "value": -60 },
         { "parameter": "TempMax", "value": 85 }
       ]
@@ -26,18 +26,18 @@
       "name": "КС168А",                      // стабилитрон 6,8 В: напряжение — в двух последних цифрах номера
       "system": "gost",
       "attributes": {
-        "description": "стабилитрон", "package": "КД-4-1", "tu": "СМ3.362.812ТУ",
+        "description": "стабилитрон", "package": "КД-4-1", "spec": "СМ3.362.812ТУ",
         "datasheetUrl": "http://www.club155.ru/datasheet/KS168A"
       },
       "parameters": [
-        { "parameter": "Ust", "min": 6.12, "max": 7.48, "Ist": 10 },
-        { "parameter": "Rdiff", "max": 28, "Ist": 10 },
-        { "parameter": "TkUst", "max": 0.06, "Ist": 10 }
+        { "parameter": "Vz", "min": 6.12, "max": 7.48, "Iz": 10 },
+        { "parameter": "Rdiff", "max": 28, "Iz": 10 },
+        { "parameter": "AlphaVz", "max": 0.06, "Iz": 10 }
       ],
       "ratings": [
         { "parameter": "Pmax", "value": 300 },
-        { "parameter": "IstMin", "value": 3 },
-        { "parameter": "IstMax", "value": 45 },
+        { "parameter": "IzMin", "value": 3 },
+        { "parameter": "IzMax", "value": 45 },
         { "parameter": "TempMin", "value": -60 },
         { "parameter": "TempMax", "value": 125 }
       ]
@@ -46,16 +46,16 @@
       "name": "АЛ307Б",                      // светодиод красный; Iv нормирован снизу (≥0,9 мкд) — диапазон в модель не ложится
       "system": "gost",
       "attributes": {
-        "description": "светодиод", "tu": "аА0.336.076ТУ",
+        "description": "светодиод", "spec": "аА0.336.076ТУ",
         "datasheetUrl": "https://kazus.ru/post/3200032-al307"
       },
       "parameters": [
-        { "parameter": "Upr", "max": 2, "Ipr": 10 },
+        { "parameter": "Vf", "max": 2, "If": 10 },
         { "parameter": "Lambda", "min": 666, "max": 666 }        // λmax
       ],
       "ratings": [
-        { "parameter": "UobrMax", "value": 2 },
-        { "parameter": "IprMax", "value": 20 },
+        { "parameter": "VrMax", "value": 2 },
+        { "parameter": "IfMax", "value": 20 },
         { "parameter": "TempMin", "value": -60 },
         { "parameter": "TempMax", "value": 70 }
       ]
@@ -68,12 +68,12 @@
         "datasheetUrl": "https://kazus.ru/post/2686850-kd522a"
       },
       "parameters": [
-        { "parameter": "Upr", "max": 1.1, "Ipr": 100 },
-        { "parameter": "Iobr", "max": 2, "Uobr": 30 }
+        { "parameter": "Vf", "max": 1.1, "If": 100 },
+        { "parameter": "Ir", "max": 2, "Vr": 30 }
       ],
       "ratings": [
-        { "parameter": "UobrMax", "value": 30 },
-        { "parameter": "IprMax", "value": 100 },
+        { "parameter": "VrMax", "value": 30 },
+        { "parameter": "IfMax", "value": 100 },
         { "parameter": "TempMin", "value": -55 },
         { "parameter": "TempMax", "value": 85 },
         { "parameter": "TempJunctionMax", "value": 125 }
@@ -88,13 +88,13 @@
         "datasheetUrl": "https://www.chipdip.ru/product/als324b1-indikator-semisegmentnyy-34368"
       },
       "parameters": [
-        { "parameter": "Iv", "min": 0.15, "max": 0.45, "Ipr": 20 },
+        { "parameter": "Iv", "min": 0.15, "max": 0.45, "If": 20 },
         { "parameter": "Lambda", "min": 655, "max": 670 }
         // Uпр 2,5 В и Iпр.имп 300 мА: в источниках нет различимых условий нормировки (ток, tи/Q) — не сохраняются
       ],
       "ratings": [
-        { "parameter": "UobrMax", "value": 5 },
-        { "parameter": "IprMax", "value": 25 },
+        { "parameter": "VrMax", "value": 5 },
+        { "parameter": "IfMax", "value": 25 },
         { "parameter": "Pmax", "value": 500 },
         { "parameter": "TempMin", "value": -60 },
         { "parameter": "TempMax", "value": 70 }
@@ -113,8 +113,8 @@
         // Iv нормирован только снизу (≥0,2 мкд @ 20 мА); Uпр 2 В и Iпр.имп 200 мА — без различимых условий — не сохраняются
       ],
       "ratings": [
-        { "parameter": "UobrMax", "value": 5 },
-        { "parameter": "IprMax", "value": 25 },
+        { "parameter": "VrMax", "value": 5 },
+        { "parameter": "IfMax", "value": 25 },
         { "parameter": "Pmax", "value": 400 }
       ]
     },
@@ -128,12 +128,12 @@
       },
       "manufacturers": ["СЗТП"],
       "parameters": [
-        { "parameter": "Upr", "max": 4, "Ipr": 1000 }
+        { "parameter": "Vf", "max": 4, "If": 1000 }
         // Iобр 125 мкА: в источнике не приведены условия нормировки — не сохраняется
       ],
       "ratings": [
-        { "parameter": "UobrMax", "value": 600 },
-        { "parameter": "IprMax", "value": 1000 },
+        { "parameter": "VrMax", "value": 600 },
+        { "parameter": "IfMax", "value": 1000 },
         { "parameter": "TempMin", "value": -40 },
         { "parameter": "TempMax", "value": 85 }
       ]
@@ -148,12 +148,12 @@
       },
       "manufacturers": ["ПО Днепр"],
       "parameters": [
-        { "parameter": "Upr", "max": 2.5, "Ipr": 200 }
+        { "parameter": "Vf", "max": 2.5, "If": 200 }
         // trr 5 мкс и Iпр.имп 2 А: без условий нормировки — не сохраняются
       ],
       "ratings": [
-        { "parameter": "UobrMax", "value": 400 },
-        { "parameter": "IprMax", "value": 500 },
+        { "parameter": "VrMax", "value": 400 },
+        { "parameter": "IfMax", "value": 500 },
         { "parameter": "TempMin", "value": -60 },
         { "parameter": "TempMax", "value": 85 }
       ]
@@ -168,10 +168,10 @@
         "datasheetUrl": "https://www.fabian.com.mt/en/featured/webshop/9216/germanium-diode-35ma-30v-aa119.htm"
       },
       "manufacturers": ["Telefunken"],
-      "parameters": [ { "parameter": "Upr", "max": 2.2, "Ipr": 10 } ],
+      "parameters": [ { "parameter": "Vf", "max": 2.2, "If": 10 } ],
       "ratings": [
-        { "parameter": "UobrMax", "value": 30 },
-        { "parameter": "IprMax", "value": 35 }
+        { "parameter": "VrMax", "value": 30 },
+        { "parameter": "IfMax", "value": 35 }
       ]
     },
     {
@@ -183,19 +183,19 @@
       },
       "manufacturers": ["Diotec", "Philips", "Tesla"],
       "parameters": [
-        { "parameter": "Upr", "max": 1.3, "Ipr": 1000 },
-        { "parameter": "Iobr", "max": 5, "Uobr": 1300 },
-        { "parameter": "Cn", "max": 15, "Uobr": 4 }
+        { "parameter": "Vf", "max": 1.3, "If": 1000 },
+        { "parameter": "Ir", "max": 5, "Vr": 1300 },
+        { "parameter": "Ctot", "max": 15, "Vr": 4 }
       ],
       "ratings": [
-        { "parameter": "UobrMax", "value": 1300 },
-        { "parameter": "IprMax", "value": 1000 },
+        { "parameter": "VrMax", "value": 1300 },
+        { "parameter": "IfMax", "value": 1000 },
         { "parameter": "TempMin", "value": -50 },
         { "parameter": "TempMax", "value": 175 }
       ]
     },
     {
-      "name": "BZX85C5V1",                   // стабилитрон 5,1 В ±5 %; тест-ток в доступных источниках не приведён — Ust/Rdiff не сохраняются
+      "name": "BZX85C5V1",                   // стабилитрон 5,1 В ±5 %; тест-ток в доступных источниках не приведён — Vz/Rdiff не сохраняются
       "system": "pro",
       "attributes": {
         "description": "стабилитрон",
@@ -218,14 +218,14 @@
       },
       "manufacturers": ["Diotec", "Nexperia"],
       "parameters": [
-        { "parameter": "Upr", "max": 0.855, "Ipr": 10 },
-        { "parameter": "Upr", "max": 1.25, "Ipr": 150 },
-        { "parameter": "Iobr", "max": 1, "Uobr": 75 },
-        { "parameter": "trr", "max": 4, "Ipr": 10 }        // IF=10 мА, IR 10→1 мА (Diotec)
+        { "parameter": "Vf", "max": 0.855, "If": 10 },
+        { "parameter": "Vf", "max": 1.25, "If": 150 },
+        { "parameter": "Ir", "max": 1, "Vr": 75 },
+        { "parameter": "trr", "max": 4, "If": 10 }        // IF=10 мА, IR 10→1 мА (Diotec)
       ],
       "ratings": [
-        { "parameter": "UobrMax", "value": 85 },
-        { "parameter": "IprMax", "value": 215 },           // одна нагруженная диода, TA=25 °C (Diotec)
+        { "parameter": "VrMax", "value": 85 },
+        { "parameter": "IfMax", "value": 215 },           // одна нагруженная диода, TA=25 °C (Diotec)
         { "parameter": "Pmax", "value": 350 },
         { "parameter": "TempMin", "value": -55 },
         { "parameter": "TempJunctionMax", "value": 150 }
@@ -242,14 +242,14 @@
       },
       "manufacturers": ["Diotec", "Nexperia"],
       "parameters": [
-        { "parameter": "Upr", "max": 0.32, "Ipr": 1 },
-        { "parameter": "Upr", "max": 0.4, "Ipr": 10 },
-        { "parameter": "Iobr", "max": 2, "Uobr": 25 },
-        { "parameter": "trr", "max": 5, "Ipr": 10 }
+        { "parameter": "Vf", "max": 0.32, "If": 1 },
+        { "parameter": "Vf", "max": 0.4, "If": 10 },
+        { "parameter": "Ir", "max": 2, "Vr": 25 },
+        { "parameter": "trr", "max": 5, "If": 10 }
       ],
       "ratings": [
-        { "parameter": "UobrMax", "value": 30 },
-        { "parameter": "IprMax", "value": 200 },           // на диод, DC (Diotec)
+        { "parameter": "VrMax", "value": 30 },
+        { "parameter": "IfMax", "value": 200 },           // на диод, DC (Diotec)
         { "parameter": "Pmax", "value": 290 },
         { "parameter": "TempMin", "value": -55 },
         { "parameter": "TempJunctionMax", "value": 150 }
@@ -267,13 +267,13 @@
       },
       "manufacturers": ["Fairchild", "Vishay"],
       "parameters": [
-        { "parameter": "Upr", "max": 1, "Ipr": 10 },
-        { "parameter": "Iobr", "max": 0.025, "Uobr": 20 },
-        { "parameter": "trr", "max": 4, "Ipr": 10 }
+        { "parameter": "Vf", "max": 1, "If": 10 },
+        { "parameter": "Ir", "max": 0.025, "Vr": 20 },
+        { "parameter": "trr", "max": 4, "If": 10 }
       ],
       "ratings": [
-        { "parameter": "UobrMax", "value": 100 },
-        { "parameter": "IprMax", "value": 300 },
+        { "parameter": "VrMax", "value": 100 },
+        { "parameter": "IfMax", "value": 300 },
         { "parameter": "Pmax", "value": 500 }
       ]
     },
@@ -287,13 +287,13 @@
       },
       "manufacturers": ["Diotec", "Fairchild"],
       "parameters": [
-        { "parameter": "Upr", "max": 1.1, "Ipr": 1000 },
-        { "parameter": "Iobr", "max": 5, "Uobr": 1000 },
-        { "parameter": "Cn", "max": 15, "Uobr": 4 }
+        { "parameter": "Vf", "max": 1.1, "If": 1000 },
+        { "parameter": "Ir", "max": 5, "Vr": 1000 },
+        { "parameter": "Ctot", "max": 15, "Vr": 4 }
       ],
       "ratings": [
-        { "parameter": "UobrMax", "value": 1000 },
-        { "parameter": "IprMax", "value": 1000 },
+        { "parameter": "VrMax", "value": 1000 },
+        { "parameter": "IfMax", "value": 1000 },
         { "parameter": "TempMin", "value": -50 },
         { "parameter": "TempMax", "value": 175 }
       ],
@@ -309,12 +309,12 @@
       },
       "manufacturers": ["Diotec"],
       "parameters": [
-        { "parameter": "Upr", "max": 1.2, "Ipr": 3000 },
-        { "parameter": "Iobr", "max": 5, "Uobr": 1000 }
+        { "parameter": "Vf", "max": 1.2, "If": 3000 },
+        { "parameter": "Ir", "max": 5, "Vr": 1000 }
       ],
       "ratings": [
-        { "parameter": "UobrMax", "value": 1000 },
-        { "parameter": "IprMax", "value": 3000 },
+        { "parameter": "VrMax", "value": 1000 },
+        { "parameter": "IfMax", "value": 3000 },
         { "parameter": "TempMin", "value": -50 },
         { "parameter": "TempMax", "value": 175 }
       ]
@@ -330,8 +330,8 @@
       },
       "manufacturers": ["Toshiba"],
       "ratings": [
-        { "parameter": "UobrMax", "value": 80 },
-        { "parameter": "IprMax", "value": 100 },
+        { "parameter": "VrMax", "value": 80 },
+        { "parameter": "IfMax", "value": 100 },
         { "parameter": "Pmax", "value": 200 },
         { "parameter": "TempMax", "value": 125 }
       ]
@@ -345,12 +345,12 @@
       },
       "manufacturers": ["ROHM"],
       "parameters": [
-        { "parameter": "Upr", "max": 1.1, "Ipr": 1000 },
-        { "parameter": "Iobr", "max": 10, "Uobr": 400 }
+        { "parameter": "Vf", "max": 1.1, "If": 1000 },
+        { "parameter": "Ir", "max": 10, "Vr": 400 }
       ],
       "ratings": [
-        { "parameter": "UobrMax", "value": 400 },
-        { "parameter": "IprMax", "value": 1000 },
+        { "parameter": "VrMax", "value": 400 },
+        { "parameter": "IfMax", "value": 1000 },
         { "parameter": "TempMin", "value": -55 },
         { "parameter": "TempMax", "value": 150 }
       ]
@@ -366,12 +366,12 @@
         "datasheetUrl": "https://kazus.ru/post/2686188-d226"
       },
       "parameters": [
-        { "parameter": "Upr", "max": 1, "Ipr": 300 },
-        { "parameter": "Iobr", "max": 50, "Uobr": 400 }
+        { "parameter": "Vf", "max": 1, "If": 300 },
+        { "parameter": "Ir", "max": 50, "Vr": 400 }
       ],
       "ratings": [
-        { "parameter": "UobrMax", "value": 400 },
-        { "parameter": "IprMax", "value": 300 },
+        { "parameter": "VrMax", "value": 400 },
+        { "parameter": "IfMax", "value": 300 },
         { "parameter": "TempMin", "value": -60 },
         { "parameter": "TempMax", "value": 80 }
       ],
@@ -386,14 +386,14 @@
         "datasheetUrl": "http://www.club155.ru/datasheet/D814A"
       },
       "parameters": [
-        { "parameter": "Ust", "min": 7, "max": 8.5, "Ist": 5 },
-        { "parameter": "Rdiff", "max": 6, "Ist": 5 },
-        { "parameter": "TkUst", "max": 0.07, "Ist": 5 }
+        { "parameter": "Vz", "min": 7, "max": 8.5, "Iz": 5 },
+        { "parameter": "Rdiff", "max": 6, "Iz": 5 },
+        { "parameter": "AlphaVz", "max": 0.07, "Iz": 5 }
       ],
       "ratings": [
         { "parameter": "Pmax", "value": 340 },
-        { "parameter": "IstMin", "value": 3 },
-        { "parameter": "IstMax", "value": 40 },
+        { "parameter": "IzMin", "value": 3 },
+        { "parameter": "IzMax", "value": 40 },
         { "parameter": "TempMax", "value": 125 }
       ]
     },
@@ -406,13 +406,13 @@
         "datasheetUrl": "https://www.radiolibrary.ru/reference/diod/d2b.html"
       },
       "parameters": [
-        { "parameter": "Upr", "max": 1, "Ipr": 5 },
-        { "parameter": "Iobr", "max": 100, "Uobr": 10 },
-        { "parameter": "trr", "max": 3000, "Ipr": 10 }
+        { "parameter": "Vf", "max": 1, "If": 5 },
+        { "parameter": "Ir", "max": 100, "Vr": 10 },
+        { "parameter": "trr", "max": 3000, "If": 10 }
       ],
       "ratings": [
-        { "parameter": "UobrMax", "value": 10 },
-        { "parameter": "IprMax", "value": 16 },
+        { "parameter": "VrMax", "value": 10 },
+        { "parameter": "IfMax", "value": 16 },
         { "parameter": "TempMax", "value": 70 }
       ]
     },
@@ -428,13 +428,13 @@
       },
       "manufacturers": ["Diotec", "Vishay", "onsemi"],
       "parameters": [
-        { "parameter": "Upr", "max": 1.7, "Ipr": 1000 },
-        { "parameter": "Iobr", "max": 5, "Uobr": 1000 },
-        { "parameter": "trr", "max": 75, "Ipr": 500 }
+        { "parameter": "Vf", "max": 1.7, "If": 1000 },
+        { "parameter": "Ir", "max": 5, "Vr": 1000 },
+        { "parameter": "trr", "max": 75, "If": 500 }
       ],
       "ratings": [
-        { "parameter": "UobrMax", "value": 1000 },
-        { "parameter": "IprMax", "value": 1000 },
+        { "parameter": "VrMax", "value": 1000 },
+        { "parameter": "IfMax", "value": 1000 },
         { "parameter": "TempMin", "value": -50 },
         { "parameter": "TempMax", "value": 175 }
       ]
@@ -450,12 +450,12 @@
       },
       "manufacturers": ["Diotec"],
       "parameters": [
-        { "parameter": "Upr", "max": 1.1, "Ipr": 2000 },   // на диод (Diotec)
-        { "parameter": "Iobr", "max": 5, "Uobr": 600 }
+        { "parameter": "Vf", "max": 1.1, "If": 2000 },   // на диод (Diotec)
+        { "parameter": "Ir", "max": 5, "Vr": 600 }
       ],
       "ratings": [
-        { "parameter": "UobrMax", "value": 600 },
-        { "parameter": "IprMax", "value": 2000 },          // с вынужденным охлаждением TC=100 °C; свободностояще 1,2 А @ TA=50 °C
+        { "parameter": "VrMax", "value": 600 },
+        { "parameter": "IfMax", "value": 2000 },          // с вынужденным охлаждением TC=100 °C; свободностояще 1,2 А @ TA=50 °C
         { "parameter": "TempMin", "value": -50 },
         { "parameter": "TempMax", "value": 150 }
       ]
@@ -470,12 +470,12 @@
       },
       "manufacturers": ["Broadcom"],
       "parameters": [
-        { "parameter": "Upr", "max": 2.5, "Ipr": 20 }      // на сегмент
+        { "parameter": "Vf", "max": 2.5, "If": 20 }      // на сегмент
         // Iv ≥2,0 мкд @ 10 мА (только снизу); λp/λd — типические — не сохраняются
       ],
       "ratings": [
-        { "parameter": "UobrMax", "value": 5 },            // на сегмент
-        { "parameter": "IprMax", "value": 25 },            // на сегмент
+        { "parameter": "VrMax", "value": 5 },            // на сегмент
+        { "parameter": "IfMax", "value": 25 },            // на сегмент
         { "parameter": "Pmax", "value": 62.5 },            // на сегмент
         { "parameter": "TempMin", "value": -40 },
         { "parameter": "TempMax", "value": 85 }
@@ -491,13 +491,13 @@
       },
       "manufacturers": ["Kingbright"],
       "parameters": [
-        { "parameter": "Upr", "max": 2.3, "Ipr": 10 },     // на сегмент
-        { "parameter": "Iobr", "max": 10, "Uobr": 5 }
+        { "parameter": "Vf", "max": 2.3, "If": 10 },     // на сегмент
+        { "parameter": "Ir", "max": 10, "Vr": 5 }
         // Iv ≥3600 мкд @ 10 мА (только снизу); λp 627 нм — типическое — не сохраняются
       ],
       "ratings": [
-        { "parameter": "UobrMax", "value": 5 },
-        { "parameter": "IprMax", "value": 30 },            // на сегмент, DC
+        { "parameter": "VrMax", "value": 5 },
+        { "parameter": "IfMax", "value": 30 },            // на сегмент, DC
         { "parameter": "TempMin", "value": -40 },
         { "parameter": "TempMax", "value": 85 },
         { "parameter": "TempJunctionMax", "value": 125 }

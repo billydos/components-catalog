@@ -63,9 +63,9 @@ func TestCategoriesApply(t *testing.T) {
 // Нарушения метасхемы (03 §11) — каждая проверка даёт дословное сообщение.
 func TestMetaschemaViolations(t *testing.T) {
 	p := func(mutate func(*catalog.ParameterDef)) catalog.ParameterDef {
-		base, ok := seedSnapshot(t).Parameter("Kpd")
+		base, ok := seedSnapshot(t).Parameter("Eta")
 		if !ok {
-			t.Fatal("Kpd отсутствует")
+			t.Fatal("Eta отсутствует")
 		}
 		row := *base
 		mutate(&row)
@@ -78,50 +78,50 @@ func TestMetaschemaViolations(t *testing.T) {
 	}{
 		{"несуществующая единица", catalog.Input{Parameters: []catalog.ParameterDef{
 			p(func(r *catalog.ParameterDef) { r.Unit = "кОм" }),
-		}}, "catalog: parameter «Kpd»: unit «кОм» does not exist"},
+		}}, "catalog: parameter «Eta»: unit «кОм» does not exist"},
 		{"несуществующая группа", catalog.Input{Parameters: []catalog.ParameterDef{
 			p(func(r *catalog.ParameterDef) { r.Group = "no_such_group" }),
-		}}, "catalog: parameter «Kpd»: group «no_such_group» does not exist"},
+		}}, "catalog: parameter «Eta»: group «no_such_group» does not exist"},
 		{"enum без значений", catalog.Input{Parameters: []catalog.ParameterDef{
 			p(func(r *catalog.ParameterDef) { r.ValueType = catalog.ValueEnum; r.Unit = ""; r.EnumValues = nil }),
-		}}, "catalog: parameter «Kpd»: type enum requires a non-empty list of values"},
+		}}, "catalog: parameter «Eta»: type enum requires a non-empty list of values"},
 		{"единица у enum", catalog.Input{Parameters: []catalog.ParameterDef{
 			p(func(r *catalog.ParameterDef) {
 				r.ValueType = catalog.ValueEnum
 				r.EnumValues = []string{"x"}
 			}),
-		}}, "catalog: parameter «Kpd» of type enum must not have a unit"},
+		}}, "catalog: parameter «Eta» of type enum must not have a unit"},
 		{"enum-значения у численного типа", catalog.Input{Parameters: []catalog.ParameterDef{
 			p(func(r *catalog.ParameterDef) { r.EnumValues = []string{"x"} }),
-		}}, "catalog: parameter «Kpd»: enum values are allowed only for type enum"},
+		}}, "catalog: parameter «Eta»: enum values are allowed only for type enum"},
 		{"неположительный потолок", catalog.Input{Parameters: []catalog.ParameterDef{
 			p(func(r *catalog.ParameterDef) { r.Ceiling = f(0) }),
-		}}, "catalog: parameter «Kpd»: ceiling must be positive"},
+		}}, "catalog: parameter «Eta»: ceiling must be positive"},
 		{"отрицательный порядок", catalog.Input{Parameters: []catalog.ParameterDef{
 			p(func(r *catalog.ParameterDef) { r.SortOrder = -1 }),
-		}}, "catalog: parameter «Kpd»: sort order must be non-negative"},
+		}}, "catalog: parameter «Eta»: sort order must be non-negative"},
 		{"неизвестный класс применимости", catalog.Input{Parameters: []catalog.ParameterDef{
 			p(func(r *catalog.ParameterDef) { r.Kinds = []domain.Kind{"thyristor"} }),
-		}}, "catalog: parameter «Kpd»: applicability kind «thyristor» does not exist"},
+		}}, "catalog: parameter «Eta»: applicability kind «thyristor» does not exist"},
 		{"правило атрибутов у параметра", catalog.Input{Parameters: []catalog.ParameterDef{
 			p(func(r *catalog.ParameterDef) { r.ValidationRule = "year_range" }),
-		}}, "catalog: parameter «Kpd»: rule «year_range» does not apply to parameters"},
+		}}, "catalog: parameter «Eta»: rule «year_range» does not apply to parameters"},
 		{"пустой набор условий", catalog.Input{Parameters: []catalog.ParameterDef{
 			p(func(r *catalog.ParameterDef) { r.ConditionSets = []catalog.ConditionSet{{No: 1}} }),
-		}}, "catalog: parameter «Kpd»: condition set 1 is empty"},
+		}}, "catalog: parameter «Eta»: condition set 1 is empty"},
 		{"несуществующее условие набора", catalog.Input{Parameters: []catalog.ParameterDef{
 			p(func(r *catalog.ParameterDef) {
 				r.ConditionSets = []catalog.ConditionSet{{No: 1, Items: []catalog.ConditionSetItem{{Condition: "no_such", Mode: catalog.ModeRequired}}}}
 			}),
-		}}, "catalog: parameter «Kpd»: condition set 1: condition «no_such» does not exist"},
+		}}, "catalog: parameter «Eta»: condition set 1: condition «no_such» does not exist"},
 		{"fixed_value у optional", catalog.Input{Parameters: []catalog.ParameterDef{
 			p(func(r *catalog.ParameterDef) {
 				r.ConditionSets = []catalog.ConditionSet{{No: 1, Items: []catalog.ConditionSetItem{{Condition: "freq", Mode: catalog.ModeOptional, FixedValue: f(1)}}}}
 			}),
-		}}, "catalog: parameter «Kpd»: condition set 1, condition «freq»: fixed_value is allowed only for a required condition"},
+		}}, "catalog: parameter «Eta»: condition set 1, condition «freq»: fixed_value is allowed only for a required condition"},
 		{"дубликат кода параметра", catalog.Input{Parameters: []catalog.ParameterDef{
 			p(func(*catalog.ParameterDef) {}), p(func(*catalog.ParameterDef) {}),
-		}}, "catalog: section parameters: duplicate code «Kpd»"},
+		}}, "catalog: section parameters: duplicate code «Eta»"},
 		{"неизвестное правило входа", catalog.Input{Rules: []catalog.RuleDef{
 			{Code: "no_such_rule"},
 		}}, "catalog: section validation_rules: unknown rule «no_such_rule»"},
@@ -253,45 +253,45 @@ func TestApplyCatalogUpsert(t *testing.T) {
 	snap := seedSnapshot(t)
 
 	t.Run("обновление потолка", func(t *testing.T) {
-		row, _ := snap.Parameter("Kpd")
+		row, _ := snap.Parameter("Eta")
 		updated := *row
 		updated.Ceiling = f(90)
 		out, probs := catalog.ApplyCatalog(snap, catalog.Input{Parameters: []catalog.ParameterDef{updated}})
 		if len(probs) != 0 {
 			t.Fatalf(" got: %v", messages(probs))
 		}
-		got, _ := out.Parameter("Kpd")
+		got, _ := out.Parameter("Eta")
 		if got.Ceiling == nil || *got.Ceiling != 90 {
 			t.Fatalf("потолок не обновлён: %v", got.Ceiling)
 		}
 	})
 
 	t.Run("применимость замещается целиком", func(t *testing.T) {
-		row, _ := snap.Parameter("Dop")
+		row, _ := snap.Parameter("Tolerance")
 		updated := *row
 		updated.Kinds = []domain.Kind{domain.KindResistor}
 		out, probs := catalog.ApplyCatalog(snap, catalog.Input{Parameters: []catalog.ParameterDef{updated}})
 		if len(probs) != 0 {
 			t.Fatalf(" got: %v", messages(probs))
 		}
-		got, _ := out.Parameter("Dop")
+		got, _ := out.Parameter("Tolerance")
 		if got.AppliesTo(domain.KindCapacitor) {
-			t.Fatal("применимость Dop к конденсаторам должна быть снята замещением")
+			t.Fatal("применимость Tolerance к конденсаторам должна быть снята замещением")
 		}
 		if !got.AppliesTo(domain.KindResistor) {
-			t.Fatal("применимость Dop к резисторам потеряна")
+			t.Fatal("применимость Tolerance к резисторам потеряна")
 		}
 	})
 
 	t.Run("enum замещается целиком", func(t *testing.T) {
-		row, _ := snap.Parameter("TKE")
+		row, _ := snap.Parameter("TCC")
 		updated := *row
 		updated.EnumValues = []string{"МП0", "Н90"}
 		out, probs := catalog.ApplyCatalog(snap, catalog.Input{Parameters: []catalog.ParameterDef{updated}})
 		if len(probs) != 0 {
 			t.Fatalf(" got: %v", messages(probs))
 		}
-		got, _ := out.Parameter("TKE")
+		got, _ := out.Parameter("TCC")
 		if !slices.Equal(got.EnumValues, []string{"МП0", "Н90"}) {
 			t.Fatalf("enum не замещён: %v", got.EnumValues)
 		}
@@ -310,11 +310,11 @@ func TestApplyCatalogUpsert(t *testing.T) {
 	})
 
 	t.Run("исходный снимок не мутирует", func(t *testing.T) {
-		row, _ := snap.Parameter("TKE")
+		row, _ := snap.Parameter("TCC")
 		updated := *row
 		updated.EnumValues = []string{"МП0"}
 		catalog.ApplyCatalog(snap, catalog.Input{Parameters: []catalog.ParameterDef{updated}})
-		got, _ := snap.Parameter("TKE")
+		got, _ := snap.Parameter("TCC")
 		if len(got.EnumValues) != 33 {
 			t.Fatalf("исходный снимок изменён: %d значений", len(got.EnumValues))
 		}
@@ -365,7 +365,7 @@ func TestCatalogExtensionEndToEnd(t *testing.T) {
 				Kinds: []domain.Kind{domain.KindTransistor},
 				ConditionSets: []catalog.ConditionSet{
 					{No: 1, Items: []catalog.ConditionSetItem{
-						{Condition: "Uke", Mode: catalog.ModeRequired},
+						{Condition: "Vce", Mode: catalog.ModeRequired},
 						{Condition: "Rg_ext", Mode: catalog.ModeOptional},
 					}},
 				}},
@@ -382,7 +382,7 @@ func TestCatalogExtensionEndToEnd(t *testing.T) {
 		Kind: domain.KindTransistor, System: domain.SystemGost, Designation: "2П798Г",
 		Values: []catalog.ParameterValue{
 			{Parameter: "UgsThr", Section: "parameters", Min: f(2), Max: f(4),
-				Conditions: []catalog.ConditionValue{{Condition: "Uke", Value: 10}, {Condition: "Rg_ext", Value: 100}}},
+				Conditions: []catalog.ConditionValue{{Condition: "Vce", Value: 10}, {Condition: "Rg_ext", Value: 100}}},
 			{Parameter: "dUdt", Section: "parameters", Max: f(500)},
 		},
 	}
@@ -393,15 +393,15 @@ func TestCatalogExtensionEndToEnd(t *testing.T) {
 	old := catalog.Device{
 		Kind: domain.KindDiode, System: domain.SystemGost, Designation: "КД522Б",
 		Values: []catalog.ParameterValue{
-			{Parameter: "Upr", Section: "parameters", Max: f(1),
-				Conditions: []catalog.ConditionValue{{Condition: "Ipr", Value: 10}}},
+			{Parameter: "Vf", Section: "parameters", Max: f(1),
+				Conditions: []catalog.ConditionValue{{Condition: "If", Value: 10}}},
 		},
 	}
 	if probs := e.ValidateDevice(&old); len(probs) != 0 {
 		t.Fatalf("старые значения: %v", messages(probs))
 	}
 	// Условия нового параметра работают: постороннее условие запрещено.
-	d.Values[0].Conditions = append(d.Values[0].Conditions, catalog.ConditionValue{Condition: "Ik", Value: 1})
+	d.Values[0].Conditions = append(d.Values[0].Conditions, catalog.ConditionValue{Condition: "Ic", Value: 1})
 	if probs := e.ValidateDevice(&d); len(probs) == 0 {
 		t.Fatal("постороннее условие не отвергнуто")
 	}

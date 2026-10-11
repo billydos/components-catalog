@@ -122,7 +122,7 @@ func TestReadDocumentSectionSemantics(t *testing.T) {
 				"attributes": { "technology": "металлодиэлектрические" },
 				"parameters": [
 					{ "parameter": "Rnom", "min": 1, "max": 10000000 },
-					{ "parameter": "TKS", "max": 500 }
+					{ "parameter": "TCR", "max": 500 }
 				],
 				"ratings": null,
 				"dimensions": [],
@@ -174,7 +174,7 @@ func TestReadDocumentValueConditions(t *testing.T) {
 			{
 				"name": "КТ315Б",
 				"parameters": [
-					{ "parameter": "h21e", "min": 50, "max": 350, "Uke": 10, "Ik": 1 }
+					{ "parameter": "hfe", "min": 50, "max": 350, "Vce": 10, "Ic": 1 }
 				]
 			}
 		]
@@ -184,7 +184,7 @@ func TestReadDocumentValueConditions(t *testing.T) {
 		t.Fatalf("проблемы не ожидались: %v", issueMessages(issues))
 	}
 	vals := doc.Records[0].Input.Sections[0].Values
-	if len(vals) != 1 || vals[0].Parameter != "h21e" {
+	if len(vals) != 1 || vals[0].Parameter != "hfe" {
 		t.Fatalf("значение: %+v", vals)
 	}
 	if vals[0].Min == nil || *vals[0].Min != 50 || vals[0].Max == nil || *vals[0].Max != 350 {
@@ -193,8 +193,8 @@ func TestReadDocumentValueConditions(t *testing.T) {
 	if len(vals[0].Conditions) != 2 {
 		t.Fatalf("условия: %+v", vals[0].Conditions)
 	}
-	if vals[0].Conditions[0].Condition != "Uke" || vals[0].Conditions[0].Value != 10 {
-		t.Fatalf("условие Uke: %+v", vals[0].Conditions[0])
+	if vals[0].Conditions[0].Condition != "Vce" || vals[0].Conditions[0].Value != 10 {
+		t.Fatalf("условие Vce: %+v", vals[0].Conditions[0])
 	}
 }
 
@@ -208,8 +208,8 @@ func TestReadDocumentUnparseableNumber(t *testing.T) {
 			{
 				"name": "КТ315Б",
 				"parameters": [
-					{ "parameter": "h21e", "min": 1e999 },
-					{ "parameter": "h21e", "Uke": 1e999 }
+					{ "parameter": "hfe", "min": 1e999 },
+					{ "parameter": "hfe", "Vce": 1e999 }
 				]
 			}
 		]
@@ -221,7 +221,7 @@ func TestReadDocumentUnparseableNumber(t *testing.T) {
 	got := issueMessages(issues)
 	want := []string{
 		`record «КТ315Б»: section «parameters», value no. 1: key "min" must be a number`,
-		`record «КТ315Б»: section «parameters», value no. 2: key "Uke" must be a number`,
+		`record «КТ315Б»: section «parameters», value no. 2: key "Vce" must be a number`,
 	}
 	if len(got) != len(want) {
 		t.Fatalf("проблем: %d, ожидалось %d: %v", len(got), len(want), got)
@@ -241,7 +241,7 @@ func TestReadDocumentVariantsAndAnalogs(t *testing.T) {
 				"variants": [
 					{
 						"label": "160 В",
-						"parameters": [ { "parameter": "Unom", "value": 160 } ],
+						"parameters": [ { "parameter": "Vnom", "value": 160 } ],
 						"dimensions": [ { "parameter": "massMax", "value": 1.5 } ]
 					}
 				]
@@ -286,7 +286,7 @@ func TestReadDocumentIssuesVerbatimTexts(t *testing.T) {
 			{ "nane": "КТ315Б" },
 			{ "name": "КТ315Б", "system": "star" },
 			{ "name": "КТ315Б", "voltparams": [] },
-			{ "name": "КТ315Б", "parameters": [ { "parameter": "h21e", "min": "много" } ] },
+			{ "name": "КТ315Б", "parameters": [ { "parameter": "hfe", "min": "много" } ] },
 			42
 		]
 	}`)
@@ -400,10 +400,10 @@ func TestReadCatalogSectionMapping(t *testing.T) {
 
 func TestReadCatalogSectionConditionSets(t *testing.T) {
 	v, err := parseJSONC([]byte(`{ "catalog": { "parameters": [ {
-		"code": "Ck", "group": "electrical",
+		"code": "Cobo", "group": "electrical",
 		"value_type": "at_most",
 		"condition_sets": [ { "items": [
-			{ "condition": "Ukb", "mode": "required" },
+			{ "condition": "Vcb", "mode": "required" },
 			{ "condition": "freq", "mode": "required", "fixed_value": 0.1 }
 		] } ]
 	} ] } }`))
@@ -460,9 +460,9 @@ func TestReadCatalogSectionUnknownField(t *testing.T) {
 // fxed_value — проблема, а не молчаливая потеря fixed_value.
 func TestReadCatalogSectionConditionSetUnknownField(t *testing.T) {
 	v, err := parseJSONC([]byte(`{ "catalog": { "parameters": [ {
-		"code": "Ck", "group": "electrical", "value_type": "at_most",
+		"code": "Cobo", "group": "electrical", "value_type": "at_most",
 		"condition_sets": [ { "items": [
-			{ "condition": "Ukb", "mode": "required", "fxed_value": 5 }
+			{ "condition": "Vcb", "mode": "required", "fxed_value": 5 }
 		] } ]
 	} ] } }`))
 	if err != nil {
@@ -473,7 +473,7 @@ func TestReadCatalogSectionConditionSetUnknownField(t *testing.T) {
 	if len(issues) != 1 {
 		t.Fatalf("проблем: %d: %v", len(issues), issueMessages(issues))
 	}
-	want := "catalog: section parameters, «Ck»: unknown field «fxed_value» (allowed: condition, mode, fixed_value)"
+	want := "catalog: section parameters, «Cobo»: unknown field «fxed_value» (allowed: condition, mode, fixed_value)"
 	if issues[0].String() != want {
 		t.Fatalf("текст: %q, ожидался %q", issues[0].String(), want)
 	}
