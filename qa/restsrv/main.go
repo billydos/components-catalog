@@ -5,6 +5,7 @@
 package main
 
 import (
+	"cmp"
 	"context"
 	"errors"
 	"flag"
@@ -37,13 +38,7 @@ func run() error {
 	ensure := flag.Bool("ensure", false, "DDL и сиды каталога на пустую базу при старте")
 	flag.Parse()
 
-	dsnValue := *dsn
-	if dsnValue == "" {
-		dsnValue = *db
-	}
-	if dsnValue == "" {
-		dsnValue = "catalog.db"
-	}
+	dsnValue := cmp.Or(*dsn, *db, "catalog.db")
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
@@ -73,12 +68,11 @@ func run() error {
 		WriteTimeout:      30 * time.Second,
 		IdleTimeout:       60 * time.Second,
 	}
-	go func() {
-		<-ctx.Done()
+	context.AfterFunc(ctx, func() {
 		shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
 		_ = srv.Shutdown(shutdownCtx)
-	}()
+	})
 
 	fmt.Fprintf(os.Stderr, "restsrv: ready http://%s/api/v1 (%s)\n", ln.Addr(), *dialect)
 	serveErr := srv.Serve(ln)

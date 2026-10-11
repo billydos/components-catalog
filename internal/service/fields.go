@@ -2,6 +2,7 @@ package service
 
 import (
 	"math"
+	"slices"
 	"sort"
 	"strings"
 
@@ -120,12 +121,7 @@ func normalizeOtherField(f domain.Field) (domain.Field, error) {
 // classificationField сообщает, входит ли имя в реестр классификационных
 // полей (domain.ClassificationFieldCodes).
 func classificationField(name string) bool {
-	for _, code := range domain.ClassificationFieldCodes {
-		if name == code {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(domain.ClassificationFieldCodes, name)
 }
 
 // explicitFieldsOf вычисляет явные классификационные поля из хранимых:
@@ -135,14 +131,7 @@ func classificationField(name string) bool {
 func explicitFieldsOf(stored, parsed []domain.Field) []domain.Field {
 	var out []domain.Field
 	for _, f := range stored {
-		parsedAlready := false
-		for _, pf := range parsed {
-			if pf.Name == f.Name {
-				parsedAlready = true
-				break
-			}
-		}
-		if parsedAlready {
+		if slices.ContainsFunc(parsed, func(pf domain.Field) bool { return pf.Name == f.Name }) {
 			continue
 		}
 		out = append(out, f)

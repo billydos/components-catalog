@@ -1,6 +1,8 @@
 package i18n
 
 import (
+	"cmp"
+	"maps"
 	"slices"
 	"strconv"
 	"strings"
@@ -90,13 +92,7 @@ func Negotiate(header string) Language {
 		}
 	}
 	slices.SortStableFunc(list, func(a, b candidate) int {
-		switch {
-		case a.q > b.q:
-			return -1
-		case a.q < b.q:
-			return 1
-		}
-		return 0
+		return cmp.Compare(b.q, a.q)
 	})
 	for _, c := range list {
 		if l, ok := ParseLanguage(c.tag); ok {
@@ -143,12 +139,7 @@ func HasString(l Language, key string) bool {
 
 // Keys перечисляет ключи бандла языка (для тестов полноты).
 func Keys(l Language) []string {
-	out := make([]string, 0, len(bundles[l]))
-	for k := range bundles[l] {
-		out = append(out, k)
-	}
-	slices.Sort(out)
-	return out
+	return slices.Sorted(maps.Keys(bundles[l]))
 }
 
 // KindName возвращает отображаемое название класса приборов.
@@ -216,20 +207,7 @@ func MaterialName(l Language, code string) string {
 // отображаемое название любой локали (кремний/silicon) → стабильный код.
 // Для фильтров поиска на краю (CLI --material, REST material=).
 func MaterialCode(codeOrDisplay string) (string, bool) {
-	if codeOrDisplay == "" {
-		return "", false
-	}
-	if HasString(En, "material."+codeOrDisplay) {
-		return codeOrDisplay, true
-	}
-	for _, l := range languageOrder {
-		for key, val := range bundles[l] {
-			if strings.HasPrefix(key, "material.") && val == codeOrDisplay {
-				return strings.TrimPrefix(key, "material."), true
-			}
-		}
-	}
-	return "", false
+	return codeByDisplay("material.", codeOrDisplay)
 }
 
 // SubclassName возвращает отображаемое название подкласса прибора
@@ -242,20 +220,7 @@ func SubclassName(l Language, code string) string {
 // отображаемое название любой локали → стабильный код. Для фильтров
 // поиска на краю (CLI --subclass, REST subclass=).
 func SubclassCode(codeOrDisplay string) (string, bool) {
-	if codeOrDisplay == "" {
-		return "", false
-	}
-	if HasString(En, "subclass."+codeOrDisplay) {
-		return codeOrDisplay, true
-	}
-	for _, l := range languageOrder {
-		for key, val := range bundles[l] {
-			if strings.HasPrefix(key, "subclass.") && val == codeOrDisplay {
-				return strings.TrimPrefix(key, "subclass."), true
-			}
-		}
-	}
-	return "", false
+	return codeByDisplay("subclass.", codeOrDisplay)
 }
 
 // AdjustmentName возвращает отображаемое название способа подстройки
@@ -268,16 +233,23 @@ func AdjustmentName(l Language, code string) string {
 // отображаемое название любой локали → стабильный код. Для фильтров
 // поиска на краю (CLI --adjustment, REST adjustment=).
 func AdjustmentCode(codeOrDisplay string) (string, bool) {
+	return codeByDisplay("adjustment.", codeOrDisplay)
+}
+
+// codeByDisplay — общий разбор канонизации словарного значения: точный код
+// (запись в каноническом бандле en) либо отображаемое название любой
+// локали → стабильный код (часть ключа после префикса).
+func codeByDisplay(prefix, codeOrDisplay string) (string, bool) {
 	if codeOrDisplay == "" {
 		return "", false
 	}
-	if HasString(En, "adjustment."+codeOrDisplay) {
+	if HasString(En, prefix+codeOrDisplay) {
 		return codeOrDisplay, true
 	}
 	for _, l := range languageOrder {
 		for key, val := range bundles[l] {
-			if strings.HasPrefix(key, "adjustment.") && val == codeOrDisplay {
-				return strings.TrimPrefix(key, "adjustment."), true
+			if strings.HasPrefix(key, prefix) && val == codeOrDisplay {
+				return strings.TrimPrefix(key, prefix), true
 			}
 		}
 	}

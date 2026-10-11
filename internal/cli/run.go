@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"cmp"
 	"context"
 	"fmt"
 	"io"
@@ -143,11 +144,7 @@ func strictFlags(cmd string, args []string, specs []flagSpec) (*options, []strin
 			pos = append(pos, arg) // позиционный аргумент
 			continue
 		}
-		name, value := arg[2:], ""
-		hasEq := false
-		if eq := strings.IndexByte(name, '='); eq >= 0 {
-			name, value, hasEq = name[:eq], name[eq+1:], true
-		}
+		name, value, hasEq := strings.Cut(arg[2:], "=")
 		spec, known := byName[name]
 		if !known {
 			return nil, nil, domain.NewErrorf(domain.CodeValidationFailed,
@@ -370,10 +367,7 @@ func (o *options) dsnOf() (string, string, error) {
 	if dialect == "" {
 		dialect = "sqlite"
 	}
-	dsn := o.dsn
-	if dsn == "" {
-		dsn = o.db
-	}
+	dsn := cmp.Or(o.dsn, o.db)
 	if dsn == "" && dialect == "sqlite" {
 		dsn = "catalog.db"
 	}
@@ -420,8 +414,8 @@ func langFromArgs(args []string) i18n.Language {
 				return l
 			}
 		}
-		if strings.HasPrefix(args[i], "--lang=") {
-			if l, ok := i18n.ParseLanguage(strings.TrimPrefix(args[i], "--lang=")); ok {
+		if v, has := strings.CutPrefix(args[i], "--lang="); has {
+			if l, ok := i18n.ParseLanguage(v); ok {
 				return l
 			}
 		}

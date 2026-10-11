@@ -18,6 +18,7 @@ import (
 	"os/signal"
 	"path/filepath"
 	"runtime"
+	"slices"
 	"strconv"
 	"syscall"
 	"time"
@@ -96,10 +97,7 @@ func main() {
 	// помечаются заметками «отменён», итог — код выхода 130. stop()
 	// возвращает SIGINT/SIGTERM умолчание — повторный Ctrl+C завершает
 	// процесс немедленно, не дожидаясь остановки команд (WaitDelay).
-	go func() {
-		<-ctx.Done()
-		stop()
-	}()
+	context.AfterFunc(ctx, stop)
 	r.onCancel(func() bool { return ctx.Err() != nil })
 
 	run(ctx, r, root, opts)
@@ -212,13 +210,7 @@ func runLegs(ctx context.Context, r *report, ctl, srv, root, tmp string, opts ru
 	}
 	// -dialect — единственная нога прогона (остальные исключаются).
 	if opts.dialect != "" {
-		filtered := make([]leg, 0, 1)
-		for _, l := range legs {
-			if l.name == opts.dialect {
-				filtered = append(filtered, l)
-			}
-		}
-		legs = filtered
+		legs = slices.DeleteFunc(legs, func(l leg) bool { return l.name != opts.dialect })
 	}
 	for _, l := range legs {
 		if cancelled(ctx, r) {

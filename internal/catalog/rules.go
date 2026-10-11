@@ -2,6 +2,7 @@ package catalog
 
 import (
 	"fmt"
+	"maps"
 	"math"
 	"slices"
 	"strings"
@@ -73,14 +74,9 @@ func RuleByCode(code string) (Rule, bool) {
 // Rules возвращает все зарегистрированные правила, отсортированные по коду
 // (порядок сидов validation_rules).
 func Rules() []Rule {
-	out := make([]Rule, 0, len(ruleRegistry))
-	for _, r := range ruleRegistry {
-		out = append(out, r)
-	}
-	slices.SortFunc(out, func(a, b Rule) int {
+	return slices.SortedFunc(maps.Values(ruleRegistry), func(a, b Rule) int {
 		return strings.Compare(a.Code(), b.Code())
 	})
-	return out
 }
 
 func ruleProblem(id domain.MsgID, a ...any) Problem {

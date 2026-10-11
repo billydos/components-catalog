@@ -170,7 +170,7 @@ type ParameterDef struct {
 
 // AppliesTo сообщает, применим ли параметр к классу записи (D7).
 func (p *ParameterDef) AppliesTo(kind domain.Kind) bool {
-	return len(p.Kinds) == 0 || containsKind(p.Kinds, kind)
+	return len(p.Kinds) == 0 || slices.Contains(p.Kinds, kind)
 }
 
 // AttributeDef — строка таблицы attributes вместе с применимостью к классам
@@ -190,7 +190,7 @@ type AttributeDef struct {
 
 // AppliesTo сообщает, применим ли атрибут к классу записи (D7).
 func (a *AttributeDef) AppliesTo(kind domain.Kind) bool {
-	return len(a.Kinds) == 0 || containsKind(a.Kinds, kind)
+	return len(a.Kinds) == 0 || slices.Contains(a.Kinds, kind)
 }
 
 // RuleDef — строка таблицы validation_rules: именованный код-валидатор;
@@ -206,15 +206,6 @@ type RuleDef struct {
 type KindRuleRef struct {
 	Kind domain.Kind
 	Rule string
-}
-
-func containsKind(kinds []domain.Kind, kind domain.Kind) bool {
-	for _, k := range kinds {
-		if k == kind {
-			return true
-		}
-	}
-	return false
 }
 
 // Snapshot — иммутабельный снимок каталога: все определения (классы,

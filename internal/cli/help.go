@@ -4,7 +4,8 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"sort"
+	"maps"
+	"slices"
 	"strings"
 
 	"github.com/billydos/components-catalog/internal/domain"
@@ -243,13 +244,9 @@ func usageOptEntries(lang i18n.Language) []usageEntry {
 // справке: флаги реестра list, кроме общих опций подключения и локали
 // (dbFlags — своя секция общих опций).
 func listFilterFlags() []any {
-	common := make(map[string]bool, len(dbFlags))
-	for _, f := range dbFlags {
-		common[f.name] = true
-	}
 	flags := make([]string, 0, len(commands["list"].flags))
 	for _, f := range commands["list"].flags {
-		if !common[f.name] {
+		if !slices.ContainsFunc(dbFlags, func(c flagSpec) bool { return c.name == f.name }) {
 			flags = append(flags, "--"+f.name)
 		}
 	}
@@ -389,19 +386,9 @@ func runHelpCmd(_ context.Context, opts *options, pos []string, stdout, stderr i
 // диспетчеризации по реестру и секции команд общей справки;
 // commandNames используется тестом полноты справки.
 func commandNames() []string {
-	names := make([]string, 0, len(commands))
-	for name := range commands {
-		names = append(names, name)
-	}
-	sort.Strings(names)
-	return names
+	return slices.Sorted(maps.Keys(commands))
 }
 
 func subcommandNames(cmd *command) []string {
-	names := make([]string, 0, len(cmd.subcommands))
-	for name := range cmd.subcommands {
-		names = append(names, name)
-	}
-	sort.Strings(names)
-	return names
+	return slices.Sorted(maps.Keys(cmd.subcommands))
 }

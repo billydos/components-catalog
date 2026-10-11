@@ -9,6 +9,8 @@ package i18n
 
 import (
 	"fmt"
+	"maps"
+	"slices"
 	"strconv"
 )
 
@@ -83,11 +85,7 @@ func HasMessage(l Language, id string) bool {
 
 // MessageIDs — все MsgID канонического каталога (для тестов полноты).
 func MessageIDs() []string {
-	out := make([]string, 0, len(messageFormatsEn))
-	for id := range messageFormatsEn {
-		out = append(out, id)
-	}
-	return out
+	return slices.Collect(maps.Keys(messageFormatsEn))
 }
 
 // decimalSeparators — разделители дробной части, отличные от канонической

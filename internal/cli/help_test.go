@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"slices"
 	"strings"
 	"testing"
 
@@ -97,19 +98,10 @@ func TestUsageOptionsAreRegistryFlags(t *testing.T) {
 	}
 	// Опции подключения обязаны быть задокументированы как общие.
 	for _, f := range dbFlags {
-		if !contains(usageOpts, f.name) {
+		if !slices.Contains(usageOpts, f.name) {
 			t.Errorf("опция подключения «--%s» не документирована в общих опциях", f.name)
 		}
 	}
-}
-
-func contains(xs []string, v string) bool {
-	for _, x := range xs {
-		if x == v {
-			return true
-		}
-	}
-	return false
 }
 
 // Каждый флаг реестра и helpFlags описан в usageFlagMsgs; каждая листовая
@@ -192,13 +184,9 @@ func TestUsageLayout(t *testing.T) {
 // Описание list следует набору фильтров реестра: флаг команды (кроме
 // общих опций подключения) попадает в справку без правки текстов.
 func TestUsageListFiltersFollowRegistry(t *testing.T) {
-	common := map[string]bool{}
-	for _, f := range dbFlags {
-		common[f.name] = true
-	}
 	desc := usageCmdEntry(i18n.En, "list").desc
 	for _, f := range commands["list"].flags {
-		if common[f.name] {
+		if slices.ContainsFunc(dbFlags, func(c flagSpec) bool { return c.name == f.name }) {
 			if strings.Contains(desc, "--"+f.name) {
 				t.Errorf("общая опция «--%s» не должна входить в перечень фильтров list", f.name)
 			}

@@ -1,7 +1,9 @@
 package importer
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"io"
 	"strconv"
 	"strings"
@@ -150,10 +152,7 @@ func (m *Importer) eachKindCard(ctx context.Context, kind domain.Kind, fn func(*
 	}
 	const batchSize = 200
 	for start := 0; start < len(ids); start += batchSize {
-		end := start + batchSize
-		if end > len(ids) {
-			end = len(ids)
-		}
+		end := min(start+batchSize, len(ids))
 		cards, err := m.app.Services().Devices.GetByIDs(ctx, ids[start:end])
 		if err != nil {
 			return err
@@ -499,53 +498,18 @@ func attributeTree(a *catalog.AttributeDef) value {
 
 // Сериализаторы.
 
-// writeJSONTree пишет дерево как JSON с отступами (2 пробела).
+// writeJSONTree пишет дерево как JSON с отступами (2 пробела): компактный
+// текст дерева переформатируется json.Indent (раскладка документированно
+// совпадает с MarshalIndent: элемент на своей строке, «ключ: значение»,
+// пустые контейнеры — {} / []).
 func writeJSONTree(w io.Writer, v value) error {
-	var b strings.Builder
-	emitJSON(&b, v, "")
-	_, err := io.WriteString(w, b.String()+"\n")
-	return err
-}
-
-// emitJSON — отступный JSON: объекты и массивы многострочно.
-func emitJSON(b *strings.Builder, v value, indent string) {
-	inner := indent + "  "
-	switch v.kind {
-	case kindObject:
-		if len(v.members) == 0 {
-			b.WriteString("{}")
-			return
-		}
-		b.WriteString("{\n")
-		for i, m := range v.members {
-			b.WriteString(inner)
-			b.WriteString(jsonScalar(str(m.name)))
-			b.WriteString(": ")
-			emitJSON(b, m.value, inner)
-			if i < len(v.members)-1 {
-				b.WriteString(",")
-			}
-			b.WriteString("\n")
-		}
-		b.WriteString(indent + "}")
-	case kindArray:
-		if len(v.items) == 0 {
-			b.WriteString("[]")
-			return
-		}
-		b.WriteString("[\n")
-		for i, item := range v.items {
-			b.WriteString(inner)
-			emitJSON(b, item, inner)
-			if i < len(v.items)-1 {
-				b.WriteString(",")
-			}
-			b.WriteString("\n")
-		}
-		b.WriteString(indent + "]")
-	default:
-		b.WriteString(jsonScalar(v))
+	var buf bytes.Buffer
+	if err := json.Indent(&buf, []byte(jsonCompact(v)), "", "  "); err != nil {
+		return err // недостижимо: jsonCompact выдаёт валидный JSON
 	}
+	buf.WriteByte('\n')
+	_, err := w.Write(buf.Bytes())
+	return err
 }
 
 // writeNDJSONLine пишет одну строку-обёртку без полной копии текста

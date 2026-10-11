@@ -1,6 +1,11 @@
 package domain
 
-import "github.com/billydos/components-catalog/internal/i18n"
+import (
+	"maps"
+	"slices"
+
+	"github.com/billydos/components-catalog/internal/i18n"
+)
 
 // MsgID — стабильный идентификатор сообщения каталога (этап 8.3, D9):
 // латиница snake_case, реестр констант ниже. Форматы сообщений — бандлы
@@ -994,11 +999,7 @@ var msgRegistry = map[MsgID]struct{}{
 
 // MsgIDs — все MsgID реестра (для теста полноты каталога).
 func MsgIDs() []MsgID {
-	out := make([]MsgID, 0, len(msgRegistry))
-	for id := range msgRegistry {
-		out = append(out, id)
-	}
-	return out
+	return slices.Collect(maps.Keys(msgRegistry))
 }
 
 // Msgf возвращает канонический (en) текст сообщения — для заполнения

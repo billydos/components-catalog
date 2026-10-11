@@ -1,8 +1,9 @@
 package httpapi
 
 import (
+	"maps"
 	"net/url"
-	"sort"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -37,10 +38,7 @@ func queryLimit(values []string, max int) (int, bool, error) {
 // подмножество, прочие параметры запроса игнорирует).
 func rejectDuplicateParams(values url.Values, names ...string) error {
 	if len(names) == 0 {
-		for name := range values {
-			names = append(names, name)
-		}
-		sort.Strings(names)
+		names = slices.Sorted(maps.Keys(values))
 	}
 	for _, name := range names {
 		if len(values[name]) > 1 {
@@ -59,9 +57,9 @@ func parseSearchQuery(values url.Values, snap *catalog.Snapshot) (service.Search
 		return service.SearchQuery{}, err
 	}
 	q := service.SearchQuery{
-		Kind:   domain.Kind(first(values, "kind")),
-		System: domain.System(first(values, "system")),
-		Query:  first(values, "q"),
+		Kind:   domain.Kind(values.Get("kind")),
+		System: domain.System(values.Get("system")),
+		Query:  values.Get("q"),
 	}
 	if v, exists, err := queryLimit(values["limit"], service.SearchLimitMax); err != nil {
 		return q, err
@@ -85,11 +83,7 @@ func parseSearchQuery(values url.Values, snap *catalog.Snapshot) (service.Search
 
 	// Остальные ключи — фильтры; обход по отсортированным именам —
 	// детерминированные сообщения об ошибках.
-	names := make([]string, 0, len(values))
-	for name := range values {
-		names = append(names, name)
-	}
-	sort.Strings(names)
+	names := slices.Sorted(maps.Keys(values))
 	for _, name := range names {
 		v := values[name][0]
 		numeric, known := domain.NumericDesignationField(name)
@@ -250,12 +244,4 @@ func parseParamFilter(name, value string) (service.ParameterFilter, error) {
 	}
 	f.Text = value
 	return f, nil
-}
-
-// first — первое значение параметра (пустое — не задан).
-func first(values map[string][]string, name string) string {
-	if vs := values[name]; len(vs) > 0 {
-		return vs[0]
-	}
-	return ""
 }

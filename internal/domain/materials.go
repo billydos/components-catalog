@@ -1,5 +1,7 @@
 package domain
 
+import "slices"
+
 // Материалы полупроводников: единый словарь значений для сквозного фильтра
 // по полю material между системами gost и pro (docs/plan/03-data-model.md §2.1,
 // §2.4; выверка — docs/plan/07-r1-verification.md §1–2).
@@ -37,9 +39,7 @@ var materials = []Material{
 
 // Materials возвращает словарь материалов в стабильном порядке.
 func Materials() []Material {
-	out := make([]Material, len(materials))
-	copy(out, materials)
-	return out
+	return slices.Clone(materials)
 }
 
 // MaterialByCode ищет материал по стабильному коду словаря.

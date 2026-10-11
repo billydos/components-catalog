@@ -2,6 +2,7 @@ package importer
 
 import (
 	"bufio"
+	"bytes"
 	"io"
 )
 
@@ -34,12 +35,5 @@ func (s *ndjsonScanner) next() (line []byte, number int, ok bool, err error) {
 }
 
 func isEmptyLine(line []byte) bool {
-	for _, b := range line {
-		switch b {
-		case ' ', '\t', '\r', '\n':
-			continue
-		}
-		return false
-	}
-	return true
+	return len(bytes.Trim(line, " \t\r\n")) == 0
 }

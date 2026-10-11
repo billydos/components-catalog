@@ -4,7 +4,6 @@
 package main
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -217,7 +216,7 @@ func (c restClient) do(ctx context.Context, method, path, body string, headers m
 	defer cancel()
 	var reader io.Reader
 	if body != "" {
-		reader = bytes.NewReader([]byte(body))
+		reader = strings.NewReader(body)
 	}
 	req, err := http.NewRequestWithContext(reqCtx, method, c.base+path, reader)
 	if err != nil {

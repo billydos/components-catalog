@@ -2,6 +2,7 @@ package importer
 
 import (
 	"math"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -92,12 +93,8 @@ func (r *catReader) checkKeys(section string, v value, code string, allowed ...s
 		r.fail(domain.MsgImportCatalogRowObject, section)
 		return false
 	}
-	known := make(map[string]bool, len(allowed))
-	for _, k := range allowed {
-		known[k] = true
-	}
 	for _, m := range v.members {
-		if !known[m.name] {
+		if !slices.Contains(allowed, m.name) {
 			r.fail(domain.MsgImportCatalogUnknownField, rowName(section, code), m.name, strings.Join(allowed, ", "))
 			return false
 		}

@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"cmp"
 	"context"
 	"fmt"
 	"io"
@@ -231,10 +232,7 @@ func runCatalogList(ctx context.Context, opts *options, stdout, stderr io.Writer
 	}
 	fmt.Fprintln(stdout, i18n.Message(lang, string(domain.MsgCliHParams)))
 	for _, p := range snap.Parameters {
-		unit := p.Unit
-		if unit == "" {
-			unit = "—"
-		}
+		unit := cmp.Or(p.Unit, "—")
 		fmt.Fprintln(stdout, i18n.Message(lang, string(domain.MsgCliParamLine),
 			p.Code, i18n.ParameterName(lang, p.Code), sectionOf(snap, p.Group), string(p.ValueType), unit))
 	}

@@ -196,53 +196,21 @@ func positional(query string, args map[string]any) (string, []any) {
 	for i := 0; i < len(query); {
 		switch c := query[i]; {
 		case c == '\'':
-			j := i + 1
-			for j < len(query) {
-				if query[j] == '\'' {
-					if j+1 < len(query) && query[j+1] == '\'' {
-						j += 2
-						continue
-					}
-					j++
-					break
-				}
-				j++
-			}
+			j := skipSQLString(query, i)
 			sb.WriteString(query[i:j])
 			i = j
 		case c == '"':
-			j := i + 1
-			for j < len(query) {
-				if query[j] == '"' {
-					if j+1 < len(query) && query[j+1] == '"' {
-						j += 2
-						continue
-					}
-					j++
-					break
-				}
-				j++
-			}
+			j := skipSQLQuotedIdent(query, i)
 			sb.WriteString(query[i:j])
 			i = j
 		case c == '-' && i+1 < len(query) && query[i+1] == '-':
-			j := strings.IndexByte(query[i:], '\n')
-			if j < 0 {
-				sb.WriteString(query[i:])
-				i = len(query)
-			} else {
-				sb.WriteString(query[i : i+j+1])
-				i += j + 1
-			}
+			j := skipSQLLineComment(query, i)
+			sb.WriteString(query[i:j])
+			i = j
 		case c == '/' && i+1 < len(query) && query[i+1] == '*':
-			j := strings.Index(query[i+2:], "*/")
-			if j < 0 {
-				sb.WriteString(query[i:])
-				i = len(query)
-			} else {
-				sb.WriteString(query[i : i+j+4])
-				i += j + 4
-			}
+			j := skipSQLBlockComment(query, i)
+			sb.WriteString(query[i:j])
+			i = j
 		case c == '@' && i+1 < len(query) && isIdentStart(query[i+1]):
 			j := i + 1
 			for j < len(query) && isIdentChar(query[j]) {

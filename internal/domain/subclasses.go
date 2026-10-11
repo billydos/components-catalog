@@ -1,5 +1,7 @@
 package domain
 
+import "slices"
+
 // Подклассы приборов: единый словарь значений для сквозного фильтра по
 // полю subclass между системами обозначений (docs/plan/03-data-model.md §2).
 //
@@ -72,9 +74,7 @@ var (
 
 // Subclasses возвращает словарь подклассов в стабильном порядке.
 func Subclasses() []Subclass {
-	out := make([]Subclass, len(subclasses))
-	copy(out, subclasses)
-	return out
+	return slices.Clone(subclasses)
 }
 
 // SubclassByCode ищет подкласс по стабильному коду словаря.

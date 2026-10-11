@@ -9,6 +9,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -146,9 +147,9 @@ func (r *report) finish() string {
 		verdict = "FAIL"
 	}
 	r.section("summary")
-	r.kv("checks", fmt.Sprintf("%d", r.passed+r.failed))
-	r.kv("passed", fmt.Sprintf("%d", r.passed))
-	r.kv("failed", fmt.Sprintf("%d", r.failed))
+	r.kv("checks", strconv.Itoa(r.passed+r.failed))
+	r.kv("passed", strconv.Itoa(r.passed))
+	r.kv("failed", strconv.Itoa(r.failed))
 	if r.isCancelled() {
 		r.kv("cancelled", "yes")
 	}

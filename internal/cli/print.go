@@ -6,6 +6,7 @@ package cli
 // форматируются с инженерными приставками (i18n.FormatValue, этап 8.4).
 
 import (
+	"cmp"
 	"fmt"
 	"io"
 	"strconv"
@@ -118,10 +119,7 @@ func printCard(w io.Writer, lang i18n.Language, c *service.Card, snap *catalog.S
 	}
 	for _, v := range c.Variants {
 		section()
-		label := v.Label
-		if label == "" {
-			label = i18n.Message(lang, string(domain.MsgCliNoLabel))
-		}
+		label := cmp.Or(v.Label, i18n.Message(lang, string(domain.MsgCliNoLabel)))
 		fmt.Fprintln(w, i18n.Message(lang, string(domain.MsgCliVariantHead), label))
 		for _, g := range v.Groups {
 			fmt.Fprintf(w, "  %s:\n", i18n.GroupName(lang, g.Code))

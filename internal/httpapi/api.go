@@ -6,8 +6,10 @@ import (
 	"fmt"
 	"hash/fnv"
 	"log/slog"
+	"maps"
 	"net/http"
 	"net/url"
+	"slices"
 	"sort"
 	"strings"
 	"time"
@@ -374,11 +376,7 @@ func catalogETag(rev int64) string {
 // представление конкретного запроса, а не любые фильтры с той же
 // ревизией (RFC 9110); hash — FNV-1a 64.
 func searchETag(dataRev int64, values url.Values) string {
-	names := make([]string, 0, len(values))
-	for name := range values {
-		names = append(names, name)
-	}
-	sort.Strings(names)
+	names := slices.Sorted(maps.Keys(values))
 	h := fnv.New64a()
 	for i, name := range names {
 		if i > 0 {

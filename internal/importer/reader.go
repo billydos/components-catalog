@@ -1,6 +1,7 @@
 package importer
 
 import (
+	"slices"
 	"strconv"
 	"strings"
 
@@ -72,10 +73,11 @@ type reader struct {
 // классов; расширение каталога новыми классами расширяет и формат;
 // ключи секций — общий реестр catalog.KindSection).
 func kindBySection(snap *catalog.Snapshot, section string) (domain.Kind, bool) {
-	if !strings.HasSuffix(section, "s") {
+	base, has := strings.CutSuffix(section, "s")
+	if !has {
 		return "", false
 	}
-	k := domain.Kind(strings.TrimSuffix(section, "s"))
+	k := domain.Kind(base)
 	if _, ok := snap.Kind(k); !ok {
 		return "", false
 	}
@@ -345,25 +347,10 @@ func (r *reader) classificationFields(rec *Record, v value) ([]domain.Field, boo
 		r.recFail(rec, domain.MsgImportFieldsObject)
 		return nil, false
 	}
-	allowed := false
 	out := make([]domain.Field, 0, len(v.members))
 	for _, m := range v.members {
-		allowed = false
-		for _, code := range domain.ClassificationFieldCodes {
-			if m.name == code {
-				allowed = true
-				break
-			}
-		}
-		if !allowed {
-			for _, code := range domain.OtherFieldCodes {
-				if m.name == code {
-					allowed = true
-					break
-				}
-			}
-		}
-		if !allowed {
+		if !slices.Contains(domain.ClassificationFieldCodes, m.name) &&
+			!slices.Contains(domain.OtherFieldCodes, m.name) {
 			r.recFail(rec, domain.MsgImportFieldUnknown, m.name)
 			return nil, false
 		}

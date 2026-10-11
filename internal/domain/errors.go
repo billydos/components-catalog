@@ -2,6 +2,7 @@ package domain
 
 import (
 	"errors"
+	"maps"
 	"slices"
 )
 
@@ -67,12 +68,7 @@ func (c Code) IsKnown() bool {
 
 // KnownCodes возвращает все зарегистрированные коды, отсортированные.
 func KnownCodes() []Code {
-	codes := make([]Code, 0, len(codeRegistry))
-	for c := range codeRegistry {
-		codes = append(codes, c)
-	}
-	slices.Sort(codes)
-	return codes
+	return slices.Sorted(maps.Keys(codeRegistry))
 }
 
 // Error — ожидаемая ошибка модуля: машиночитаемый код, стабильный

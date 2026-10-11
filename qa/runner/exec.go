@@ -10,6 +10,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -95,14 +96,10 @@ func runCmdOut(ctx context.Context, dir, outPath string, timeout time.Duration, 
 // envWithout — окружение без указанных переменных (для запуска дочерних
 // процессов с перекрытым значением: дубликаты записей неоднозначны).
 func envWithout(env []string, names ...string) []string {
-	skip := make(map[string]bool, len(names))
-	for _, n := range names {
-		skip[n] = true
-	}
 	out := make([]string, 0, len(env))
 	for _, kv := range env {
 		name, _, _ := strings.Cut(kv, "=")
-		if !skip[name] {
+		if !slices.Contains(names, name) {
 			out = append(out, kv)
 		}
 	}
@@ -200,12 +197,6 @@ func gofmtCheck(ctx context.Context, r *report, root string) {
 func loadPhase(ctx context.Context, r *report, root string, opts runOptions) {
 	r.section("phase: load")
 	r.kv("scale", strconv.Itoa(opts.scale))
-	ctx, cancel := context.WithTimeout(ctx, loadTimeout)
-	defer cancel()
-	cmd := exec.CommandContext(ctx, "go", "test", "./qa", "-run", "TestLoad",
-		"-count=1", "-v", "-timeout", "30m")
-	cmd.Dir = root
-	cmd.WaitDelay = waitDelay
 	// Наследованное CATALOG_QA_SCALE/CATALOG_QA_DIALECT заменяется явными
 	// значениями прогона (дубликаты записей окружения неоднозначны);
 	// -dialect переносится и на нагрузочную прикидку.
@@ -214,20 +205,8 @@ func loadPhase(ctx context.Context, r *report, root string, opts runOptions) {
 	if opts.dialect != "" {
 		env = append(env, "CATALOG_QA_DIALECT="+opts.dialect)
 	}
-	cmd.Env = env
-	var buf bytes.Buffer
-	cmd.Stdout, cmd.Stderr = &buf, &buf
-	runErr := cmd.Run()
-	// Успех — по коду выхода; контекст помечает убитой только неудачную
-	// команду (см. runCmdEnv).
-	code := exitCode(runErr)
-	if code != 0 && ctx.Err() != nil {
-		code = -1
-	}
-	res := cmdResult{code: code, output: buf.String()}
-	if code < 0 && runErr != nil {
-		res.output += "\n[" + runErr.Error() + "]"
-	}
+	res := runCmdEnv(ctx, root, loadTimeout, env, "go", "test", "./qa",
+		"-run", "TestLoad", "-count=1", "-v", "-timeout", "30m")
 	for _, l := range trimSpaceLines(res.output) {
 		if strings.Contains(l, "p50=") || strings.Contains(l, "диалект=") {
 			r.note(l)

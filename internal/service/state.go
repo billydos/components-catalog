@@ -1,7 +1,9 @@
 package service
 
 import (
+	"cmp"
 	"context"
+	"maps"
 	"slices"
 	"sort"
 
@@ -186,9 +188,7 @@ func (s *stateMerger) merge(cur *deviceState, in *DeviceInput, explicit []domain
 		out.attributes = cur.attributes
 	}
 	// Секции групп: заменяется только группа секции входа.
-	for g, vals := range cur.groupValues {
-		out.groupValues[g] = vals
-	}
+	maps.Copy(out.groupValues, cur.groupValues)
 	for _, sec := range in.Sections {
 		g, _ := s.snap.GroupBySection(sec.Section)
 		vals := make([]stateValue, 0, len(sec.Values))
@@ -269,29 +269,19 @@ func sameState(a, b *deviceState) bool {
 
 // fieldsEqual — множества явных полей по имени.
 func fieldsEqual(a, b []domain.Field) bool {
-	if len(a) != len(b) {
-		return false
-	}
-	ac, bc := append([]domain.Field(nil), a...), append([]domain.Field(nil), b...)
-	sort.SliceStable(ac, func(i, j int) bool { return ac[i].Name < ac[j].Name })
-	sort.SliceStable(bc, func(i, j int) bool { return bc[i].Name < bc[j].Name })
-	return slices.Equal(ac, bc)
+	byName := func(x, y domain.Field) int { return cmp.Compare(x.Name, y.Name) }
+	return slices.Equal(
+		slices.SortedFunc(slices.Values(a), byName),
+		slices.SortedFunc(slices.Values(b), byName))
 }
 
 // attrsEqual — множества значений атрибутов по коду.
 func attrsEqual(a, b []catalog.AttributeValue) bool {
-	if len(a) != len(b) {
-		return false
-	}
-	ac, bc := append([]catalog.AttributeValue(nil), a...), append([]catalog.AttributeValue(nil), b...)
-	sort.SliceStable(ac, func(i, j int) bool { return ac[i].Attribute < ac[j].Attribute })
-	sort.SliceStable(bc, func(i, j int) bool { return bc[i].Attribute < bc[j].Attribute })
-	for i := range ac {
-		if !attrEqual(ac[i], bc[i]) {
-			return false
-		}
-	}
-	return true
+	byCode := func(x, y catalog.AttributeValue) int { return cmp.Compare(x.Attribute, y.Attribute) }
+	return slices.EqualFunc(
+		slices.SortedFunc(slices.Values(a), byCode),
+		slices.SortedFunc(slices.Values(b), byCode),
+		attrEqual)
 }
 
 func attrEqual(a, b catalog.AttributeValue) bool {
@@ -353,35 +343,25 @@ func valueEqual(a, b stateValue) bool {
 
 // condsEqual — множества условий по коду.
 func condsEqual(a, b []catalog.ConditionValue) bool {
-	if len(a) != len(b) {
-		return false
-	}
-	ac, bc := append([]catalog.ConditionValue(nil), a...), append([]catalog.ConditionValue(nil), b...)
-	sort.SliceStable(ac, func(i, j int) bool { return ac[i].Condition < ac[j].Condition })
-	sort.SliceStable(bc, func(i, j int) bool { return bc[i].Condition < bc[j].Condition })
-	return slices.Equal(ac, bc)
+	byCode := func(x, y catalog.ConditionValue) int { return cmp.Compare(x.Condition, y.Condition) }
+	return slices.Equal(
+		slices.SortedFunc(slices.Values(a), byCode),
+		slices.SortedFunc(slices.Values(b), byCode))
 }
 
 // manufacturersEqual — множества имён производителей.
 func manufacturersEqual(a, b []string) bool {
-	if len(a) != len(b) {
-		return false
-	}
-	ac, bc := append([]string(nil), a...), append([]string(nil), b...)
-	sort.Strings(ac)
-	sort.Strings(bc)
-	return slices.Equal(ac, bc)
+	return slices.Equal(
+		slices.Sorted(slices.Values(a)),
+		slices.Sorted(slices.Values(b)))
 }
 
 // analogsEqual — множества исходящих ссылок по обозначению.
 func analogsEqual(a, b []stateAnalog) bool {
-	if len(a) != len(b) {
-		return false
-	}
-	ac, bc := append([]stateAnalog(nil), a...), append([]stateAnalog(nil), b...)
-	sort.SliceStable(ac, func(i, j int) bool { return ac[i].Designation < ac[j].Designation })
-	sort.SliceStable(bc, func(i, j int) bool { return bc[i].Designation < bc[j].Designation })
-	return slices.Equal(ac, bc)
+	byName := func(x, y stateAnalog) int { return cmp.Compare(x.Designation, y.Designation) }
+	return slices.Equal(
+		slices.SortedFunc(slices.Values(a), byName),
+		slices.SortedFunc(slices.Values(b), byName))
 }
 
 func strPtrEqual(a, b *string) bool {
@@ -416,11 +396,7 @@ func (s *stateMerger) toCatalogDevice(p domain.ParsedDesignation, st *deviceStat
 		Designation: p.Designation,
 		Attributes:  st.attributes,
 	}
-	groups := make([]string, 0, len(st.groupValues))
-	for g := range st.groupValues {
-		groups = append(groups, g)
-	}
-	sort.Strings(groups)
+	groups := slices.Sorted(maps.Keys(st.groupValues))
 	for _, g := range groups {
 		section := ""
 		if grp, ok := s.snap.Group(g); ok {

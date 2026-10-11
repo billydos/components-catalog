@@ -1,5 +1,7 @@
 package domain
 
+import "slices"
+
 // Способ подстройки номинала: единый словарь значений для сквозного
 // фильтра по полю adjustment между системами обозначений резисторов и
 // конденсаторов (docs/plan/03-data-model.md §2.2–§2.3).
@@ -27,9 +29,7 @@ var adjustments = []Adjustment{
 
 // Adjustments возвращает словарь способов подстройки в стабильном порядке.
 func Adjustments() []Adjustment {
-	out := make([]Adjustment, len(adjustments))
-	copy(out, adjustments)
-	return out
+	return slices.Clone(adjustments)
 }
 
 // AdjustmentByCode ищет способ подстройки по стабильному коду словаря.
