@@ -6,6 +6,7 @@ require (
 	github.com/goccy/go-yaml v1.19.2
 	github.com/jackc/pgx/v5 v5.11.0
 	github.com/tailscale/hujson v0.0.0-20260727124030-b80ff77dac4f
+	github.com/urfave/cli/v3 v3.14.0
 	golang.org/x/sys v0.48.0
 	modernc.org/sqlite v1.60.1
 )

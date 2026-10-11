@@ -387,7 +387,7 @@ func TestLimitFlagValidation(t *testing.T) {
 
 func TestHelpLangVariants(t *testing.T) {
 	// Флаг --lang до команды, после команды и в форме «--lang=» — разбор
-	// общий с прочими командами (parseArgs); справка на выбранной локали.
+	// общий с прочими командами; справка на выбранной локали.
 	for _, args := range [][]string{
 		{"help", "--lang", "ru", "parse"},
 		{"help", "--lang=ru", "parse"},

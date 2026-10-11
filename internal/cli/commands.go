@@ -127,40 +127,16 @@ func runImport(ctx context.Context, opts *options, pos []string, stdout, stderr 
 	return printReport(stdout, stderr, opts.langOf(), &rep)
 }
 
-// runCatalog — catalog export|import|list.
-func runCatalog(ctx context.Context, opts *options, pos []string, stdout, stderr io.Writer) int {
-	if len(pos) == 0 {
-		PrintError(stderr, opts.langOf(), domain.NewErrorf(domain.CodeValidationFailed,
-			domain.MsgCliCatalogSubMissing))
-		return 1
-	}
-	sub, rest := pos[0], pos[1:]
-	switch sub {
-	case "export":
-		if len(rest) > 1 {
-			PrintError(stderr, opts.langOf(), domain.NewErrorf(domain.CodeValidationFailed,
-				domain.MsgCliCatalogExportArgs))
-			return 1
-		}
-		return runCatalogExport(ctx, opts, rest, stdout, stderr)
-	case "import":
-		if len(rest) != 1 {
-			PrintError(stderr, opts.langOf(), domain.NewErrorf(domain.CodeValidationFailed,
-				domain.MsgCliCatalogImportArgs))
-			return 1
-		}
-		return runCatalogImport(ctx, opts, rest[0], stdout, stderr)
-	case "list":
-		if len(rest) > 0 {
-			PrintError(stderr, opts.langOf(), domain.NewErrorf(domain.CodeValidationFailed,
-				domain.MsgCliCatalogListArgs))
-			return 1
-		}
-		return runCatalogList(ctx, opts, stdout, stderr)
-	}
-	PrintError(stderr, opts.langOf(), domain.NewErrorf(domain.CodeValidationFailed,
-		domain.MsgCliCatalogSubUnknown, sub))
-	return 1
+// Подкоманды catalog — самостоятельные команды urfave/cli со своими
+// флагами (строгость: флаг соседней подкоманды — ошибка); адаптеры
+// приводят их к общей сигнатуре исполнителей реестра.
+
+func runCatalogImportCmd(ctx context.Context, opts *options, pos []string, stdout, stderr io.Writer) int {
+	return runCatalogImport(ctx, opts, pos[0], stdout, stderr)
+}
+
+func runCatalogListCmd(ctx context.Context, opts *options, pos []string, stdout, stderr io.Writer) int {
+	return runCatalogList(ctx, opts, stdout, stderr)
 }
 
 // runCatalogExport — выгрузка каталога: без позиционных аргументов — в

@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"sort"
@@ -15,17 +16,12 @@ func usageText(lang i18n.Language) string {
 	return i18n.Message(lang, string(domain.MsgCliUsage))
 }
 
-// runHelp — справка по командам (help [команда] [--lang en|ru]): разбор
-// аргументов — общий parseArgs (флаги в любой позиции, формы «--lang X» и
-// «--lang=X», как у прочих команд), команда — первый позиционный аргумент;
-// неизвестная команда и лишние позиционные аргументы — локализованные
-// ошибки выбранной локали.
-func runHelp(args []string, stdout, stderr io.Writer) int {
-	opts, pos, err := parseArgs("help", []flagSpec{{name: "lang", hasValue: true}}, args)
-	if err != nil {
-		PrintError(stderr, langFromArgs(args), err)
-		return 1
-	}
+// runHelpCmd — help [команда] [--lang en|ru] (команда реестра; разбор
+// флагов — urfave/cli): без позиционного аргумента — общая справка,
+// с аргументом — справка команды из реестра; «help help» — справка о
+// самой справке (usage её рекламирует). Лишние позиционные аргументы и
+// неизвестная команда — локализованные ошибки выбранной локали.
+func runHelpCmd(_ context.Context, opts *options, pos []string, stdout, stderr io.Writer) int {
 	lang := opts.langOf()
 	if len(pos) == 0 {
 		fmt.Fprint(stdout, usageText(lang))
@@ -36,8 +32,6 @@ func runHelp(args []string, stdout, stderr io.Writer) int {
 			domain.MsgCliHelpArgs))
 		return 1
 	}
-	// «help help» — справка о самой справке: usage её рекламирует,
-	// в реестре команд её нет.
 	if pos[0] == "help" {
 		fmt.Fprintf(stdout, "%s catalogctl %s\n",
 			i18n.Message(lang, string(domain.MsgCliUsageWord)),
@@ -54,10 +48,21 @@ func runHelp(args []string, stdout, stderr io.Writer) int {
 	return 0
 }
 
-// командаСправка sorted — используется тестом полноты справки.
+// commandNames/subcommandNames (sorted) — детерминированный порядок
+// построения дерева urfave/cli; commandNames используется тестом
+// полноты справки.
 func commandNames() []string {
 	names := make([]string, 0, len(commands))
 	for name := range commands {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	return names
+}
+
+func subcommandNames(cmd *command) []string {
+	names := make([]string, 0, len(cmd.subcommands))
+	for name := range cmd.subcommands {
 		names = append(names, name)
 	}
 	sort.Strings(names)

@@ -77,7 +77,7 @@ go build ./... && go vet ./... && gofmt -l . && go test ./...
 
 ## Зависимости
 
-- База — stdlib. Внешние: `modernc.org/sqlite`, `jackc/pgx/v5`, `tailscale/hujson`, `goccy/go-yaml`, `golang.org/x/sys` (только `qa/runner`: hostinfo на darwin — sysctl, на windows — реестр; pure Go, без cgo).
+- База — stdlib. Внешние: `modernc.org/sqlite`, `jackc/pgx/v5`, `tailscale/hujson`, `goccy/go-yaml`, `urfave/cli/v3` (дерево команд и диспетчеризация `internal/cli`; граница: контрактная лексика флагов и валидация значений, справка, тексты ошибок и коды выхода — `internal/cli`), `golang.org/x/sys` (только `qa/runner`: hostinfo на darwin — sysctl, на windows — реестр; pure Go, без cgo).
 - Новая зависимость допустима, если: pure Go без cgo, минимум транзитивных, живое сопровождение, заменяет самописный разбор или существенно сокращает код. Граница библиотеки — лексика/синтаксис формата; семантика секций, порядок ключей и русские тексты ошибок — только в `internal/importer`.
 
 ## Коммиты
