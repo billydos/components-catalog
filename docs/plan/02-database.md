@@ -41,9 +41,9 @@ designation_system_kinds(system_code TEXT NOT NULL
     -- применимость систем к классам (03-data-model.md §1.1); проверяется метасхемой
 
 units(code TEXT PRIMARY KEY)
-    -- канонические единицы; коды — латиница (locale-neutral): V, mV, mA, uA, A, MHz,
-    -- dB, pct, W, mW, ohm, pF, ps, ns, us, degC, degC_per_W, ppm_per_degC,
-    -- pct_per_degC, g, mm, nm, mcd (см. 03-data-model.md §3);
+    -- канонические единицы; коды — латиница (locale-neutral): V, mV, mA, uA, nA,
+    -- A, MHz, dB, pct, W, mW, ohm, mA_per_V, pF, ps, ns, us, degC, degC_per_W,
+    -- ppm_per_degC, pct_per_degC, g, mm, nm, mcd (см. 03-data-model.md §3);
     -- название и символ — i18n: unit.<код>.name / unit.<код>.symbol
 
 categories(code TEXT PRIMARY KEY)

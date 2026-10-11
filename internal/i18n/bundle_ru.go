@@ -34,6 +34,8 @@ var bundleRu = map[string]string{
 	"unit.mA.symbol":           "мА",
 	"unit.uA.name":             "микроампер",
 	"unit.uA.symbol":           "мкА",
+	"unit.nA.name":             "наноампер",
+	"unit.nA.symbol":           "нА",
 	"unit.A.name":              "ампер",
 	"unit.A.symbol":            "А",
 	"unit.MHz.name":            "мегагерц",
@@ -48,6 +50,8 @@ var bundleRu = map[string]string{
 	"unit.mW.symbol":           "мВт",
 	"unit.ohm.name":            "ом",
 	"unit.ohm.symbol":          "Ом",
+	"unit.mA_per_V.name":       "миллиампер на вольт",
+	"unit.mA_per_V.symbol":     "мА/В",
 	"unit.pF.name":             "пикофарад",
 	"unit.pF.symbol":           "пФ",
 	"unit.ps.name":             "пикосекунда",
@@ -128,6 +132,9 @@ var bundleRu = map[string]string{
 	"condition.Ik":             "ток коллектора",
 	"condition.Ie":             "ток эмиттера",
 	"condition.Ib":             "ток базы",
+	"condition.Usi":            "напряжение сток-исток",
+	"condition.Uzi":            "напряжение затвор-исток (может быть отрицательным)",
+	"condition.Isi":            "ток стока",
 	"condition.Uobr":           "обратное напряжение (диоды)",
 	"condition.Upr":            "прямое напряжение (диоды)",
 	"condition.Ipr":            "прямой ток (диоды)",
@@ -167,6 +174,17 @@ var bundleRu = map[string]string{
 	"param.KUr":    "коэффициент усиления по мощности",
 	"param.Kpd":    "коэффициент полезного действия",
 
+	// Параметры: полевые транзисторы — electrical (условия Usi/Uzi/Isi).
+	"param.IcNach": "начальный ток стока",
+	"param.S":      "крутизна характеристики",
+	"param.UziOts": "напряжение отсечки",
+	"param.UziPor": "пороговое напряжение",
+	"param.Izut":   "ток утечки затвора",
+	"param.Czi":    "ёмкость затвор-исток (входная)",
+	"param.Czs":    "ёмкость затвор-сток (проходная)",
+	"param.Csi":    "ёмкость сток-исток (выходная)",
+	"param.RsiOtk": "сопротивление сток-исток в открытом состоянии",
+
 	// Параметры: диоды — electrical.
 	"param.Upr":    "прямое напряжение",
 	"param.Iobr":   "обратный ток",
@@ -205,11 +223,16 @@ var bundleRu = map[string]string{
 	"param.UbeMax":     "наибольшее напряжение эмиттер-база",
 	"param.IkMax":      "наибольший ток коллектора",
 	"param.IbMax":      "наибольший ток базы",
-	"param.PkMax":      "наибольшая рассеиваемая мощность коллектора (у полевых — мощность стока)",
+	"param.PkMax":      "наибольшая рассеиваемая мощность коллектора",
 	"param.UsiMax":     "наибольшее напряжение сток-исток",
 	"param.IsiMax":     "наибольший ток стока",
 	"param.IkPulseMax": "наибольший импульсный ток коллектора",
-	"param.PkPulseMax": "наибольшая импульсная рассеиваемая мощность",
+	"param.PkPulseMax": "наибольшая импульсная рассеиваемая мощность коллектора",
+
+	// Параметры: полевые транзисторы — limiting.
+	"param.UziMax":      "наибольшее напряжение затвор-исток (может быть отрицательным)",
+	"param.PsiMax":      "наибольшая рассеиваемая мощность стока",
+	"param.IsiPulseMax": "наибольший импульсный ток стока",
 
 	// Параметры: общие предельные данные.
 	"param.TempMin":         "наименьшая температура среды",

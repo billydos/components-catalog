@@ -344,7 +344,7 @@
       ]
     },
     {
-      "name": "2SK1058",                     // мощной МОП (Hitachi); электрические параметры полевых — вне стартового каталога
+      "name": "2SK1058",                     // мощной МОП (Hitachi); мощность стока — PsiMax (полевые — собственные коды)
       "system": "jis",
       "attributes": {
         "structure": "n-канал", "package": "TO-3P",
@@ -354,7 +354,7 @@
       "ratings": [
         { "parameter": "UsiMax", "value": 160 },
         { "parameter": "IsiMax", "value": 7000 },
-        { "parameter": "PkMax", "value": 100000 },
+        { "parameter": "PsiMax", "value": 100000 },
         { "parameter": "TempMin", "value": -55 },
         { "parameter": "TempMax", "value": 150 },
         { "parameter": "TempJunctionMax", "value": 150 }
@@ -497,7 +497,7 @@
       "ratings": [
         { "parameter": "UsiMax", "value": 100 },
         { "parameter": "IsiMax", "value": 28000 },
-        { "parameter": "PkMax", "value": 150000 },
+        { "parameter": "PsiMax", "value": 150000 },
         { "parameter": "TempMin", "value": -55 },
         { "parameter": "TempMax", "value": 175 },
         { "parameter": "TempJunctionMax", "value": 175 }

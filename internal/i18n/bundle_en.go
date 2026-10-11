@@ -36,6 +36,8 @@ var bundleEn = map[string]string{
 	"unit.mA.symbol":           "mA",
 	"unit.uA.name":             "microampere",
 	"unit.uA.symbol":           "µA",
+	"unit.nA.name":             "nanoampere",
+	"unit.nA.symbol":           "nA",
 	"unit.A.name":              "ampere",
 	"unit.A.symbol":            "A",
 	"unit.MHz.name":            "megahertz",
@@ -50,6 +52,8 @@ var bundleEn = map[string]string{
 	"unit.mW.symbol":           "mW",
 	"unit.ohm.name":            "ohm",
 	"unit.ohm.symbol":          "Ω",
+	"unit.mA_per_V.name":       "milliampere per volt",
+	"unit.mA_per_V.symbol":     "mA/V",
 	"unit.pF.name":             "picofarad",
 	"unit.pF.symbol":           "pF",
 	"unit.ps.name":             "picosecond",
@@ -130,6 +134,9 @@ var bundleEn = map[string]string{
 	"condition.Ik":             "collector current",
 	"condition.Ie":             "emitter current",
 	"condition.Ib":             "base current",
+	"condition.Usi":            "drain-source voltage",
+	"condition.Uzi":            "gate-source voltage (may be negative)",
+	"condition.Isi":            "drain current",
 	"condition.Uobr":           "reverse voltage (diodes)",
 	"condition.Upr":            "forward voltage (diodes)",
 	"condition.Ipr":            "forward current (diodes)",
@@ -169,6 +176,17 @@ var bundleEn = map[string]string{
 	"param.KUr":    "power gain",
 	"param.Kpd":    "efficiency",
 
+	// Параметры: полевые транзисторы — electrical (условия Usi/Uzi/Isi).
+	"param.IcNach": "initial drain current",
+	"param.S":      "forward transconductance",
+	"param.UziOts": "gate-source cutoff voltage",
+	"param.UziPor": "gate-source threshold voltage",
+	"param.Izut":   "gate leakage current",
+	"param.Czi":    "gate-source capacitance (input)",
+	"param.Czs":    "gate-drain capacitance (feedback)",
+	"param.Csi":    "drain-source capacitance (output)",
+	"param.RsiOtk": "on-state drain-source resistance",
+
 	// Параметры: диоды — electrical.
 	"param.Upr":    "forward voltage",
 	"param.Iobr":   "reverse current",
@@ -207,11 +225,16 @@ var bundleEn = map[string]string{
 	"param.UbeMax":     "maximum emitter-base voltage",
 	"param.IkMax":      "maximum collector current",
 	"param.IbMax":      "maximum base current",
-	"param.PkMax":      "maximum collector power dissipation (drain power for FETs)",
+	"param.PkMax":      "maximum collector power dissipation",
 	"param.UsiMax":     "maximum drain-source voltage",
 	"param.IsiMax":     "maximum drain current",
 	"param.IkPulseMax": "maximum peak collector current",
-	"param.PkPulseMax": "maximum peak power dissipation",
+	"param.PkPulseMax": "maximum peak collector power dissipation",
+
+	// Параметры: полевые транзисторы — limiting.
+	"param.UziMax":      "maximum gate-source voltage (may be negative)",
+	"param.PsiMax":      "maximum drain power dissipation",
+	"param.IsiPulseMax": "maximum peak drain current",
 
 	// Параметры: общие предельные данные.
 	"param.TempMin":         "minimum ambient temperature",

@@ -122,7 +122,7 @@
       "ratings": [
         { "parameter": "UsiMax", "value": 160 },
         { "parameter": "IsiMax", "value": 7000 },
-        { "parameter": "PkMax", "value": 100000 }
+        { "parameter": "PsiMax", "value": 100000 }
       ]
     },
 

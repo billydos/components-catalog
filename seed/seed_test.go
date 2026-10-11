@@ -19,8 +19,8 @@ func TestSeedAppliesCleanly(t *testing.T) {
 		}
 		t.Fatal("стартовый каталог не проходит метасхему")
 	}
-	if len(snap.Parameters) != 77 || len(snap.Attributes) != 17 ||
-		len(snap.Units) != 23 || len(snap.Conditions) != 17 {
+	if len(snap.Parameters) != 89 || len(snap.Attributes) != 17 ||
+		len(snap.Units) != 25 || len(snap.Conditions) != 20 {
 		t.Fatalf("состав каталога: параметры %d, атрибуты %d, единицы %d, условия %d",
 			len(snap.Parameters), len(snap.Attributes), len(snap.Units), len(snap.Conditions))
 	}
@@ -177,6 +177,37 @@ func TestSeedSpotChecks(t *testing.T) {
 		pulse.ConditionSets[0].Items[0].Mode != catalog.ModeRequired ||
 		pulse.ConditionSets[0].Items[0].Condition != "pulse_duration" {
 		t.Errorf("IkPulseMax: набор условий %+v", pulse.ConditionSets)
+	}
+	// Полевые транзисторы: собственные коды величин стока/затвора, без
+	// пересечений с биполярными (03 §6.1–6.2).
+	psi := check("PsiMax")
+	if psi.Unit != "mW" || psi.ValueType != catalog.ValueExact || len(psi.ConditionSets) != 0 ||
+		!psi.AppliesTo(domain.KindTransistor) {
+		t.Errorf("PsiMax: %+v", psi)
+	}
+	isiPulse := check("IsiPulseMax")
+	if len(isiPulse.ConditionSets) != 1 || len(isiPulse.ConditionSets[0].Items) != 1 ||
+		isiPulse.ConditionSets[0].Items[0].Mode != catalog.ModeRequired ||
+		isiPulse.ConditionSets[0].Items[0].Condition != "pulse_duration" {
+		t.Errorf("IsiPulseMax: набор условий %+v", isiPulse.ConditionSets)
+	}
+	if s, _ := snap.Parameter("S"); s.Unit != "mA_per_V" || s.ValueType != catalog.ValueAtLeast ||
+		len(s.ConditionSets) != 2 {
+		t.Errorf("S: единица %q, тип %s, наборы %+v", s.Unit, string(s.ValueType), s.ConditionSets)
+	}
+	ots := check("UziOts")
+	if !ots.AllowNegative || ots.ValueType != catalog.ValueRange ||
+		len(ots.ConditionSets) != 1 || ots.ConditionSets[0].Items[0].Condition != "Isi" {
+		t.Errorf("UziOts: %+v", ots)
+	}
+	if c, ok := snap.Condition("Uzi"); !ok || c.Unit != "V" || !c.AllowNegative {
+		t.Errorf("условие Uzi: %+v", c)
+	}
+	if c, ok := snap.Condition("Isi"); !ok || c.Unit != "mA" || c.AllowNegative {
+		t.Errorf("условие Isi: %+v", c)
+	}
+	if u, ok := snap.Unit("nA"); !ok {
+		t.Errorf("единица nA: %+v", u)
 	}
 	if u, _ := snap.Parameter("Ush"); u.Unit != "" {
 		t.Errorf("Ush: единица %q (должна быть NULL)", u.Unit)

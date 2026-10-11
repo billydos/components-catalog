@@ -60,9 +60,9 @@ func Catalog() catalog.Input {
 // хранятся — их форматирует слой вывода.
 func units() []catalog.UnitDef {
 	codes := []string{
-		"V", "mV", "mA", "uA", "A",
+		"V", "mV", "mA", "uA", "nA", "A",
 		"MHz", "dB", "pct", "W", "mW",
-		"ohm", "pF", "ps", "ns", "us",
+		"ohm", "mA_per_V", "pF", "ps", "ns", "us",
 		"degC", "degC_per_W", "ppm_per_degC", "pct_per_degC",
 		"g", "mm", "nm", "mcd",
 	}
@@ -91,7 +91,7 @@ func categories() []catalog.CategoryDef {
 }
 
 // conditions — стартовый набор условий измерения (docs/plan/03-data-model.md
-// §4): положительные, кроме temp (AllowNegative).
+// §4): положительные, кроме temp и Uzi (AllowNegative).
 func conditions() []catalog.ConditionDef {
 	return []catalog.ConditionDef{
 		{Code: "Uke", Unit: "V"},
@@ -100,6 +100,9 @@ func conditions() []catalog.ConditionDef {
 		{Code: "Ik", Unit: "mA"},
 		{Code: "Ie", Unit: "mA"},
 		{Code: "Ib", Unit: "mA"},
+		{Code: "Usi", Unit: "V"},
+		{Code: "Uzi", Unit: "V", AllowNegative: true},
+		{Code: "Isi", Unit: "mA"},
 		{Code: "Uobr", Unit: "V"},
 		{Code: "Upr", Unit: "V"},
 		{Code: "Ipr", Unit: "mA"},
@@ -328,6 +331,45 @@ func parameters() []catalog.ParameterDef {
 			ValueType: catalog.ValueExact, ValidationRule: ruleTempPair,
 			SortOrder: 450, Active: true, Kinds: []domain.Kind{domain.KindCapacitor}},
 
+		// Полевые транзисторы — электрические параметры (§6.1): собственные
+		// коды, величины биполярных не дублируются — пересечений с разделом
+		// §6.1 биполярных нет (мощность стока — PsiMax §6.2, не PkMax);
+		// условия измерения — Usi/Uzi/Isi, наборы условий — схемы полевых.
+		{Code: "IcNach", Group: "electrical", Unit: "mA",
+			ValueType: catalog.ValueRange, SortOrder: 460, Active: true, Kinds: tr,
+			ConditionSets: []catalog.ConditionSet{
+				set(1, req("Usi"), fixed("Uzi", 0)),
+			}},
+		{Code: "S", Group: "electrical", Unit: "mA_per_V",
+			ValueType: catalog.ValueAtLeast, SortOrder: 470, Active: true, Kinds: tr,
+			ConditionSets: []catalog.ConditionSet{
+				set(1, req("Usi"), fixed("Uzi", 0)),
+				set(2, req("Usi"), req("Isi")),
+			}},
+		{Code: "UziOts", Group: "electrical", Unit: "V",
+			ValueType: catalog.ValueRange, AllowNegative: true,
+			SortOrder: 480, Active: true, Kinds: tr,
+			ConditionSets: []catalog.ConditionSet{set(1, req("Isi"), opt("Usi"))}},
+		{Code: "UziPor", Group: "electrical", Unit: "V",
+			ValueType: catalog.ValueRange, AllowNegative: true,
+			SortOrder: 490, Active: true, Kinds: tr,
+			ConditionSets: []catalog.ConditionSet{set(1, req("Isi"), opt("Usi"))}},
+		{Code: "Izut", Group: "electrical", Unit: "nA",
+			ValueType: catalog.ValueAtMost, SortOrder: 500, Active: true, Kinds: tr,
+			ConditionSets: []catalog.ConditionSet{set(1, req("Uzi"), opt("temp"))}},
+		{Code: "Czi", Group: "electrical", Unit: "pF",
+			ValueType: catalog.ValueAtMost, SortOrder: 510, Active: true, Kinds: tr,
+			ConditionSets: []catalog.ConditionSet{set(1, req("Usi"), opt("Uzi"))}},
+		{Code: "Czs", Group: "electrical", Unit: "pF",
+			ValueType: catalog.ValueAtMost, SortOrder: 520, Active: true, Kinds: tr,
+			ConditionSets: []catalog.ConditionSet{set(1, req("Usi"), opt("Uzi"))}},
+		{Code: "Csi", Group: "electrical", Unit: "pF",
+			ValueType: catalog.ValueAtMost, SortOrder: 530, Active: true, Kinds: tr,
+			ConditionSets: []catalog.ConditionSet{set(1, req("Usi"), opt("Uzi"))}},
+		{Code: "RsiOtk", Group: "electrical", Unit: "ohm",
+			ValueType: catalog.ValueAtMost, SortOrder: 540, Active: true, Kinds: tr,
+			ConditionSets: []catalog.ConditionSet{set(1, req("Isi"), req("Uzi"))}},
+
 		// Транзисторы — предельные эксплуатационные данные (§6.2).
 		{Code: "UkeoMax", Group: "limiting", Unit: "V",
 			ValueType: catalog.ValueExact, SortOrder: 10, Active: true, Kinds: tr},
@@ -391,6 +433,19 @@ func parameters() []catalog.ParameterDef {
 			ValueType: catalog.ValueExact, SortOrder: 230, Active: true, Kinds: re},
 		{Code: "UimpMax", Group: "limiting", Unit: "V",
 			ValueType: catalog.ValueExact, SortOrder: 240, Active: true, Kinds: re,
+			ConditionSets: []catalog.ConditionSet{set(1, req("pulse_duration"))}},
+
+		// Полевые транзисторы — предельные данные (§6.2): величины стока и
+		// затвора — собственные коды, у биполярных им соответствуют PkMax
+		// (мощность коллектора) и IkPulseMax/PkPulseMax (импульсные величины
+		// коллектора); пересечений кодов нет.
+		{Code: "UziMax", Group: "limiting", Unit: "V",
+			ValueType: catalog.ValueExact, AllowNegative: true,
+			SortOrder: 250, Active: true, Kinds: tr},
+		{Code: "PsiMax", Group: "limiting", Unit: "mW",
+			ValueType: catalog.ValueExact, SortOrder: 260, Active: true, Kinds: tr},
+		{Code: "IsiPulseMax", Group: "limiting", Unit: "mA",
+			ValueType: catalog.ValueExact, SortOrder: 270, Active: true, Kinds: tr,
 			ConditionSets: []catalog.ConditionSet{set(1, req("pulse_duration"))}},
 
 		// Массогабаритные данные (§6.7) — все классы.
