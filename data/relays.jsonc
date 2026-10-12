@@ -1,0 +1,385 @@
+{
+  // Реле: выверенное наполнение; источники по каждой записи — код [S…]
+  // и конфликты: docs/plan/08-data-verification.md §5. Единицы —
+  // канонические: сопротивления — Ом, токи срабатывания — мА, времена — мс,
+  // коммутируемый ток — А, мощности — Вт. Класс — только система other
+  // (07-r1-verification.md §13): ключ — базовое обозначение типа;
+  // исполнения обмотки (децимальные паспорта, суффиксы заказа) в ключ
+  // не входят, VcoilNom у многовoltage семейств опущен, Rcoil — диапазон
+  // сопротивлений обмоток исполнений.
+  "relays": [
+    // СССР: семейства РЭС/РПС/РКМ/МКУ/КДР — «код + номер разработки» [S19];
+    // крепление/климат и децимальный номер исполнения в ключ не входят.
+    {
+      "name": "РЭС-9",
+      "system": "other",
+      "fields": { "series": "РЭС", "dev_number": 9 },
+      "attributes": {
+        "relayType": "electromagnetic", "contactForm": "2П",
+        "description": "завальцованное негерметичное", "spec": "РС0.452.045ТУ",
+        "datasheetUrl": "https://rudatasheet.ru/relay/res9/"
+      },
+      "parameters": [
+        { "parameter": "Rcoil", "min": 30, "max": 9600 },        // обмотки исполнений РС4.529.029-00…-19
+        { "parameter": "Ipickup", "max": 108 },                  // ток срабатывания (не более), мА
+        { "parameter": "Rcontact", "max": 1.5 },
+        { "parameter": "Rins", "min": 200000000 },
+        { "parameter": "Vtest", "min": 500 },
+        { "parameter": "tOperate", "max": 11 },
+        { "parameter": "tRelease", "max": 7 }
+      ],
+      "ratings": [
+        { "parameter": "VswitchMax", "value": 250 },
+        { "parameter": "IswitchMax", "value": 3 },
+        { "parameter": "TempMin", "value": -60 },
+        { "parameter": "TempMax", "value": 85 }
+      ],
+      "dimensions": [ { "parameter": "massMax", "value": 20 } ]
+    },
+    {
+      "name": "РЭС-15",
+      "system": "other",
+      "fields": { "series": "РЭС", "dev_number": 15 },
+      "attributes": {
+        "relayType": "electromagnetic", "contactForm": "1П",
+        "description": "пылебрызгозащищённое", "spec": "РС0.325.037ТУ",
+        "datasheetUrl": "https://rudatasheet.ru/relay/res15/"
+      },
+      "parameters": [
+        { "parameter": "Rcoil", "min": 36, "max": 2200 },        // обмотки РС4.591.001…007, ХП4.591.008…014
+        { "parameter": "Ipickup", "max": 60 },
+        { "parameter": "Rcontact", "max": 1.0 },
+        { "parameter": "Rins", "min": 200000000 },
+        { "parameter": "Vtest", "min": 500 },
+        { "parameter": "tOperate", "max": 8 },
+        { "parameter": "tRelease", "max": 5 },
+        { "parameter": "enduranceElec", "min": 100000 }
+      ],
+      "ratings": [
+        { "parameter": "VswitchMax", "value": 127 },
+        { "parameter": "IswitchMax", "value": 0.15 },
+        { "parameter": "TempMin", "value": -60 },
+        { "parameter": "TempMax", "value": 100 }
+      ],
+      "dimensions": [ { "parameter": "massMax", "value": 3.7 } ]
+    },
+    {
+      "name": "РЭС-22",
+      "system": "other",
+      "fields": { "series": "РЭС", "dev_number": 22 },
+      "attributes": {
+        "relayType": "electromagnetic", "contactForm": "4П",
+        "description": "зачехлённое негерметичное", "spec": "РФ4.523.023ТУ",
+        "datasheetUrl": "https://rudatasheet.ru/relay/res22/"
+      },
+      "parameters": [
+        { "parameter": "Rcoil", "min": 8, "max": 5700 },         // обмотки исполнений РФ4.523.023-01…-10
+        { "parameter": "Ipickup", "max": 135 },
+        { "parameter": "Rcontact", "max": 1.0 },
+        { "parameter": "Rins", "min": 100000000 },
+        { "parameter": "Vtest", "min": 500 },
+        { "parameter": "tOperate", "max": 15 },
+        { "parameter": "tRelease", "max": 8 }
+      ],
+      "ratings": [
+        { "parameter": "VswitchMax", "value": 30 },
+        { "parameter": "IswitchMax", "value": 3 },
+        { "parameter": "TempMin", "value": -60 },
+        { "parameter": "TempMax", "value": 85 }
+      ],
+      "dimensions": [ { "parameter": "massMax", "value": 24 } ]
+    },
+    {
+      "name": "РЭС-34",
+      "system": "other",
+      "fields": { "series": "РЭС", "dev_number": 34 },
+      "attributes": {
+        "relayType": "electromagnetic", "contactForm": "1П",
+        "description": "зачехлённое, металлический корпус", "spec": "РС0.459.001ТУ",
+        "datasheetUrl": "http://electra-hvac.ru/rele-res-34.html"
+      },
+      "parameters": [
+        { "parameter": "Rcoil", "min": 630, "max": 24750 },      // обмотки исполнений РС4.524.370-00…-33
+        { "parameter": "Ipickup", "max": 21 },
+        { "parameter": "Rcontact", "max": 1.0 },
+        { "parameter": "Rins", "min": 200000000 },
+        { "parameter": "Vtest", "min": 500 },
+        { "parameter": "tOperate", "max": 7.5 },
+        { "parameter": "tRelease", "max": 2.5 }
+      ],
+      "ratings": [
+        { "parameter": "VswitchMax", "value": 250 },
+        { "parameter": "IswitchMax", "value": 2 },
+        { "parameter": "TempMin", "value": -60 },
+        { "parameter": "TempMax", "value": 100 }
+      ],
+      "dimensions": [ { "parameter": "massMax", "value": 11.5 } ]
+    },
+    {
+      "name": "РЭС-47",
+      "system": "other",
+      "fields": { "series": "РЭС", "dev_number": 47 },
+      "attributes": {
+        "relayType": "electromagnetic", "contactForm": "1П",
+        "description": "миниатюрное негерметичное", "spec": "АЕЖР.682364.001ТУ",
+        "datasheetUrl": "https://rudatasheet.ru/relay/res47/"
+      },
+      "parameters": [
+        { "parameter": "Rcoil", "min": 750, "max": 4200 },
+        { "parameter": "Ipickup", "max": 9.4 },
+        { "parameter": "Rcontact", "max": 1.0 },
+        { "parameter": "Rins", "min": 100000000 },
+        { "parameter": "Vtest", "min": 250 },
+        { "parameter": "enduranceElec", "min": 100000 }
+      ],
+      "ratings": [
+        { "parameter": "TempMin", "value": -40 },
+        { "parameter": "TempMax", "value": 55 }
+      ],
+      "dimensions": [ { "parameter": "massMax", "value": 6 } ]
+    },
+    {
+      "name": "РЭС-49",
+      "system": "other",
+      "fields": { "series": "РЭС", "dev_number": 49 },
+      "attributes": {
+        "relayType": "electromagnetic", "contactForm": "1П",
+        "description": "миниатюрное открытое",
+        "datasheetUrl": "https://rudatasheet.ru/relay/res49/"
+      },
+      "parameters": [
+        { "parameter": "Rcoil", "min": 100, "max": 3200 },       // обмотки 100…3200 Ом на 3,2–24 В
+        { "parameter": "Rcontact", "max": 1.0 },
+        { "parameter": "Rins", "min": 100000000 },
+        { "parameter": "Vtest", "min": 250 },
+        { "parameter": "enduranceElec", "min": 100000 }
+      ],
+      "ratings": [
+        { "parameter": "TempMin", "value": -40 },
+        { "parameter": "TempMax", "value": 55 }
+      ],
+      "dimensions": [ { "parameter": "massMax", "value": 2.5 } ]
+    },
+    {
+      "name": "РЭС-60",
+      "system": "other",
+      "fields": { "series": "РЭС", "dev_number": 60 },
+      "attributes": {
+        "relayType": "electromagnetic", "contactForm": "1П",
+        "description": "малогабаритное герметичное",
+        "datasheetUrl": "https://rudatasheet.ru/relay/res60/"
+      },
+      "parameters": [
+        { "parameter": "Rcoil", "min": 1500, "max": 4300 },
+        { "parameter": "Rcontact", "max": 1.0 },
+        { "parameter": "Rins", "min": 1000000000 },
+        { "parameter": "Vtest", "min": 500 },
+        { "parameter": "enduranceElec", "min": 100000 }
+      ],
+      "ratings": [
+        { "parameter": "TempMin", "value": -40 },
+        { "parameter": "TempMax", "value": 55 }
+      ],
+      "dimensions": [ { "parameter": "massMax", "value": 6.5 } ]
+    },
+    {
+      "name": "РПС-32",
+      "system": "other",
+      "fields": { "series": "РПС", "dev_number": 32 },
+      "attributes": {
+        "relayType": "polarized", "contactForm": "1П",
+        "description": "поляризованное двухпозиционное, зачехлённое",
+        "datasheetUrl": "https://rudatasheet.ru/relay/rps32/"
+      },
+      "parameters": [
+        { "parameter": "Rcoil", "min": 1100, "max": 6000 },      // обмотки РС4.520.050-00…-03
+        { "parameter": "Ipickup", "max": 7.2 },
+        { "parameter": "Rcontact", "max": 1.5 },
+        { "parameter": "tOperate", "max": 2.5 },
+        { "parameter": "enduranceElec", "min": 100000 }
+      ],
+      "ratings": [
+        { "parameter": "TempMin", "value": -40 },
+        { "parameter": "TempMax", "value": 55 }
+      ],
+      "dimensions": [ { "parameter": "massMax", "value": 6.5 } ]
+    },
+    {
+      "name": "РПС-43",
+      "system": "other",
+      "fields": { "series": "РПС", "dev_number": 43 },
+      "attributes": {
+        "relayType": "polarized", "contactForm": "2П",
+        "description": "поляризованное двухпозиционное",
+        "datasheetUrl": "https://rudatasheet.ru/relay/rps43/"
+      },
+      "parameters": [
+        { "parameter": "Rcoil", "min": 400, "max": 8000 },       // обмотки РС4.520.065-00…-05
+        { "parameter": "Ipickup", "max": 10 },
+        { "parameter": "Rcontact", "max": 1.0 },
+        { "parameter": "tOperate", "max": 2.5 },
+        { "parameter": "enduranceElec", "min": 100000 }
+      ],
+      "ratings": [
+        { "parameter": "TempMin", "value": -40 },
+        { "parameter": "TempMax", "value": 55 }
+      ],
+      "dimensions": [ { "parameter": "massMax", "value": 15 } ]
+    },
+    {
+      "name": "РПС-52",
+      "system": "other",
+      "fields": { "series": "РПС", "dev_number": 52 },
+      "attributes": {
+        "relayType": "reed", "contactForm": "4П",
+        "description": "герконовое поляризованное двустабильное (импульсное)",
+        "datasheetUrl": "https://rudatasheet.ru/relay/rps49_56/"
+      },
+      "parameters": [
+        { "parameter": "Rcontact", "max": 1.5 },
+        { "parameter": "enduranceMech", "min": 10000000 }        // 10⁷ циклов
+      ],
+      "ratings": [
+        { "parameter": "IswitchMax", "value": 0.5 },
+        { "parameter": "TempMin", "value": -40 },
+        { "parameter": "TempMax", "value": 55 }
+      ],
+      "dimensions": [ { "parameter": "massMax", "value": 18 } ]
+    },
+    {
+      "name": "РКМ-1",
+      "system": "other",
+      "fields": { "series": "РКМ", "dev_number": 1 },
+      "attributes": {
+        "relayType": "electromagnetic",
+        "description": "многокатушечное кодовое телефонное реле АТС (1–6П по исполнению)",
+        "spec": "КЩ0.450.000ТУ",
+        "datasheetUrl": "https://rudatasheet.ru/relay/rkm1/"
+      },
+      "parameters": [
+        { "parameter": "Rcontact", "max": 1.0 },                 // в эксплуатации (при поставке 0,25–0,3)
+        { "parameter": "Rins", "min": 500000000 },
+        { "parameter": "Vtest", "min": 375 }
+      ],
+      "ratings": [
+        { "parameter": "TempMin", "value": -40 },
+        { "parameter": "TempMax", "value": 55 }
+      ],
+      "dimensions": [ { "parameter": "massMax", "value": 130 } ]
+    },
+    {
+      "name": "МКУ-48-С",
+      "system": "other",
+      "fields": { "series": "МКУ", "dev_number": 48, "letters": "С" },
+      "attributes": {
+        "relayType": "electromagnetic",
+        "description": "многоконтактное унифицированное (1–6П по исполнению), обмотки 12–380 В",
+        "spec": "РА0.450.002ТУ",
+        "datasheetUrl": "https://rudatasheet.ru/relay/mku48-s/"
+      },
+      "parameters": [
+        { "parameter": "Rcontact", "max": 1.5 },                 // после хранения (при поставке 0,1)
+        { "parameter": "Rins", "min": 200000000 },
+        { "parameter": "Vtest", "min": 1500 }
+      ],
+      "ratings": [
+        { "parameter": "TempMin", "value": -50 },
+        { "parameter": "TempMax", "value": 50 }
+      ],
+      "dimensions": [ { "parameter": "massMax", "value": 360 } ] // открытое исполнение
+    },
+    {
+      "name": "КДР-1",
+      "system": "other",
+      "fields": { "series": "КДР", "dev_number": 1 },
+      "attributes": {
+        "relayType": "electromagnetic",
+        "description": "кодовое диспетчерское реле ж/д автоматики и телемеханики",
+        "spec": "ТУ 32 ЦШ 475-95",
+        "datasheetUrl": "https://texnogaz.ru/kodovye-rele-kdr"
+      },
+      "parameters": [
+        { "parameter": "Rins", "min": 500000000 },
+        { "parameter": "Vtest", "min": 1000 }
+      ],
+      "ratings": [
+        { "parameter": "TempMin", "value": -40 },
+        { "parameter": "TempMax", "value": 55 }
+      ],
+      "dimensions": [
+        { "parameter": "length", "value": 113 },
+        { "parameter": "width", "value": 80 },
+        { "parameter": "height", "value": 32 },
+        { "parameter": "massMax", "value": 560 }
+      ]
+    },
+
+    // Мировые: базовый код серии + суффиксы заказа (катушка/опции) — вне ключа
+    {
+      "name": "G5V-1",
+      "system": "other",
+      "fields": { "series": "G5V", "dev_number": 1 },
+      "attributes": {
+        "relayType": "electromagnetic", "contactForm": "1П",
+        "description": "сигнальное, герметичное", "package": "12,5×7,5×10 мм",
+        "datasheetUrl": "https://omronfs.omron.com/en_US/ecb/products/pdf/en-g5v_1.pdf"
+      },
+      "parameters": [
+        { "parameter": "Rcoil", "min": 60, "max": 3840 },        // катушки 3–24 В (50…6,25 мА)
+        { "parameter": "Pcoil", "max": 0.15 },
+        { "parameter": "Rcontact", "max": 0.1 },
+        { "parameter": "Rins", "min": 1000000000 },
+        { "parameter": "Vtest", "min": 1000 },
+        { "parameter": "tOperate", "max": 5 },
+        { "parameter": "tRelease", "max": 5 },
+        { "parameter": "enduranceElec", "min": 100000 },
+        { "parameter": "enduranceMech", "min": 5000000 }
+      ],
+      "ratings": [
+        { "parameter": "VswitchMax", "value": 125 },
+        { "parameter": "IswitchMax", "value": 1 },
+        { "parameter": "TempMin", "value": -40 },
+        { "parameter": "TempMax", "value": 70 }
+      ],
+      "dimensions": [
+        { "parameter": "length", "value": 12.5 },
+        { "parameter": "width", "value": 7.5 },
+        { "parameter": "height", "value": 10 },
+        { "parameter": "massMax", "value": 2 }
+      ]
+    },
+    {
+      "name": "G2R-2",
+      "system": "other",
+      "fields": { "series": "G2R", "dev_number": 2 },
+      "attributes": {
+        "relayType": "electromagnetic", "contactForm": "2П",
+        "description": "общего назначения, вставное (в розетку)",
+        "datasheetUrl": "https://media.digikey.com/pdf/Data%20Sheets/Omron%20PDFs/G2R.pdf"
+      },
+      "parameters": [
+        { "parameter": "Rcoil", "min": 47, "max": 18860 },       // катушки DC 5–100 В
+        { "parameter": "Pcoil", "max": 0.53 },
+        { "parameter": "Rcontact", "max": 0.05 },
+        { "parameter": "Rins", "min": 1000000000 },
+        { "parameter": "Vtest", "min": 5000 },
+        { "parameter": "tOperate", "max": 15 },
+        { "parameter": "tRelease", "max": 10 },
+        { "parameter": "enduranceElec", "min": 100000 },
+        { "parameter": "enduranceMech", "min": 10000000 }
+      ],
+      "ratings": [
+        { "parameter": "VswitchMax", "value": 380 },
+        { "parameter": "IswitchMax", "value": 5 },
+        { "parameter": "TempMin", "value": -40 },
+        { "parameter": "TempMax", "value": 70 }
+      ],
+      "dimensions": [
+        { "parameter": "length", "value": 29 },
+        { "parameter": "width", "value": 13 },
+        { "parameter": "height", "value": 25.5 },
+        { "parameter": "massMax", "value": 17 }
+      ]
+    }
+  ]
+}

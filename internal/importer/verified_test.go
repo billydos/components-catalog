@@ -22,6 +22,7 @@ import (
 // verifiedFiles — файлы проверенного наполнения по классам.
 var verifiedFiles = []string{
 	"transistors.jsonc", "diodes.jsonc", "resistors.jsonc", "capacitors.jsonc",
+	"relays.jsonc",
 }
 
 // dataPath — путь к проверенным данным этапа 6.
@@ -71,6 +72,7 @@ func runVerifiedSuite(t *testing.T, factory configFactory) {
 	minRecords := map[domain.Kind]int{
 		domain.KindTransistor: 20, domain.KindDiode: 8,
 		domain.KindResistor: 8, domain.KindCapacitor: 8,
+		domain.KindRelay: 8,
 	}
 
 	app := openApp(t, factory)
@@ -243,8 +245,43 @@ func runVerifiedSuite(t *testing.T, factory configFactory) {
 		}
 	})
 
+	t.Run("RelayOtherRecords", func(t *testing.T) {
+		// Реле — только система other (07 §13): явная система каждой
+		// записи и классификация семейством секцией fields (справочник —
+		// class-keys §12.6); VcoilNom у многовoltage семейств не задаётся
+		// (исполнения обмотки — вне ключа, отчёт 08 §5).
+		_, byKind := readVerifiedDocument(t, app, "relays.jsonc")
+		inputs := byKind[string(domain.KindRelay)]
+		if len(inputs) == 0 {
+			t.Fatal("relays.jsonc: нет записей класса")
+		}
+		for _, in := range inputs {
+			if in.System != domain.SystemOther {
+				t.Errorf("«%s»: система %s, у реле допустима только other", in.Name, in.System)
+			}
+			hasSeries := false
+			if in.Fields != nil {
+				for _, f := range *in.Fields {
+					if f.Name == "series" {
+						hasSeries = true
+					}
+				}
+			}
+			if !hasSeries {
+				t.Errorf("«%s»: не задано поле series (классификация other)", in.Name)
+			}
+			for _, sec := range in.Sections {
+				for _, val := range sec.Values {
+					if val.Parameter == "VcoilNom" {
+						t.Errorf("«%s»: VcoilNom задан при ряде обмоток (моделирование 08 §5)", in.Name)
+					}
+				}
+			}
+		}
+	})
+
 	t.Run("DirectedAnalogLinks", func(t *testing.T) {
-		// Аналоги направлены (D8), источник каждого ребра — отчёт 08 §5:
+		// Аналоги направлены (D8), источник каждого ребра — отчёт 08 §6:
 		// КТ315Б → 2N3904, КТ3102Б → BC547B (таблица аналогов qrx),
 		// Д226 → 1N4007 и встречное 1N4007 → Д226 — оба направления
 		// самостоятельны. Встречная ссылка не создаёт обратной исходящей.

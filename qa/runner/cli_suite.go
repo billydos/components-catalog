@@ -54,7 +54,7 @@ func importCount(output string) (int, bool) {
 
 // dataFiles — выверенная выборка наполнения (все классы).
 var dataFiles = []string{
-	"transistors", "diodes", "resistors", "capacitors",
+	"transistors", "diodes", "resistors", "capacitors", "relays",
 }
 
 // cliSuite прогоняет сценарии CLI на ноге; возвращает суммарное число

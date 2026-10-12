@@ -596,4 +596,69 @@
 }
 ```
 
+## 5. Реле
+
+Единственная система класса — `other` (§2.1): ключ `system` обязателен, класс задаёт секция корня, семейство и номер разработки — секцией `fields`. Значения выверены по транскрипции ТУ и даташиту производителя (источники — `08-data-verification.md` §5).
+
+```jsonc
+{
+  "relays": [
+    // other: советское семейство РЭС — серия и номер разработки секцией fields;
+    // исполнения по обмотке (РС4.529.029-00…-19) в ключ не входят: Rcoil —
+    // диапазон по исполнениям, VcoilNom не задаётся; срабатывание нормировано током
+    {
+      "name": "РЭС-9",
+      "system": "other",
+      "fields": { "series": "РЭС", "dev_number": 9 },
+      "attributes": {
+        "relayType": "electromagnetic", "contactForm": "2П",
+        "description": "завальцованное негерметичное", "spec": "РС0.452.045ТУ"
+      },
+      "parameters": [
+        { "parameter": "Rcoil", "min": 30, "max": 9600 },               // обмотки исполнений
+        { "parameter": "Ipickup", "max": 108 },                          // ток срабатывания, мА
+        { "parameter": "Rcontact", "max": 1.5 },
+        { "parameter": "Rins", "min": 200000000 },
+        { "parameter": "Vtest", "min": 500 },
+        { "parameter": "tOperate", "max": 11 },                          // времена — в мс
+        { "parameter": "tRelease", "max": 7 }
+      ],
+      "ratings": [
+        { "parameter": "VswitchMax", "value": 250 },
+        { "parameter": "IswitchMax", "value": 3 },                       // коммутируемый ток — в А
+        { "parameter": "TempMin", "value": -60 },
+        { "parameter": "TempMax", "value": 85 }
+      ]
+    },
+
+    // other: базовый код серии производителя; суффиксы заказа (катушка
+    // 3–24 В, опции) в ключ не входят
+    {
+      "name": "G5V-1",
+      "system": "other",
+      "fields": { "series": "G5V", "dev_number": 1 },
+      "attributes": { "relayType": "electromagnetic", "contactForm": "1П",
+                      "description": "сигнальное герметичное", "package": "12,5×7,5×10 мм" },
+      "parameters": [
+        { "parameter": "Rcoil", "min": 60, "max": 3840 },
+        { "parameter": "Pcoil", "max": 0.15 },
+        { "parameter": "Rcontact", "max": 0.1 },
+        { "parameter": "Rins", "min": 1000000000 },
+        { "parameter": "Vtest", "min": 1000 },
+        { "parameter": "tOperate", "max": 5 },
+        { "parameter": "tRelease", "max": 5 },
+        { "parameter": "enduranceElec", "min": 100000 },
+        { "parameter": "enduranceMech", "min": 5000000 }
+      ],
+      "ratings": [
+        { "parameter": "VswitchMax", "value": 125 },
+        { "parameter": "IswitchMax", "value": 1 },
+        { "parameter": "TempMin", "value": -40 },
+        { "parameter": "TempMax", "value": 70 }
+      ]
+    }
+  ]
+}
+```
+
 Семантика секций: отсутствует/`null` — не менять; задана — заменить целиком; `[]`/`{}` — очистить; ошибка в любом значении секции (включая любой вариант) — запись не применяется вовсе. `manufacturers` — отдельная секция записи со стандартной семантикой (`null` — не менять список, `[]` — очистить). Секция `variants` заменяет набор исполнений целиком вместе с их значениями; секция `analogs` заменяет целиком исходящие направленные ссылки записи (встречные ссылки других записей не затрагиваются — `03-data-model.md` §8). Ключ `system` необязателен (по умолчанию — автодетект) и обязателен для `other`. Порядок элементов массивов секций — это `sort_order` значений и вариантов.
