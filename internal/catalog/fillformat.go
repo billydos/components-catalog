@@ -12,8 +12,8 @@ import (
 // наполнения, round-trip их искажает.
 
 // KindSection — ключ секции корня формата наполнения для класса:
-// код класса с «s» (transistors, diodes, resistors, capacitors;
-// docs/fill-format.md §2).
+// код класса с «s» (transistors, diodes, resistors, capacitors,
+// relays; docs/fill-format.md §2).
 func KindSection(k domain.Kind) string { return string(k) + "s" }
 
 // ValueKeyReserved сообщает, зарезервирован ли ключ объекта значения

@@ -1,6 +1,6 @@
 // Package seed — стартовые сиды каталога (docs/plan/03-data-model.md §3–§10):
 // единицы, условия, группы параметров, именованные правила, системы
-// обозначений и применимость к классам, параметры и атрибуты четырёх
+// обозначений и применимость к классам, параметры и атрибуты пяти
 // классов с применимостью (parameter_kinds/attribute_kinds — D7).
 // Применяются при EnsureCreated на пустую базу
 // (docs/plan/02-database.md §5); состав синхронизирован с реестрами internal/
@@ -62,7 +62,7 @@ func units() []catalog.UnitDef {
 	codes := []string{
 		"V", "mV", "mA", "uA", "nA", "A",
 		"MHz", "dB", "pct", "W", "mW",
-		"ohm", "mA_per_V", "pF", "ps", "ns", "us",
+		"ohm", "mA_per_V", "pF", "ps", "ns", "us", "ms",
 		"degC", "degC_per_W", "ppm_per_degC", "pct_per_degC",
 		"g", "mm", "nm", "mcd",
 	}
@@ -156,16 +156,19 @@ func set(no int, items ...catalog.ConditionSetItem) catalog.ConditionSet {
 
 func ceiling(v float64) *float64 { return &v }
 
-// parameters — стартовые каталоги параметров четырёх классов
+// parameters — стартовые каталоги параметров пяти классов
 // (docs/plan/03-data-model.md §6; номенклатура — по терминологии НТД,
 // выверка — docs/plan/07-r1-verification.md §9). Применимость вне разделов
-// §6.2/§6.4/§6.6 — пустая (все классы, D7).
+// §6.2/§6.4/§6.6/§6.10–§6.11 — пустая (все классы, D7).
 func parameters() []catalog.ParameterDef {
 	tr := []domain.Kind{domain.KindTransistor}
 	di := []domain.Kind{domain.KindDiode}
 	re := []domain.Kind{domain.KindResistor}
+	rl := []domain.Kind{domain.KindRelay}
 	trDiRe := []domain.Kind{domain.KindTransistor, domain.KindDiode, domain.KindResistor}
+	trDiReRl := []domain.Kind{domain.KindTransistor, domain.KindDiode, domain.KindResistor, domain.KindRelay}
 	reCa := []domain.Kind{domain.KindResistor, domain.KindCapacitor}
+	reCaRl := []domain.Kind{domain.KindResistor, domain.KindCapacitor, domain.KindRelay}
 	ruleTempPair := catalog.RuleTempPair
 	ruleDims := catalog.RuleCapDimensionsForm
 
@@ -276,7 +279,7 @@ func parameters() []catalog.ParameterDef {
 			ValueType: catalog.ValueRange, SortOrder: 310, Active: true, Kinds: di},
 
 		// Резисторы — электрические параметры (§6.5); Tolerance, nominalRow и Rins
-		// применимы также к конденсаторам (D7).
+		// применимы также к конденсаторам (D7), Rins — также к реле (§6.10).
 		{Code: "Rnom", Group: "electrical", Unit: "ohm",
 			ValueType: catalog.ValueRange, SortOrder: 320, Active: true, Kinds: re},
 		{Code: "Tolerance", Group: "electrical", Unit: "pct",
@@ -292,7 +295,7 @@ func parameters() []catalog.ParameterDef {
 		{Code: "Vnoise", Group: "electrical",
 			ValueType: catalog.ValueAtMost, SortOrder: 350, Active: true, Kinds: re},
 		{Code: "Rins", Group: "electrical", Unit: "ohm",
-			ValueType: catalog.ValueAtLeast, SortOrder: 360, Active: true, Kinds: reCa},
+			ValueType: catalog.ValueAtLeast, SortOrder: 360, Active: true, Kinds: reCaRl},
 
 		// Конденсаторы — характеристики (§6.8).
 		{Code: "Cnom", Group: "electrical", Unit: "pF",
@@ -395,13 +398,13 @@ func parameters() []catalog.ParameterDef {
 			ConditionSets: []catalog.ConditionSet{set(1, req("pulse_duration"))}},
 
 		// Общие предельные данные (§6.2/§6.4/§6.6): транзисторы, диоды,
-		// резисторы.
+		// резисторы; TempMin/TempMax — также реле (§6.11).
 		{Code: "TempMin", Group: "limiting", Unit: "degC",
 			ValueType: catalog.ValueExact, AllowNegative: true, ValidationRule: ruleTempPair,
-			SortOrder: 110, Active: true, Kinds: trDiRe},
+			SortOrder: 110, Active: true, Kinds: trDiReRl},
 		{Code: "TempMax", Group: "limiting", Unit: "degC",
 			ValueType: catalog.ValueExact, ValidationRule: ruleTempPair,
-			SortOrder: 120, Active: true, Kinds: trDiRe},
+			SortOrder: 120, Active: true, Kinds: trDiReRl},
 		{Code: "TempJunctionMax", Group: "limiting", Unit: "degC",
 			ValueType: catalog.ValueExact, SortOrder: 130, Active: true, Kinds: trDiRe},
 		{Code: "Rth", Group: "limiting", Unit: "degC_per_W",
@@ -447,6 +450,43 @@ func parameters() []catalog.ParameterDef {
 		{Code: "IdPulseMax", Group: "limiting", Unit: "mA",
 			ValueType: catalog.ValueExact, SortOrder: 270, Active: true, Kinds: tr,
 			ConditionSets: []catalog.ConditionSet{set(1, req("pulse_duration"))}},
+
+		// Реле — электрические параметры (§6.10): обмотка, контакты,
+		// времена, изоляция, износостойкость; безусловные (контекст
+		// измерения расширяется данными).
+		{Code: "VcoilNom", Group: "electrical", Unit: "V",
+			ValueType: catalog.ValueExact, SortOrder: 550, Active: true, Kinds: rl},
+		{Code: "Rcoil", Group: "electrical", Unit: "ohm",
+			ValueType: catalog.ValueRange, SortOrder: 560, Active: true, Kinds: rl},
+		{Code: "Pcoil", Group: "electrical", Unit: "W",
+			ValueType: catalog.ValueAtMost, SortOrder: 570, Active: true, Kinds: rl},
+		{Code: "Vpickup", Group: "electrical", Unit: "V",
+			ValueType: catalog.ValueAtMost, SortOrder: 580, Active: true, Kinds: rl},
+		{Code: "Vdropout", Group: "electrical", Unit: "V",
+			ValueType: catalog.ValueAtLeast, SortOrder: 590, Active: true, Kinds: rl},
+		{Code: "Ipickup", Group: "electrical", Unit: "mA",
+			ValueType: catalog.ValueAtMost, SortOrder: 600, Active: true, Kinds: rl},
+		{Code: "Rcontact", Group: "electrical", Unit: "ohm",
+			ValueType: catalog.ValueAtMost, SortOrder: 610, Active: true, Kinds: rl},
+		{Code: "tOperate", Group: "electrical", Unit: "ms",
+			ValueType: catalog.ValueAtMost, SortOrder: 620, Active: true, Kinds: rl},
+		{Code: "tRelease", Group: "electrical", Unit: "ms",
+			ValueType: catalog.ValueAtMost, SortOrder: 630, Active: true, Kinds: rl},
+		{Code: "tBounce", Group: "electrical", Unit: "ms",
+			ValueType: catalog.ValueAtMost, SortOrder: 640, Active: true, Kinds: rl},
+		{Code: "Vtest", Group: "electrical", Unit: "V",
+			ValueType: catalog.ValueAtLeast, SortOrder: 650, Active: true, Kinds: rl},
+		{Code: "enduranceElec", Group: "electrical",
+			ValueType: catalog.ValueAtLeast, SortOrder: 660, Active: true, Kinds: rl},
+		{Code: "enduranceMech", Group: "electrical",
+			ValueType: catalog.ValueAtLeast, SortOrder: 670, Active: true, Kinds: rl},
+
+		// Реле — предельные данные (§6.11): коммутируемая способность
+		// контактов (ток — в А, в отличие от полупроводниковых мА).
+		{Code: "VswitchMax", Group: "limiting", Unit: "V",
+			ValueType: catalog.ValueExact, SortOrder: 280, Active: true, Kinds: rl},
+		{Code: "IswitchMax", Group: "limiting", Unit: "A",
+			ValueType: catalog.ValueExact, SortOrder: 290, Active: true, Kinds: rl},
 
 		// Массогабаритные данные (§6.7) — все классы.
 		{Code: "massMax", Group: "dimensional", Unit: "g",
@@ -498,5 +538,16 @@ func attributes() []catalog.AttributeDef {
 			ValidationRule: catalog.RuleYearRange, SortOrder: 160, Active: true},
 		{Code: "datasheetUrl", Type: catalog.AttrText,
 			SortOrder: 170, Active: true},
+		{Code: "relayType", Type: catalog.AttrEnum, SortOrder: 180, Active: true,
+			Kinds: []domain.Kind{domain.KindRelay}, EnumValues: []string{
+				// Тип реле по принципу действия (03-data-model.md §9).
+				"electromagnetic", "polarized", "reed", "solid_state", "latching",
+			}},
+		{Code: "contactForm", Type: catalog.AttrEnum, SortOrder: 190, Active: true,
+			Kinds: []domain.Kind{domain.KindRelay}, EnumValues: []string{
+				// Контактная группа по НТД: число контактов + функция
+				// (З замыкающий, Р размыкающий, П переключающий).
+				"1З", "1Р", "1П", "2З", "2Р", "2П", "3П", "4П",
+			}},
 	}
 }

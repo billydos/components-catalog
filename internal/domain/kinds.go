@@ -8,17 +8,19 @@ import "slices"
 // только коды.
 type Kind string
 
-// Реестр классов: расширение (тиристоры, оптопары) — новыми кодами
-// здесь и строками сидов; код стабилен (ключ фильтров и REST).
+// Реестр классов: расширение — новыми кодами здесь и строками сидов;
+// код стабилен (ключ фильтров и REST). Реле — только система other
+// (разбора нет, 03-data-model.md §1.1).
 const (
 	KindTransistor Kind = "transistor"
 	KindDiode      Kind = "diode"
 	KindResistor   Kind = "resistor"
 	KindCapacitor  Kind = "capacitor"
+	KindRelay      Kind = "relay"
 )
 
 // kindOrder — стабильный порядок реестра (порядок сидов и вывода).
-var kindOrder = []Kind{KindTransistor, KindDiode, KindResistor, KindCapacitor}
+var kindOrder = []Kind{KindTransistor, KindDiode, KindResistor, KindCapacitor, KindRelay}
 
 // Kinds возвращает классы стартового реестра в стабильном порядке.
 func Kinds() []Kind {

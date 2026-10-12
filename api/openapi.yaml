@@ -137,7 +137,7 @@ paths:
         запроса, — 400 parameter_not_applicable/attribute_not_applicable.
         Неизвестный параметр запроса — 400 validation_failed.
       parameters:
-        - {name: kind, in: query, schema: {type: string}, description: "Класс приборов (transistor, diode, resistor, capacitor)."}
+        - {name: kind, in: query, schema: {type: string}, description: "Класс приборов (transistor, diode, resistor, capacitor, relay)."}
         - {name: system, in: query, schema: {type: string}, description: "Система обозначений (gost, ost, pro, jedec, jis, other)."}
         - {name: q, in: query, schema: {type: string}, description: "Подстрока обозначения (регистр не важен)."}
         - {name: sort, in: query, schema: {type: string}, description: "Ключи сортировки через запятую, «-» — убывание (designation, id либо код поля разбора). К любому порядку добавляется финальный (kind, designation)."}

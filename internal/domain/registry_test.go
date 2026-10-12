@@ -12,7 +12,7 @@ import (
 // (docs/plan/03-data-model.md §1.1–1.2). Этап 2 синхронизирует сиды с этими
 // таблицами.
 func TestKindsPin(t *testing.T) {
-	want := []domain.Kind{"transistor", "diode", "resistor", "capacitor"}
+	want := []domain.Kind{"transistor", "diode", "resistor", "capacitor", "relay"}
 	if !slices.Equal(domain.Kinds(), want) {
 		t.Errorf("реестр классов изменился: %v", domain.Kinds())
 	}
@@ -51,6 +51,7 @@ func TestSystemsForKind(t *testing.T) {
 		domain.KindDiode:      {"gost", "pro", "jedec", "jis", "other"},
 		domain.KindResistor:   {"gost", "ost", "other"},
 		domain.KindCapacitor:  {"gost", "other"},
+		domain.KindRelay:      {"other"},
 	}
 	for kind, want := range cases {
 		got := domain.SystemsForKind(kind)

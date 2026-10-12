@@ -11,6 +11,7 @@ var bundleEn = map[string]string{
 	"kind.diode":      "diode",
 	"kind.resistor":   "resistor",
 	"kind.capacitor":  "capacitor",
+	"kind.relay":      "relay",
 
 	// Системы обозначений (designation_systems).
 	"system.gost":  "GOST",
@@ -62,6 +63,8 @@ var bundleEn = map[string]string{
 	"unit.ns.symbol":           "ns",
 	"unit.us.name":             "microsecond",
 	"unit.us.symbol":           "µs",
+	"unit.ms.name":             "millisecond",
+	"unit.ms.symbol":           "ms",
 	"unit.degC.name":           "degree Celsius",
 	"unit.degC.symbol":         "°C",
 	"unit.degC_per_W.name":     "degree Celsius per watt",
@@ -219,6 +222,21 @@ var bundleEn = map[string]string{
 	"param.opTempMin": "lowest operating temperature",
 	"param.opTempMax": "highest operating temperature",
 
+	// Параметры: реле — electrical.
+	"param.VcoilNom":      "rated coil voltage",
+	"param.Rcoil":         "coil resistance (DC)",
+	"param.Pcoil":         "coil power consumption",
+	"param.Vpickup":       "pick-up voltage",
+	"param.Vdropout":      "drop-out voltage",
+	"param.Ipickup":       "pick-up current",
+	"param.Rcontact":      "contact resistance (DC)",
+	"param.tOperate":      "operate time",
+	"param.tRelease":      "release time",
+	"param.tBounce":       "contact bounce time",
+	"param.Vtest":         "insulation test voltage (coil to contacts)",
+	"param.enduranceElec": "electrical endurance, cycles",
+	"param.enduranceMech": "mechanical endurance, cycles",
+
 	// Параметры: транзисторы — limiting.
 	"param.VceoMax":    "maximum collector-emitter voltage",
 	"param.VcbMax":     "maximum collector-base voltage",
@@ -256,6 +274,10 @@ var bundleEn = map[string]string{
 	"param.Vmax":      "maximum working voltage",
 	"param.VPulseMax": "maximum pulse voltage",
 
+	// Параметры: реле — limiting.
+	"param.VswitchMax": "maximum switching voltage",
+	"param.IswitchMax": "maximum switching current",
+
 	// Параметры: массогабаритные.
 	"param.massMax":    "mass (maximum)",
 	"param.length":     "length",
@@ -283,6 +305,8 @@ var bundleEn = map[string]string{
 	"attr.yearFrom":          "first production year",
 	"attr.yearTo":            "last production year",
 	"attr.datasheetUrl":      "datasheet URL",
+	"attr.relayType":         "relay type",
+	"attr.contactForm":       "contact form (make/break/changeover)",
 
 	// Именованные правила (validation_rules).
 	"rule.year_range":             "production years: yearFrom < yearTo; range 1949–2100",

@@ -385,7 +385,7 @@ var messageFormatsEn = map[string]string{
 	"cli_usage_opt_dsn":                 "--dsn <string>",
 	"cli_usage_opt_dsn_desc":            "connection string (takes precedence over --db)",
 	"cli_usage_opt_kind":                "--kind <code>",
-	"cli_usage_opt_kind_desc":           "device kind (transistor|diode|resistor|capacitor)",
+	"cli_usage_opt_kind_desc":           "device kind: transistor|diode|resistor|capacitor|relay",
 	"cli_usage_opt_system":              "--system <code>",
 	"cli_usage_opt_system_desc":         "designation system (gost|ost|pro|jedec|jis|other)",
 	"cli_usage_opt_lang":                "--lang en|ru",

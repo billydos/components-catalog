@@ -298,7 +298,7 @@ func TestReadDocumentIssuesVerbatimTexts(t *testing.T) {
 		t.Fatalf("проблем: %d, ожидалось 6: %v", len(issues), issueMessages(issues))
 	}
 	want := []string{
-		"unknown root key «widgets» (allowed: catalog, transistors, diodes, resistors, capacitors)",
+		"unknown root key «widgets» (allowed: catalog, transistors, diodes, resistors, capacitors, relays)",
 		"record no. 1: mandatory key \"name\" — a string with the designation",
 		"record «КТ315Б»: unknown designation system «star» (allowed: gost, ost, pro, jedec, jis, other)",
 		"record «КТ315Б»: unknown field «voltparams» (allowed: name, system, fields, attributes, manufacturers, variants, analogs and group sections: parameters, ratings, dimensions)",

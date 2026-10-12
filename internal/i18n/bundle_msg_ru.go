@@ -384,7 +384,7 @@ var messageFormatsRu = map[string]string{
 	"cli_usage_opt_dsn":                 "--dsn <строка>",
 	"cli_usage_opt_dsn_desc":            "строка подключения (приоритетнее --db)",
 	"cli_usage_opt_kind":                "--kind <код>",
-	"cli_usage_opt_kind_desc":           "класс приборов (transistor|diode|resistor|capacitor)",
+	"cli_usage_opt_kind_desc":           "класс приборов: transistor|diode|resistor|capacitor|relay",
 	"cli_usage_opt_system":              "--system <код>",
 	"cli_usage_opt_system_desc":         "система обозначений (gost|ost|pro|jedec|jis|other)",
 	"cli_usage_opt_lang":                "--lang en|ru",

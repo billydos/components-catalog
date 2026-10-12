@@ -42,7 +42,7 @@ var systemKinds = map[System][]Kind{
 	SystemPro:   {KindTransistor, KindDiode},
 	SystemJedec: {KindTransistor, KindDiode},
 	SystemJis:   {KindTransistor, KindDiode},
-	SystemOther: {KindTransistor, KindDiode, KindResistor, KindCapacitor},
+	SystemOther: {KindTransistor, KindDiode, KindResistor, KindCapacitor, KindRelay},
 }
 
 // SystemsForKind возвращает системы, применимые к классу, в стабильном порядке.

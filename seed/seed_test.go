@@ -19,8 +19,8 @@ func TestSeedAppliesCleanly(t *testing.T) {
 		}
 		t.Fatal("стартовый каталог не проходит метасхему")
 	}
-	if len(snap.Parameters) != 89 || len(snap.Attributes) != 17 ||
-		len(snap.Units) != 25 || len(snap.Conditions) != 20 {
+	if len(snap.Parameters) != 104 || len(snap.Attributes) != 19 ||
+		len(snap.Units) != 26 || len(snap.Conditions) != 20 {
 		t.Fatalf("состав каталога: параметры %d, атрибуты %d, единицы %d, условия %d",
 			len(snap.Parameters), len(snap.Attributes), len(snap.Units), len(snap.Conditions))
 	}
@@ -31,7 +31,7 @@ func TestSeedAppliesCleanly(t *testing.T) {
 func TestSeedKindsAndSystemsPin(t *testing.T) {
 	in := seed.Catalog()
 
-	wantKinds := []domain.Kind{domain.KindTransistor, domain.KindDiode, domain.KindResistor, domain.KindCapacitor}
+	wantKinds := []domain.Kind{domain.KindTransistor, domain.KindDiode, domain.KindResistor, domain.KindCapacitor, domain.KindRelay}
 	gotKinds := make([]domain.Kind, 0, len(in.Kinds))
 	for _, k := range in.Kinds {
 		gotKinds = append(gotKinds, k.Code)
@@ -50,8 +50,8 @@ func TestSeedKindsAndSystemsPin(t *testing.T) {
 	}
 
 	// Применимость систем к классам — вся матрица.
-	if len(in.SystemKinds) != 15 {
-		t.Fatalf("привязок систем: %d, ожидалось 15", len(in.SystemKinds))
+	if len(in.SystemKinds) != 16 {
+		t.Fatalf("привязок систем: %d, ожидалось 16", len(in.SystemKinds))
 	}
 	for _, s := range wantSystems {
 		for _, k := range wantKinds {
@@ -160,7 +160,7 @@ func TestSeedSpotChecks(t *testing.T) {
 	if !tmin.AllowNegative || tmin.ValidationRule != "temp_pair" {
 		t.Errorf("TempMin: allow_negative %v, правило %q", tmin.AllowNegative, tmin.ValidationRule)
 	}
-	if !slices.Equal(tmin.Kinds, []domain.Kind{domain.KindTransistor, domain.KindDiode, domain.KindResistor}) {
+	if !slices.Equal(tmin.Kinds, []domain.Kind{domain.KindTransistor, domain.KindDiode, domain.KindResistor, domain.KindRelay}) {
 		t.Errorf("TempMin: применимость %v", tmin.Kinds)
 	}
 	tolerance := check("Tolerance")
@@ -215,6 +215,33 @@ func TestSeedSpotChecks(t *testing.T) {
 	if cr, _ := snap.Parameter("Cratio"); cr.Unit != "" {
 		t.Errorf("Cratio: единица %q (должна быть NULL)", cr.Unit)
 	}
+	// Реле: обмотка/контакты/времена (03 §6.10–§6.11); безусловные,
+	// ток коммутации — в A, износостойкость — без единицы.
+	for _, code := range []string{"VcoilNom", "Rcoil", "Pcoil", "Vpickup", "Vdropout",
+		"Ipickup", "Rcontact", "tOperate", "tRelease", "tBounce", "Vtest",
+		"enduranceElec", "enduranceMech", "VswitchMax", "IswitchMax"} {
+		p := check(code)
+		if !p.AppliesTo(domain.KindRelay) || p.AppliesTo(domain.KindTransistor) {
+			t.Errorf("%s: применимость %v", code, p.Kinds)
+		}
+		if len(p.ConditionSets) != 0 {
+			t.Errorf("%s: наборы условий %+v (должен быть безусловным)", code, p.ConditionSets)
+		}
+	}
+	if p := check("IswitchMax"); p.Unit != "A" || p.Group != "limiting" || p.ValueType != catalog.ValueExact {
+		t.Errorf("IswitchMax: единица %q, группа %q, тип %s", p.Unit, p.Group, string(p.ValueType))
+	}
+	if p := check("tOperate"); p.Unit != "ms" || p.ValueType != catalog.ValueAtMost {
+		t.Errorf("tOperate: единица %q, тип %s", p.Unit, string(p.ValueType))
+	}
+	for _, code := range []string{"enduranceElec", "enduranceMech"} {
+		if p := check(code); p.Unit != "" || p.Group != "electrical" {
+			t.Errorf("%s: единица %q, группа %q", code, p.Unit, p.Group)
+		}
+	}
+	if p := check("Rins"); !p.AppliesTo(domain.KindRelay) || !p.AppliesTo(domain.KindCapacitor) {
+		t.Errorf("Rins: применимость %v", p.Kinds)
+	}
 	for _, code := range []string{"massMax", "length", "width", "height", "diameter", "leadLength", "leadPitch"} {
 		if p := check(code); p.ValidationRule != "cap_dimensions_form" || p.ValueType != catalog.ValueExact {
 			t.Errorf("%s: правило %q, тип %s", code, p.ValidationRule, string(p.ValueType))
@@ -245,6 +272,16 @@ func TestSeedSpotChecks(t *testing.T) {
 	}
 	if a := attr("structure"); !a.AppliesTo(domain.KindTransistor) || !a.AppliesTo(domain.KindDiode) || a.AppliesTo(domain.KindResistor) {
 		t.Errorf("structure: применимость %v", a.Kinds)
+	}
+	// Атрибуты реле: enum-тип реле и контактная группа (03 §9).
+	if a := attr("relayType"); a.Type != catalog.AttrEnum || !a.AppliesTo(domain.KindRelay) ||
+		a.AppliesTo(domain.KindCapacitor) ||
+		!slices.Equal(a.EnumValues, []string{"electromagnetic", "polarized", "reed", "solid_state", "latching"}) {
+		t.Errorf("relayType: %+v", a)
+	}
+	if a := attr("contactForm"); a.Type != catalog.AttrEnum || !a.AppliesTo(domain.KindRelay) ||
+		!slices.Equal(a.EnumValues, []string{"1З", "1Р", "1П", "2З", "2Р", "2П", "3П", "4П"}) {
+		t.Errorf("contactForm: %+v", a)
 	}
 	for _, code := range []string{"yearFrom", "yearTo"} {
 		if a := attr(code); a.ValidationRule != "year_range" || a.Type != catalog.AttrInt {

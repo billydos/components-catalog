@@ -217,7 +217,7 @@ func TestKinds(t *testing.T) {
 	for _, k := range resp.Kinds {
 		codes = append(codes, k.Code)
 	}
-	if !slices.Equal(codes, []string{"capacitor", "diode", "resistor", "transistor"}) {
+	if !slices.Equal(codes, []string{"capacitor", "diode", "relay", "resistor", "transistor"}) {
 		t.Fatalf("классы: %+v", resp.Kinds)
 	}
 }

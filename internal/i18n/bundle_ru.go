@@ -9,6 +9,7 @@ var bundleRu = map[string]string{
 	"kind.diode":      "диоды",
 	"kind.resistor":   "резисторы",
 	"kind.capacitor":  "конденсаторы",
+	"kind.relay":      "реле",
 
 	// Системы обозначений (designation_systems).
 	"system.gost":  "ГОСТ",
@@ -60,6 +61,8 @@ var bundleRu = map[string]string{
 	"unit.ns.symbol":           "нс",
 	"unit.us.name":             "микросекунда",
 	"unit.us.symbol":           "мкс",
+	"unit.ms.name":             "миллисекунда",
+	"unit.ms.symbol":           "мс",
 	"unit.degC.name":           "градус Цельсия",
 	"unit.degC.symbol":         "°C",
 	"unit.degC_per_W.name":     "градус Цельсия на ватт",
@@ -217,6 +220,21 @@ var bundleRu = map[string]string{
 	"param.opTempMin": "наименьшая рабочая температура",
 	"param.opTempMax": "наибольшая рабочая температура",
 
+	// Параметры: реле — electrical.
+	"param.VcoilNom":      "номинальное напряжение обмотки",
+	"param.Rcoil":         "сопротивление обмотки",
+	"param.Pcoil":         "мощность, потребляемая обмоткой",
+	"param.Vpickup":       "напряжение срабатывания",
+	"param.Vdropout":      "напряжение отпускания",
+	"param.Ipickup":       "ток срабатывания",
+	"param.Rcontact":      "сопротивление контактов",
+	"param.tOperate":      "время срабатывания",
+	"param.tRelease":      "время отпускания",
+	"param.tBounce":       "время дребезга контактов",
+	"param.Vtest":         "испытательное напряжение изоляции (обмотка — контакты)",
+	"param.enduranceElec": "коммутационная износостойкость, циклов",
+	"param.enduranceMech": "механическая износостойкость, циклов",
+
 	// Параметры: транзисторы — limiting.
 	"param.VceoMax":    "наибольшее напряжение коллектор-эмиттер",
 	"param.VcbMax":     "наибольшее напряжение коллектор-база",
@@ -254,6 +272,10 @@ var bundleRu = map[string]string{
 	"param.Vmax":      "наибольшее рабочее напряжение",
 	"param.VPulseMax": "наибольшее импульсное напряжение",
 
+	// Параметры: реле — limiting.
+	"param.VswitchMax": "наибольшее коммутируемое напряжение",
+	"param.IswitchMax": "наибольший коммутируемый ток",
+
 	// Параметры: массогабаритные.
 	"param.massMax":    "масса (наибольшая)",
 	"param.length":     "длина",
@@ -281,6 +303,8 @@ var bundleRu = map[string]string{
 	"attr.yearFrom":          "год начала выпуска",
 	"attr.yearTo":            "год окончания выпуска",
 	"attr.datasheetUrl":      "ссылка на документацию (datasheet)",
+	"attr.relayType":         "тип реле",
+	"attr.contactForm":       "контактная группа (зам./разм./переключ.)",
 
 	// Именованные правила (validation_rules).
 	"rule.year_range":             "годы выпуска: yearFrom < yearTo; диапазон 1949–2100",
