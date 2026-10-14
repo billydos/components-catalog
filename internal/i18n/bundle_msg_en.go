@@ -154,6 +154,8 @@ var messageFormatsEn = map[string]string{
 	"rule_variant_label_dup":       "variant %[1]s: label repeats",
 	"rule_variant_pnom_dup":        "variant %[1]s: Pnom repeats (already set by variant %[2]s)",
 	"rule_variant_pnom_missing":    "variant %[1]s: mandatory parameter Pnom is missing",
+	"rule_variant_rcoil_missing":   "variant %[1]s: mandatory parameter Rcoil is missing",
+	"rule_variant_nominal_missing": "variant %[1]s: coil nominal is missing (VcoilNom or Ipickup)",
 	"rule_variant_vnom_dup":        "variant %[1]s: Vnom repeats (already set by variant %[2]s)",
 	"rule_variant_vnom_missing":    "variant %[1]s: mandatory parameter Vnom is missing",
 	"rule_year_order":              "attributes «yearFrom» and «yearTo»: the first year must be less than the last year",

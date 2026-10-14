@@ -313,6 +313,7 @@ var bundleEn = map[string]string{
 	"rule.temp_pair":              "temperature pair consistency: TempMin < TempMax and opTempMin < opTempMax (when both are set)",
 	"rule.cap_dimensions_form":    "case form consistency: rectangular (length+width+height) or cylindrical — axial (diameter+leadLength) or radial (diameter+height); mixing is an error",
 	"rule.cap_variant_matrix":     "electrolytic capacitor variant: Vnom and Cnom are mandatory, dimensions follow a consistent case form, Vnom and label uniqueness",
+	"rule.relay_variant_coil":     "relay variant (passport): Rcoil and a coil nominal (VcoilNom, or Ipickup for current windings) are mandatory, label uniqueness",
 	"rule.resistor_variant_power": "resistor variant: Pnom is mandatory, Pnom and label uniqueness",
 
 	// Поля разбора обозначений (device_designation_fields).

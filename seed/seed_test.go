@@ -73,6 +73,7 @@ func TestSeedRulesPin(t *testing.T) {
 	want := []catalog.RuleDef{
 		{Code: "cap_dimensions_form"},
 		{Code: "cap_variant_matrix"},
+		{Code: "relay_variant_coil"},
 		{Code: "resistor_variant_power"},
 		{Code: "temp_pair"},
 		{Code: "year_range"},
@@ -82,6 +83,7 @@ func TestSeedRulesPin(t *testing.T) {
 	}
 	kindRules := []catalog.KindRuleRef{
 		{Kind: domain.KindCapacitor, Rule: "cap_variant_matrix"},
+		{Kind: domain.KindRelay, Rule: "relay_variant_coil"},
 		{Kind: domain.KindResistor, Rule: "resistor_variant_power"},
 	}
 	if !slices.Equal(in.KindRules, kindRules) {

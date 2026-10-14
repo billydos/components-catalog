@@ -13,6 +13,7 @@ func TestRuleRegistry(t *testing.T) {
 	want := []string{
 		"cap_dimensions_form",
 		"cap_variant_matrix",
+		"relay_variant_coil",
 		"resistor_variant_power",
 		"temp_pair",
 		"year_range",
@@ -285,6 +286,80 @@ func TestResistorVariants(t *testing.T) {
 		}
 		probs := e.ValidateDevice(&d)
 		hasProblem(t, probs, "kind transistor does not support variants")
+	})
+}
+
+// relay_variant_coil: паспорта обмоток реле (03 §7) — обязательны Rcoil и
+// обмоточный номинал (VcoilNom либо Ipickup для токовых обмоток).
+func TestRelayVariants(t *testing.T) {
+	e := seedEngine(t)
+	base := catalog.Device{
+		Kind: domain.KindRelay, System: domain.SystemOther, Designation: "РЭС-9",
+		Values: []catalog.ParameterValue{
+			{Parameter: "Rins", Section: "parameters", Min: f(200000000)},
+			{Parameter: "Vtest", Section: "parameters", Min: f(500)},
+			{Parameter: "tRelease", Section: "parameters", Max: f(7)},
+			{Parameter: "VswitchMax", Section: "ratings", Exact: f(250)},
+			{Parameter: "IswitchMax", Section: "ratings", Exact: f(3)},
+		},
+		Variants: []catalog.Variant{
+			{Label: "РС4.529.029-00", Values: []catalog.ParameterValue{
+				{Parameter: "VcoilNom", Section: "parameters", Exact: f(27.5)},
+				{Parameter: "Rcoil", Section: "parameters", Min: f(500), Max: f(600)},
+				{Parameter: "Ipickup", Section: "parameters", Max: f(30)},
+				{Parameter: "tOperate", Section: "parameters", Max: f(11)},
+			}},
+			{Label: "РС4.529.029-04", Values: []catalog.ParameterValue{
+				// токовый паспорт: номинального напряжения нет
+				{Parameter: "Rcoil", Section: "parameters", Min: f(8160), Max: f(10560)},
+				{Parameter: "Ipickup", Section: "parameters", Max: f(7)},
+			}},
+		},
+	}
+	if probs := e.ValidateDevice(&base); len(probs) != 0 {
+		t.Fatalf("паспорта РЭС-9: %v", messages(probs))
+	}
+
+	t.Run("вариант без обмоточного номинала", func(t *testing.T) {
+		d := base
+		d.Variants = []catalog.Variant{{Label: "РС4.529.029-03", Values: []catalog.ParameterValue{
+			{Parameter: "Rcoil", Section: "parameters", Min: f(27), Max: f(33)},
+		}}}
+		probs := e.ValidateDevice(&d)
+		if len(probs) != 1 || probs[0].Message != "variant «РС4.529.029-03»: coil nominal is missing (VcoilNom or Ipickup)" {
+			t.Fatalf(" got: %v", messages(probs))
+		}
+	})
+	t.Run("вариант без Rcoil", func(t *testing.T) {
+		d := base
+		d.Variants = []catalog.Variant{{Label: "РС4.529.029-02", Values: []catalog.ParameterValue{
+			{Parameter: "VcoilNom", Section: "parameters", Exact: f(14)},
+		}}}
+		probs := e.ValidateDevice(&d)
+		if len(probs) != 1 || probs[0].Message != "variant «РС4.529.029-02»: mandatory parameter Rcoil is missing" {
+			t.Fatalf(" got: %v", messages(probs))
+		}
+	})
+	t.Run("повтор метки-паспорта", func(t *testing.T) {
+		d := base
+		d.Variants = append(slices.Clone(d.Variants), catalog.Variant{Label: "РС4.529.029-00", Values: []catalog.ParameterValue{
+			{Parameter: "Rcoil", Section: "parameters", Min: f(500), Max: f(600)},
+			{Parameter: "VcoilNom", Section: "parameters", Exact: f(27.5)},
+		}})
+		probs := e.ValidateDevice(&d)
+		hasProblem(t, probs, "variant «РС4.529.029-00»: label repeats")
+	})
+	t.Run("повтор VcoilNom допустим — паспорта различаются остальным", func(t *testing.T) {
+		// Несколько паспортов на одно номинальное напряжение (разные
+		// сопротивления/контакты) — исполнение идентифицирует паспорт.
+		d := base
+		d.Variants = append(slices.Clone(d.Variants), catalog.Variant{Label: "РС4.529.029-09", Values: []catalog.ParameterValue{
+			{Parameter: "VcoilNom", Section: "parameters", Exact: f(27.5)},
+			{Parameter: "Rcoil", Section: "parameters", Min: f(450), Max: f(550)},
+		}})
+		if probs := e.ValidateDevice(&d); len(probs) != 0 {
+			t.Fatalf(" got: %v", messages(probs))
+		}
 	})
 }
 

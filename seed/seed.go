@@ -128,10 +128,11 @@ func groups() []catalog.GroupDef {
 }
 
 // kindRules — привязка именованных правил к классам записей
-// (docs/plan/03-data-model.md §7, §10).
+// (docs/plan/03-data-model.md §10).
 func kindRules() []catalog.KindRuleRef {
 	return []catalog.KindRuleRef{
 		{Kind: domain.KindCapacitor, Rule: catalog.RuleCapVariantMatrix},
+		{Kind: domain.KindRelay, Rule: catalog.RuleRelayVariantCoil},
 		{Kind: domain.KindResistor, Rule: catalog.RuleResistorVariantPower},
 	}
 }

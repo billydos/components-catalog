@@ -49,6 +49,7 @@ type DeviceRule interface {
 const (
 	RuleCapDimensionsForm    = "cap_dimensions_form"
 	RuleCapVariantMatrix     = "cap_variant_matrix"
+	RuleRelayVariantCoil     = "relay_variant_coil"
 	RuleResistorVariantPower = "resistor_variant_power"
 	RuleTempPair             = "temp_pair"
 	RuleYearRange            = "year_range"
@@ -62,6 +63,7 @@ var ruleRegistry = map[string]Rule{
 	"cap_dimensions_form":    capDimensionsFormRule{},
 	"temp_pair":              tempPairRule{},
 	"cap_variant_matrix":     capVariantMatrixRule{},
+	"relay_variant_coil":     relayVariantCoilRule{},
 	"resistor_variant_power": resistorVariantPowerRule{},
 }
 
@@ -241,6 +243,42 @@ func (resistorVariantPowerRule) CheckDevice(_ *Engine, d *Device) []Problem {
 			} else {
 				seenPower[p] = name
 			}
+		}
+		if v.Label != "" {
+			if seenLabel[v.Label] {
+				probs = append(probs, ruleProblem(domain.MsgRuleVariantLabelDup, name))
+			} else {
+				seenLabel[v.Label] = true
+			}
+		}
+	}
+	return probs
+}
+
+// relayVariantCoilRule — исполнение реле (паспорт, 03 §7) обязано иметь
+// сопротивление обмотки Rcoil (диапазон допуска) и обмоточный номинал:
+// VcoilNom (точный) либо Ipickup (не более) — токовые паспорта без
+// номинального напряжения; уникальность метки-паспорта в пределах записи
+// (привязка — класс relay, kind_validation_rules).
+type relayVariantCoilRule struct{}
+
+func (relayVariantCoilRule) Code() string { return "relay_variant_coil" }
+
+func (relayVariantCoilRule) AllowsVariants() bool { return true }
+
+func (relayVariantCoilRule) CheckDevice(_ *Engine, d *Device) []Problem {
+	var probs []Problem
+	seenLabel := make(map[string]bool, len(d.Variants))
+	for i := range d.Variants {
+		v := &d.Variants[i]
+		name := variantName(v, i)
+		if _, ok := paramAny(v.Values, "Rcoil"); !ok {
+			probs = append(probs, ruleProblem(domain.MsgRuleRelayVariantRcoilMissing, name))
+		}
+		_, hasVoltage := paramAny(v.Values, "VcoilNom")
+		_, hasCurrent := paramAny(v.Values, "Ipickup")
+		if !hasVoltage && !hasCurrent {
+			probs = append(probs, ruleProblem(domain.MsgRuleRelayVariantNominalMissing, name))
 		}
 		if v.Label != "" {
 			if seenLabel[v.Label] {

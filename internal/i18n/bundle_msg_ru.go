@@ -153,6 +153,8 @@ var messageFormatsRu = map[string]string{
 	"rule_variant_label_dup":       "вариант %[1]s: метка повторяется",
 	"rule_variant_pnom_dup":        "вариант %[1]s: Pnom повторяется (уже задан вариантом %[2]s)",
 	"rule_variant_pnom_missing":    "вариант %[1]s: отсутствует обязательный параметр Pnom",
+	"rule_variant_rcoil_missing":   "вариант %[1]s: отсутствует обязательный параметр Rcoil",
+	"rule_variant_nominal_missing": "вариант %[1]s: не задан обмоточный номинал (VcoilNom либо Ipickup)",
 	"rule_variant_vnom_dup":        "вариант %[1]s: Vnom повторяется (уже задан вариантом %[2]s)",
 	"rule_variant_vnom_missing":    "вариант %[1]s: отсутствует обязательный параметр Vnom",
 	"rule_year_order":              "атрибуты «yearFrom» и «yearTo»: год начала должен быть меньше года окончания",
