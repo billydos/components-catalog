@@ -83,6 +83,41 @@ type cardVariantJSON struct {
 	Groups []cardGroupJSON `json:"groups"`
 }
 
+// cardTypeSiblingJSON — соседняя запись группы типа.
+type cardTypeSiblingJSON struct {
+	ID          int64  `json:"id"`
+	System      string `json:"system"`
+	Designation string `json:"designation"`
+}
+
+// cardTypeValueJSON — значение параметра одной записи группы типа
+// (ячейка мини-матрицы различий).
+type cardTypeValueJSON struct {
+	Designation string          `json:"designation"`
+	Exact       *float64        `json:"exact,omitempty"`
+	Min         *float64        `json:"min,omitempty"`
+	Max         *float64        `json:"max,omitempty"`
+	Text        *string         `json:"text,omitempty"`
+	Conditions  []conditionJSON `json:"conditions,omitempty"`
+}
+
+// cardTypeDiffJSON — строка мини-матрицы: параметр, значения которого
+// различаются между записями группы типа.
+type cardTypeDiffJSON struct {
+	Parameter string              `json:"parameter"`
+	Name      string              `json:"name"`
+	Unit      string              `json:"unit,omitempty"`
+	Values    []cardTypeValueJSON `json:"values"`
+}
+
+// cardTypeGroupJSON — группа типа: одно базовое обозначение, соседние
+// записи и различия их данных типа в целом.
+type cardTypeGroupJSON struct {
+	Base     string                `json:"base"`
+	Siblings []cardTypeSiblingJSON `json:"siblings"`
+	Diffs    []cardTypeDiffJSON    `json:"diffs"`
+}
+
 // linkJSON — ссылка-аналог: исходящая либо встречная.
 type linkJSON struct {
 	Kind        string `json:"kind"`
@@ -93,19 +128,20 @@ type linkJSON struct {
 
 // cardJSON — карточка записи (docs/plan/04-module-functionality.md §2).
 type cardJSON struct {
-	ID            int64             `json:"id"`
-	Kind          string            `json:"kind"`
-	KindName      string            `json:"kind_name"`
-	System        string            `json:"system"`
-	SystemName    string            `json:"system_name"`
-	Designation   string            `json:"designation"`
-	Fields        []fieldJSON       `json:"fields"`
-	Attributes    []cardAttrJSON    `json:"attributes"`
-	Groups        []cardGroupJSON   `json:"groups"`
-	Variants      []cardVariantJSON `json:"variants"`
-	Manufacturers []string          `json:"manufacturers"`
-	Analogs       []linkJSON        `json:"analogs"`
-	Backlinks     []linkJSON        `json:"backlinks"`
+	ID            int64              `json:"id"`
+	Kind          string             `json:"kind"`
+	KindName      string             `json:"kind_name"`
+	System        string             `json:"system"`
+	SystemName    string             `json:"system_name"`
+	Designation   string             `json:"designation"`
+	Fields        []fieldJSON        `json:"fields"`
+	Attributes    []cardAttrJSON     `json:"attributes"`
+	Groups        []cardGroupJSON    `json:"groups"`
+	Variants      []cardVariantJSON  `json:"variants"`
+	TypeGroup     *cardTypeGroupJSON `json:"type_group,omitempty"`
+	Manufacturers []string           `json:"manufacturers"`
+	Analogs       []linkJSON         `json:"analogs"`
+	Backlinks     []linkJSON         `json:"backlinks"`
 }
 
 func cardToJSON(lang i18n.Language, c *service.Card) cardJSON {
@@ -132,6 +168,34 @@ func cardToJSON(lang i18n.Language, c *service.Card) cardJSON {
 	out.Groups = groupsToJSON(lang, c.Groups)
 	for _, v := range c.Variants {
 		out.Variants = append(out.Variants, cardVariantJSON{Label: v.Label, Groups: groupsToJSON(lang, v.Groups)})
+	}
+	if c.TypeGroup != nil {
+		tg := &cardTypeGroupJSON{
+			Base:     c.TypeGroup.Base,
+			Siblings: make([]cardTypeSiblingJSON, 0, len(c.TypeGroup.Siblings)),
+			Diffs:    make([]cardTypeDiffJSON, 0, len(c.TypeGroup.Diffs)),
+		}
+		for _, s := range c.TypeGroup.Siblings {
+			tg.Siblings = append(tg.Siblings, cardTypeSiblingJSON{
+				ID: s.ID, System: string(s.System), Designation: s.Designation,
+			})
+		}
+		for _, d := range c.TypeGroup.Diffs {
+			dj := cardTypeDiffJSON{
+				Parameter: d.Parameter, Name: i18n.ParameterName(lang, d.Parameter),
+				Unit: d.Unit, Values: make([]cardTypeValueJSON, 0, len(d.Values)),
+			}
+			for _, v := range d.Values {
+				vj := cardTypeValueJSON{Designation: v.Designation,
+					Exact: v.Value.Exact, Min: v.Value.Min, Max: v.Value.Max, Text: v.Value.Text}
+				for _, cond := range v.Value.Conditions {
+					vj.Conditions = append(vj.Conditions, conditionJSON{Condition: cond.Condition, Value: cond.Value})
+				}
+				dj.Values = append(dj.Values, vj)
+			}
+			tg.Diffs = append(tg.Diffs, dj)
+		}
+		out.TypeGroup = tg
 	}
 	out.Manufacturers = append(out.Manufacturers, c.Manufacturers...)
 	for _, l := range c.Analogs {

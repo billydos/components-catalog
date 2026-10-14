@@ -43,6 +43,9 @@ func parseJedec(s *scanner, _ Kind) (ParsedDesignation, error) {
 		return ParsedDesignation{}, s.failToken(start, MsgExpectJedecNumberNoZero, run)
 	}
 	devNumber := mustAtoi(run)
+	// Базовое обозначение (тип) заканчивается номером регистрации;
+	// суффиксные буквы улучшенных версий в него не входят (план 03 §2.6).
+	typeBase := string(s.src[:s.i])
 
 	// Суффиксные буквы улучшенных версий (2N2222A).
 	letters := ""
@@ -77,5 +80,6 @@ func parseJedec(s *scanner, _ Kind) (ParsedDesignation, error) {
 	if letters != "" {
 		fields = append(fields, TextField("letters", letters))
 	}
+	fields = append(fields, TextField(FieldBase, typeBase))
 	return ParsedDesignation{Kind: kind, System: SystemJedec, Designation: canonical, Fields: fields}, nil
 }

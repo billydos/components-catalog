@@ -283,6 +283,18 @@ func inList(prefix string, ids []int64, args map[string]any) string {
 	return "(" + strings.Join(parts, ", ") + ")"
 }
 
+// inTextList — то же для текстовых значений (группы типов по базовым
+// обозначениям); чанкование — вызывающим по maxInList.
+func inTextList(prefix string, values []string, args map[string]any) string {
+	parts := make([]string, len(values))
+	for i, v := range values {
+		name := fmt.Sprintf("%s%d", prefix, i)
+		parts[i] = "@" + name
+		args[name] = v
+	}
+	return "(" + strings.Join(parts, ", ") + ")"
+}
+
 // eachIDChunk обходит список id чанками не длиннее maxInList: батч-чтения
 // выполняют запрос по чанку и сливают результаты (карта или срез
 // вызывающего), лимит аргументов одного оператора не превышается.

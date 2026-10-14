@@ -65,6 +65,10 @@ func parseJis(s *scanner, _ Kind) (ParsedDesignation, error) {
 		return ParsedDesignation{}, s.failToken(start, MsgExpectJisNumber, run)
 	}
 	devNumber := mustAtoi(run)
+	// Базовое обозначение (тип) заканчивается номером регистрации;
+	// суффиксы (ранги hFE, параметры после дефиса) в него не входят
+	// (план 03 §2.6).
+	typeBase := string(s.src[:s.i])
 
 	// Суффикс: группы hFE (A/B/C), цвет светодиодов; после дефиса —
 	// параметры (1SR154-400).
@@ -102,6 +106,7 @@ func parseJis(s *scanner, _ Kind) (ParsedDesignation, error) {
 	if letters != "" {
 		fields = append(fields, TextField("letters", letters))
 	}
+	fields = append(fields, TextField(FieldBase, typeBase))
 	return ParsedDesignation{Kind: kind, System: SystemJis, Designation: designation, Fields: fields}, nil
 }
 
@@ -123,6 +128,8 @@ func parseJisShortForm(s *scanner) (ParsedDesignation, error) {
 	}
 	full := "2S" + string(class) + run
 	subclassCode, _ := JisSubclassByLetter(class)
+	// Сокращённая форма суффиксов не несёт: базовое обозначение (тип)
+	// совпадает с восстановленной полной формой.
 	return ParsedDesignation{
 		Kind:        KindTransistor,
 		System:      SystemJis,
@@ -131,6 +138,7 @@ func parseJisShortForm(s *scanner) (ParsedDesignation, error) {
 			NumField("junctions", 2),
 			TextField("subclass", subclassCode),
 			NumField("dev_number", float64(mustAtoi(run))),
+			TextField(FieldBase, full),
 		},
 	}, nil
 }

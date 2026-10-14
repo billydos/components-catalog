@@ -181,6 +181,7 @@ func runSuite(t *testing.T, factory configFactory) {
 	t.Run("catalog import", func(t *testing.T) { suiteCatalogImport(t, factory) })
 	t.Run("classification fields", func(t *testing.T) { suiteClassificationFields(t, factory) })
 	t.Run("parse and suggest", func(t *testing.T) { suiteParseSuggest(t, factory) })
+	t.Run("type group", func(t *testing.T) { suiteTypeGroup(t, factory) })
 }
 
 // suiteUpsertSections — семантика секций: замена целиком, очистка, Skipped
@@ -667,6 +668,156 @@ func suiteFind(t *testing.T, factory configFactory) {
 	if err != nil || res.Found == nil {
 		t.Fatalf("find jedec: err=%v found=%v", err, res.Found)
 	}
+}
+
+// suiteTypeGroup — группа типа (производное поле base, план 03 §2.6):
+// хранение, карточка с мини-матрицей различий, фильтр поиска, записи
+// other (тип по series/dev_number), подсказка find соседом по типу
+// и запрет явного задания base.
+func suiteTypeGroup(t *testing.T, factory configFactory) {
+	ctx := context.Background()
+	app := openSuiteApp(t, factory)
+	svc := app.Services().Devices
+	seedTransistors(t, svc)
+
+	// Сосед по типу: отличия VceoMax, прочие данные те же.
+	mustUpsert(t, svc, DeviceInput{
+		Name: "КТ315Г",
+		Sections: []SectionInput{
+			section("parameters",
+				pvRange("hfe", 50, 350, cond("Vce", 10), cond("Ic", 1)),
+				pvAtMost("Icbo", 0.5, cond("Vcb", 10), cond("temp", 25))),
+			section("ratings", pvExact("VceoMax", 35), pvExact("TempMin", -60), pvExact("TempMax", 100)),
+		},
+	})
+
+	// Поле base — в карточке (продукт разбора).
+	card, ok, err := svc.Get(ctx, "transistor", "КТ315Б")
+	if err != nil || !ok {
+		t.Fatalf("get: ok=%v err=%v", ok, err)
+	}
+	if f, has := card.FieldByName(domain.FieldBase); !has || f.Text != "КТ315" {
+		t.Fatalf("поле base: %+v", f)
+	}
+
+	// Группа типа: сосед и мини-матрица различий (только VceoMax;
+	// совпадающий hfe в матрицу не входит).
+	if card.TypeGroup == nil {
+		t.Fatal("группа типа отсутствует")
+	}
+	tg := card.TypeGroup
+	if tg.Base != "КТ315" || len(tg.Siblings) != 1 ||
+		tg.Siblings[0].Designation != "КТ315Г" || tg.Siblings[0].System != domain.SystemGost {
+		t.Fatalf("соседние записи: %+v", tg)
+	}
+	if len(tg.Diffs) != 1 || tg.Diffs[0].Parameter != "VceoMax" || len(tg.Diffs[0].Values) != 2 {
+		t.Fatalf("различия: %+v", tg.Diffs)
+	}
+	if v := tg.Diffs[0].Values; v[0].Designation != "КТ315Б" || *v[0].Value.Exact != 20 ||
+		v[1].Designation != "КТ315Г" || *v[1].Value.Exact != 35 {
+		t.Fatalf("матрица VceoMax: %+v", v)
+	}
+
+	// Фильтр поиска по типу.
+	page, err := svc.Search(ctx, SearchQuery{
+		Kind:   domain.KindTransistor,
+		Fields: []FieldFilter{{Field: domain.FieldBase, Text: "КТ315"}},
+	})
+	if err != nil {
+		t.Fatalf("поиск по типу: %v", err)
+	}
+	names := make([]string, 0, len(page.Items))
+	for _, it := range page.Items {
+		names = append(names, it.Designation)
+	}
+	if !slices.Equal(names, []string{"КТ315Б", "КТ315Г"}) {
+		t.Fatalf("поиск по типу: %v", names)
+	}
+
+	// Записи other: тип — series + dev_number (МП41); запись без соседей
+	// типа — без блока.
+	mp41 := []domain.Field{
+		domain.TextField("series", "МП"),
+		domain.NumField("dev_number", 41),
+		domain.TextField("letters", "А"),
+	}
+	mustUpsert(t, svc, DeviceInput{
+		Name: "МП41А", System: domain.SystemOther, Kind: domain.KindTransistor, Fields: &mp41,
+	})
+	mp41b := []domain.Field{
+		domain.TextField("series", "МП"),
+		domain.NumField("dev_number", 41),
+		domain.TextField("letters", "Б"),
+	}
+	mustUpsert(t, svc, DeviceInput{
+		Name: "МП41Б", System: domain.SystemOther, Kind: domain.KindTransistor, Fields: &mp41b,
+	})
+	other, ok, err := svc.Get(ctx, "transistor", "МП41А")
+	if err != nil || !ok {
+		t.Fatalf("get МП41А: ok=%v err=%v", ok, err)
+	}
+	if f, has := other.FieldByName(domain.FieldBase); !has || f.Text != "МП41" {
+		t.Fatalf("тип записи other: %+v", f)
+	}
+	if other.TypeGroup == nil || len(other.TypeGroup.Siblings) != 1 ||
+		other.TypeGroup.Siblings[0].Designation != "МП41Б" {
+		t.Fatalf("группа типа other: %+v", other.TypeGroup)
+	}
+	mp39, _, _ := svc.Get(ctx, "transistor", "МП39")
+	if f, has := mp39.FieldByName(domain.FieldBase); !has || f.Text != "МП39" {
+		t.Fatalf("тип МП39: %+v", f)
+	}
+	if mp39.TypeGroup != nil {
+		t.Fatalf("группа типа МП39 без соседей: %+v", mp39.TypeGroup)
+	}
+
+	// Подсказка find соседом по типу: буква А не найдена, тип существует.
+	res, err := svc.Find(ctx, "", "КТ315А")
+	if err != nil {
+		t.Fatalf("find КТ315А: %v", err)
+	}
+	if res.Found != nil || res.Suggestion != nil ||
+		res.TypeSuggestion == nil || res.TypeSuggestion.Designation != "КТ315Б" {
+		t.Fatalf("подсказка по типу: found=%v suggestion=%v type=%+v",
+			res.Found, res.Suggestion, res.TypeSuggestion)
+	}
+
+	// Изменение series/dev_number у other-записи пересчитывает base:
+	// МП41А с dev 42 уходит из группы МП41 (группа осталась у МП41Б).
+	dev42 := []domain.Field{
+		domain.TextField("series", "МП"),
+		domain.NumField("dev_number", 42),
+		domain.TextField("letters", "А"),
+	}
+	mustUpsert(t, svc, DeviceInput{
+		Name: "МП41А", System: domain.SystemOther, Kind: domain.KindTransistor, Fields: &dev42,
+	})
+	moved, ok, err := svc.Get(ctx, "transistor", "МП41А")
+	if err != nil || !ok {
+		t.Fatalf("get МП41А после переноса: ok=%v err=%v", ok, err)
+	}
+	if f, has := moved.FieldByName(domain.FieldBase); !has || f.Text != "МП42" {
+		t.Fatalf("base после переноса: %+v", f)
+	}
+	if moved.TypeGroup != nil {
+		t.Fatalf("группа типа после переноса: %+v", moved.TypeGroup)
+	}
+	page, err = svc.Search(ctx, SearchQuery{
+		Kind:   domain.KindTransistor,
+		Fields: []FieldFilter{{Field: domain.FieldBase, Text: "МП41"}},
+	})
+	if err != nil {
+		t.Fatalf("поиск МП41 после переноса: %v", err)
+	}
+	if len(page.Items) != 1 || page.Items[0].Designation != "МП41Б" {
+		t.Fatalf("группа МП41 после переноса: %+v", page.Items)
+	}
+
+	// base производно — явное задание в секции fields запрещено.
+	baseFields := []domain.Field{domain.TextField(domain.FieldBase, "КТ315")}
+	_, err = svc.Upsert(ctx, DeviceInput{Name: "КТ315Д", Fields: &baseFields})
+	wantDomainError(t, err, domain.CodeValidationFailed,
+		"field «base» is the derived base designation (type) of the record and cannot be set explicitly")
 }
 
 // suiteGetByIDs — пакетная выборка карточек по списку id: порядок

@@ -130,6 +130,19 @@ func cliSuite(ctx context.Context, r *report, ctl, root, tmp string, l leg) {
 		res.code == 0 && strings.Contains(res.output, "Variant «"),
 		envDetails(res, 10)...)
 
+	// info: группа типа — соседние записи одного базового обозначения
+	// (КТ315Б/КТ315Г) с мини-матрицей различий; фильтр list по типу.
+	res = c.run(ctx, "info", "КТ315Б")
+	r.check("cli/info-type-group", "info: группа типа с мини-матрицей различий",
+		res.code == 0 && strings.Contains(res.output, "Type group КТ315: КТ315Б, КТ315Г") &&
+			strings.Contains(res.output, "КТ315Б — 20 V; КТ315Г — 35 V"),
+		envDetails(res, 10)...)
+	res = c.run(ctx, "list", "--kind", "transistor", "--base", "КТ315")
+	r.check("cli/list-base", "list: фильтр по типу (base)",
+		res.code == 0 && strings.Contains(res.output, "КТ315Б") &&
+			strings.Contains(res.output, "КТ315Г") && !strings.Contains(res.output, "КТ3102А"),
+		envDetails(res, 10)...)
+
 	// find: точное совпадение и подсказка равнозначного по материалу
 	// (код выхода 1).
 	res = c.run(ctx, "find", "КТ315Б")

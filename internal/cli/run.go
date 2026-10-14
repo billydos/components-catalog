@@ -271,7 +271,7 @@ func (o *options) set(cmd, name, value string) error {
 			}
 			o.offset = n
 		}
-	case "material", "subclass", "adjustment", "category", "series", "letters":
+	case "material", "subclass", "adjustment", "category", "series", "letters", "base":
 		o.texts[name] = value
 	case "junctions", "group", "number":
 		f, err := strconv.ParseFloat(value, 64)
@@ -328,7 +328,8 @@ var commands = map[string]*command{
 			{name: "adjustment", hasValue: true}, {name: "category", hasValue: true},
 			{name: "junctions", hasValue: true}, {name: "group", hasValue: true},
 			{name: "series", hasValue: true}, {name: "number", hasValue: true},
-			{name: "letters", hasValue: true}, {name: "q", hasValue: true},
+			{name: "letters", hasValue: true}, {name: "base", hasValue: true},
+			{name: "q", hasValue: true},
 			{name: "limit", hasValue: true}, {name: "offset", hasValue: true},
 		}, dbFlags...), minArgs: 0, maxArgs: 1, run: runList},
 	"info": {use: domain.MsgCliUseInfo, flags: append([]flagSpec{kindFlag}, dbFlags...), minArgs: 1, maxArgs: 1, run: runInfo},

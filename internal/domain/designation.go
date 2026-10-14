@@ -73,6 +73,13 @@ func (p ParsedDesignation) String() string {
 	return strings.Join(parts, "; ")
 }
 
+// FieldBase — код производного поля разбора «базовое обозначение (тип)»:
+// каноническая строка без буквы классификации и хвостовых элементов
+// (план 03 §2.6). Продукт парсеров строгих систем; для записей other
+// вычисляется сервисным слоем по явным полям series/dev_number; в секции
+// fields формата наполнения не задаётся (производное).
+const FieldBase = "base"
+
 // Реестр полей разбора по разрядам: текстовые и числовые. Единый источник
 // для фильтров и сортировки поиска (REST/CLI) — транспорты собственных
 // списков полей не ведут: новое поле парсера попадает в реестр и сразу
@@ -85,6 +92,7 @@ var (
 		"material": true, "subclass": true, "letters": true,
 		"prefix": true, "family": true, "series": true,
 		"adjustment": true, "category": true,
+		FieldBase: true,
 	}
 	numericDesignationFields = map[string]bool{
 		"assembly": true, "feature": true, "dev_number": true,
@@ -157,25 +165,25 @@ func ClassificationFieldAppliesTo(field string, kind Kind) bool {
 // (закреплён тестом).
 var parserFieldSets = map[System]map[Kind][]string{
 	SystemGost: {
-		KindTransistor: {"material", "subclass", "assembly", "feature", "dev_number", "letters", "modification", "chip"},
-		KindDiode:      {"material", "subclass", "assembly", "feature", "dev_number", "letters", "modification", "chip"},
-		KindResistor:   {"family", "group", "adjustment", "dev_number", "letters"},
-		KindCapacitor:  {"prefix", "group", "adjustment", "dev_number", "letters"},
+		KindTransistor: {"material", "subclass", "assembly", "feature", "dev_number", "letters", "modification", "chip", FieldBase},
+		KindDiode:      {"material", "subclass", "assembly", "feature", "dev_number", "letters", "modification", "chip", FieldBase},
+		KindResistor:   {"family", "group", "adjustment", "dev_number", "letters", FieldBase},
+		KindCapacitor:  {"prefix", "group", "adjustment", "dev_number", "letters", FieldBase},
 	},
 	SystemOst: {
-		KindResistor: {"family", "group", "adjustment", "dev_number", "letters"},
+		KindResistor: {"family", "group", "adjustment", "dev_number", "letters", FieldBase},
 	},
 	SystemPro: {
-		KindTransistor: {"material", "subclass", "dev_number", "letters"},
-		KindDiode:      {"material", "subclass", "dev_number", "letters"},
+		KindTransistor: {"material", "subclass", "dev_number", "letters", FieldBase},
+		KindDiode:      {"material", "subclass", "dev_number", "letters", FieldBase},
 	},
 	SystemJedec: {
-		KindTransistor: {"junctions", "dev_number", "letters"},
-		KindDiode:      {"junctions", "dev_number", "letters"},
+		KindTransistor: {"junctions", "dev_number", "letters", FieldBase},
+		KindDiode:      {"junctions", "dev_number", "letters", FieldBase},
 	},
 	SystemJis: {
-		KindTransistor: {"junctions", "subclass", "dev_number", "letters"},
-		KindDiode:      {"junctions", "subclass", "dev_number", "letters"},
+		KindTransistor: {"junctions", "subclass", "dev_number", "letters", FieldBase},
+		KindDiode:      {"junctions", "subclass", "dev_number", "letters", FieldBase},
 	},
 	SystemOther: {},
 }

@@ -2,7 +2,9 @@ package service
 
 import (
 	"context"
+	"slices"
 	"sort"
+	"strconv"
 	"strings"
 
 	"github.com/billydos/components-catalog/internal/catalog"
@@ -268,15 +270,22 @@ func skippedOrValidatedCommit(merger *stateMerger, snap *catalog.Snapshot, p dom
 
 // writeUpsert применяет слитое состояние записи в БД (секции целиком)
 // и инкрементирует data_revision. Инвариант полей: хранимые поля =
-// продукты разбора обозначения ∪ явные классификационные поля (explicit):
-// при создании оба набора вставляются; при обновлении перезаписываются —
-// удаляются имена объединения (прошлые хранимые ∪ новые продукты ∪
-// явные поля), вставляются новые продукты разбора и действующие явные
-// поля (при заданной секции fields устаревшие продукты прежней
-// грамматики удаляются; без секции поля, ставшие явными, сохраняются).
+// продукты разбора обозначения ∪ явные классификационные поля (explicit)
+// ∪ производное поле base (для строгих систем — продукт парсера, для
+// записей other — вычисляется по явным series/dev_number слитого
+// состояния): при создании все наборы вставляются; при обновлении
+// перезаписываются — удаляются имена объединения (прошлые хранимые ∪
+// новые продукты ∪ явные поля ∪ base), вставляются новые продукты
+// разбора, действующие явные поля и base (при заданной секции fields
+// устаревшие продукты прежней грамматики удаляются; без секции поля,
+// ставшие явными, сохраняются).
 func (s *DeviceService) writeUpsert(ctx context.Context, tx *storage.Tx, deviceID int64,
 	p domain.ParsedDesignation, in DeviceInput, cur, merged *deviceState,
 	explicit []domain.Field, analogs []resolvedAnalog, snap *catalog.Snapshot, createOnly bool) error {
+	var otherBase []domain.Field
+	if p.System == domain.SystemOther {
+		otherBase = append(otherBase, baseFieldOfOther(p, merged.fields))
+	}
 	if deviceID == 0 {
 		id, inserted, err := tx.InsertDevice(ctx, p.Kind, p.System, p.Designation)
 		if err != nil {
@@ -292,6 +301,11 @@ func (s *DeviceService) writeUpsert(ctx context.Context, tx *storage.Tx, deviceI
 		if err := tx.InsertDesignationFields(ctx, deviceID, p.Fields); err != nil {
 			return err
 		}
+		if len(otherBase) > 0 {
+			if err := tx.InsertDesignationFields(ctx, deviceID, otherBase); err != nil {
+				return err
+			}
+		}
 		if len(explicit) > 0 {
 			if err := tx.InsertDesignationFields(ctx, deviceID, explicit); err != nil {
 				return err
@@ -303,12 +317,20 @@ func (s *DeviceService) writeUpsert(ctx context.Context, tx *storage.Tx, deviceI
 			keptExplicit = cur.fields // секция не задана — явные поля сохраняются
 		}
 		pastNames := append(append([]domain.Field(nil), cur.fields...), keptExplicit...)
-		if err := tx.DeleteDesignationFields(ctx, deviceID,
-			fieldNamesUnion(p.Fields, pastNames)); err != nil {
+		names := fieldNamesUnion(p.Fields, pastNames)
+		if !slices.Contains(names, domain.FieldBase) {
+			names = append(names, domain.FieldBase)
+		}
+		if err := tx.DeleteDesignationFields(ctx, deviceID, names); err != nil {
 			return err
 		}
 		if err := tx.InsertDesignationFields(ctx, deviceID, p.Fields); err != nil {
 			return err
+		}
+		if len(otherBase) > 0 {
+			if err := tx.InsertDesignationFields(ctx, deviceID, otherBase); err != nil {
+				return err
+			}
 		}
 		if len(keptExplicit) > 0 {
 			if err := tx.InsertDesignationFields(ctx, deviceID, keptExplicit); err != nil {
@@ -397,6 +419,31 @@ func condsToStorage(conds []catalog.ConditionValue) []storage.Cond {
 		out = append(out, storage.Cond{Code: c.Condition, Value: c.Value})
 	}
 	return out
+}
+
+// baseFieldOfOther — производное поле base (тип) записи other: парсер
+// полей не устанавливает, тип собирается по явным полям series и
+// dev_number слитого состояния (МП39; МП41А → МП41); без семейства —
+// само обозначение (группа типа вырождается в запись — план 03 §2.6).
+func baseFieldOfOther(p domain.ParsedDesignation, explicit []domain.Field) domain.Field {
+	series, hasSeries := "", false
+	dev, hasDev := 0.0, false
+	for _, f := range explicit {
+		switch f.Name {
+		case "series":
+			series, hasSeries = f.Text, true
+		case "dev_number":
+			dev, hasDev = f.Num, true
+		}
+	}
+	switch {
+	case hasSeries && hasDev:
+		return domain.TextField(domain.FieldBase, series+strconv.FormatFloat(dev, 'f', -1, 64))
+	case hasSeries:
+		return domain.TextField(domain.FieldBase, series)
+	default:
+		return domain.TextField(domain.FieldBase, p.Designation)
+	}
 }
 
 // validateInputShape проверяет форму входа до разбора и транзакции:

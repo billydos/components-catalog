@@ -222,7 +222,8 @@ func TestDesignationFieldRegistry(t *testing.T) {
 		"material": false, "subclass": false, "letters": false,
 		"prefix": false, "family": false, "series": false,
 		"adjustment": false, "category": false,
-		"assembly": true, "feature": true, "dev_number": true,
+		domain.FieldBase: false,
+		"assembly":       true, "feature": true, "dev_number": true,
 		"modification": true, "chip": true, "junctions": true,
 		"group": true,
 	} {
@@ -266,12 +267,12 @@ func TestDesignationFieldRegistry(t *testing.T) {
 // разборов; классификационные поля применимы по классам.
 func TestParserFieldSets(t *testing.T) {
 	parserOwned := map[string]map[string]bool{
-		"КТ315Б":  {"material": true, "subclass": true, "assembly": true, "category": false, "adjustment": false},
-		"С2-33Н":  {"adjustment": true, "category": false, "material": false},
-		"К10-17Б": {"adjustment": true, "category": false, "material": false},
-		"BC547B":  {"material": true, "subclass": true, "category": false, "adjustment": false, "assembly": false},
-		"2N2222A": {"junctions": true, "material": false, "subclass": false, "assembly": false, "category": false},
-		"2SA1015": {"subclass": true, "material": false, "adjustment": false, "category": false},
+		"КТ315Б":  {"material": true, "subclass": true, "assembly": true, "category": false, "adjustment": false, domain.FieldBase: true},
+		"С2-33Н":  {"adjustment": true, "category": false, "material": false, domain.FieldBase: true},
+		"К10-17Б": {"adjustment": true, "category": false, "material": false, domain.FieldBase: true},
+		"BC547B":  {"material": true, "subclass": true, "category": false, "adjustment": false, "assembly": false, domain.FieldBase: true},
+		"2N2222A": {"junctions": true, "material": false, "subclass": false, "assembly": false, "category": false, domain.FieldBase: true},
+		"2SA1015": {"subclass": true, "material": false, "adjustment": false, "category": false, domain.FieldBase: true},
 	}
 	for d, fields := range parserOwned {
 		p, err := domain.ParseDesignation(d)

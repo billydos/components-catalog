@@ -96,6 +96,9 @@ func parsePro(s *scanner, _ Kind) (ParsedDesignation, error) {
 	} else {
 		return ParsedDesignation{}, s.fail(MsgExpectProAnyNumber)
 	}
+	// Базовое обозначение (тип) заканчивается номером: версиональные
+	// буквы и суффиксы подклассификации в него не входят (план 03 §2.6).
+	typeBase := string(s.src[:s.i])
 
 	// Версионные буквы (одна-две, без фиксированного значения).
 	letters := ""
@@ -137,6 +140,7 @@ func parsePro(s *scanner, _ Kind) (ParsedDesignation, error) {
 	if letters != "" {
 		fields = append(fields, TextField("letters", letters))
 	}
+	fields = append(fields, TextField(FieldBase, typeBase))
 	return ParsedDesignation{Kind: kind, System: SystemPro, Designation: canonical, Fields: fields}, nil
 }
 

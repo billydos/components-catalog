@@ -27,6 +27,13 @@ func validateExplicitFields(p domain.ParsedDesignation, fields []domain.Field,
 	seen := make(map[string]bool, len(fields))
 	out := make([]domain.Field, 0, len(fields))
 	for _, f := range fields {
+		// base (тип записи) производно всегда — разбором обозначения
+		// (строгие системы) либо по явным series/dev_number (other):
+		// явное задание невозможно ни в одной системе.
+		if f.Name == domain.FieldBase {
+			return nil, domain.NewErrorf(domain.CodeValidationFailed,
+				domain.MsgSvcFieldBaseDerived)
+		}
 		otherField := p.System == domain.SystemOther && domain.OtherFieldKnown(f.Name)
 		if !classificationField(f.Name) && !otherField {
 			// Известное грамматическое поле, устанавливаемое парсером
@@ -126,11 +133,16 @@ func classificationField(name string) bool {
 
 // explicitFieldsOf вычисляет явные классификационные поля из хранимых:
 // поля записи минус продукты разбора обозначения (импортёр запрещает
-// совпадения, разность всегда определена; порядок — хранимый, поле
-// ORDER BY field).
+// совпадения, разность всегда определена) минус производное поле base
+// (продукт парсеров строгих систем; для other вычисляется сервисом по
+// явным series/dev_number — план 03 §2.6); порядок — хранимый, поле
+// ORDER BY field.
 func explicitFieldsOf(stored, parsed []domain.Field) []domain.Field {
 	var out []domain.Field
 	for _, f := range stored {
+		if f.Name == domain.FieldBase {
+			continue
+		}
 		if slices.ContainsFunc(parsed, func(pf domain.Field) bool { return pf.Name == f.Name }) {
 			continue
 		}

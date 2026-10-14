@@ -2,6 +2,9 @@ package service
 
 import (
 	"context"
+	"slices"
+	"sort"
+	"strings"
 
 	"github.com/billydos/components-catalog/internal/catalog"
 	"github.com/billydos/components-catalog/internal/domain"
@@ -60,6 +63,20 @@ func (s *DeviceService) buildCards(ctx context.Context, snap *catalog.Snapshot, 
 	for _, dev := range devs {
 		byID[dev.ID] = dev
 	}
+	// Группы типов: соседние записи по базовому обозначению (поле base)
+	// и их данные типа в целом — мини-матрица различий.
+	bases := typeBases(ids, byID, fields)
+	siblings, err := tx.FindTypeSiblings(ctx, bases)
+	if err != nil {
+		return nil, err
+	}
+	var sibValues map[int64][]storage.ValueRow
+	if sibIDs := siblingIDs(byID, siblings); len(sibIDs) > 0 {
+		sibValues, err = tx.LoadValuesByIDs(ctx, sibIDs)
+		if err != nil {
+			return nil, err
+		}
+	}
 	cards := make([]*Card, 0, len(ids))
 	for _, id := range ids {
 		dev, ok := byID[id]
@@ -69,7 +86,169 @@ func (s *DeviceService) buildCards(ctx context.Context, snap *catalog.Snapshot, 
 		cards = append(cards, assembleCard(snap, dev, fields[id], attrRows[id],
 			values[id], variants[id], manufacturers[id], outgoing[id], backlinks[id]))
 	}
+	for _, c := range cards {
+		attachTypeGroup(snap, c, fields[c.ID], values[c.ID], siblings, sibValues)
+	}
 	return cards, nil
+}
+
+// typeBases — базовые обозначения (поле base) собираемых записей без
+// повторов, в порядке входа.
+func typeBases(ids []int64, byID map[int64]*storage.DeviceRow, fields map[int64][]domain.Field) []string {
+	seen := make(map[string]bool, len(ids))
+	var out []string
+	for _, id := range ids {
+		if _, ok := byID[id]; !ok {
+			continue
+		}
+		if base, ok := baseOf(fields[id]); ok && !seen[base] {
+			seen[base] = true
+			out = append(out, base)
+		}
+	}
+	return out
+}
+
+// siblingIDs — идентификаторы соседних записей групп типов (без самих
+// собираемых записей — их значения уже прочитаны).
+func siblingIDs(byID map[int64]*storage.DeviceRow, siblings map[string][]storage.TypeSiblingRow) []int64 {
+	seen := make(map[int64]bool)
+	var out []int64
+	for _, rows := range siblings {
+		for _, r := range rows {
+			if _, requested := byID[r.ID]; requested || seen[r.ID] {
+				continue
+			}
+			seen[r.ID] = true
+			out = append(out, r.ID)
+		}
+	}
+	return out
+}
+
+// baseOf — базовое обозначение (тип) из хранимых полей записи.
+func baseOf(fields []domain.Field) (string, bool) {
+	for _, f := range fields {
+		if f.Name == domain.FieldBase && !f.IsNum {
+			return f.Text, true
+		}
+	}
+	return "", false
+}
+
+// typeMember — член группы типа: обозначение и данные типа в целом.
+type typeMember struct {
+	designation string
+	values      map[string]CardValue
+}
+
+// typeLevelValues — значения параметров типа в целом (variant_id NULL)
+// с единицами каталога; неизвестные каталогу параметры пропускаются.
+func typeLevelValues(snap *catalog.Snapshot, values []storage.ValueRow) map[string]CardValue {
+	out := make(map[string]CardValue)
+	for _, vr := range values {
+		if vr.VariantID != nil {
+			continue
+		}
+		def, ok := snap.Parameter(vr.Value.Parameter)
+		if !ok {
+			continue
+		}
+		out[vr.Value.Parameter] = CardValue{
+			Parameter:  vr.Value.Parameter,
+			Unit:       def.Unit,
+			Exact:      vr.Value.Exact,
+			Min:        vr.Value.Min,
+			Max:        vr.Value.Max,
+			Text:       vr.Value.Text,
+			Conditions: condsFromStorage(vr.Value.Conditions),
+		}
+	}
+	return out
+}
+
+// attachTypeGroup собирает блок «группа типа» карточки: соседние записи
+// того же класса с тем же базовым обозначением и мини-матрица различий
+// данных типа в целом (в матрицу входят только различающиеся параметры;
+// порядок записей — по обозначению, параметров — каталог). Без соседей
+// блока нет.
+func attachTypeGroup(snap *catalog.Snapshot, c *Card,
+	fields []domain.Field, values []storage.ValueRow,
+	siblings map[string][]storage.TypeSiblingRow, sibValues map[int64][]storage.ValueRow) {
+	base, ok := baseOf(fields)
+	if !ok {
+		return
+	}
+	members := []typeMember{{designation: c.Designation, values: typeLevelValues(snap, values)}}
+	sib := make([]CardTypeSibling, 0, len(siblings[base]))
+	for _, r := range siblings[base] {
+		if r.Kind != string(c.Kind) || r.ID == c.ID {
+			continue
+		}
+		sib = append(sib, CardTypeSibling{
+			ID: r.ID, System: domain.System(r.System), Designation: r.Designation,
+		})
+		members = append(members, typeMember{
+			designation: r.Designation, values: typeLevelValues(snap, sibValues[r.ID]),
+		})
+	}
+	if len(sib) == 0 {
+		return
+	}
+	// Порядок соседей — по обозначению в Go: коллация СУБД (sqlite BINARY,
+	// postgres — базы) не влияет на ответ между диалектами.
+	slices.SortStableFunc(sib, func(a, b CardTypeSibling) int { return strings.Compare(a.Designation, b.Designation) })
+	sort.SliceStable(members, func(i, j int) bool { return members[i].designation < members[j].designation })
+	c.TypeGroup = &CardTypeGroup{Base: base, Siblings: sib}
+	for _, p := range snap.Parameters {
+		first, hasFirst := members[0].values[p.Code]
+		differ := false
+		for _, m := range members[1:] {
+			v, has := m.values[p.Code]
+			if has != hasFirst || (has && !cardValueEqual(first, v)) {
+				differ = true
+				break
+			}
+		}
+		if !differ {
+			continue
+		}
+		diff := CardTypeDiff{Parameter: p.Code, Unit: p.Unit}
+		for _, m := range members {
+			if v, has := m.values[p.Code]; has {
+				diff.Values = append(diff.Values, CardTypeValue{Designation: m.designation, Value: v})
+			}
+		}
+		c.TypeGroup.Diffs = append(c.TypeGroup.Diffs, diff)
+	}
+}
+
+// cardValueEqual — побитовое равенство значений (числа — разряд REAL,
+// текст и условия — точно; условия сравниваются канонически по коду).
+func cardValueEqual(a, b CardValue) bool {
+	if !numPtrEqual(a.Exact, b.Exact) || !numPtrEqual(a.Min, b.Min) ||
+		!numPtrEqual(a.Max, b.Max) || !strPtrEqual(a.Text, b.Text) {
+		return false
+	}
+	if len(a.Conditions) != len(b.Conditions) {
+		return false
+	}
+	if len(a.Conditions) == 0 {
+		return true
+	}
+	ac := append([]catalog.ConditionValue(nil), a.Conditions...)
+	bc := append([]catalog.ConditionValue(nil), b.Conditions...)
+	byCode := func(s []catalog.ConditionValue) {
+		sort.SliceStable(s, func(i, j int) bool { return s[i].Condition < s[j].Condition })
+	}
+	byCode(ac)
+	byCode(bc)
+	for i := range ac {
+		if ac[i].Condition != bc[i].Condition || ac[i].Value != bc[i].Value {
+			return false
+		}
+	}
+	return true
 }
 
 // assembleCard собирает карточку из считанных строк (без обращений к БД).
@@ -222,6 +401,12 @@ func (s *DeviceService) Find(ctx context.Context, kind domain.Kind, designation 
 	if err != nil {
 		return FindResult{}, err
 	}
+	if res.Suggestion == nil {
+		res.TypeSuggestion, err = s.suggestTypeSibling(ctx, p)
+		if err != nil {
+			return FindResult{}, err
+		}
+	}
 	return res, nil
 }
 
@@ -248,4 +433,33 @@ func (s *DeviceService) suggestEquivalent(ctx context.Context, p domain.ParsedDe
 		return nil, err
 	}
 	return card, nil
+}
+
+// suggestTypeSibling подсказывает запись группы типа: обозначение не
+// найдено, но тип (базовое обозначение) существует с другой буквой
+// классификации либо хвостовым элементом (КТ315А → КТ315Б); кандидат —
+// первый по обозначению.
+func (s *DeviceService) suggestTypeSibling(ctx context.Context, p domain.ParsedDesignation) (*Card, error) {
+	base, ok := p.FieldByName(domain.FieldBase)
+	if !ok {
+		return nil, nil
+	}
+	siblings, err := s.app.db.FindTypeSiblings(ctx, []string{base.Text})
+	if err != nil {
+		return nil, err
+	}
+	for _, r := range siblings[base.Text] {
+		if r.Kind != string(p.Kind) || r.Designation == p.Designation {
+			continue
+		}
+		card, found, err := s.Get(ctx, p.Kind, r.Designation)
+		if err != nil {
+			return nil, err
+		}
+		if !found {
+			continue // сосед удалён между запросом и чтением — следующий
+		}
+		return card, nil
+	}
+	return nil, nil
 }

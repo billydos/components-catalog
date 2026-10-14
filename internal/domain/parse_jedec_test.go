@@ -8,14 +8,14 @@ func TestParseJedecValid(t *testing.T) {
 		kind   Kind
 		fields string
 	}{
-		{"1N4148", KindDiode, "junctions=1; dev_number=4148"},
-		{"1N4007", KindDiode, "junctions=1; dev_number=4007"},
-		{"1N34A", KindDiode, "junctions=1; dev_number=34; letters=A"},
-		{"1C4148", KindDiode, "junctions=1; dev_number=4148"},
-		{"2N2222A", KindTransistor, "junctions=2; dev_number=2222; letters=A"},
-		{"2N3055", KindTransistor, "junctions=2; dev_number=3055"},
-		{"2N3904", KindTransistor, "junctions=2; dev_number=3904"},
-		{"3N211", KindTransistor, "junctions=3; dev_number=211"},
+		{"1N4148", KindDiode, "junctions=1; dev_number=4148; base=1N4148"},
+		{"1N4007", KindDiode, "junctions=1; dev_number=4007; base=1N4007"},
+		{"1N34A", KindDiode, "junctions=1; dev_number=34; letters=A; base=1N34"},
+		{"1C4148", KindDiode, "junctions=1; dev_number=4148; base=1C4148"},
+		{"2N2222A", KindTransistor, "junctions=2; dev_number=2222; letters=A; base=2N2222"},
+		{"2N3055", KindTransistor, "junctions=2; dev_number=3055; base=2N3055"},
+		{"2N3904", KindTransistor, "junctions=2; dev_number=3904; base=2N3904"},
+		{"3N211", KindTransistor, "junctions=3; dev_number=211; base=3N211"},
 	}
 	for _, tc := range cases {
 		p, err := parseJedec(newScanner(tc.input), "")

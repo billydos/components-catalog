@@ -119,8 +119,10 @@ paths:
 
         * фильтры полей обозначения — код поля как имя параметра:
           текстовые `material`, `subclass`, `letters`, `prefix`, `family`,
-          `series`; числовые `junctions`, `group`, `dev_number`, `assembly`,
-          `feature`, `modification`, `chip` (равенство);
+          `series`, `base` (тип — базовое обозначение записи, значение
+          канонизируется как обозначение); числовые `junctions`, `group`,
+          `dev_number`, `assembly`, `feature`, `modification`, `chip`
+          (равенство);
           значение `material` — стабильный код словаря (`si`, `ge`,
           `ga`, `in`, `sic`, `other`, `gaas`; D9) либо отображаемое
           название локали (канонизируется); прочие текстовые поля —
@@ -474,6 +476,51 @@ components:
         groups:
           type: array
           items: {$ref: "#/components/schemas/CardGroup"}
+    CardTypeSibling:
+      type: object
+      required: [id, system, designation]
+      properties:
+        id: {type: integer, format: int64}
+        system: {type: string}
+        designation: {type: string}
+    CardTypeValue:
+      type: object
+      required: [designation]
+      properties:
+        designation: {type: string, description: Обозначение записи группы типа.}
+        exact: {type: number}
+        min: {type: number}
+        max: {type: number}
+        text: {type: string}
+        conditions:
+          type: array
+          items: {$ref: "#/components/schemas/Condition"}
+    CardTypeDiff:
+      type: object
+      required: [parameter, name, values]
+      properties:
+        parameter: {type: string}
+        name: {type: string}
+        unit: {type: string, description: Код канонической единицы.}
+        values:
+          type: array
+          description: Значения по записям группы (у записи без значения
+            параметра ячейки нет).
+          items: {$ref: "#/components/schemas/CardTypeValue"}
+    CardTypeGroup:
+      type: object
+      required: [base, siblings, diffs]
+      properties:
+        base: {type: string, description: Базовое обозначение (тип) — обозначение без буквы классификации и хвостовых элементов.}
+        siblings:
+          type: array
+          description: Соседние записи того же класса с тем же типом.
+          items: {$ref: "#/components/schemas/CardTypeSibling"}
+        diffs:
+          type: array
+          description: Мини-матрица различий — параметры, значения которых
+            различаются между записями группы (данные типа в целом).
+          items: {$ref: "#/components/schemas/CardTypeDiff"}
     CardLink:
       type: object
       required: [kind, system, designation]
@@ -504,6 +551,10 @@ components:
         variants:
           type: array
           items: {$ref: "#/components/schemas/CardVariant"}
+        type_group:
+          description: Группа типа (опущено, когда соседних записей того же
+            базового обозначения нет).
+          allOf: [{$ref: "#/components/schemas/CardTypeGroup"}]
         manufacturers:
           type: array
           items: {type: string}

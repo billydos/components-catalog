@@ -53,6 +53,10 @@ func parseResistorGost(s *scanner, _ Kind) (ParsedDesignation, error) {
 		return ParsedDesignation{}, err
 	}
 
+	// Базовое обозначение (тип) заканчивается номером разработки;
+	// буквы модификации в него не входят (план 03 §2.6).
+	typeBase := string(s.src[:s.i])
+
 	// Буквы модификации (С2-33Н, С5-16МВ).
 	letters := s.readCyrillicLetters(3)
 
@@ -79,6 +83,7 @@ func parseResistorGost(s *scanner, _ Kind) (ParsedDesignation, error) {
 	if letters != "" {
 		fields = append(fields, TextField("letters", letters))
 	}
+	fields = append(fields, TextField(FieldBase, typeBase))
 	return ParsedDesignation{Kind: KindResistor, System: SystemGost, Designation: canonical, Fields: fields}, nil
 }
 
@@ -125,6 +130,9 @@ func parseResistorOst(s *scanner, _ Kind) (ParsedDesignation, error) {
 			TextField("adjustment", ResistorFamilyAdjustment(family)),
 			NumField("group", float64(group)),
 			NumField("dev_number", float64(devNumber)),
+			// Буквы в сокращённом обозначении ОСТ отсутствуют: тип
+			// совпадает с канонической строкой (план 03 §2.6).
+			TextField(FieldBase, canonical),
 		},
 	}, nil
 }

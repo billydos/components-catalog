@@ -327,6 +327,7 @@ var bundleRu = map[string]string{
 	"field.chip":         "вариант кристалла",
 	"field.prefix":       "префикс",
 	"field.series":       "семейство",
+	"field.base":         "тип (базовое обозначение)",
 	"field.family":       "семейство (буква)",
 	"field.adjustment":   "подстройка",
 	"field.category":     "категория",

@@ -136,7 +136,9 @@ func reservedQueryParam(name string) bool {
 // canonicalizeFieldCode канонизирует значение словарного поля разбора
 // (material, subclass, adjustment, category): код либо отображаемое
 // название локали → стабильный код (словарь category — коды каталога).
-// При неудаче возвращает аргументы и MsgID ошибки для ответа.
+// Поле base (тип записи) канонизируется как обозначение (верхний регистр,
+// нормализация дефисов и пробелов). При неудаче возвращает аргументы
+// и MsgID ошибки для ответа.
 func canonicalizeFieldCode(field, value string, snap *catalog.Snapshot) (string, []any, domain.MsgID, bool) {
 	switch field {
 	case "material":
@@ -162,6 +164,15 @@ func canonicalizeFieldCode(field, value string, snap *catalog.Snapshot) (string,
 		}
 		return value, []any{value, strings.Join(snap.CategoryCodes(), ", ")},
 			domain.MsgUnknownCategory, false
+	case domain.FieldBase:
+		canonical, err := domain.Canonicalize(value)
+		if err != nil {
+			if de, ok := domain.AsError(err); ok {
+				return value, de.Args, de.MsgID, false
+			}
+			return value, []any{value}, domain.MsgSvcSearchFieldUnknown, false
+		}
+		return canonical, nil, "", true
 	}
 	// Поле не словарное — значение без канонизации.
 	return value, nil, "", true

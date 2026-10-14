@@ -254,7 +254,8 @@ func sectionOf(snap *catalog.Snapshot, group string) string {
 // canonicalizeFilter канонизирует значение словарного фильтра поиска
 // (material, subclass, adjustment, category): код либо отображаемое
 // название локали → стабильный код. Словарь category — каталожные коды
-// снимка базы команды (snap nil — фильтр category недопустим).
+// снимка базы команды (snap nil — фильтр category недопустим). Значение
+// base (тип записи) канонизируется как обозначение.
 func canonicalizeFilter(name, value string, snap *catalog.Snapshot) (string, error) {
 	switch name {
 	case "material":
@@ -275,6 +276,12 @@ func canonicalizeFilter(name, value string, snap *catalog.Snapshot) (string, err
 		}
 		return value, domain.NewErrorf(domain.CodeValidationFailed,
 			domain.MsgUnknownAdjust, value, strings.Join(domain.AdjustmentCodes(), ", "))
+	case "base":
+		canonical, err := domain.Canonicalize(value)
+		if err != nil {
+			return value, err
+		}
+		return canonical, nil
 	case "category":
 		if snap != nil {
 			if code, ok := i18n.CategoryCode(value, snap.CategoryCodes()); ok {
@@ -323,11 +330,11 @@ func runList(ctx context.Context, opts *options, pos []string, stdout, stderr io
 	} else {
 		query.Limit, query.Offset = opts.limit, opts.offset
 	}
-	for _, name := range []string{"material", "subclass", "adjustment", "category", "series", "letters"} {
+	for _, name := range []string{"material", "subclass", "adjustment", "category", "series", "letters", "base"} {
 		if v, ok := opts.texts[name]; ok {
 			// Словарные фильтры: вход канонизируется к коду словаря
 			// (код либо отображаемое название локали — D9; category —
-			// коды каталожного словаря этой базы).
+			// коды каталожного словаря этой базы), base — как обозначение.
 			code, err := canonicalizeFilter(name, v, snap)
 			if err != nil {
 				return fail(stderr, opts.langOf(), err)
@@ -418,6 +425,16 @@ func runFind(ctx context.Context, opts *options, pos []string, stdout, stderr io
 		fmt.Fprintf(stdout, "%s\n", i18n.Message(opts.langOf(), string(domain.MsgCliFindSuggestion),
 			pos[0], res.Suggestion.Designation))
 		printCard(stdout, opts.langOf(), res.Suggestion, snap)
+		return 1
+	}
+	if res.TypeSuggestion != nil {
+		snap, err := app.Snapshot(ctx)
+		if err != nil {
+			return fail(stderr, opts.langOf(), err)
+		}
+		fmt.Fprintf(stdout, "%s\n", i18n.Message(opts.langOf(), string(domain.MsgCliFindType),
+			pos[0], res.TypeSuggestion.Designation))
+		printCard(stdout, opts.langOf(), res.TypeSuggestion, snap)
 		return 1
 	}
 	fmt.Fprintf(stdout, "%s\n", i18n.Message(opts.langOf(), string(domain.MsgCliFindNotFound), pos[0]))

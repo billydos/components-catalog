@@ -251,10 +251,15 @@ func recordTree(c *service.Card, parsed *domain.ParsedDesignation) value {
 
 // explicitFields — явные классификационные поля записи: хранимые поля
 // минус продукты разбора обозначения (импортёр запрещает совпадения,
-// разность всегда определена).
+// разность всегда определена) минус производное поле base (для строгих
+// систем — продукт парсера, для other — вычисляется сервисом; round-trip
+// его не пишет — план 03 §2.6).
 func explicitFields(c *service.Card, parsed *domain.ParsedDesignation) []domain.Field {
 	var out []domain.Field
 	for _, f := range c.Fields {
+		if f.Name == domain.FieldBase {
+			continue
+		}
 		if _, parsed := parsed.FieldByName(f.Name); parsed {
 			continue
 		}

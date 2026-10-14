@@ -321,6 +321,7 @@ const (
 	MsgSvcFieldDuplicate        MsgID = "svc_field_duplicate"
 	MsgSvcFieldUnknown          MsgID = "svc_field_unknown"
 	MsgSvcFieldParserOwned      MsgID = "svc_field_parser_owned"
+	MsgSvcFieldBaseDerived      MsgID = "svc_field_base_derived"
 	MsgSvcFieldNotApplicable    MsgID = "svc_field_not_applicable"
 	MsgSvcFieldAssemblyRange    MsgID = "svc_field_assembly_range"
 	MsgSvcFieldTextExpected     MsgID = "svc_field_text_expected"
@@ -379,6 +380,7 @@ const (
 	MsgCliOutcomeSkipped    MsgID = "cli_outcome_skipped"
 	MsgCliRecordNotFound    MsgID = "cli_record_not_found"
 	MsgCliFindSuggestion    MsgID = "cli_find_suggestion"
+	MsgCliFindType          MsgID = "cli_find_type"
 	MsgCliFindNotFound      MsgID = "cli_find_not_found"
 	MsgCliDeleteDryRun      MsgID = "cli_delete_dry_run"
 	MsgCliDeleted           MsgID = "cli_deleted"
@@ -386,6 +388,7 @@ const (
 	MsgCliIssueLine         MsgID = "cli_issue_line"
 	MsgCliSystemLine        MsgID = "cli_system_line"
 	MsgCliVariantHead       MsgID = "cli_variant_head"
+	MsgCliTypeGroupHead     MsgID = "cli_type_group_head"
 	MsgCliNoLabel           MsgID = "cli_no_label"
 	MsgCliManufacturers     MsgID = "cli_manufacturers"
 	MsgCliAnalogs           MsgID = "cli_analogs"
@@ -507,6 +510,8 @@ const (
 	MsgCliUsageOptNumberDesc     MsgID = "cli_usage_opt_number_desc"
 	MsgCliUsageOptLetters        MsgID = "cli_usage_opt_letters"
 	MsgCliUsageOptLettersDesc    MsgID = "cli_usage_opt_letters_desc"
+	MsgCliUsageOptBase           MsgID = "cli_usage_opt_base"
+	MsgCliUsageOptBaseDesc       MsgID = "cli_usage_opt_base_desc"
 	MsgCliUsageOptQ              MsgID = "cli_usage_opt_q"
 	MsgCliUsageOptQDesc          MsgID = "cli_usage_opt_q_desc"
 	MsgCliUsageOptLimit          MsgID = "cli_usage_opt_limit"
@@ -821,6 +826,7 @@ var msgRegistry = map[MsgID]struct{}{
 	MsgSvcFieldDuplicate:              {},
 	MsgSvcSearchFieldUnknown:          {},
 	MsgSvcFieldParserOwned:            {},
+	MsgSvcFieldBaseDerived:            {},
 	MsgSvcFieldNotApplicable:          {},
 	MsgSvcFieldAssemblyRange:          {},
 	MsgSvcFieldTextExpected:           {},
@@ -875,6 +881,7 @@ var msgRegistry = map[MsgID]struct{}{
 	MsgCliOutcomeSkipped:              {},
 	MsgCliRecordNotFound:              {},
 	MsgCliFindSuggestion:              {},
+	MsgCliFindType:                    {},
 	MsgCliFindNotFound:                {},
 	MsgCliDeleteDryRun:                {},
 	MsgCliDeleted:                     {},
@@ -882,6 +889,7 @@ var msgRegistry = map[MsgID]struct{}{
 	MsgCliIssueLine:                   {},
 	MsgCliSystemLine:                  {},
 	MsgCliVariantHead:                 {},
+	MsgCliTypeGroupHead:               {},
 	MsgCliNoLabel:                     {},
 	MsgCliManufacturers:               {},
 	MsgCliAnalogs:                     {},
@@ -984,6 +992,8 @@ var msgRegistry = map[MsgID]struct{}{
 	MsgCliUsageOptNumberDesc:          {},
 	MsgCliUsageOptLetters:             {},
 	MsgCliUsageOptLettersDesc:         {},
+	MsgCliUsageOptBase:                {},
+	MsgCliUsageOptBaseDesc:            {},
 	MsgCliUsageOptQ:                   {},
 	MsgCliUsageOptQDesc:               {},
 	MsgCliUsageOptLimit:               {},

@@ -329,6 +329,7 @@ var bundleEn = map[string]string{
 	"field.chip":         "chip variant",
 	"field.prefix":       "prefix",
 	"field.series":       "series",
+	"field.base":         "type (base designation)",
 	"field.family":       "family letter",
 	"field.adjustment":   "adjustment",
 	"field.category":     "category",

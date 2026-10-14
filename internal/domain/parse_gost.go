@@ -261,7 +261,10 @@ func parseGostSemiconductor(s *scanner, kindHint Kind) (ParsedDesignation, error
 		}
 	}
 
-	// Элемент 5 — буква группы.
+	// Элемент 5 — буква группы. Базовое обозначение (тип) заканчивается
+	// номером разработки: буква группы и хвостовые элементы в него
+	// не входят (план 03 §2.6).
+	typeBase := string(s.src[:s.i])
 	letters := ""
 	if r, has := s.peek(); has && isGostGroupLetter(r) {
 		letters = string(r)
@@ -363,5 +366,6 @@ func parseGostSemiconductor(s *scanner, kindHint Kind) (ParsedDesignation, error
 	if chip > 0 {
 		fields = append(fields, NumField("chip", float64(chip)))
 	}
+	fields = append(fields, TextField(FieldBase, typeBase))
 	return ParsedDesignation{Kind: kind, System: SystemGost, Designation: canonical, Fields: fields}, nil
 }

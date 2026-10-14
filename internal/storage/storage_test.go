@@ -88,6 +88,12 @@ func TestEnsureCreatedSQLiteFile(t *testing.T) {
 // Несовпадение версии схемы — schema_version_mismatch с дословным текстом
 // (тихая порча данных исключена — D5).
 func TestSchemaVersionMismatch(t *testing.T) {
+	// Пин фактической версии: документация плана (02-database.md §5)
+	// называет текущую версию — рассинхрон константы заметен тестом,
+	// а не молчаливым пропуском consumers (тесты читают константу).
+	if SchemaVersion != 8 {
+		t.Fatalf("SchemaVersion = %d, ожидалась 8 (docs/plan/02-database.md §5)", SchemaVersion)
+	}
 	path, db := openSQLiteFile(t)
 	ctx := context.Background()
 	if _, err := db.EnsureCreated(ctx); err != nil {

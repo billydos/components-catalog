@@ -20,6 +20,7 @@ import (
 	"github.com/billydos/components-catalog/internal/catalog"
 	"github.com/billydos/components-catalog/internal/domain"
 	"github.com/billydos/components-catalog/internal/service"
+	"github.com/billydos/components-catalog/internal/storage"
 	"github.com/goccy/go-yaml"
 )
 
@@ -343,7 +344,7 @@ func TestStats(t *testing.T) {
 		t.Fatalf("статус: %d", status)
 	}
 	st := decode[statsJSON](t, body)
-	if st.SchemaVersion != 7 || st.Total != 4 || st.Kinds["transistor"] != 2 || st.Kinds["capacitor"] != 1 {
+	if st.SchemaVersion != storage.SchemaVersion || st.Total != 4 || st.Kinds["transistor"] != 2 || st.Kinds["capacitor"] != 1 {
 		t.Fatalf("статистика: %+v", st)
 	}
 	if st.CatalogRevision == 0 || st.DataRevision == 0 {
@@ -562,6 +563,80 @@ func TestCard(t *testing.T) {
 	}
 	if !found {
 		t.Fatalf("габариты исполнения отсутствуют: %+v", capCard.Variants[0])
+	}
+}
+
+// Группа типа: фильтр base (канонизация значения) и блок карточки
+// «type_group» с мини-матрицей различий между записями одного типа.
+func TestTypeGroup(t *testing.T) {
+	app, srv := newTestAPI(t, Config{})
+	// Сосед по типу: КТ315Г — те же hfe/TempMin, отличия VceoMax.
+	if _, err := app.Services().Devices.Upsert(context.Background(), service.DeviceInput{
+		Name: "КТ315Г",
+		Sections: []service.SectionInput{
+			{Section: "parameters", Values: []catalog.ParameterValue{
+				{Parameter: "hfe", Min: ptr(50.0), Max: ptr(350.0), Conditions: []catalog.ConditionValue{
+					{Condition: "Vce", Value: 10}, {Condition: "Ic", Value: 1},
+				}},
+			}},
+			{Section: "ratings", Values: []catalog.ParameterValue{
+				{Parameter: "VceoMax", Exact: ptr(35.0)},
+				{Parameter: "TempMin", Exact: ptr(-60.0)},
+			}},
+		},
+	}); err != nil {
+		t.Fatalf("upsert КТ315Г: %v", err)
+	}
+
+	// Фильтр по типу: значение канонизируется (нижний регистр входа).
+	_, body, _ := do(t, srv, http.MethodGet,
+		apiPrefix+"/components?kind=transistor&base="+url.QueryEscape("кт315"), "")
+	page := decode[searchPageJSON](t, body)
+	got := make([]string, 0, len(page.Items))
+	for _, it := range page.Items {
+		got = append(got, it.Designation)
+	}
+	if !slices.Equal(got, []string{"КТ315Б", "КТ315Г"}) {
+		t.Fatalf("base-фильтр: %v", got)
+	}
+
+	// Блок карточки: сосед, различие VceoMax; совпадающий hfe в матрицу
+	// не входит.
+	_, body, _ = do(t, srv, http.MethodGet, apiPrefix+"/components/transistor/"+esc("КТ315Б"), "")
+	card := decode[cardJSON](t, body)
+	if card.TypeGroup == nil {
+		t.Fatalf("группа типа отсутствует: %+v", card)
+	}
+	if card.TypeGroup.Base != "КТ315" ||
+		len(card.TypeGroup.Siblings) != 1 || card.TypeGroup.Siblings[0].Designation != "КТ315Г" {
+		t.Fatalf("соседние записи: %+v", card.TypeGroup)
+	}
+	if len(card.TypeGroup.Diffs) != 1 || card.TypeGroup.Diffs[0].Parameter != "VceoMax" {
+		t.Fatalf("различия: %+v", card.TypeGroup.Diffs)
+	}
+	d := card.TypeGroup.Diffs[0]
+	if len(d.Values) != 2 ||
+		d.Values[0].Designation != "КТ315Б" || *d.Values[0].Exact != 20 ||
+		d.Values[1].Designation != "КТ315Г" || *d.Values[1].Exact != 35 {
+		t.Fatalf("матрица VceoMax: %+v", d.Values)
+	}
+
+	// Поле base — в полях разбора карточки.
+	foundBase := false
+	for _, f := range card.Fields {
+		if f.Name == "base" && f.Text != nil && *f.Text == "КТ315" {
+			foundBase = true
+		}
+	}
+	if !foundBase {
+		t.Fatalf("поле base отсутствует: %+v", card.Fields)
+	}
+
+	// Без соседей блока нет (МЛТ-0.5 — единственная запись семейства).
+	_, body, _ = do(t, srv, http.MethodGet, apiPrefix+"/components/resistor/"+esc("МЛТ-0.5"), "")
+	solo := decode[cardJSON](t, body)
+	if solo.TypeGroup != nil {
+		t.Fatalf("группа типа без соседей: %+v", solo.TypeGroup)
 	}
 }
 

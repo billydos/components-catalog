@@ -61,11 +61,14 @@ type DeviceInput struct {
 	Analogs       *[]AnalogInput
 }
 
-// FindResult — результат find: точное совпадение и подсказка равнозначной
-// записи по материалу (полупроводники gost: Г/1, К/2 — раздельные записи).
+// FindResult — результат find: точное совпадение, подсказка равнозначной
+// по материалу записи (полупроводники gost: Г/1, К/2 — раздельные записи)
+// и подсказка соседом по типу (запись того же базового обозначения с
+// другой буквой классификации либо хвостовым элементом — КТ315А → КТ315Б).
 type FindResult struct {
-	Found      *Card
-	Suggestion *Card
+	Found          *Card
+	Suggestion     *Card
+	TypeSuggestion *Card
 }
 
 // CardAttribute — значение атрибута в карточке (отображаемое название —
@@ -105,6 +108,38 @@ type CardVariant struct {
 	Groups []CardGroup
 }
 
+// CardTypeSibling — запись группы типа: запись того же класса с тем же
+// базовым обозначением (поле base), кроме самой записи карточки.
+type CardTypeSibling struct {
+	ID          int64
+	System      domain.System
+	Designation string
+}
+
+// CardTypeValue — значение параметра одной записи группы типа (строка
+// мини-матрицы различий: параметр × записи).
+type CardTypeValue struct {
+	Designation string
+	Value       CardValue
+}
+
+// CardTypeDiff — параметр, значения которого различаются между записями
+// группы типа (в матрицу входят только различия; порядок значений — по
+// обозначению записи).
+type CardTypeDiff struct {
+	Parameter string
+	Unit      string
+	Values    []CardTypeValue
+}
+
+// CardTypeGroup — группа типа: записи одного базового обозначения
+// (base) и мини-матрица различий их данных типа в целом (план 03 §7).
+type CardTypeGroup struct {
+	Base     string
+	Siblings []CardTypeSibling
+	Diffs    []CardTypeDiff
+}
+
 // CardLink — ссылка-аналог: исходящая (аналоги записи) либо встречная
 // (кто ссылается на запись).
 type CardLink struct {
@@ -115,7 +150,8 @@ type CardLink struct {
 }
 
 // Card — карточка записи: обозначение, система, поля разбора, атрибуты,
-// значения параметров по группам, исполнения, производители, аналоги
+// значения параметров по группам, исполнения, группа типа (одно базовое
+// обозначение — соседние записи и различия), производители, аналоги
 // (исходящие и встречные — docs/plan/02-database.md §6).
 type Card struct {
 	ID            int64
@@ -126,6 +162,7 @@ type Card struct {
 	Attributes    []CardAttribute
 	Groups        []CardGroup
 	Variants      []CardVariant
+	TypeGroup     *CardTypeGroup
 	Manufacturers []string
 	Analogs       []CardLink
 	Backlinks     []CardLink

@@ -7,19 +7,19 @@ func TestParseCapacitorGostValid(t *testing.T) {
 		input  string
 		fields string
 	}{
-		{"К10-17Б", "prefix=К; adjustment=fixed; group=10; dev_number=17; letters=Б"},
-		{"К50-35", "prefix=К; adjustment=fixed; group=50; dev_number=35"},
-		{"К73-17", "prefix=К; adjustment=fixed; group=73; dev_number=17"},
-		{"К78-2", "prefix=К; adjustment=fixed; group=78; dev_number=2"},
-		{"К42-19", "prefix=К; adjustment=fixed; group=42; dev_number=19"},
-		{"К10-47В", "prefix=К; adjustment=fixed; group=10; dev_number=47; letters=В"},
-		{"К31-10", "prefix=К; adjustment=fixed; group=31; dev_number=10"},
-		{"К52-1", "prefix=К; adjustment=fixed; group=52; dev_number=1"},
-		{"К76-2", "prefix=К; adjustment=fixed; group=76; dev_number=2"},
-		{"КТ4-25", "prefix=КТ; adjustment=preset; group=4; dev_number=25"},
-		{"КТ1-5", "prefix=КТ; adjustment=preset; group=1; dev_number=5"},
-		{"КП1-3", "prefix=КП; adjustment=variable; group=1; dev_number=3"},
-		{"КН1-8", "prefix=КН; adjustment=fixed; group=1; dev_number=8"},
+		{"К10-17Б", "prefix=К; adjustment=fixed; group=10; dev_number=17; letters=Б; base=К10-17"},
+		{"К50-35", "prefix=К; adjustment=fixed; group=50; dev_number=35; base=К50-35"},
+		{"К73-17", "prefix=К; adjustment=fixed; group=73; dev_number=17; base=К73-17"},
+		{"К78-2", "prefix=К; adjustment=fixed; group=78; dev_number=2; base=К78-2"},
+		{"К42-19", "prefix=К; adjustment=fixed; group=42; dev_number=19; base=К42-19"},
+		{"К10-47В", "prefix=К; adjustment=fixed; group=10; dev_number=47; letters=В; base=К10-47"},
+		{"К31-10", "prefix=К; adjustment=fixed; group=31; dev_number=10; base=К31-10"},
+		{"К52-1", "prefix=К; adjustment=fixed; group=52; dev_number=1; base=К52-1"},
+		{"К76-2", "prefix=К; adjustment=fixed; group=76; dev_number=2; base=К76-2"},
+		{"КТ4-25", "prefix=КТ; adjustment=preset; group=4; dev_number=25; base=КТ4-25"},
+		{"КТ1-5", "prefix=КТ; adjustment=preset; group=1; dev_number=5; base=КТ1-5"},
+		{"КП1-3", "prefix=КП; adjustment=variable; group=1; dev_number=3; base=КП1-3"},
+		{"КН1-8", "prefix=КН; adjustment=fixed; group=1; dev_number=8; base=КН1-8"},
 	}
 	for _, tc := range cases {
 		p, err := parseCapacitorGost(newScanner(tc.input), "")

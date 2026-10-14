@@ -762,6 +762,64 @@ ORDER BY a.analog_device_id, s.designation`, args)
 	return out, err
 }
 
+// TypeSiblingRow — запись группы типа: запись того же класса с тем же
+// базовым обозначением (производное поле base — план 03 §2.6).
+type TypeSiblingRow struct {
+	Base        string
+	ID          int64
+	Kind        string
+	System      string
+	Designation string
+}
+
+// FindTypeSiblings — записи групп типов по списку базовых обозначений
+// (пакетное чтение карточек: блок «группа типа»): соединение по полю
+// base, отбор пары (класс, базовое обозначение) — вызывающим (строки
+// чужого класса с совпадающей строкой base отбрасываются). Порядок —
+// по обозначению внутри группы.
+func (d *DB) FindTypeSiblings(ctx context.Context, bases []string) (map[string][]TypeSiblingRow, error) {
+	return findTypeSiblings(ctx, d.reads, bases)
+}
+
+func (t *Tx) FindTypeSiblings(ctx context.Context, bases []string) (map[string][]TypeSiblingRow, error) {
+	return findTypeSiblings(ctx, t.tx, bases)
+}
+
+func findTypeSiblings(ctx context.Context, q queryer, bases []string) (map[string][]TypeSiblingRow, error) {
+	if len(bases) == 0 {
+		return nil, nil
+	}
+	out := make(map[string][]TypeSiblingRow, len(bases))
+	for start := 0; start < len(bases); start += maxInList {
+		chunk := bases[start : start+min(maxInList, len(bases)-start)]
+		args := make(map[string]any, len(chunk)+1)
+		args["field"] = domain.FieldBase
+		rows, err := queryContext(ctx, q, `
+SELECT f.text_value, d.id, d.kind_code, d.system_code, d.designation
+FROM device_designation_fields f
+JOIN devices d ON d.id = f.device_id
+WHERE f.field = @field AND f.text_value IN `+inTextList("base", chunk, args)+`
+ORDER BY f.text_value, d.designation`, args)
+		if err != nil {
+			return nil, err
+		}
+		for rows.Next() {
+			var r TypeSiblingRow
+			if err := rows.Scan(&r.Base, &r.ID, &r.Kind, &r.System, &r.Designation); err != nil {
+				rows.Close()
+				return nil, err
+			}
+			out[r.Base] = append(out[r.Base], r)
+		}
+		if err := rows.Err(); err != nil {
+			rows.Close()
+			return nil, err
+		}
+		rows.Close()
+	}
+	return out, nil
+}
+
 // Запись (только внутри транзакции).
 
 // InsertDevice вставляет запись, если её нет, и возвращает id вместе

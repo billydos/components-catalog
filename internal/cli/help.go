@@ -84,6 +84,7 @@ var usageFlagMsgs = map[string]struct{ syn, desc domain.MsgID }{
 	"series":     {domain.MsgCliUsageOptSeries, domain.MsgCliUsageOptSeriesDesc},
 	"number":     {domain.MsgCliUsageOptNumber, domain.MsgCliUsageOptNumberDesc},
 	"letters":    {domain.MsgCliUsageOptLetters, domain.MsgCliUsageOptLettersDesc},
+	"base":       {domain.MsgCliUsageOptBase, domain.MsgCliUsageOptBaseDesc},
 	"q":          {domain.MsgCliUsageOptQ, domain.MsgCliUsageOptQDesc},
 	"limit":      {domain.MsgCliUsageOptLimit, domain.MsgCliUsageOptLimitDesc},
 	"offset":     {domain.MsgCliUsageOptOffset, domain.MsgCliUsageOptOffsetDesc},

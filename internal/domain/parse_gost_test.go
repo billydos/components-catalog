@@ -35,36 +35,36 @@ func TestParseGostSemiconductorValid(t *testing.T) {
 		kind   Kind
 		fields string
 	}{
-		{"КТ315Б", KindTransistor, "material=si; subclass=bjt; assembly=0; dev_number=315; letters=Б"},
-		{"ГТ109Г", KindTransistor, "material=ge; subclass=bjt; assembly=0; dev_number=109; letters=Г"},
-		{"2Т914А-1", KindTransistor, "material=si; subclass=bjt; assembly=0; feature=9; dev_number=14; letters=А"},
-		{"КТ3102", KindTransistor, "material=si; subclass=bjt; assembly=0; feature=3; dev_number=102"},
-		{"КТ31", KindTransistor, "material=si; subclass=bjt; assembly=0; feature=3; dev_number=1"},
-		{"2Т312", KindTransistor, "material=si; subclass=bjt; assembly=0; feature=3; dev_number=12"},
+		{"КТ315Б", KindTransistor, "material=si; subclass=bjt; assembly=0; dev_number=315; letters=Б; base=КТ315"},
+		{"ГТ109Г", KindTransistor, "material=ge; subclass=bjt; assembly=0; dev_number=109; letters=Г; base=ГТ109"},
+		{"2Т914А-1", KindTransistor, "material=si; subclass=bjt; assembly=0; feature=9; dev_number=14; letters=А; base=2Т914"},
+		{"КТ3102", KindTransistor, "material=si; subclass=bjt; assembly=0; feature=3; dev_number=102; base=КТ3102"},
+		{"КТ31", KindTransistor, "material=si; subclass=bjt; assembly=0; feature=3; dev_number=1; base=КТ31"},
+		{"2Т312", KindTransistor, "material=si; subclass=bjt; assembly=0; feature=3; dev_number=12; base=2Т312"},
 		// Раздельность КТ312/2Т312: буква — трёхзначный номер (старая
 		// форма), цифра — признак и номер (современная).
-		{"КТ312", KindTransistor, "material=si; subclass=bjt; assembly=0; dev_number=312"},
-		{"2Т3148А", KindTransistor, "material=si; subclass=bjt; assembly=0; feature=3; dev_number=148; letters=А"},
-		{"2П798Г/ИФ", KindTransistor, "material=si; subclass=fet; assembly=0; feature=7; dev_number=98; letters=Г"},
-		{"КТД735В", KindTransistor, "material=si; subclass=bjt; assembly=0; feature=7; dev_number=35; letters=В"},
-		{"АП362А9", KindTransistor, "material=ga; subclass=fet; assembly=0; dev_number=362; letters=А; chip=9"},
-		{"КТ315А5", KindTransistor, "material=si; subclass=bjt; assembly=0; dev_number=315; letters=А; modification=5"},
-		{"КП303А", KindTransistor, "material=si; subclass=fet; assembly=0; dev_number=303; letters=А"},
-		{"КДС111В", KindDiode, "material=si; subclass=rectifier; assembly=1; dev_number=111; letters=В"},
-		{"КСС393А", KindDiode, "material=si; subclass=zener; assembly=1; dev_number=393; letters=А"},
-		{"КС168А", KindDiode, "material=si; subclass=zener; assembly=0; dev_number=168; letters=А"},
-		{"2Д627АС", KindDiode, "material=si; subclass=rectifier; assembly=1; feature=6; dev_number=27; letters=А"},
-		{"КДШ289А", KindDiode, "material=si; subclass=rectifier; assembly=0; feature=2; dev_number=89; letters=А"},
-		{"АЛ307Б", KindDiode, "material=ga; subclass=led; assembly=0; dev_number=307; letters=Б"},
-		{"2В131А", KindDiode, "material=si; subclass=varicap; assembly=0; feature=1; dev_number=31; letters=А"},
-		{"3А538А", KindDiode, "material=ga; subclass=detector; assembly=0; feature=5; dev_number=38; letters=А"},
-		{"ГТ402В", KindTransistor, "material=ge; subclass=bjt; assembly=0; dev_number=402; letters=В"},
-		{"АИ101А", KindDiode, "material=ga; subclass=tunnel; assembly=0; dev_number=101; letters=А"},
-		{"КВ102А", KindDiode, "material=si; subclass=varicap; assembly=0; dev_number=102; letters=А"},
-		{"КГ508А", KindDiode, "material=si; subclass=generator; assembly=0; dev_number=508; letters=А"},
-		{"КЦ405А", KindDiode, "material=si; subclass=rectifier; assembly=0; dev_number=405; letters=А"},
+		{"КТ312", KindTransistor, "material=si; subclass=bjt; assembly=0; dev_number=312; base=КТ312"},
+		{"2Т3148А", KindTransistor, "material=si; subclass=bjt; assembly=0; feature=3; dev_number=148; letters=А; base=2Т3148"},
+		{"2П798Г/ИФ", KindTransistor, "material=si; subclass=fet; assembly=0; feature=7; dev_number=98; letters=Г; base=2П798"},
+		{"КТД735В", KindTransistor, "material=si; subclass=bjt; assembly=0; feature=7; dev_number=35; letters=В; base=КТД735"},
+		{"АП362А9", KindTransistor, "material=ga; subclass=fet; assembly=0; dev_number=362; letters=А; chip=9; base=АП362"},
+		{"КТ315А5", KindTransistor, "material=si; subclass=bjt; assembly=0; dev_number=315; letters=А; modification=5; base=КТ315"},
+		{"КП303А", KindTransistor, "material=si; subclass=fet; assembly=0; dev_number=303; letters=А; base=КП303"},
+		{"КДС111В", KindDiode, "material=si; subclass=rectifier; assembly=1; dev_number=111; letters=В; base=КДС111"},
+		{"КСС393А", KindDiode, "material=si; subclass=zener; assembly=1; dev_number=393; letters=А; base=КСС393"},
+		{"КС168А", KindDiode, "material=si; subclass=zener; assembly=0; dev_number=168; letters=А; base=КС168"},
+		{"2Д627АС", KindDiode, "material=si; subclass=rectifier; assembly=1; feature=6; dev_number=27; letters=А; base=2Д627"},
+		{"КДШ289А", KindDiode, "material=si; subclass=rectifier; assembly=0; feature=2; dev_number=89; letters=А; base=КДШ289"},
+		{"АЛ307Б", KindDiode, "material=ga; subclass=led; assembly=0; dev_number=307; letters=Б; base=АЛ307"},
+		{"2В131А", KindDiode, "material=si; subclass=varicap; assembly=0; feature=1; dev_number=31; letters=А; base=2В131"},
+		{"3А538А", KindDiode, "material=ga; subclass=detector; assembly=0; feature=5; dev_number=38; letters=А; base=3А538"},
+		{"ГТ402В", KindTransistor, "material=ge; subclass=bjt; assembly=0; dev_number=402; letters=В; base=ГТ402"},
+		{"АИ101А", KindDiode, "material=ga; subclass=tunnel; assembly=0; dev_number=101; letters=А; base=АИ101"},
+		{"КВ102А", KindDiode, "material=si; subclass=varicap; assembly=0; dev_number=102; letters=А; base=КВ102"},
+		{"КГ508А", KindDiode, "material=si; subclass=generator; assembly=0; dev_number=508; letters=А; base=КГ508"},
+		{"КЦ405А", KindDiode, "material=si; subclass=rectifier; assembly=0; dev_number=405; letters=А; base=КЦ405"},
 		// Подобранная группа Р после буквы группы — часть ключа, поля не меняет.
-		{"КТ805АР", KindTransistor, "material=si; subclass=bjt; assembly=0; dev_number=805; letters=А"},
+		{"КТ805АР", KindTransistor, "material=si; subclass=bjt; assembly=0; dev_number=805; letters=А; base=КТ805"},
 	}
 	for _, tc := range cases {
 		p, err := parseGostSemiconductor(newScanner(tc.input), "")
@@ -158,7 +158,7 @@ func TestParseGostSemiconductorLeadingZero(t *testing.T) {
 	if err != nil {
 		t.Fatalf("«2Д602А»: %v", err)
 	}
-	want := "material=si; subclass=rectifier; assembly=0; feature=6; dev_number=2; letters=А"
+	want := "material=si; subclass=rectifier; assembly=0; feature=6; dev_number=2; letters=А; base=2Д602"
 	if got := p.String(); got != want {
 		t.Fatalf("«2Д602А»:\n got:  %s\n want: %s", got, want)
 	}

@@ -9,6 +9,7 @@ import (
 	"cmp"
 	"fmt"
 	"io"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -129,6 +130,25 @@ func printCard(w io.Writer, lang i18n.Language, c *service.Card, snap *catalog.S
 			}
 		}
 	}
+	if tg := c.TypeGroup; tg != nil {
+		section()
+		names := make([]string, 0, len(tg.Siblings)+1)
+		names = append(names, c.Designation)
+		for _, s := range tg.Siblings {
+			names = append(names, s.Designation)
+		}
+		slices.Sort(names)
+		fmt.Fprintln(w, i18n.Message(lang, string(domain.MsgCliTypeGroupHead),
+			tg.Base, strings.Join(names, ", ")))
+		for _, d := range tg.Diffs {
+			cells := make([]string, 0, len(d.Values))
+			for _, v := range d.Values {
+				cells = append(cells, v.Designation+" — "+valueString(lang, v.Value, snap))
+			}
+			fmt.Fprintln(w, i18n.Message(lang, string(domain.MsgCliFieldLine),
+				i18n.ParameterName(lang, d.Parameter), strings.Join(cells, "; ")))
+		}
+	}
 	if len(c.Manufacturers) > 0 {
 		section()
 		fmt.Fprintln(w, i18n.Message(lang, string(domain.MsgCliManufacturers), joinParts(c.Manufacturers)))
@@ -163,11 +183,16 @@ func joinParts(parts []string) string {
 	return strings.Join(parts, "; ")
 }
 
-// valueWithConditions — значение параметра с единицей и условиями:
-// точное — число, диапазон — «мин–макс», «не менее», «не более»;
-// условия — в скобках, всё — по локали (этап 8.4 — инженерные
-// приставки).
+// valueWithConditions — значение параметра с единицей и условиями
+// («: » перед значением — строка группы карточки); условия — в скобках,
+// всё — по локали (этап 8.4 — инженерные приставки).
 func valueWithConditions(lang i18n.Language, v service.CardValue, snap *catalog.Snapshot) string {
+	return ": " + valueString(lang, v, snap)
+}
+
+// valueString — «голое» значение параметра с единицей и условиями
+// (используется и ячейками мини-матрицы группы типа).
+func valueString(lang i18n.Language, v service.CardValue, snap *catalog.Snapshot) string {
 	value := ""
 	switch {
 	case v.Exact != nil:
@@ -182,7 +207,7 @@ func valueWithConditions(lang i18n.Language, v service.CardValue, snap *catalog.
 		value = *v.Text
 	}
 	if len(v.Conditions) == 0 {
-		return ": " + value
+		return value
 	}
 	conds := make([]string, 0, len(v.Conditions))
 	for _, c := range v.Conditions {
@@ -192,5 +217,5 @@ func valueWithConditions(lang i18n.Language, v service.CardValue, snap *catalog.
 		}
 		conds = append(conds, fmt.Sprintf("%s=%s%s", c.Condition, i18n.FormatNumber(lang, c.Value), unit))
 	}
-	return ": " + value + i18n.Message(lang, string(domain.MsgCliCondAt), joinParts(conds))
+	return value + i18n.Message(lang, string(domain.MsgCliCondAt), joinParts(conds))
 }

@@ -103,6 +103,10 @@ func parseCapacitorGost(s *scanner, _ Kind) (ParsedDesignation, error) {
 		return ParsedDesignation{}, err
 	}
 
+	// Базовое обозначение (тип) заканчивается номером разработки;
+	// буква варианта конструкции/ТКЕ в него не входит (план 03 §2.6).
+	typeBase := string(s.src[:s.i])
+
 	// Буква варианта конструкции/ТКЕ — одна буква (К10-17Б, К10-47В).
 	letters := s.readCyrillicLetters(1)
 	if !s.atEnd() {
@@ -118,6 +122,7 @@ func parseCapacitorGost(s *scanner, _ Kind) (ParsedDesignation, error) {
 	if letters != "" {
 		fields = append(fields, TextField("letters", letters))
 	}
+	fields = append(fields, TextField(FieldBase, typeBase))
 	return ParsedDesignation{Kind: KindCapacitor, System: SystemGost, Designation: canonical, Fields: fields}, nil
 }
 

@@ -163,7 +163,7 @@ func TestParseWithoutDatabase(t *testing.T) {
 	}
 	want := "КТ315Б: transistor (transistor), system GOST (gost)\n" +
 		"  material: silicon\n  subclass: bipolar transistor\n  assembly: device\n" +
-		"  development number: 315\n  letters: Б\n"
+		"  development number: 315\n  letters: Б\n  type (base designation): КТ315\n"
 	if stdout != want {
 		t.Fatalf("вывод:\n got:  %q\n want: %q", stdout, want)
 	}
@@ -174,7 +174,7 @@ func TestParseWithoutDatabase(t *testing.T) {
 	}
 	want = "КТ315Б: транзисторы (transistor), система ГОСТ (gost)\n" +
 		"  материал: кремний\n  подкласс: биполярный транзистор\n  сборка: прибор\n" +
-		"  номер разработки: 315\n  буквы: Б\n"
+		"  номер разработки: 315\n  буквы: Б\n  тип (базовое обозначение): КТ315\n"
 	if stdout != want {
 		t.Fatalf("вывод (ru):\n got:  %q\n want: %q", stdout, want)
 	}
@@ -679,6 +679,47 @@ func TestLimitRangeValidation(t *testing.T) {
 // (CLI итерирует страницы поиска; потолок limit ≤ 200 — контракт сервиса).
 // Датасет 205 записей перекрывает потолок — проверяется сшивка страниц;
 // «all» несовместим с --limit/--offset, иной позиционный аргумент — ошибка.
+// TestTypeGroup — тип записи (базовое обозначение): фильтр --base,
+// секция «группа типа» карточки (мини-матрица различий КТ315Б/КТ315Г)
+// и подсказка find соседом по типу.
+func TestTypeGroup(t *testing.T) {
+	db := testDB(t)
+	run(t, "init", "--db", db)
+	stdout, stderr, code := run(t, "import", dataFile(t, "transistors.jsonc"), "--db", db)
+	if code != 0 || stderr != "" {
+		t.Fatalf("import: код %d, %q, %q", code, stdout, stderr)
+	}
+
+	// Фильтр по типу (значение канонизируется — нижний регистр входа).
+	stdout, stderr, code = run(t, "list", "--kind", "transistor", "--base", "кт315", "--db", db)
+	if code != 0 || stderr != "" {
+		t.Fatalf("list --base: код %d, %q, %q", code, stdout, stderr)
+	}
+	if !strings.Contains(stdout, "КТ315Б") || !strings.Contains(stdout, "КТ315Г") ||
+		strings.Contains(stdout, "КТ3102А") || strings.Contains(stdout, "BC547B") {
+		t.Fatalf("list --base кт315: %q", stdout)
+	}
+
+	// Секция «группа типа» карточки: сосед и различие VceoMax.
+	stdout, stderr, code = run(t, "info", "КТ315Б", "--db", db)
+	if code != 0 || stderr != "" {
+		t.Fatalf("info: код %d, %q, %q", code, stdout, stderr)
+	}
+	if !strings.Contains(stdout, "Type group КТ315: КТ315Б, КТ315Г") {
+		t.Fatalf("заголовок группы типа: %q", stdout)
+	}
+	if !strings.Contains(stdout, "КТ315Б — 20 V; КТ315Г — 35 V") {
+		t.Fatalf("мини-матрица различий: %q", stdout)
+	}
+
+	// Подсказка find соседом по типу (код 1).
+	stdout, stderr, code = run(t, "find", "КТ315А", "--db", db)
+	if code != 1 || !strings.Contains(stdout,
+		"КТ315А: record not found; same type (different classification letter): КТ315Б") {
+		t.Fatalf("find по типу: код %d, %q, %q", code, stdout, stderr)
+	}
+}
+
 func TestListAll(t *testing.T) {
 	db := testDB(t)
 	run(t, "init", "--db", db)
