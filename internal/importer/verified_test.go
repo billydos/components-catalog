@@ -248,8 +248,8 @@ func runVerifiedSuite(t *testing.T, factory configFactory) {
 	t.Run("RelayOtherRecords", func(t *testing.T) {
 		// Реле — только система other (07 §13): явная система каждой
 		// записи и классификация семейством секцией fields (справочник —
-		// class-keys §12.6); VcoilNom у многовoltage семейств не задаётся
-		// (исполнения обмотки — вне ключа, отчёт 08 §5).
+		// class-keys §12.6); VcoilNom — только в исполнениях-паспортах
+		// (relay_variant_coil), не на уровне записи.
 		_, byKind := readVerifiedDocument(t, app, "relays.jsonc")
 		inputs := byKind[string(domain.KindRelay)]
 		if len(inputs) == 0 {
@@ -273,10 +273,54 @@ func runVerifiedSuite(t *testing.T, factory configFactory) {
 			for _, sec := range in.Sections {
 				for _, val := range sec.Values {
 					if val.Parameter == "VcoilNom" {
-						t.Errorf("«%s»: VcoilNom задан при ряде обмоток (моделирование 08 §5)", in.Name)
+						t.Errorf("«%s»: VcoilNom на уровне записи — номинал обмотки принадлежит паспорту (08 §5)", in.Name)
 					}
 				}
 			}
+		}
+	})
+
+	t.Run("RelayCoilVariants", func(t *testing.T) {
+		// Паспорта обмоток (relay_variant_coil, отчёт 08 §5): у записи
+		// с исполнениями каждый вариант несёт Rcoil и обмоточный номинал
+		// VcoilNom/Ipickup; метки-паспорта уникальны; запись без
+		// исполнений допустима (обмотка не выверена).
+		res9, found, err := app.Services().Devices.Get(context.Background(), domain.KindRelay, "РЭС-9")
+		if err != nil || !found {
+			t.Fatalf("карточка РЭС-9: %v %v", found, err)
+		}
+		if len(res9.Variants) < 18 {
+			t.Fatalf("РЭС-9: паспортов %d, ожидался ряд РС4.529.029 (≥18)", len(res9.Variants))
+		}
+		seen := map[string]bool{}
+		for _, v := range res9.Variants {
+			var hasR, hasV, hasI bool
+			for _, g := range v.Groups {
+				for _, val := range g.Values {
+					switch val.Parameter {
+					case "Rcoil":
+						hasR = val.Min != nil && val.Max != nil
+					case "VcoilNom":
+						hasV = val.Exact != nil
+					case "Ipickup":
+						hasI = val.Max != nil
+					}
+				}
+			}
+			if !hasR || (!hasV && !hasI) {
+				t.Errorf("паспорт «%s»: Rcoil/номинал не полны (R=%v V=%v I=%v)", v.Label, hasR, hasV, hasI)
+			}
+			if seen[v.Label] {
+				t.Errorf("паспорт «%s»: метка повторяется", v.Label)
+			}
+			seen[v.Label] = true
+		}
+		g5v, found, err := app.Services().Devices.Get(context.Background(), domain.KindRelay, "G5V-1")
+		if err != nil || !found {
+			t.Fatalf("карточка G5V-1: %v %v", found, err)
+		}
+		if len(g5v.Variants) != 6 {
+			t.Errorf("G5V-1: катушек %d, ожидалось 6", len(g5v.Variants))
 		}
 	})
 

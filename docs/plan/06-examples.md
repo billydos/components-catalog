@@ -603,9 +603,9 @@
 ```jsonc
 {
   "relays": [
-    // other: советское семейство РЭС — серия и номер разработки секцией fields;
-    // исполнения по обмотке (РС4.529.029-00…-19) в ключ не входят: Rcoil —
-    // диапазон по исполнениям, VcoilNom не задаётся; срабатывание нормировано током
+    // other: советское семейство РЭС; исполнения — паспорта обмоток
+    // (метка — децимальный код паспорта): у токовых паспортов
+    // номинального напряжения нет — обмоточный номинал током Ipickup
     {
       "name": "РЭС-9",
       "system": "other",
@@ -614,33 +614,51 @@
         "relayType": "electromagnetic", "contactForm": "2П",
         "description": "завальцованное негерметичное", "spec": "РС0.452.045ТУ"
       },
-      "parameters": [
-        { "parameter": "Rcoil", "min": 30, "max": 9600 },               // обмотки исполнений
-        { "parameter": "Ipickup", "max": 108 },                          // ток срабатывания, мА
-        { "parameter": "Rcontact", "max": 1.5 },
+      "parameters": [                       // общее для паспортов
         { "parameter": "Rins", "min": 200000000 },
         { "parameter": "Vtest", "min": 500 },
-        { "parameter": "tOperate", "max": 11 },                          // времена — в мс
         { "parameter": "tRelease", "max": 7 }
       ],
       "ratings": [
         { "parameter": "VswitchMax", "value": 250 },
-        { "parameter": "IswitchMax", "value": 3 },                       // коммутируемый ток — в А
+        { "parameter": "IswitchMax", "value": 3 },                   // коммутируемый ток — в А
         { "parameter": "TempMin", "value": -60 },
         { "parameter": "TempMax", "value": 85 }
+      ],
+      "dimensions": [ { "parameter": "massMax", "value": 20 } ],
+      "variants": [
+        {
+          "label": "РС4.529.029-00",
+          "parameters": [
+            { "parameter": "VcoilNom", "value": 27.5 },              // номинал обмотки 27,5 В
+            { "parameter": "Rcoil", "min": 500, "max": 600 },        // 550 ±50 Ом
+            { "parameter": "Ipickup", "max": 30 },                   // мА
+            { "parameter": "Rcontact", "max": 0.6 },
+            { "parameter": "tOperate", "max": 11 }
+          ]
+        },
+        {
+          "label": "РС4.529.029-04",        // токовый паспорт: VcoilNom нет
+          "parameters": [
+            { "parameter": "Rcoil", "min": 8160, "max": 10560 },     // 9600 +960/−1440 Ом
+            { "parameter": "Ipickup", "max": 7 },
+            { "parameter": "Rcontact", "max": 0.6 },
+            { "parameter": "tOperate", "max": 9 }
+          ]
+        }
       ]
     },
 
-    // other: базовый код серии производителя; суффиксы заказа (катушка
-    // 3–24 В, опции) в ключ не входят
+    // other: базовый код серии производителя; исполнения — катушки,
+    // метка — номинал; суффиксы заказа в ключ не входят
     {
       "name": "G5V-1",
       "system": "other",
       "fields": { "series": "G5V", "dev_number": 1 },
       "attributes": { "relayType": "electromagnetic", "contactForm": "1П",
-                      "description": "сигнальное герметичное", "package": "12,5×7,5×10 мм" },
+                      "description": "сигнальное герметичное", "package": "12,5×7,5×10 мм",
+                      "datasheetUrl": "https://omronfs.omron.com/en_US/ecb/products/pdf/en-g5v_1.pdf" },
       "parameters": [
-        { "parameter": "Rcoil", "min": 60, "max": 3840 },
         { "parameter": "Pcoil", "max": 0.15 },
         { "parameter": "Rcontact", "max": 0.1 },
         { "parameter": "Rins", "min": 1000000000 },
@@ -655,6 +673,22 @@
         { "parameter": "IswitchMax", "value": 1 },
         { "parameter": "TempMin", "value": -40 },
         { "parameter": "TempMax", "value": 70 }
+      ],
+      "dimensions": [
+        { "parameter": "length", "value": 12.5 },
+        { "parameter": "width", "value": 7.5 },
+        { "parameter": "height", "value": 10 },
+        { "parameter": "massMax", "value": 2 }
+      ],
+      "variants": [
+        { "label": "5 В", "parameters": [
+          { "parameter": "VcoilNom", "value": 5 },
+          { "parameter": "Rcoil", "min": 150.3, "max": 183.7 }       // 167 Ом ±10 %
+        ] },
+        { "label": "24 В", "parameters": [
+          { "parameter": "VcoilNom", "value": 24 },
+          { "parameter": "Rcoil", "min": 3456, "max": 4224 }
+        ] }
       ]
     }
   ]

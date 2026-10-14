@@ -3,13 +3,16 @@
   // и конфликты: docs/plan/08-data-verification.md §5. Единицы —
   // канонические: сопротивления — Ом, токи срабатывания — мА, времена — мс,
   // коммутируемый ток — А, мощности — Вт. Класс — только система other
-  // (07-r1-verification.md §13): ключ — базовое обозначение типа;
-  // исполнения обмотки (децимальные паспорта, суффиксы заказа) в ключ
-  // не входят, VcoilNom у многовoltage семейств опущен, Rcoil — диапазон
-  // сопротивлений обмоток исполнений.
+  // (07-r1-verification.md §13): ключ — базовое обозначение типа.
+  // Исполнения — паспорта обмоток (relay_variant_coil): метка — код
+  // паспорта (у мировых серий — номинал катушки), обязательны Rcoil
+  // (диапазон допуска) и обмоточный номинал VcoilNom либо Ipickup
+  // (токовые паспорта); повтор VcoilNom допустим — паспорт различается
+  // сопротивлением/контактами. Записи без паспортов — обмотка не выверена,
+  // Rcoil диапазоном на уровне типа.
   "relays": [
     // СССР: семейства РЭС/РПС/РКМ/МКУ/КДР — «код + номер разработки» [S19];
-    // крепление/климат и децимальный номер исполнения в ключ не входят.
+    // крепление/климат в ключ не входят.
     {
       "name": "РЭС-9",
       "system": "other",
@@ -19,13 +22,9 @@
         "description": "завальцованное негерметичное", "spec": "РС0.452.045ТУ",
         "datasheetUrl": "https://rudatasheet.ru/relay/res9/"
       },
-      "parameters": [
-        { "parameter": "Rcoil", "min": 30, "max": 9600 },        // обмотки исполнений РС4.529.029-00…-19
-        { "parameter": "Ipickup", "max": 108 },                  // ток срабатывания (не более), мА
-        { "parameter": "Rcontact", "max": 1.5 },
+      "parameters": [                              // общее для паспортов
         { "parameter": "Rins", "min": 200000000 },
         { "parameter": "Vtest", "min": 500 },
-        { "parameter": "tOperate", "max": 11 },
         { "parameter": "tRelease", "max": 7 }
       ],
       "ratings": [
@@ -34,7 +33,121 @@
         { "parameter": "TempMin", "value": -60 },
         { "parameter": "TempMax", "value": 85 }
       ],
-      "dimensions": [ { "parameter": "massMax", "value": 20 } ]
+      "dimensions": [ { "parameter": "massMax", "value": 20 } ],
+      "variants": [                                // паспорта РС4.529.029-00…-19
+        { "label": "РС4.529.029-00", "parameters": [
+          { "parameter": "VcoilNom", "value": 27.5 },
+          { "parameter": "Rcoil", "min": 500, "max": 600 },        // 550 ±50
+          { "parameter": "Ipickup", "max": 30 },
+          { "parameter": "Rcontact", "max": 0.6 },                 // Ср999,9
+          { "parameter": "tOperate", "max": 11 } ] },
+        { "label": "РС4.529.029-01", "parameters": [
+          { "parameter": "VcoilNom", "value": 27.5 },
+          { "parameter": "Rcoil", "min": 500, "max": 600 },
+          { "parameter": "Ipickup", "max": 30 },
+          { "parameter": "Rcontact", "max": 1.5 },                 // СрПдМг20-0,3
+          { "parameter": "tOperate", "max": 11 } ] },
+        { "label": "РС4.529.029-02", "parameters": [
+          { "parameter": "VcoilNom", "value": 14 },
+          { "parameter": "Rcoil", "min": 64.8, "max": 79.2 },      // 72 ±7,2
+          { "parameter": "Ipickup", "max": 80 },
+          { "parameter": "Rcontact", "max": 0.6 },
+          { "parameter": "tOperate", "max": 9 } ] },
+        { "label": "РС4.529.029-03", "parameters": [
+          { "parameter": "VcoilNom", "value": 6 },
+          { "parameter": "Rcoil", "min": 27, "max": 33 },          // 30 ±3
+          { "parameter": "Ipickup", "max": 108 },
+          { "parameter": "Rcontact", "max": 0.6 },
+          { "parameter": "tOperate", "max": 9 } ] },
+        { "label": "РС4.529.029-04", "parameters": [               // токовый паспорт
+          { "parameter": "Rcoil", "min": 8160, "max": 10560 },     // 9600 +960/−1440
+          { "parameter": "Ipickup", "max": 7 },
+          { "parameter": "Rcontact", "max": 0.6 },
+          { "parameter": "tOperate", "max": 9 } ] },
+        { "label": "РС4.529.029-05", "parameters": [
+          { "parameter": "Rcoil", "min": 2890, "max": 3740 },      // 3400 +340/−510
+          { "parameter": "Ipickup", "max": 11 },
+          { "parameter": "Rcontact", "max": 0.6 },
+          { "parameter": "tOperate", "max": 9 } ] },
+        { "label": "РС4.529.029-06", "parameters": [
+          { "parameter": "Rcoil", "min": 8160, "max": 10560 },
+          { "parameter": "Ipickup", "max": 7 },
+          { "parameter": "Rcontact", "max": 1.5 },
+          { "parameter": "tOperate", "max": 9 } ] },
+        { "label": "РС4.529.029-07", "parameters": [
+          { "parameter": "VcoilNom", "value": 27.5 },
+          { "parameter": "Rcoil", "min": 450, "max": 550 },        // 500 ±50
+          { "parameter": "Ipickup", "max": 30 },
+          { "parameter": "Rcontact", "max": 0.6 },
+          { "parameter": "tOperate", "max": 11 } ] },
+        { "label": "РС4.529.029-08", "parameters": [
+          { "parameter": "Rcoil", "min": 882, "max": 1078 },       // 980 ±98
+          { "parameter": "Ipickup", "max": 23 },
+          { "parameter": "Rcontact", "max": 0.6 },
+          { "parameter": "tOperate", "max": 9 } ] },
+        { "label": "РС4.529.029-09", "parameters": [
+          { "parameter": "VcoilNom", "value": 27.5 },
+          { "parameter": "Rcoil", "min": 450, "max": 550 },
+          { "parameter": "Ipickup", "max": 30 },
+          { "parameter": "Rcontact", "max": 0.3 },                 // Зл999,9
+          { "parameter": "tOperate", "max": 11 } ] },
+        { "label": "РС4.529.029-10", "parameters": [
+          { "parameter": "VcoilNom", "value": 6 },
+          { "parameter": "Rcoil", "min": 32.4, "max": 39.6 },      // 36 ±3,6
+          { "parameter": "Ipickup", "max": 95 },
+          { "parameter": "Rcontact", "max": 0.6 },
+          { "parameter": "tOperate", "max": 9 } ] },
+        { "label": "РС4.529.029-11", "parameters": [
+          { "parameter": "VcoilNom", "value": 14 },
+          { "parameter": "Rcoil", "min": 64.8, "max": 79.2 },
+          { "parameter": "Ipickup", "max": 80 },
+          { "parameter": "Rcontact", "max": 0.3 },
+          { "parameter": "tOperate", "max": 9 } ] },
+        { "label": "РС4.529.029-12", "parameters": [
+          { "parameter": "VcoilNom", "value": 6 },
+          { "parameter": "Rcoil", "min": 27, "max": 33 },
+          { "parameter": "Ipickup", "max": 108 },
+          { "parameter": "Rcontact", "max": 0.3 },
+          { "parameter": "tOperate", "max": 9 } ] },
+        { "label": "РС4.529.029-13", "parameters": [
+          { "parameter": "Rcoil", "min": 8160, "max": 10560 },
+          { "parameter": "Ipickup", "max": 7 },
+          { "parameter": "Rcontact", "max": 0.3 },
+          { "parameter": "tOperate", "max": 9 } ] },
+        { "label": "РС4.529.029-14", "parameters": [
+          { "parameter": "Rcoil", "min": 2890, "max": 3740 },
+          { "parameter": "Ipickup", "max": 11 },
+          { "parameter": "Rcontact", "max": 0.3 },
+          { "parameter": "tOperate", "max": 9 } ] },
+        { "label": "РС4.529.029-15", "parameters": [
+          { "parameter": "VcoilNom", "value": 6 },
+          { "parameter": "Rcoil", "min": 33, "max": 39 },          // 36 ±3
+          { "parameter": "Ipickup", "max": 95 },
+          { "parameter": "Rcontact", "max": 0.6 },
+          { "parameter": "tOperate", "max": 9 } ] },
+        { "label": "РС4.529.029-16", "parameters": [
+          { "parameter": "VcoilNom", "value": 6 },
+          { "parameter": "Rcoil", "min": 27, "max": 33 },
+          { "parameter": "Ipickup", "max": 108 },
+          { "parameter": "Rcontact", "max": 1.5 },
+          { "parameter": "tOperate", "max": 9 } ] },
+        { "label": "РС4.529.029-17", "parameters": [
+          { "parameter": "Rcoil", "min": 2890, "max": 3740 },
+          { "parameter": "Ipickup", "max": 11 },
+          { "parameter": "Rcontact", "max": 1.5 },
+          { "parameter": "tOperate", "max": 9 } ] },
+        { "label": "РС4.529.029-18", "parameters": [
+          { "parameter": "Rcoil", "min": 882, "max": 1078 },
+          { "parameter": "Ipickup", "max": 23 },
+          { "parameter": "Rcontact", "max": 1.5 },
+          { "parameter": "tOperate", "max": 9 } ] },
+        { "label": "РС4.529.029-19", "parameters": [
+          { "parameter": "VcoilNom", "value": 6 },
+          { "parameter": "Rcoil", "min": 32.4, "max": 39.6 },
+          { "parameter": "Ipickup", "max": 95 },
+          { "parameter": "Rcontact", "max": 1.5 },
+          { "parameter": "tOperate", "max": 9 } ] }
+      ]
     },
     {
       "name": "РЭС-15",
@@ -46,8 +159,6 @@
         "datasheetUrl": "https://rudatasheet.ru/relay/res15/"
       },
       "parameters": [
-        { "parameter": "Rcoil", "min": 36, "max": 2200 },        // обмотки РС4.591.001…007, ХП4.591.008…014
-        { "parameter": "Ipickup", "max": 60 },
         { "parameter": "Rcontact", "max": 1.0 },
         { "parameter": "Rins", "min": 200000000 },
         { "parameter": "Vtest", "min": 500 },
@@ -61,7 +172,31 @@
         { "parameter": "TempMin", "value": -60 },
         { "parameter": "TempMax", "value": 100 }
       ],
-      "dimensions": [ { "parameter": "massMax", "value": 3.7 } ]
+      "dimensions": [ { "parameter": "massMax", "value": 3.7 } ],
+      "variants": [                                // паспорта РС4.591.001…007
+        { "label": "РС4.591.001", "parameters": [
+          { "parameter": "Rcoil", "min": 1870, "max": 2530 },      // 2200 ±330
+          { "parameter": "Ipickup", "max": 8.5 } ] },
+        { "label": "РС4.591.002", "parameters": [
+          { "parameter": "Rcoil", "min": 136, "max": 184 },        // 160 ±24
+          { "parameter": "Ipickup", "max": 30 } ] },
+        { "label": "РС4.591.003", "parameters": [
+          { "parameter": "Rcoil", "min": 280.5, "max": 379.5 },    // 330 ±49,5
+          { "parameter": "Ipickup", "max": 21 } ] },
+        { "label": "РС4.591.004", "parameters": [
+          { "parameter": "Rcoil", "min": 612, "max": 828 },        // 720 ±108
+          { "parameter": "Ipickup", "max": 14.5 } ] },
+        { "label": "РС4.591.005", "parameters": [
+          { "parameter": "Rcoil", "min": 32.4, "max": 39.6 },      // 36 ±3,6
+          { "parameter": "Ipickup", "max": 60 } ] },
+        { "label": "РС4.591.006", "parameters": [
+          { "parameter": "VcoilNom", "value": 14 },                // рабочее напряжение
+          { "parameter": "Rcoil", "min": 425, "max": 575 } ] },    // 500 ±75
+        { "label": "РС4.591.007", "parameters": [
+          { "parameter": "VcoilNom", "value": 27 },                // рабочее 27 +7/−4 В
+          { "parameter": "Rcoil", "min": 1020, "max": 1380 },      // 1200 ±180
+          { "parameter": "Ipickup", "max": 16 } ] }
+      ]
     },
     {
       "name": "РЭС-22",
@@ -73,9 +208,6 @@
         "datasheetUrl": "https://rudatasheet.ru/relay/res22/"
       },
       "parameters": [
-        { "parameter": "Rcoil", "min": 8, "max": 5700 },         // обмотки исполнений РФ4.523.023-01…-10
-        { "parameter": "Ipickup", "max": 135 },
-        { "parameter": "Rcontact", "max": 1.0 },
         { "parameter": "Rins", "min": 100000000 },
         { "parameter": "Vtest", "min": 500 },
         { "parameter": "tOperate", "max": 15 },
@@ -87,7 +219,46 @@
         { "parameter": "TempMin", "value": -60 },
         { "parameter": "TempMax", "value": 85 }
       ],
-      "dimensions": [ { "parameter": "massMax", "value": 24 } ]
+      "dimensions": [ { "parameter": "massMax", "value": 24 } ],
+      "variants": [                                // паспорта РФ4.523.023-01…-10 (-04 — колонки источника неоднозначны)
+        { "label": "РФ4.523.023-01", "parameters": [
+          { "parameter": "Rcoil", "min": 200, "max": 200 },
+          { "parameter": "Ipickup", "max": 8 },
+          { "parameter": "Rcontact", "max": 0.5 } ] },
+        { "label": "РФ4.523.023-02", "parameters": [
+          { "parameter": "Rcoil", "min": 680, "max": 680 },
+          { "parameter": "Ipickup", "max": 18 },
+          { "parameter": "Rcontact", "max": 1.0 } ] },
+        { "label": "РФ4.523.023-03", "parameters": [
+          { "parameter": "Rcoil", "min": 1300, "max": 1300 },
+          { "parameter": "Ipickup", "max": 27 },
+          { "parameter": "Rcontact", "max": 0.5 } ] },
+        { "label": "РФ4.523.023-05", "parameters": [
+          { "parameter": "Rcoil", "min": 6.8, "max": 9.2 },        // 8 ±1,2
+          { "parameter": "Ipickup", "max": 135 },
+          { "parameter": "Rcontact", "max": 0.3 } ] },
+        { "label": "РФ4.523.023-06", "parameters": [
+          { "parameter": "Rcoil", "min": 27.2, "max": 36.8 },      // 32 ±4,8
+          { "parameter": "Ipickup", "max": 72 },
+          { "parameter": "Rcontact", "max": 1.0 } ] },
+        { "label": "РФ4.523.023-07", "parameters": [
+          { "parameter": "VcoilNom", "value": 24 },                // рабочее 21,6–26,4 В
+          { "parameter": "Rcoil", "min": 553, "max": 780 },
+          { "parameter": "Ipickup", "max": 20 },
+          { "parameter": "Rcontact", "max": 0.5 } ] },
+        { "label": "РФ4.523.023-08", "parameters": [
+          { "parameter": "Rcoil", "min": 5700, "max": 5700 },
+          { "parameter": "Ipickup", "max": 11.5 },
+          { "parameter": "Rcontact", "max": 1.0 } ] },
+        { "label": "РФ4.523.023-09", "parameters": [
+          { "parameter": "Rcoil", "min": 11.05, "max": 14.95 },    // 13 ±1,95
+          { "parameter": "Ipickup", "max": 110 },
+          { "parameter": "Rcontact", "max": 0.5 } ] },
+        { "label": "РФ4.523.023-10", "parameters": [
+          { "parameter": "Rcoil", "min": 40.8, "max": 55.2 },      // 48 ±7,2
+          { "parameter": "Ipickup", "max": 65 },
+          { "parameter": "Rcontact", "max": 1.0 } ] }
+      ]
     },
     {
       "name": "РЭС-34",
@@ -99,13 +270,8 @@
         "datasheetUrl": "http://electra-hvac.ru/rele-res-34.html"
       },
       "parameters": [
-        { "parameter": "Rcoil", "min": 630, "max": 24750 },      // обмотки исполнений РС4.524.370-00…-33
-        { "parameter": "Ipickup", "max": 21 },
-        { "parameter": "Rcontact", "max": 1.0 },
         { "parameter": "Rins", "min": 200000000 },
-        { "parameter": "Vtest", "min": 500 },
-        { "parameter": "tOperate", "max": 7.5 },
-        { "parameter": "tRelease", "max": 2.5 }
+        { "parameter": "Vtest", "min": 500 }
       ],
       "ratings": [
         { "parameter": "VswitchMax", "value": 250 },
@@ -113,7 +279,39 @@
         { "parameter": "TempMin", "value": -60 },
         { "parameter": "TempMax", "value": 100 }
       ],
-      "dimensions": [ { "parameter": "massMax", "value": 11.5 } ]
+      "dimensions": [ { "parameter": "massMax", "value": 11.5 } ],
+      "variants": [                                // паспорта РС4.524.370 (выборка)
+        { "label": "РС4.524.370-00.01", "parameters": [
+          { "parameter": "Rcoil", "min": 3360, "max": 5040 },      // 4200 ±840
+          { "parameter": "Ipickup", "max": 8 },
+          { "parameter": "Rcontact", "max": 1.0 },
+          { "parameter": "tOperate", "max": 7.5 },
+          { "parameter": "tRelease", "max": 2.0 } ] },
+        { "label": "РС4.524.370-01.01", "parameters": [
+          { "parameter": "Rcoil", "min": 535.5, "max": 724.5 },    // 630 ±94,5
+          { "parameter": "Ipickup", "max": 21 },
+          { "parameter": "Rcontact", "max": 1.0 },
+          { "parameter": "tOperate", "max": 5.3 },
+          { "parameter": "tRelease", "max": 2.0 } ] },
+        { "label": "РС4.524.370-02.01", "parameters": [
+          { "parameter": "Rcoil", "min": 6300, "max": 6300 },
+          { "parameter": "Ipickup", "max": 7.2 },
+          { "parameter": "Rcontact", "max": 1.0 },
+          { "parameter": "tOperate", "max": 6.0 },
+          { "parameter": "tRelease", "max": 2.0 } ] },
+        { "label": "РС4.524.370-03.01", "parameters": [
+          { "parameter": "Rcoil", "min": 21037.5, "max": 28462.5 }, // 24750 ±3712,5
+          { "parameter": "Ipickup", "max": 3.7 },
+          { "parameter": "Rcontact", "max": 1.0 },
+          { "parameter": "tOperate", "max": 7.5 },
+          { "parameter": "tRelease", "max": 2.0 } ] },
+        { "label": "РС4.524.370-08.01", "parameters": [
+          { "parameter": "Rcoil", "min": 6240, "max": 9360 },      // 7800 ±1560
+          { "parameter": "Ipickup", "max": 9 },
+          { "parameter": "Rcontact", "max": 1.0 },
+          { "parameter": "tOperate", "max": 7.0 },
+          { "parameter": "tRelease", "max": 2.5 } ] }
+      ]
     },
     {
       "name": "РЭС-47",
@@ -125,8 +323,6 @@
         "datasheetUrl": "https://rudatasheet.ru/relay/res47/"
       },
       "parameters": [
-        { "parameter": "Rcoil", "min": 750, "max": 4200 },
-        { "parameter": "Ipickup", "max": 9.4 },
         { "parameter": "Rcontact", "max": 1.0 },
         { "parameter": "Rins", "min": 100000000 },
         { "parameter": "Vtest", "min": 250 },
@@ -136,7 +332,21 @@
         { "parameter": "TempMin", "value": -40 },
         { "parameter": "TempMax", "value": 55 }
       ],
-      "dimensions": [ { "parameter": "massMax", "value": 6 } ]
+      "dimensions": [ { "parameter": "massMax", "value": 6 } ],
+      "variants": [                                // паспорта РС4.569.600 (выборка)
+        { "label": "РС4.569.600-01", "parameters": [
+          { "parameter": "Rcoil", "min": 750, "max": 750 },
+          { "parameter": "Ipickup", "max": 9.4 } ] },
+        { "label": "РС4.569.600-02", "parameters": [
+          { "parameter": "Rcoil", "min": 750, "max": 750 },
+          { "parameter": "Ipickup", "max": 9.4 } ] },
+        { "label": "РС4.569.600-03", "parameters": [
+          { "parameter": "Rcoil", "min": 1000, "max": 1000 },
+          { "parameter": "Ipickup", "max": 8.2 } ] },
+        { "label": "РС4.569.600-05", "parameters": [
+          { "parameter": "Rcoil", "min": 4200, "max": 4200 },
+          { "parameter": "Ipickup", "max": 4.1 } ] }
+      ]
     },
     {
       "name": "РЭС-49",
@@ -159,6 +369,82 @@
         { "parameter": "TempMax", "value": 55 }
       ],
       "dimensions": [ { "parameter": "massMax", "value": 2.5 } ]
+    },
+    {
+      "name": "РЭС-55",
+      "system": "other",
+      "fields": { "series": "РЭС", "dev_number": 55 },
+      "attributes": {
+        "relayType": "electromagnetic",
+        "description": "миниатюрное негерметичное пылебрызгозащищённое",
+        "spec": "РС0.456.011ТУ",
+        "datasheetUrl": "http://www.rezonance.ru/news/tehinfo/206.htm"
+      },
+      "parameters": [
+        { "parameter": "Rins", "min": 500000000 },
+        { "parameter": "Vtest", "min": 500 }
+      ],
+      "ratings": [
+        { "parameter": "TempMin", "value": -60 },
+        { "parameter": "TempMax", "value": 85 }
+      ],
+      "dimensions": [ { "parameter": "massMax", "value": 6 } ],
+      "variants": [                                // паспорта РС4.569.600-00…-17 (моточные данные)
+        { "label": "РС4.569.600-00", "parameters": [
+          { "parameter": "Rcoil", "min": 1598, "max": 2162 },      // 1880 ±282
+          { "parameter": "Ipickup", "max": 18.6 } ] },
+        { "label": "РС4.569.600-01", "parameters": [
+          { "parameter": "Rcoil", "min": 320.5, "max": 433.5 },    // 377 ±56,5
+          { "parameter": "Ipickup", "max": 8.2 } ] },
+        { "label": "РС4.569.600-02", "parameters": [
+          { "parameter": "Rcoil", "min": 80.8, "max": 109.2 },     // 95 ±14,2
+          { "parameter": "Ipickup", "max": 3.75 } ] },
+        { "label": "РС4.569.600-03", "parameters": [
+          { "parameter": "Rcoil", "min": 57, "max": 77 },          // 67 ±10
+          { "parameter": "Ipickup", "max": 2.9 } ] },
+        { "label": "РС4.569.600-04", "parameters": [
+          { "parameter": "Rcoil", "min": 31.5, "max": 38.5 },      // 35 ±3,5
+          { "parameter": "Ipickup", "max": 2 } ] },
+        { "label": "РС4.569.600-05", "parameters": [
+          { "parameter": "Rcoil", "min": 1598, "max": 2162 },
+          { "parameter": "Ipickup", "max": 16.3 } ] },
+        { "label": "РС4.569.600-06", "parameters": [
+          { "parameter": "Rcoil", "min": 320.5, "max": 433.5 },
+          { "parameter": "Ipickup", "max": 7.3 } ] },
+        { "label": "РС4.569.600-07", "parameters": [
+          { "parameter": "Rcoil", "min": 80.8, "max": 109.2 },
+          { "parameter": "Ipickup", "max": 3.2 } ] },
+        { "label": "РС4.569.600-08", "parameters": [
+          { "parameter": "Rcoil", "min": 57, "max": 77 },
+          { "parameter": "Ipickup", "max": 2.45 } ] },
+        { "label": "РС4.569.600-09", "parameters": [
+          { "parameter": "Rcoil", "min": 31.5, "max": 38.5 },
+          { "parameter": "Ipickup", "max": 1.7 } ] },
+        { "label": "РС4.569.600-10", "parameters": [
+          { "parameter": "Rcoil", "min": 320.5, "max": 433.5 },
+          { "parameter": "Ipickup", "max": 6.8 } ] },
+        { "label": "РС4.569.600-11", "parameters": [
+          { "parameter": "Rcoil", "min": 80.8, "max": 109.2 },
+          { "parameter": "Ipickup", "max": 3 } ] },
+        { "label": "РС4.569.600-12", "parameters": [
+          { "parameter": "Rcoil", "min": 3520, "max": 5280 },      // 4400 ±880
+          { "parameter": "Ipickup", "max": 28 } ] },
+        { "label": "РС4.569.600-13", "parameters": [
+          { "parameter": "Rcoil", "min": 1598, "max": 2162 },
+          { "parameter": "Ipickup", "max": 18.6 } ] },
+        { "label": "РС4.569.600-14", "parameters": [
+          { "parameter": "Rcoil", "min": 320.5, "max": 433.5 },
+          { "parameter": "Ipickup", "max": 8.2 } ] },
+        { "label": "РС4.569.600-15", "parameters": [
+          { "parameter": "Rcoil", "min": 80.8, "max": 109.2 },
+          { "parameter": "Ipickup", "max": 3.75 } ] },
+        { "label": "РС4.569.600-16", "parameters": [
+          { "parameter": "Rcoil", "min": 57, "max": 77 },
+          { "parameter": "Ipickup", "max": 2.9 } ] },
+        { "label": "РС4.569.600-17", "parameters": [
+          { "parameter": "Rcoil", "min": 31.5, "max": 38.5 },
+          { "parameter": "Ipickup", "max": 2 } ] }
+      ]
     },
     {
       "name": "РЭС-60",
@@ -314,7 +600,8 @@
       ]
     },
 
-    // Мировые: базовый код серии + суффиксы заказа (катушка/опции) — вне ключа
+    // Мировые: базовый код серии + суффиксы заказа (катушка/опции) — вне ключа;
+    // исполнения — катушки, метка — номинальное напряжение
     {
       "name": "G5V-1",
       "system": "other",
@@ -325,7 +612,6 @@
         "datasheetUrl": "https://omronfs.omron.com/en_US/ecb/products/pdf/en-g5v_1.pdf"
       },
       "parameters": [
-        { "parameter": "Rcoil", "min": 60, "max": 3840 },        // катушки 3–24 В (50…6,25 мА)
         { "parameter": "Pcoil", "max": 0.15 },
         { "parameter": "Rcontact", "max": 0.1 },
         { "parameter": "Rins", "min": 1000000000 },
@@ -346,6 +632,26 @@
         { "parameter": "width", "value": 7.5 },
         { "parameter": "height", "value": 10 },
         { "parameter": "massMax", "value": 2 }
+      ],
+      "variants": [                                // катушки, сопротивление ±10 %
+        { "label": "3 В", "parameters": [
+          { "parameter": "VcoilNom", "value": 3 },
+          { "parameter": "Rcoil", "min": 54, "max": 66 } ] },
+        { "label": "5 В", "parameters": [
+          { "parameter": "VcoilNom", "value": 5 },
+          { "parameter": "Rcoil", "min": 150.3, "max": 183.7 } ] },
+        { "label": "6 В", "parameters": [
+          { "parameter": "VcoilNom", "value": 6 },
+          { "parameter": "Rcoil", "min": 216, "max": 264 } ] },
+        { "label": "9 В", "parameters": [
+          { "parameter": "VcoilNom", "value": 9 },
+          { "parameter": "Rcoil", "min": 486, "max": 594 } ] },
+        { "label": "12 В", "parameters": [
+          { "parameter": "VcoilNom", "value": 12 },
+          { "parameter": "Rcoil", "min": 864, "max": 1056 } ] },
+        { "label": "24 В", "parameters": [
+          { "parameter": "VcoilNom", "value": 24 },
+          { "parameter": "Rcoil", "min": 3456, "max": 4224 } ] }
       ]
     },
     {
@@ -358,7 +664,6 @@
         "datasheetUrl": "https://media.digikey.com/pdf/Data%20Sheets/Omron%20PDFs/G2R.pdf"
       },
       "parameters": [
-        { "parameter": "Rcoil", "min": 47, "max": 18860 },       // катушки DC 5–100 В
         { "parameter": "Pcoil", "max": 0.53 },
         { "parameter": "Rcontact", "max": 0.05 },
         { "parameter": "Rins", "min": 1000000000 },
@@ -379,6 +684,26 @@
         { "parameter": "width", "value": 13 },
         { "parameter": "height", "value": 25.5 },
         { "parameter": "massMax", "value": 17 }
+      ],
+      "variants": [                                // катушки DC, сопротивление ±10 %
+        { "label": "5 В DC", "parameters": [
+          { "parameter": "VcoilNom", "value": 5 },
+          { "parameter": "Rcoil", "min": 42.3, "max": 51.7 } ] },
+        { "label": "6 В DC", "parameters": [
+          { "parameter": "VcoilNom", "value": 6 },
+          { "parameter": "Rcoil", "min": 61.2, "max": 74.8 } ] },
+        { "label": "12 В DC", "parameters": [
+          { "parameter": "VcoilNom", "value": 12 },
+          { "parameter": "Rcoil", "min": 247.5, "max": 302.5 } ] },
+        { "label": "24 В DC", "parameters": [
+          { "parameter": "VcoilNom", "value": 24 },
+          { "parameter": "Rcoil", "min": 990, "max": 1210 } ] },
+        { "label": "48 В DC", "parameters": [
+          { "parameter": "VcoilNom", "value": 48 },
+          { "parameter": "Rcoil", "min": 3753, "max": 4587 } ] },
+        { "label": "100 В DC", "parameters": [
+          { "parameter": "VcoilNom", "value": 100 },
+          { "parameter": "Rcoil", "min": 16974, "max": 20746 } ] }
       ]
     }
   ]
