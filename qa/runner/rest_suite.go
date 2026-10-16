@@ -120,6 +120,18 @@ func restSuite(ctx context.Context, r *report, srv, tmp string, l leg) {
 		status == http.StatusOK && strings.Contains(body, "data_revision"),
 		detail(status, body)...)
 
+	// GET /stats?kind=: фасетные агрегаты параметров класса (CC-5) и
+	// негативный случай — неизвестный класс.
+	status, body, _ = cl.do(ctx, http.MethodGet, "/stats?kind=capacitor", "", nil)
+	r.check("rest/stats-kind", "GET /stats?kind=: диапазоны и частоты значений параметров класса",
+		status == http.StatusOK && strings.Contains(body, `"parameters"`) &&
+			strings.Contains(body, "Vnom"),
+		detail(status, body)...)
+	status, body, _ = cl.do(ctx, http.MethodGet, "/stats?kind=bogus", "", nil)
+	r.check("rest/stats-kind-unknown", "GET /stats?kind=: неизвестный класс — 400 validation_failed",
+		status == http.StatusBadRequest && strings.Contains(body, "validation_failed"),
+		detail(status, body)...)
+
 	// GET /components: поиск с фильтрами и ETag → 304.
 	status, body, _ = cl.do(ctx, http.MethodGet,
 		"/components?kind=capacitor&"+url.Values{"q": {"К50"}}.Encode(), "", nil)

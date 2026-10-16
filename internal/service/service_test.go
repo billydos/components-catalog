@@ -179,6 +179,7 @@ func runSuite(t *testing.T, factory configFactory) {
 	t.Run("fields rewrite on update", func(t *testing.T) { suiteFieldsRewriteOnUpdate(t, factory) })
 	t.Run("revisions", func(t *testing.T) { suiteRevisions(t, factory) })
 	t.Run("change feed", func(t *testing.T) { suiteChangeFeed(t, factory) })
+	t.Run("parameter stats", func(t *testing.T) { suiteParameterStats(t, factory) })
 	t.Run("catalog import", func(t *testing.T) { suiteCatalogImport(t, factory) })
 	t.Run("classification fields", func(t *testing.T) { suiteClassificationFields(t, factory) })
 	t.Run("parse and suggest", func(t *testing.T) { suiteParseSuggest(t, factory) })
@@ -1489,6 +1490,146 @@ func suiteChangeFeed(t *testing.T, factory configFactory) {
 		wantDomainError(t, err, domain.CodeValidationFailed,
 			"parameter limit: an integer from 1 to 1000 is expected")
 	}
+}
+
+// suiteParameterStats — фасетные агрегаты класса (CC-5): границы
+// численных параметров по смешанным формам значений (range/exact/
+// at_least/at_most — семантика фильтров поиска), частоты enum-значений
+// по записям, валидация класса; порядок параметров — алфавит кодов.
+func suiteParameterStats(t *testing.T, factory configFactory) {
+	ctx := context.Background()
+	app := openSuiteApp(t, factory)
+	svc := app.Services().Devices
+
+	seedTransistors(t, svc)
+	st, err := svc.ParameterStats(ctx, domain.KindTransistor)
+	if err != nil {
+		t.Fatalf("parameter stats: %v", err)
+	}
+	if st.Kind != domain.KindTransistor || st.DataRevision == 0 {
+		t.Fatalf("класс/ревизия: %+v", st)
+	}
+	byCode := make(map[string]ParameterStat, len(st.Parameters))
+	var order []string
+	for _, p := range st.Parameters {
+		byCode[p.Parameter] = p
+		order = append(order, p.Parameter)
+	}
+	if !slices.IsSorted(order) {
+		t.Fatalf("порядок параметров не алфавитный: %v", order)
+	}
+	bound := func(code string) (float64, float64, bool, bool) {
+		t.Helper()
+		p, ok := byCode[code]
+		if !ok {
+			t.Fatalf("параметр %s отсутствует: %v", code, order)
+		}
+		var min, max float64
+		if p.Min != nil {
+			min = *p.Min
+		}
+		if p.Max != nil {
+			max = *p.Max
+		}
+		return min, max, p.Min != nil, p.Max != nil
+	}
+	// hfe: range 50–350 / 200–450 / 20–50 → 20..450; VceoMax: 20/45/15 →
+	// 15..45 (точные значения участвуют в обеих границах).
+	if min, max, _, _ := bound("hfe"); min != 20 || max != 450 {
+		t.Fatalf("hfe: %v..%v, ожидалось 20..450", min, max)
+	}
+	if min, max, _, _ := bound("VceoMax"); min != 15 || max != 45 {
+		t.Fatalf("VceoMax: %v..%v, ожидалось 15..45", min, max)
+	}
+	// at_least (fT ≥ 300) — только нижняя граница; at_most (Icbo ≤ 0.5) —
+	// только верхняя; слайдер по ним не отсекает записи фильтра.
+	if min, _, hasMin, hasMax := bound("fT"); !hasMin || min != 300 || hasMax {
+		t.Fatalf("fT: min=%v (%v), hasMax=%v", min, hasMin, hasMax)
+	}
+	if _, max, hasMin, hasMax := bound("Icbo"); !hasMax || max != 0.5 || hasMin {
+		t.Fatalf("Icbo: max=%v, hasMin=%v (%v)", max, hasMin, hasMax)
+	}
+	if p := byCode["IcMax"]; p.Min == nil || p.Max == nil || *p.Min != 100 || *p.Max != 100 {
+		t.Fatalf("IcMax: %+v", p)
+	}
+	if p := byCode["TempMin"]; p.Min == nil || *p.Min != -60 {
+		t.Fatalf("TempMin (отрицательные): %+v", p)
+	}
+
+	// Enum-частоты: значение у двух записей — счётчик 2 (записи, не строки);
+	// численный параметр резисторов — верхней границей at_most.
+	mlt := func(name string, tolerance float64) DeviceInput {
+		return DeviceInput{
+			Name:   name,
+			System: domain.SystemOther,
+			Kind:   domain.KindResistor,
+			Fields: &[]domain.Field{
+				domain.TextField("adjustment", "fixed"),
+				domain.TextField("series", "МЛТ"),
+			},
+			Sections: []SectionInput{
+				section("parameters",
+					pvText("nominalRow", "E24"),
+					pvAtMost("Tolerance", tolerance)),
+			},
+		}
+	}
+	mustUpsert(t, svc, mlt("МЛТ-0.5", 5))
+	mustUpsert(t, svc, mlt("МЛТ-1", 10))
+	st, err = svc.ParameterStats(ctx, domain.KindResistor)
+	if err != nil {
+		t.Fatalf("parameter stats резисторов: %v", err)
+	}
+	var rows []ParameterValueFreq
+	var tolerance ParameterStat
+	for _, p := range st.Parameters {
+		if p.Parameter == "nominalRow" {
+			rows = p.Values
+		}
+		if p.Parameter == "Tolerance" {
+			tolerance = p
+		}
+	}
+	if len(rows) != 1 || rows[0].Text != "E24" || rows[0].Count != 2 {
+		t.Fatalf("nominalRow: %+v", rows)
+	}
+	if tolerance.Min != nil || tolerance.Max == nil || *tolerance.Max != 10 {
+		t.Fatalf("Tolerance: %+v", tolerance)
+	}
+
+	// Класс без данных — пустой список параметров (не nil-ошибка).
+	st, err = svc.ParameterStats(ctx, domain.KindRelay)
+	if err != nil || len(st.Parameters) != 0 {
+		t.Fatalf("класс без данных: %+v err=%v", st, err)
+	}
+
+	// Неприменимый к классу параметр не показывается, даже когда его данные
+	// остались после изменения применимости каталогом (D7): фильтр поиска
+	// по нему для этого класса — 400, слайдер был бы неработоспособен.
+	err = app.Services().Catalog.Import(ctx, catalog.Input{
+		Parameters: []catalog.ParameterDef{{
+			Code: "fT", Group: "electrical", Unit: "MHz",
+			ValueType: catalog.ValueAtLeast, SortOrder: 30, Active: true,
+			Kinds: []domain.Kind{domain.KindDiode},
+		}},
+	})
+	if err != nil {
+		t.Fatalf("импорт каталога: %v", err)
+	}
+	st, err = svc.ParameterStats(ctx, domain.KindTransistor)
+	if err != nil {
+		t.Fatalf("parameter stats после каталога: %v", err)
+	}
+	for _, p := range st.Parameters {
+		if p.Parameter == "fT" {
+			t.Fatalf("неприменимый fT входит в агрегаты транзисторов: %+v", p)
+		}
+	}
+
+	// Неизвестный класс — ошибка валидации.
+	_, err = svc.ParameterStats(ctx, domain.Kind("bogus"))
+	wantDomainError(t, err, domain.CodeValidationFailed,
+		"unknown device kind «bogus»")
 }
 
 // suiteCatalogImport — расширение каталога данными: новая категория

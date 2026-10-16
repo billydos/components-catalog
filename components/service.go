@@ -104,3 +104,11 @@ type (
 	Stats      = service.Stats
 	Suggestion = service.Suggestion
 )
+
+// Фасетные агрегаты значений параметров класса (ParameterStats — CC-5).
+
+type (
+	ParameterStats     = service.ParameterStats
+	ParameterStat      = service.ParameterStat
+	ParameterValueFreq = service.ParameterValueFreq
+)

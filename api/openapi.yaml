@@ -92,13 +92,39 @@ paths:
     get:
       tags: [service]
       operationId: stats
-      summary: Количество записей, версия схемы, ревизии
+      summary: Количество записей, версия схемы, ревизии; при kind — агрегаты параметров класса
+      description: |
+        Без kind — агрегаты модуля: количества записей по классам, версия
+        схемы, ревизии. С kind — фасетные агрегаты значений параметров
+        класса (features.log CC-5): min/max численных параметров для
+        слайдеров параметрических фильтров (границы — по семантике
+        фильтров поиска: value_min/value_max и value_exact; at_least
+        задаёт только min, at_most — только max) и частоты текстовых/
+        enum значений — число записей класса со значением (значение
+        в данных типа и нескольких исполнениях одной записи считается
+        один раз). В агрегаты входят данные типа в целом и исполнений —
+        как у фильтров поиска; параметры без данных в классе и
+        неприменимые к классу (D7; в том числе с данными, оставшимися
+        после изменения применимости каталогом) в ответ не входят,
+        порядок параметров — алфавит кодов (как /catalog),
+        значения — по убыванию частоты, затем по тексту. Повтор
+        разбираемого параметра и посторонний ключ запроса — 400
+        validation_failed; неизвестный класс — 400 validation_failed.
+      parameters:
+        - $ref: "#/components/parameters/AcceptLanguage"
+        - {name: kind, in: query, schema: {type: string}, description: "Код класса: ответ — фасетные агрегаты значений параметров этого класса (без параметра и с пустым значением — агрегаты модуля)."}
       responses:
         "200":
-          description: Агрегаты модуля.
+          description: Агрегаты модуля (без kind) либо фасетные агрегаты
+            класса (с kind); name — по локали запроса, unit — канонический код.
           content:
             application/json:
-              schema: {$ref: "#/components/schemas/Stats"}
+              schema:
+                oneOf:
+                  - $ref: "#/components/schemas/Stats"
+                  - $ref: "#/components/schemas/ParameterStats"
+        "400":
+          $ref: "#/components/responses/BadRequest"
         "500":
           $ref: "#/components/responses/InternalError"
         "405":
@@ -748,6 +774,38 @@ components:
           type: object
           additionalProperties: {type: integer}
           description: Количество записей по кодам классов.
+    ParameterStats:
+      type: object
+      description: Фасетные агрегаты значений параметров класса (CC-5).
+      required: [kind, data_revision, parameters]
+      properties:
+        kind: {type: string}
+        data_revision: {type: integer, format: int64, description: Ревизия данных, согласованная с агрегатами.}
+        parameters:
+          type: array
+          description: Параметры класса с данными в алфавите кодов;
+            численные — min/max, текстовые/enum — частоты значений.
+          items: {$ref: "#/components/schemas/ParameterStat"}
+    ParameterStat:
+      type: object
+      required: [parameter, name]
+      properties:
+        parameter: {type: string}
+        name: {type: string, description: Отображаемое имя по локали запроса.}
+        unit: {type: string, description: Код канонической единицы.}
+        min: {type: number, description: Нижняя граница значений параметра в классе (нет — опущено).}
+        max: {type: number, description: Верхняя граница значений параметра в классе (нет — опущено).}
+        values:
+          type: array
+          description: Частоты текстовых/enum значений (численные параметры
+            не дают); по убыванию частоты, затем по тексту.
+          items: {$ref: "#/components/schemas/ParameterValueFreq"}
+    ParameterValueFreq:
+      type: object
+      required: [text, count]
+      properties:
+        text: {type: string}
+        count: {type: integer, description: Число записей класса со значением.}
     ChangeEvent:
       type: object
       description: Событие применённой операции над записью устройства.

@@ -353,6 +353,148 @@ func TestStats(t *testing.T) {
 	}
 }
 
+// TestStatsKindFacets — GET /stats?kind=: фасетные агрегаты класса (CC-5):
+// min/max численных параметров по смешанным формам значений (включая
+// исполнения), частоты enum, локализация имени, строгий разбор запроса.
+func TestStatsKindFacets(t *testing.T) {
+	app, srv := newTestAPI(t, Config{})
+
+	// Резисторы с enum-значением nominalRow — частоты значений.
+	mlt := func(name, row string) service.DeviceInput {
+		return service.DeviceInput{
+			Name:   name,
+			System: domain.SystemOther,
+			Kind:   domain.KindResistor,
+			Fields: &[]domain.Field{
+				domain.TextField("adjustment", "fixed"),
+				domain.TextField("series", "МЛТ"),
+			},
+			Sections: []service.SectionInput{
+				{Section: "parameters", Values: []catalog.ParameterValue{
+					{Parameter: "nominalRow", Text: ptr(row)},
+				}},
+			},
+		}
+	}
+	for _, in := range []service.DeviceInput{mlt("МЛТ-0.125", "E24"), mlt("МЛТ-2", "E96")} {
+		if _, err := app.Services().Devices.Upsert(context.Background(), in); err != nil {
+			t.Fatalf("upsert %q: %v", in.Name, err)
+		}
+	}
+
+	status, body, _ := do(t, srv, http.MethodGet, apiPrefix+"/stats?kind=transistor", "")
+	if status != http.StatusOK {
+		t.Fatalf("статус: %d, тело %s", status, body)
+	}
+	ps := decode[parameterStatsJSON](t, body)
+	if ps.Kind != "transistor" || ps.DataRevision == 0 {
+		t.Fatalf("класс/ревизия: %+v", ps)
+	}
+	byCode := make(map[string]parameterStatJSON, len(ps.Parameters))
+	for _, p := range ps.Parameters {
+		byCode[p.Parameter] = p
+	}
+	hfe := byCode["hfe"]
+	if hfe.Min == nil || hfe.Max == nil || *hfe.Min != 50 || *hfe.Max != 450 {
+		t.Fatalf("hfe: %+v", hfe)
+	}
+	if hfe.Name != "static current transfer ratio h21E" || hfe.Unit != "" || hfe.Values != nil {
+		t.Fatalf("hfe (имя/единица/частоты): %+v", hfe)
+	}
+	if vceo := byCode["VceoMax"]; vceo.Min == nil || *vceo.Min != 20 || vceo.Max == nil || *vceo.Max != 20 ||
+		vceo.Unit != "V" {
+		t.Fatalf("VceoMax: %+v", vceo)
+	}
+	if tmp := byCode["TempMin"]; tmp.Min == nil || *tmp.Min != -60 {
+		t.Fatalf("TempMin: %+v", tmp)
+	}
+
+	// Исполнения участвуют в агрегатах: Vnom 25/160, Cnom 1e6..4.7e9,
+	// diameter 8..10; TCC без данных в ответ не входит.
+	status, body, _ = do(t, srv, http.MethodGet, apiPrefix+"/stats?kind=capacitor", "")
+	if status != http.StatusOK {
+		t.Fatalf("статус: %d, тело %s", status, body)
+	}
+	ps = decode[parameterStatsJSON](t, body)
+	byCode = make(map[string]parameterStatJSON, len(ps.Parameters))
+	for _, p := range ps.Parameters {
+		byCode[p.Parameter] = p
+	}
+	if v := byCode["Vnom"]; v.Min == nil || v.Max == nil || *v.Min != 25 || *v.Max != 160 {
+		t.Fatalf("Vnom: %+v", v)
+	}
+	if v := byCode["Cnom"]; v.Min == nil || v.Max == nil || *v.Min != 1e6 || *v.Max != 4.7e9 {
+		t.Fatalf("Cnom: %+v", v)
+	}
+	if v := byCode["diameter"]; v.Min == nil || v.Max == nil || *v.Min != 8 || *v.Max != 10 {
+		t.Fatalf("diameter: %+v", v)
+	}
+	if _, ok := byCode["TCC"]; ok {
+		t.Fatalf("TCC без данных входит в ответ: %+v", byCode["TCC"])
+	}
+
+	// Enum-частоты: значения по убыванию частоты, затем по тексту.
+	status, body, _ = do(t, srv, http.MethodGet, apiPrefix+"/stats?kind=resistor", "")
+	if status != http.StatusOK {
+		t.Fatalf("статус: %d, тело %s", status, body)
+	}
+	ps = decode[parameterStatsJSON](t, body)
+	var rows []paramValueFreqJSON
+	for _, p := range ps.Parameters {
+		if p.Parameter == "nominalRow" {
+			rows = p.Values
+		}
+	}
+	if len(rows) != 2 || rows[0].Text != "E24" || rows[0].Count != 1 ||
+		rows[1].Text != "E96" || rows[1].Count != 1 {
+		t.Fatalf("nominalRow: %+v", rows)
+	}
+	if v := ps.Parameters[0]; v.Parameter != "Pnom" || v.Min == nil || *v.Min != 0.5 {
+		t.Fatalf("Pnom: %+v", v)
+	}
+
+	// Локализация отображаемого имени (D9): кодовые поля канонические.
+	req, _ := http.NewRequest(http.MethodGet, srv.URL+apiPrefix+"/stats?kind=transistor", nil)
+	req.Header.Set("Accept-Language", "ru")
+	resp, err := srv.Client().Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	data, _ := io.ReadAll(resp.Body)
+	resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("статус: %d", resp.StatusCode)
+	}
+	ps = decode[parameterStatsJSON](t, string(data))
+	for _, p := range ps.Parameters {
+		if p.Parameter == "hfe" && p.Name != "статический коэффициент передачи тока h21э" {
+			t.Fatalf("hfe (ru): %q", p.Name)
+		}
+	}
+
+	// Строгость запроса: неизвестный класс, повтор kind, посторонний ключ,
+	// пустой kind — базовые агрегаты.
+	status, body, eb := do(t, srv, http.MethodGet, apiPrefix+"/stats?kind=bogus", "")
+	wantError(t, status, eb, http.StatusBadRequest, "validation_failed",
+		"unknown device kind «bogus»")
+	status, body, eb = do(t, srv, http.MethodGet, apiPrefix+"/stats?kind=transistor&kind=resistor", "")
+	wantError(t, status, eb, http.StatusBadRequest, "validation_failed",
+		"query parameter «kind» is set more than once")
+	status, body, eb = do(t, srv, http.MethodGet, apiPrefix+"/stats?foo=1", "")
+	wantError(t, status, eb, http.StatusBadRequest, "validation_failed",
+		"unknown query parameter «foo»")
+	status, body, eb = do(t, srv, http.MethodGet, apiPrefix+"/stats?kind=transistor&q=x", "")
+	wantError(t, status, eb, http.StatusBadRequest, "validation_failed",
+		"unknown query parameter «q»")
+	status, body, eb = do(t, srv, http.MethodGet, apiPrefix+"/stats?kind=&kind=", "")
+	wantError(t, status, eb, http.StatusBadRequest, "validation_failed",
+		"query parameter «kind» is set more than once")
+	status, body, _ = do(t, srv, http.MethodGet, apiPrefix+"/stats?kind=", "")
+	if status != http.StatusOK || !strings.Contains(body, `"kinds"`) {
+		t.Fatalf("пустой kind — базовые агрегаты: %d %s", status, body)
+	}
+}
+
 func TestSearch(t *testing.T) {
 	_, srv := newTestAPI(t, Config{})
 	cases := []struct {

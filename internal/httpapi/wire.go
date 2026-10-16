@@ -337,6 +337,49 @@ type statsJSON struct {
 	Kinds           map[string]int `json:"kinds"`
 }
 
+// parameterStatsJSON — GET /stats?kind=: фасетные агрегаты значений
+// параметров класса (CC-5): границы численных параметров для слайдеров
+// фильтров и частоты текстовых/enum значений; name — по локали запроса,
+// unit — канонический код единицы.
+type parameterStatsJSON struct {
+	Kind         string              `json:"kind"`
+	DataRevision int64               `json:"data_revision"`
+	Parameters   []parameterStatJSON `json:"parameters"`
+}
+
+type parameterStatJSON struct {
+	Parameter string               `json:"parameter"`
+	Name      string               `json:"name"`
+	Unit      string               `json:"unit,omitempty"`
+	Min       *float64             `json:"min,omitempty"`
+	Max       *float64             `json:"max,omitempty"`
+	Values    []paramValueFreqJSON `json:"values,omitempty"`
+}
+
+type paramValueFreqJSON struct {
+	Text  string `json:"text"`
+	Count int    `json:"count"`
+}
+
+func parameterStatsToJSON(lang i18n.Language, ps service.ParameterStats) parameterStatsJSON {
+	out := parameterStatsJSON{
+		Kind:         string(ps.Kind),
+		DataRevision: ps.DataRevision,
+		Parameters:   make([]parameterStatJSON, 0, len(ps.Parameters)),
+	}
+	for _, p := range ps.Parameters {
+		pj := parameterStatJSON{
+			Parameter: p.Parameter, Name: i18n.ParameterName(lang, p.Parameter),
+			Unit: p.Unit, Min: p.Min, Max: p.Max,
+		}
+		for _, v := range p.Values {
+			pj.Values = append(pj.Values, paramValueFreqJSON{Text: v.Text, Count: v.Count})
+		}
+		out.Parameters = append(out.Parameters, pj)
+	}
+	return out
+}
+
 // changeEventJSON — событие потока изменений (GET /changes): коды
 // канонические, отображаемых строк нет — данные для синхронизации
 // производных индексов, не UI.

@@ -53,8 +53,35 @@ func (a *API) handleCatalog(w *responseWriter, r *http.Request, _ map[string]str
 }
 
 // handleStats — GET /api/v1/stats: количества по классам, версия схемы,
-// ревизии.
+// ревизии; с kind — фасетные агрегаты значений параметров класса (CC-5):
+// min/max численных параметров и частоты текстовых/enum значений.
+// Повтор разбираемого параметра и посторонний ключ запроса — 400.
 func (a *API) handleStats(w *responseWriter, r *http.Request, _ map[string]string) {
+	values, err := parseStrictQuery(r)
+	if err != nil {
+		a.writeDomainErr(w, r, err, true)
+		return
+	}
+	if err := rejectDuplicateParams(values, "kind"); err != nil {
+		a.writeDomainErr(w, r, err, true)
+		return
+	}
+	for _, name := range slices.Sorted(maps.Keys(values)) {
+		if name != "kind" {
+			a.writeError(w, r, http.StatusBadRequest, domain.CodeValidationFailed,
+				domain.MsgApiQueryParamUnknown, name)
+			return
+		}
+	}
+	if kind := values.Get("kind"); kind != "" {
+		ps, err := a.app.Services().Devices.ParameterStats(r.Context(), domain.Kind(kind))
+		if err != nil {
+			a.writeDomainErr(w, r, err, true)
+			return
+		}
+		writeJSON(w, http.StatusOK, parameterStatsToJSON(requestLang(r), ps))
+		return
+	}
 	st, err := a.app.Stats(r.Context())
 	if err != nil {
 		a.writeDomainErr(w, r, err, true)
