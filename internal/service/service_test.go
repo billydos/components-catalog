@@ -993,6 +993,58 @@ func suiteSearch(t *testing.T, factory configFactory) {
 		t.Fatalf("Vnom=25, TCC=Н30: %v err=%v", designations(page), err)
 	}
 
+	// Фильтр по набору id: пересечение с прочими фильтрами, дырки —
+	// отсутствие строки; без сортировки — порядок передачи id (CC-8).
+	all, err := svc.Search(ctx, SearchQuery{Limit: 200})
+	if err != nil || len(all.Items) != 4 {
+		t.Fatalf("все: %d err=%v", len(all.Items), err)
+	}
+	// Порядок по умолчанию (kind, designation): К10-17Б, BC547B, КТ315Б, МП39.
+	k10, bc, kt, mp := all.Items[0], all.Items[1], all.Items[2], all.Items[3]
+	if k10.Designation != "К10-17Б" || bc.Designation != "BC547B" ||
+		kt.Designation != "КТ315Б" || mp.Designation != "МП39" {
+		t.Fatalf("порядок по умолчанию: %v", designations(all))
+	}
+	page, err = svc.Search(ctx, SearchQuery{IDs: []int64{mp.ID, k10.ID, 1 << 40, bc.ID}})
+	if err != nil || !slices.Equal(designations(page), []string{"МП39", "К10-17Б", "BC547B"}) {
+		t.Fatalf("набор id: %v err=%v", designations(page), err)
+	}
+	if page.Total != 3 {
+		t.Fatalf("total по набору id: %d, ожидался 3", page.Total)
+	}
+	// Пересечение с прочими фильтрами: класс отсекает МП39 и К10-17Б.
+	page, err = svc.Search(ctx, SearchQuery{
+		Kind: domain.KindCapacitor,
+		IDs:  []int64{mp.ID, k10.ID, kt.ID},
+	})
+	if err != nil || !slices.Equal(designations(page), []string{"К10-17Б"}) {
+		t.Fatalf("набор id ∩ kind: %v err=%v", designations(page), err)
+	}
+	// Явная сортировка отменяет порядок передачи id.
+	page, err = svc.Search(ctx, SearchQuery{
+		IDs:  []int64{mp.ID, bc.ID},
+		Sort: []SortField{{Key: "designation"}},
+	})
+	if err != nil || !slices.Equal(designations(page), []string{"BC547B", "МП39"}) {
+		t.Fatalf("набор id + sort: %v err=%v", designations(page), err)
+	}
+	// Пустая страница по набору id: total добирается fallback-запросом
+	// COUNT того же фильтра (окно COUNT(*) OVER() пустую страницу не даёт)
+	// — offset за концом выдачи и полный отсев другим фильтром.
+	page, err = svc.Search(ctx, SearchQuery{IDs: []int64{bc.ID, kt.ID}, Offset: 2})
+	if err != nil || len(page.Items) != 0 || page.Total != 2 {
+		t.Fatalf("id + offset за концом: %v total=%d err=%v",
+			designations(page), page.Total, err)
+	}
+	page, err = svc.Search(ctx, SearchQuery{
+		Kind: domain.KindDiode,
+		IDs:  []int64{bc.ID, kt.ID, mp.ID},
+	})
+	if err != nil || len(page.Items) != 0 || page.Total != 0 {
+		t.Fatalf("id ∩ пустой класс: %v total=%d err=%v",
+			designations(page), page.Total, err)
+	}
+
 	// Сортировка обозначения по убыванию + финальный (kind, designation).
 	asc, err := svc.Search(ctx, SearchQuery{Sort: []SortField{{Key: "designation"}}})
 	if err != nil {
@@ -1012,7 +1064,7 @@ func suiteSearch(t *testing.T, factory configFactory) {
 	}
 
 	// Пагинация и total.
-	all, err := svc.Search(ctx, SearchQuery{})
+	all, err = svc.Search(ctx, SearchQuery{})
 	if err != nil {
 		t.Fatalf("все: %v", err)
 	}
@@ -1087,6 +1139,24 @@ func suiteSearchValidation(t *testing.T, factory configFactory) {
 
 	_, err = svc.Search(ctx, SearchQuery{Kind: domain.Kind("thyristor")})
 	wantDomainError(t, err, domain.CodeValidationFailed, "unknown device kind «thyristor»")
+
+	// Набор id: неположительное значение, дубликат и потолок набора (CC-8).
+	_, err = svc.Search(ctx, SearchQuery{IDs: []int64{5, 0}})
+	wantDomainError(t, err, domain.CodeValidationFailed,
+		"id filter: a positive integer is expected (got 0)")
+	_, err = svc.Search(ctx, SearchQuery{IDs: []int64{5, -3}})
+	wantDomainError(t, err, domain.CodeValidationFailed,
+		"id filter: a positive integer is expected (got -3)")
+	_, err = svc.Search(ctx, SearchQuery{IDs: []int64{7, 9, 7}})
+	wantDomainError(t, err, domain.CodeValidationFailed,
+		"id filter: value 7 is set more than once")
+	tooMany := make([]int64, SearchIDsMax+1)
+	for i := range tooMany {
+		tooMany[i] = int64(i + 1)
+	}
+	_, err = svc.Search(ctx, SearchQuery{IDs: tooMany})
+	wantDomainError(t, err, domain.CodeValidationFailed,
+		"id filter: no more than 200 values are allowed")
 }
 
 // suiteDeleteCascade — каскадное удаление записи с данными и ссылками,

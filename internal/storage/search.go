@@ -70,11 +70,14 @@ type SortKey struct {
 }
 
 // SearchRequest — параметры поиска без бизнес-правил: готовые условия
-// (валидация применимости — сервисный слой).
+// (валидация применимости — сервисный слой). IDs — фильтр по набору
+// стабильных id записей (пересечение с прочими условиями; без сортировки
+// порядок выдачи — порядок передачи id).
 type SearchRequest struct {
 	Kind   string
 	System string
 	Query  string // подстрока обозначения (каноническая, без масок)
+	IDs    []int64
 	Fields []FieldCond
 	Attrs  []AttrCond
 	Params []ParamCond
@@ -137,6 +140,13 @@ func buildSearchWhere(r SearchRequest) (*whereBuilder, string) {
 	}
 	if r.Query != "" {
 		w.add("d.designation LIKE " + w.arg("f_query", "%"+escapeLike(r.Query)+"%") + ` ESCAPE '\'`)
+	}
+	if len(r.IDs) > 0 {
+		parts := make([]string, len(r.IDs))
+		for i, id := range r.IDs {
+			parts[i] = w.arg(fmt.Sprintf("fid%d", i), id)
+		}
+		w.add("d.id IN (" + strings.Join(parts, ", ") + ")")
 	}
 	for i, f := range r.Fields {
 		if f.HasNum {
@@ -227,9 +237,19 @@ WHERE (pv%d.variant_id = dv.id OR (pv%d.device_id = d.id AND pv%d.variant_id IS 
 // в конце независимо от направления (переносимо). Ключу сортировки по
 // полю разбора соответствует LEFT JOIN device_designation_fields (PK
 // (device_id, field) даёт не более одной строки — дублирования записей
-// нет) вместо коррелированного подзапроса на каждую строку.
-func orderJoinClause(sorts []SortKey, w *whereBuilder) (joins, order string) {
+// нет) вместо коррелированного подзапроса на каждую строку. Без ключей
+// сортировки и с непустым набором ids первым ключом становится порядок
+// передачи id (CASE d.id WHEN … THEN n — переносимо; финальный ключ не
+// мешает — id уникальны), значения переиспользуют аргументы фильтра IN.
+func orderJoinClause(sorts []SortKey, ids []int64, w *whereBuilder) (joins, order string) {
 	var joinParts, orderParts []string
+	if len(ids) > 0 && len(sorts) == 0 {
+		whens := make([]string, len(ids))
+		for i := range ids {
+			whens[i] = fmt.Sprintf("WHEN @fid%d THEN %d", i, i)
+		}
+		orderParts = append(orderParts, "CASE d.id "+strings.Join(whens, " ")+" END")
+	}
 	for i, s := range sorts {
 		dir := "ASC"
 		if s.Desc {
@@ -272,7 +292,7 @@ func (d *DB) Search(ctx context.Context, r SearchRequest) ([]SearchItemRow, int,
 			domain.MsgStoragePageInvalid, r.Limit, r.Offset)
 	}
 	w, clause := buildSearchWhere(r)
-	joins, order := orderJoinClause(r.Sorts, w)
+	joins, order := orderJoinClause(r.Sorts, r.IDs, w)
 	w.names["limit"] = r.Limit
 	w.names["offset"] = r.Offset
 

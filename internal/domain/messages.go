@@ -313,6 +313,9 @@ const (
 	MsgSvcFilterFieldMissing    MsgID = "svc_designation_filter_field_missing"
 	MsgSvcFilterOpUnknown       MsgID = "svc_filter_op_unknown"
 	MsgSvcSearchFieldUnknown    MsgID = "svc_search_field_unknown"
+	MsgSvcSearchIDMax           MsgID = "svc_search_id_max"
+	MsgSvcSearchIDPositive      MsgID = "svc_search_id_positive"
+	MsgSvcSearchIDDuplicate     MsgID = "svc_search_id_duplicate"
 	MsgSvcFilterAttrText        MsgID = "svc_filter_attr_text_expected"
 	MsgSvcFilterAttrNumber      MsgID = "svc_filter_attr_number_expected"
 	MsgSvcFilterParamSet        MsgID = "svc_filter_param_value_missing"
@@ -349,6 +352,7 @@ const (
 	MsgApiParamDuplicate      MsgID = "api_param_duplicate"
 	MsgApiNumberParam         MsgID = "api_number_param"
 	MsgApiBoolAttrFilter      MsgID = "api_bool_attr_filter"
+	MsgApiIdParam             MsgID = "api_id_param"
 	MsgInternalError          MsgID = "internal_error"
 
 	// Интерфейсные строки CLI (internal/cli).
@@ -827,6 +831,9 @@ var msgRegistry = map[MsgID]struct{}{
 	MsgSvcFilterParamNumber:           {},
 	MsgSvcFieldDuplicate:              {},
 	MsgSvcSearchFieldUnknown:          {},
+	MsgSvcSearchIDMax:                 {},
+	MsgSvcSearchIDPositive:            {},
+	MsgSvcSearchIDDuplicate:           {},
 	MsgSvcFieldParserOwned:            {},
 	MsgSvcFieldBaseDerived:            {},
 	MsgSvcFieldNotApplicable:          {},
@@ -854,6 +861,7 @@ var msgRegistry = map[MsgID]struct{}{
 	MsgApiParamDuplicate:              {},
 	MsgApiNumberParam:                 {},
 	MsgApiBoolAttrFilter:              {},
+	MsgApiIdParam:                     {},
 	MsgInternalError:                  {},
 	MsgCliUnknownCommand:              {},
 	MsgCliOptionsAfterCmd:             {},

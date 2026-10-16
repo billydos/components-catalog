@@ -13,6 +13,7 @@ import (
 	"net/url"
 	"os"
 	"slices"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -440,6 +441,52 @@ func TestSearch(t *testing.T) {
 	if len(page.Items) != 1 || page.Items[0].Designation != "К50-35" {
 		t.Fatalf("вариантный фильтр: %v", page.Items)
 	}
+
+	// Фильтр по набору id (CC-8): повторяемый параметр, порядок передачи
+	// без sort, пересечение с kind, дырки — отсутствие строки.
+	_, body, _ = do(t, srv, http.MethodGet, apiPrefix+"/components?sort=id", "")
+	allPage := decode[searchPageJSON](t, body)
+	byDesig := make(map[string]int64, len(allPage.Items))
+	for _, it := range allPage.Items {
+		byDesig[it.Designation] = it.ID
+	}
+	if len(byDesig) != 4 {
+		t.Fatalf("записей: %d, ожидалось 4", len(byDesig))
+	}
+	// Порядок передачи: КТ315Б, дырка (несуществующий id), К50-35, МЛТ-0.5.
+	q := fmt.Sprintf("id=%d&id=%d&id=%d&id=%d",
+		byDesig["КТ315Б"], 1<<40, byDesig["К50-35"], byDesig["МЛТ-0.5"])
+	status, body, _ = do(t, srv, http.MethodGet, apiPrefix+"/components?"+q, "")
+	if status != http.StatusOK {
+		t.Fatalf("набор id: статус %d, тело %s", status, body)
+	}
+	page = decode[searchPageJSON](t, body)
+	got := make([]string, 0, len(page.Items))
+	for _, it := range page.Items {
+		got = append(got, it.Designation)
+	}
+	if !slices.Equal(got, []string{"КТ315Б", "К50-35", "МЛТ-0.5"}) {
+		t.Fatalf("набор id: %v", got)
+	}
+	if page.Total != 3 {
+		t.Fatalf("total по набору id: %d, ожидался 3", page.Total)
+	}
+	// Пересечение с kind: из набора остаётся только транзистор.
+	q = fmt.Sprintf("kind=transistor&id=%d&id=%d&id=%d",
+		byDesig["КТ315Б"], byDesig["К50-35"], byDesig["МЛТ-0.5"])
+	_, body, _ = do(t, srv, http.MethodGet, apiPrefix+"/components?"+q, "")
+	page = decode[searchPageJSON](t, body)
+	if len(page.Items) != 1 || page.Items[0].Designation != "КТ315Б" {
+		t.Fatalf("набор id ∩ kind: %v", page.Items)
+	}
+	// Явный sort отменяет порядок передачи id.
+	q = fmt.Sprintf("id=%d&id=%d&sort=-id", byDesig["КТ315Б"], byDesig["К50-35"])
+	_, body, _ = do(t, srv, http.MethodGet, apiPrefix+"/components?"+q, "")
+	page = decode[searchPageJSON](t, body)
+	if len(page.Items) != 2 || page.Items[0].Designation != "К50-35" ||
+		page.Items[1].Designation != "КТ315Б" {
+		t.Fatalf("набор id + sort=-id: %v", page.Items)
+	}
 }
 
 func TestSearchETagChangesOnWrite(t *testing.T) {
@@ -502,6 +549,11 @@ func TestSearchErrors(t *testing.T) {
 			"query parameter «attr.structure» is set more than once"},
 		{"par.hfe.min=abc", "validation_failed", "parameter «par.hfe.min»: a number is expected"},
 		{"par.hfe.text=1", "validation_failed", "parameter filter «hfe»: a number is expected"},
+		{"id=abc", "validation_failed", "parameter id: an integer is expected (got «abc»)"},
+		{"id=", "validation_failed", "parameter id: an integer is expected (got «»)"},
+		{"id=0", "validation_failed", "id filter: a positive integer is expected (got 0)"},
+		{"id=-5", "validation_failed", "id filter: a positive integer is expected (got -5)"},
+		{"id=7&id=9&id=7", "validation_failed", "id filter: value 7 is set more than once"},
 	}
 	for _, tc := range cases {
 		t.Run(tc.query, func(t *testing.T) {
@@ -509,6 +561,20 @@ func TestSearchErrors(t *testing.T) {
 			wantError(t, status, eb, http.StatusBadRequest, tc.code, tc.message)
 		})
 	}
+
+	// Потолок набора id: 201 значение — 400 (200 — норма, выше по тексту
+	// проверяется только потолок).
+	var sb strings.Builder
+	for i := 1; i <= service.SearchIDsMax+1; i++ {
+		if i > 1 {
+			sb.WriteByte('&')
+		}
+		sb.WriteString("id=")
+		sb.WriteString(strconv.Itoa(i))
+	}
+	status, _, eb := do(t, srv, http.MethodGet, apiPrefix+"/components?"+sb.String(), "")
+	wantError(t, status, eb, http.StatusBadRequest, "validation_failed",
+		"id filter: no more than 200 values are allowed")
 }
 
 func TestCard(t *testing.T) {
@@ -999,6 +1065,22 @@ func TestSearchETagPerQuery(t *testing.T) {
 	}
 	if again := get("q=", "").Header.Get("ETag"); again != eAll {
 		t.Fatalf("ETag того же запроса изменился: %q → %q", eAll, again)
+	}
+	// Повторяемый id входит в ETag каждым значением: другой набор и тот
+	// же набор в другом порядке (без sort порядок выдачи различен) —
+	// разные представления.
+	e12 := get("id=1&id=2", "").Header.Get("ETag")
+	if e12 == "" || e12 == eAll {
+		t.Fatalf("ETag набора id совпал с чужим: %q", e12)
+	}
+	if e21 := get("id=2&id=1", "").Header.Get("ETag"); e21 == e12 {
+		t.Fatalf("ETag не различает порядок id: %q", e21)
+	}
+	if again := get("id=1&id=2", "").Header.Get("ETag"); again != e12 {
+		t.Fatalf("ETag того же набора изменился: %q → %q", e12, again)
+	}
+	if resp := get("id=1&id=2", e12); resp.StatusCode != http.StatusNotModified {
+		t.Fatalf("If-None-Match набора id: %d, ожидался 304", resp.StatusCode)
 	}
 	if resp := get("q=", eAll); resp.StatusCode != http.StatusNotModified {
 		t.Fatalf("If-None-Match: %d, ожидался 304", resp.StatusCode)

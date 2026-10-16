@@ -378,20 +378,23 @@ func catalogETag(rev int64) string {
 
 // searchETag — сильный ETag страницы поиска: data_revision и хэш
 // канонической строки запроса («data-<n>-<hash>»): имена параметров
-// отсортированы, пары name=value через «&» (повторные параметры
-// отвергаются разбором — значения одиночные). ETag идентифицирует
+// отсортированы, пары name=value через «&» (повторяемый параметр id
+// входит каждым значением — id=1&id=2; порядок значим: без sort порядок
+// выдачи следует порядку передачи id). ETag идентифицирует
 // представление конкретного запроса, а не любые фильтры с той же
 // ревизией (RFC 9110); hash — FNV-1a 64.
 func searchETag(dataRev int64, values url.Values) string {
 	names := slices.Sorted(maps.Keys(values))
 	h := fnv.New64a()
 	for i, name := range names {
-		if i > 0 {
-			h.Write([]byte{'&'})
+		for j, v := range values[name] {
+			if i > 0 || j > 0 {
+				h.Write([]byte{'&'})
+			}
+			h.Write([]byte(name))
+			h.Write([]byte{'='})
+			h.Write([]byte(v))
 		}
-		h.Write([]byte(name))
-		h.Write([]byte{'='})
-		h.Write([]byte(values[name][0]))
 	}
 	return fmt.Sprintf(`"data-%d-%016x"`, dataRev, h.Sum64())
 }

@@ -14,10 +14,11 @@ import (
 )
 
 // Разбор параметров поиска GET /api/v1/components
-// (docs/plan/04-module-functionality.md §2): kind, system, q, поля обозначения
-// (коды полей разбора — реестр домена), attr.<код>, par.<код>(.min/.max/
-// .exact), sort, limit, offset. Неизвестный ключ — ошибка (опечатки
-// не молчат).
+// (docs/plan/04-module-functionality.md §2): kind, system, q, набор id
+// (повторяемый параметр — единственное намеренное исключение строгости:
+// значения набора фильтра), поля обозначения (коды полей разбора —
+// реестр домена), attr.<код>, par.<код>(.min/.max/.exact), sort, limit,
+// offset. Неизвестный ключ — ошибка (опечатки не молчат).
 
 // queryLimit — разбор limit с потолком (поиск 200, suggest 50).
 func queryLimit(values []string, max int) (int, bool, error) {
@@ -33,9 +34,11 @@ func queryLimit(values []string, max int) (int, bool, error) {
 
 // rejectDuplicateParams — строгость разбора запроса: повтор параметра —
 // ошибка, молчаливый выбор первого значения маскирует опечатку
-// (?q=a&q=b). Без имён — все параметры в отсортированном порядке
-// (поиск разбирает каждый), иначе только названные (suggest разбирает
-// подмножество, прочие параметры запроса игнорирует).
+// (?q=a&q=b). Повторяемые параметры контракта (набор id поиска)
+// исключает вызывающий — передавая имена без них. Без имён — все
+// параметры в отсортированном порядке (поиск разбирает каждый), иначе
+// только названные (suggest разбирает подмножество, прочие параметры
+// запроса игнорирует).
 func rejectDuplicateParams(values url.Values, names ...string) error {
 	if len(names) == 0 {
 		names = slices.Sorted(maps.Keys(values))
@@ -53,13 +56,33 @@ func rejectDuplicateParams(values url.Values, names ...string) error {
 // применимость фильтров к классу и типы значений проверяет сервис
 // (единственная точка валидации — тексты ошибок не дублируются).
 func parseSearchQuery(values url.Values, snap *catalog.Snapshot) (service.SearchQuery, error) {
-	if err := rejectDuplicateParams(values); err != nil {
-		return service.SearchQuery{}, err
+	// id — намеренно повторяемый параметр (набор фильтра по стабильным
+	// id, CC-8): из проверки повторов исключён; потолок набора,
+	// положительность и дубликат значения проверяет сервис. Пустой
+	// список прочих имён — запрос из одних id — проверки не вызывает
+	// (пустые имена в rejectDuplicateParams значат «все параметры»).
+	checked := slices.DeleteFunc(slices.Sorted(maps.Keys(values)),
+		func(name string) bool { return name == "id" })
+	if len(checked) > 0 {
+		if err := rejectDuplicateParams(values, checked...); err != nil {
+			return service.SearchQuery{}, err
+		}
 	}
 	q := service.SearchQuery{
 		Kind:   domain.Kind(values.Get("kind")),
 		System: domain.System(values.Get("system")),
 		Query:  values.Get("q"),
+	}
+	if vs := values["id"]; len(vs) > 0 {
+		ids := make([]int64, 0, len(vs))
+		for _, v := range vs {
+			n, err := strconv.ParseInt(v, 10, 64)
+			if err != nil {
+				return q, domain.NewErrorf(domain.CodeValidationFailed, domain.MsgApiIdParam, v)
+			}
+			ids = append(ids, n)
+		}
+		q.IDs = ids
 	}
 	if v, exists, err := queryLimit(values["limit"], service.SearchLimitMax); err != nil {
 		return q, err
@@ -124,10 +147,11 @@ func parseSearchQuery(values url.Values, snap *catalog.Snapshot) (service.Search
 	return q, nil
 }
 
-// reservedQueryParam — служебные параметры поиска.
+// reservedQueryParam — служебные параметры поиска (id разобран
+// повторяемым набором выше).
 func reservedQueryParam(name string) bool {
 	switch name {
-	case "kind", "system", "q", "sort", "limit", "offset":
+	case "kind", "system", "q", "id", "sort", "limit", "offset":
 		return true
 	}
 	return false

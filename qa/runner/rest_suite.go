@@ -159,6 +159,20 @@ func restSuite(ctx context.Context, r *report, srv, tmp string, l leg) {
 		status, body, _ = cl.do(ctx, http.MethodGet, "/components/id/"+id, "", nil)
 		r.check("rest/card-by-id", "GET /components/id/{id}: карточка по стабильному id",
 			status == http.StatusOK, detail(status, body)...)
+		// Фильтр по набору id — повторяемый параметр (CC-8): выдача
+		// следует порядку передачи, дырка — отсутствие строки, дубликат
+		// значения — 400.
+		status, body, _ = cl.do(ctx, http.MethodGet,
+			"/components?id="+id+"&id=1099511627776", "", nil)
+		r.check("rest/components-idfilter",
+			"GET /components: фильтр по набору id — повторяемый параметр",
+			status == http.StatusOK && strings.Contains(body, `"total":1,`),
+			detail(status, body)...)
+		status, body, _ = cl.do(ctx, http.MethodGet,
+			"/components?id="+id+"&id="+id, "", nil)
+		r.check("rest/components-idfilter-dup", "GET /components: дубликат значения id — 400 validation_failed",
+			status == http.StatusBadRequest && strings.Contains(body, "validation_failed"),
+			detail(status, body)...)
 	}
 
 	// CRUD: создание 201 Added, повтор 409 already_exists, PUT секций 200,

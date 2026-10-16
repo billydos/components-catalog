@@ -228,12 +228,15 @@ type SortField struct {
 }
 
 // SearchQuery — запрос поиска: класс, система, подстрока обозначения,
-// фильтры полей/атрибутов/параметров, сортировка, пагинация
+// фильтр по набору стабильных id (пересечение с прочими фильтрами; без
+// сортировки порядок выдачи — порядок передачи id), фильтры полей/
+// атрибутов/параметров, сортировка, пагинация
 // (docs/plan/04-module-functionality.md §1.1).
 type SearchQuery struct {
 	Kind       domain.Kind
 	System     domain.System
 	Query      string
+	IDs        []int64
 	Fields     []FieldFilter
 	Attributes []AttributeFilter
 	Parameters []ParameterFilter
@@ -273,6 +276,9 @@ const (
 	SearchLimitMax      = 200
 	SuggestDefaultLimit = 10
 	SuggestLimitMax     = 50
+	// Фильтр по набору id (docs/plan/04-module-functionality.md §1.1):
+	// до 200 положительных значений повторяемого параметра id.
+	SearchIDsMax = 200
 	// Поток изменений (change feed): страница по умолчанию и потолок
 	// GET /api/v1/changes.
 	ChangesDefaultLimit = 100

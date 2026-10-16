@@ -55,11 +55,13 @@ func (s *CatalogService) Import(ctx context.Context, in catalog.Input) error {
 	return nil
 }
 
-// Search выполняет поиск: подстрока обозначения, фильтры полей/атрибутов/
-// параметров (применимость к классу запроса — D7, ошибки валидации
-// запроса), сортировка с финальным (kind, designation), пагинация
-// (limit ≤ 200); вариантные параметрические фильтры применяются в
-// пределах одного исполнения (docs/plan/04-module-functionality.md §1.1).
+// Search выполняет поиск: подстрока обозначения, фильтр по набору id
+// (пересечение с прочими фильтрами; без сортировки — порядок передачи
+// id), фильтры полей/атрибутов/параметров (применимость к классу
+// запроса — D7, ошибки валидации запроса), сортировка с финальным
+// (kind, designation), пагинация (limit ≤ 200); вариантные
+// параметрические фильтры применяются в пределах одного исполнения
+// (docs/plan/04-module-functionality.md §1.1).
 func (s *DeviceService) Search(ctx context.Context, q SearchQuery) (SearchPage, error) {
 	snap, err := s.app.cache.Snapshot(ctx)
 	if err != nil {
@@ -130,6 +132,23 @@ func buildSearchRequest(snap *catalog.Snapshot, q SearchQuery) (storage.SearchRe
 	if req.Offset < 0 {
 		req.Offset = 0
 	}
+	if len(q.IDs) > SearchIDsMax {
+		return req, domain.NewErrorf(domain.CodeValidationFailed,
+			domain.MsgSvcSearchIDMax, SearchIDsMax)
+	}
+	seenIDs := make(map[int64]struct{}, len(q.IDs))
+	for _, id := range q.IDs {
+		if id < 1 {
+			return req, domain.NewErrorf(domain.CodeValidationFailed,
+				domain.MsgSvcSearchIDPositive, id)
+		}
+		if _, dup := seenIDs[id]; dup {
+			return req, domain.NewErrorf(domain.CodeValidationFailed,
+				domain.MsgSvcSearchIDDuplicate, id)
+		}
+		seenIDs[id] = struct{}{}
+	}
+	req.IDs = q.IDs
 	if q.Kind != "" {
 		if _, ok := snap.Kind(q.Kind); !ok {
 			return req, domain.NewErrorf(domain.CodeValidationFailed, domain.MsgKindUnknown, string(q.Kind))

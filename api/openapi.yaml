@@ -151,11 +151,13 @@ paths:
       operationId: components_list
       summary: Поиск записей
       description: |
-        Подстрока обозначения, система, фильтры полей/атрибутов/параметров,
-        сортировка, пагинация. Ответ — список с обозначением, классом,
-        системой и ключевыми полями; ETag — по data_revision и канонической
-        строке запроса (разные фильтры/сортировки — разные ETag). Повтор
-        любого параметра запроса — 400 validation_failed.
+        Подстрока обозначения, система, фильтр по набору стабильных id,
+        фильтры полей/атрибутов/параметров, сортировка, пагинация. Ответ —
+        список с обозначением, классом, системой и ключевыми полями;
+        ETag — по data_revision и канонической строке запроса (разные
+        фильтры/сортировки — разные ETag). Повтор любого параметра
+        запроса — 400 validation_failed; исключение — намеренно
+        повторяемый id (набор фильтра, до 200 значений).
 
         Помимо перечисленных параметров допустимы:
 
@@ -184,6 +186,26 @@ paths:
         - {name: kind, in: query, schema: {type: string}, description: "Класс приборов (transistor, diode, resistor, capacitor, relay)."}
         - {name: system, in: query, schema: {type: string}, description: "Система обозначений (gost, ost, pro, jedec, jis, other)."}
         - {name: q, in: query, schema: {type: string}, description: "Подстрока обозначения (регистр не важен)."}
+        - name: id
+          in: query
+          description: |
+            Фильтр по набору стабильных id записей — повторяемый параметр
+            (единственное исключение строгости запроса): до 200 значений,
+            каждое — целое положительное, дубликат значения — 400
+            validation_failed. Семантика — пересечение с прочими фильтрами;
+            id без записи либо отсечённые прочими фильтрами — отсутствие
+            строки в выдаче (отдельной ошибки нет). Без sort порядок
+            выдачи — порядок передачи id (с sort — заданная сортировка).
+            Сценарий: составной поиск «внешний отбор сайта × параметрика
+            модуля» без дублирования каталога.
+          schema:
+            type: array
+            items: {type: integer, format: int64, minimum: 1}
+            minItems: 1
+            maxItems: 200
+            uniqueItems: true
+          style: form
+          explode: true
         - {name: sort, in: query, schema: {type: string}, description: "Ключи сортировки через запятую, «-» — убывание (designation, id либо код поля разбора). К любому порядку добавляется финальный (kind, designation)."}
         - {name: limit, in: query, schema: {type: integer, minimum: 1, maximum: 200, default: 50}, description: "Размер страницы (≤ 200)."}
         - {name: offset, in: query, schema: {type: integer, minimum: 0, default: 0}, description: "Смещение страницы."}
@@ -195,7 +217,8 @@ paths:
               description: |
                 Сильный ETag вида "data-<data_revision>-<hash>": hash —
                 хэш канонической строки запроса (имена параметров
-                отсортированы, пары name=value через «&»).
+                отсортированы, пары name=value через «&»; повторяемый id
+                входит каждым значением — порядок значим).
               schema: {type: string}
           content:
             application/json:
