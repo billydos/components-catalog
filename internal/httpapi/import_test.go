@@ -61,6 +61,38 @@ func TestImportReport(t *testing.T) {
 		t.Fatalf("повторный отчёт: %+v", rep)
 	}
 
+	// dry_run=true: контрольный прогон нового тела — исходы считаются,
+	// записи в БД нет (поиск не видит); отчёт помечен dry_run.
+	status, body, _ = do(t, srv, http.MethodPost, apiPrefix+"/import?dry_run=true",
+		"{\"transistors\": {\"name\": \"ГТ115Г\"}}\n")
+	if status != http.StatusOK {
+		t.Fatalf("статус: %d, тело %s", status, body)
+	}
+	rep = decode[importReportJSON](t, body)
+	if !rep.DryRun || rep.Records != 1 || rep.Added != 1 {
+		t.Fatalf("dry-run отчёт: %+v", rep)
+	}
+	status, body, _ = do(t, srv, http.MethodGet,
+		apiPrefix+"/components?kind=transistor&q="+esc("ГТ115"), "")
+	if status != http.StatusOK || strings.Contains(body, "ГТ115Г") {
+		t.Fatalf("dry-run записал в базу: %d %s", status, body)
+	}
+	// dry_run=false — явное применение (запись появляется).
+	status, body, _ = do(t, srv, http.MethodPost, apiPrefix+"/import?dry_run=false",
+		"{\"transistors\": {\"name\": \"ГТ115Г\"}}\n")
+	if status != http.StatusOK {
+		t.Fatalf("статус: %d, тело %s", status, body)
+	}
+	rep = decode[importReportJSON](t, body)
+	if rep.DryRun || rep.Added != 1 {
+		t.Fatalf("отчёт dry_run=false: %+v", rep)
+	}
+	status, body, _ = do(t, srv, http.MethodGet,
+		apiPrefix+"/components?kind=transistor&q="+esc("ГТ115"), "")
+	if status != http.StatusOK || !strings.Contains(body, "ГТ115Г") {
+		t.Fatalf("применение после dry_run=false: %d %s", status, body)
+	}
+
 	// Проблемная запись — 200 с отчётом: корректная запись применена,
 	// ошибочная — нет; проблема несёт код, позицию и текст (en — каноник).
 	status, body, _ = do(t, srv, http.MethodPost, apiPrefix+"/import",
@@ -104,10 +136,24 @@ func TestImportHardErrors(t *testing.T) {
 	wantError(t, status, eb, http.StatusBadRequest, "invalid_import_file",
 		"line 1: EOF")
 
-	// Посторонний параметр запроса — 400 (параметров у пути нет).
-	status, _, eb = do(t, srv, http.MethodPost, apiPrefix+"/import?dry_run=1", "{}\n")
-	wantError(t, status, eb, http.StatusBadRequest, "validation_failed",
-		"unknown query parameter «dry_run»")
+	// Посторонний параметр запроса — 400; значение dry_run строго
+	// true|false (опечатки не молчат); повтор — 400.
+	cases := []struct {
+		query   string
+		message string
+	}{
+		{"bogus=1", "unknown query parameter «bogus»"},
+		{"dry_run=1", "parameter «dry_run»: true or false is expected"},
+		{"dry_run=ture", "parameter «dry_run»: true or false is expected"},
+		{"dry_run=", "parameter «dry_run»: true or false is expected"},
+		{"dry_run=true&dry_run=false", "query parameter «dry_run» is set more than once"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.query, func(t *testing.T) {
+			status, _, eb := do(t, srv, http.MethodPost, apiPrefix+"/import?"+tc.query, "{}\n")
+			wantError(t, status, eb, http.StatusBadRequest, "validation_failed", tc.message)
+		})
+	}
 
 	// Метод не поддерживается путём: 405 + Allow: POST.
 	resp := rawRequest(t, srv, http.MethodGet, apiPrefix+"/import", nil, nil)

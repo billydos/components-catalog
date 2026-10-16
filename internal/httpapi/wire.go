@@ -427,9 +427,10 @@ type importIssueJSON struct {
 }
 
 // importReportJSON — синхронный отчёт прогона импорта POST /api/v1/import
-// (CC-6): счётчики исходов записей и полный список проблем за прогон;
-// issues — всегда массив.
+// (CC-6): признак контрольного прогона (dry_run), счётчики исходов записей
+// и полный список проблем за прогон; issues — всегда массив.
 type importReportJSON struct {
+	DryRun         bool              `json:"dry_run"`
 	Records        int               `json:"records"`
 	Added          int               `json:"added"`
 	Updated        int               `json:"updated"`
@@ -441,6 +442,7 @@ type importReportJSON struct {
 
 func importReportToJSON(lang i18n.Language, rep *importer.Report) importReportJSON {
 	out := importReportJSON{
+		DryRun:  rep.DryRun,
 		Records: rep.Records, Added: rep.Added, Updated: rep.Updated,
 		Skipped: rep.Skipped, Rejected: rep.Rejected, CatalogApplied: rep.CatalogApplied,
 		Issues: make([]importIssueJSON, 0, len(rep.Issues)),

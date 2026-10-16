@@ -351,6 +351,7 @@ const (
 	MsgApiQueryParamUnknown   MsgID = "api_query_param_unknown"
 	MsgApiParamDuplicate      MsgID = "api_param_duplicate"
 	MsgApiNumberParam         MsgID = "api_number_param"
+	MsgApiBoolParam           MsgID = "api_bool_param"
 	MsgApiBoolAttrFilter      MsgID = "api_bool_attr_filter"
 	MsgApiIdParam             MsgID = "api_id_param"
 	MsgInternalError          MsgID = "internal_error"
@@ -860,6 +861,7 @@ var msgRegistry = map[MsgID]struct{}{
 	MsgApiQueryParamUnknown:           {},
 	MsgApiParamDuplicate:              {},
 	MsgApiNumberParam:                 {},
+	MsgApiBoolParam:                   {},
 	MsgApiBoolAttrFilter:              {},
 	MsgApiIdParam:                     {},
 	MsgInternalError:                  {},

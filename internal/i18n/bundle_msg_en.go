@@ -282,6 +282,7 @@ var messageFormatsEn = map[string]string{
 	"api_query_invalid":      "query string is not valid: %[1]s", "api_body_read": "failed to read the request body",
 	"api_body_too_large":       "request body exceeds the allowed size",
 	"api_bool_attr_filter":     "attribute filter «%[1]s»: boolean attributes are not supported in filters",
+	"api_bool_param":           "parameter «%[1]s»: true or false is expected",
 	"api_card_not_found":       "record «%[1]s» not found",
 	"api_designation_mismatch": "the designation in the request body does not match the designation in the path",
 	"api_designation_missing":  "query parameter designation is not set",

@@ -484,12 +484,16 @@ paths:
         (Issues-модель: корректные записи применяются, ошибочные — нет,
         запись не применяется вовсе); 200 возвращается и для прогонов
         с проблемами. Жёсткая ошибка — только синтаксис формата и чтение
-        потока (400 invalid_import_file). Параметров запроса нет: любой
-        ключ — 400 validation_failed. Прогресс по REST не отдаётся —
+        потока (400 invalid_import_file). Единственный параметр запроса —
+        dry_run=true: контрольный прогон того же конвейера проверок без
+        записи в БД (отчёт помечается dry_run); значение строго true либо
+        false (иное и повтор параметра — 400 validation_failed), прочие
+        ключи — 400. Прогресс по REST не отдаётся —
         запрос синхронный (наблюдение прогона — хук метрик сайта);
         запись монтируется сайтом только в защищённые маршруты.
       parameters:
         - $ref: "#/components/parameters/AcceptLanguage"
+        - {name: dry_run, in: query, schema: {type: boolean, enum: [true, false], default: false}, description: "Контрольный прогон без записи в БД (значение строго true либо false)."}
       requestBody:
         required: true
         content:
@@ -882,8 +886,9 @@ components:
     ImportReport:
       type: object
       description: Синхронный отчёт прогона импорта POST /api/v1/import.
-      required: [records, added, updated, skipped, rejected, catalog_applied, issues]
+      required: [dry_run, records, added, updated, skipped, rejected, catalog_applied, issues]
       properties:
+        dry_run: {type: boolean, description: Контрольный прогон без записи в БД.}
         records: {type: integer, description: Записей в теле (включая отвергнутые).}
         added: {type: integer}
         updated: {type: integer}

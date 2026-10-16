@@ -242,9 +242,27 @@ func restSuite(ctx context.Context, r *report, srv, tmp string, l leg) {
 	r.check("rest/import-syntax", "POST /import: синтаксис строки — 400 invalid_import_file",
 		status == http.StatusBadRequest && strings.Contains(body, "invalid_import_file"),
 		detail(status, body)...)
+	// dry_run: контрольный прогон нового тела без записи в БД.
+	status, body, _ = cl.do(ctx, http.MethodPost, "/import?dry_run=true",
+		"{\"transistors\": {\"name\": \"ГТ115Г\"}}\n", ndjsonCT)
+	r.check("rest/import-dry-run", "POST /import?dry_run=true: контрольный прогон без записи",
+		status == http.StatusOK && strings.Contains(body, `"dry_run":true`) &&
+			strings.Contains(body, `"added":1`) &&
+			(strings.Contains(body, `"catalog_applied":false`)),
+		detail(status, body)...)
+	status, body, _ = cl.do(ctx, http.MethodGet,
+		"/components?kind=transistor&"+url.Values{"q": {"ГТ115"}}.Encode(), "", nil)
+	r.check("rest/import-dry-run-no-write", "dry_run: записи в БД нет",
+		status == http.StatusOK && !strings.Contains(body, "ГТ115Г"),
+		detail(status, body)...)
 	status, body, _ = cl.do(ctx, http.MethodPost, "/import?dry_run=1", "{}\n", ndjsonCT)
-	r.check("rest/import-unknown-param", "POST /import: посторонний параметр — 400 validation_failed",
+	r.check("rest/import-dry-run-invalid", "POST /import: dry_run не true/false — 400 validation_failed",
 		status == http.StatusBadRequest && strings.Contains(body, "validation_failed"),
+		detail(status, body)...)
+	status, body, _ = cl.do(ctx, http.MethodPost, "/import?bogus=1", "{}\n", ndjsonCT)
+	r.check("rest/import-unknown-param", "POST /import: посторонний параметр — 400 validation_failed",
+		status == http.StatusBadRequest && strings.Contains(body, "validation_failed") &&
+			strings.Contains(body, "unknown query parameter"),
 		detail(status, body)...)
 
 	// suggest по префиксу и неизвестный маршрут.

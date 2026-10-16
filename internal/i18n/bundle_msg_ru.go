@@ -281,6 +281,7 @@ var messageFormatsRu = map[string]string{
 	"api_query_invalid":      "строка запроса не может быть разобрана: %[1]s", "api_body_read": "не удалось прочитать тело запроса",
 	"api_body_too_large":       "тело запроса превышает допустимый размер",
 	"api_bool_attr_filter":     "фильтр атрибута «%[1]s»: логические атрибуты не поддерживаются в фильтрах",
+	"api_bool_param":           "параметр «%[1]s»: ожидается true или false",
 	"api_card_not_found":       "запись «%[1]s» не найдена",
 	"api_designation_mismatch": "обозначение тела запроса не совпадает с обозначением в пути",
 	"api_designation_missing":  "не задан параметр designation",

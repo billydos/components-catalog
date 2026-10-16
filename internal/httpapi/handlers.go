@@ -322,23 +322,49 @@ func (a *API) handleChanges(w *responseWriter, r *http.Request, _ map[string]str
 // целиком и без потолка тела запроса — память ограничена потолком строки
 // сканера (16 МиБ); ответ — синхронный отчёт после EOF (Issues-модель:
 // корректные записи применяются, ошибочные — нет, отчёт — 200 даже
-// с проблемами). Жёсткая ошибка — только синтаксис формата и чтения
-// потока (400 invalid_import_file). Параметров запроса нет: любой ключ —
-// 400 (опечатки не молчат). Прогресс по REST не отдаётся — запрос
-// синхронный (наблюдение — хук метрик); запись монтируется сайтом
-// только в защищённые маршруты.
+// с проблемами). Параметр dry_run=true|false — контрольный прогон без
+// записи в БД (тот же конвейер проверок, отчёт помечен dry_run; как и в
+// Go API и CLI). Прочие ключи запроса — 400 (опечатки не молчат); повтор
+// dry_run — 400. Жёсткая ошибка — только синтаксис формата и чтения
+// потока (400 invalid_import_file). Прогресс по REST не отдаётся —
+// запрос синхронный (наблюдение — хук метрик); запись монтируется
+// сайтом только в защищённые маршруты.
 func (a *API) handleImport(w *responseWriter, r *http.Request, _ map[string]string) {
 	values, err := parseStrictQuery(r)
 	if err != nil {
 		a.writeDomainErr(w, r, err, true)
 		return
 	}
-	if names := slices.Sorted(maps.Keys(values)); len(names) > 0 {
-		a.writeError(w, r, http.StatusBadRequest, domain.CodeValidationFailed,
-			domain.MsgApiQueryParamUnknown, names[0])
+	if err := rejectDuplicateParams(values, "dry_run"); err != nil {
+		a.writeDomainErr(w, r, err, true)
 		return
 	}
-	rep, err := importer.New(a.app).Import(r.Context(), r.Body, importBodyName, false)
+	// Посторонние ключи отсекаются до разбора значений (как handleStats/
+	// handleChanges): комбинированный опечаточный запрос получает
+	// детерминированную ошибку постороннего ключа.
+	for _, name := range slices.Sorted(maps.Keys(values)) {
+		if name != "dry_run" {
+			a.writeError(w, r, http.StatusBadRequest, domain.CodeValidationFailed,
+				domain.MsgApiQueryParamUnknown, name)
+			return
+		}
+	}
+	dryRun := false
+	if vs := values["dry_run"]; len(vs) > 0 {
+		// Строго true|false: молчаливая трактовка любого другого значения
+		// маскировала бы опечатку (dry_run=ture).
+		switch vs[0] {
+		case "true":
+			dryRun = true
+		case "false":
+			dryRun = false
+		default:
+			a.writeError(w, r, http.StatusBadRequest, domain.CodeValidationFailed,
+				domain.MsgApiBoolParam, "dry_run")
+			return
+		}
+	}
+	rep, err := importer.New(a.app).Import(r.Context(), r.Body, importBodyName, dryRun)
 	if err != nil {
 		a.writeDomainErr(w, r, err, false)
 		return
