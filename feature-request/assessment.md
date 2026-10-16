@@ -47,7 +47,7 @@
 
 ### CC-5. Диапазоны значений параметров для фильтров — низкая
 
-Переносимый агрегатный запрос `GROUP BY parameter_code` с `MIN/MAX` по `parameter_values × devices` (фильтр классом); индексы `idx_pv_code_*` уже покрывают доступ; частоты enum — `GROUP BY value_text`. Новый метод storage, сервисный метод, экспозиция в `/stats?kind=` (или `/catalog`), openapi, тесты.
+Переносимый агрегатный запрос `GROUP BY parameter_code` с `MIN/MAX` по `parameter_values × devices` (фильтр классом); индексы `idx_pv_code_*` уже покрывают доступ; частоты enum — `GROUP BY value_text`. Новый метод storage, сервисный метод, экспозиция в `/stats?kind=`, openapi, тесты.
 
 Дизайн-решение одно: конвенция min/max при смешанных формах значений — брать ту же семантику, что у параметрических фильтров поиска (`paramCondSQL` в `internal/storage/search.go`: границы учитывают и `value_min/value_max`, и `value_exact`).
 
