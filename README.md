@@ -83,6 +83,9 @@ page, err := app.Services.Devices.Search(ctx, components.SearchQuery{
 })
 
 // импорт файла наполнения (jsonc/yaml/ndjson; формат — по расширению)
+file, err := os.Open("fill.jsonc")
+if err != nil { … }
+defer file.Close()
 rep, err := app.Importer.Import(ctx, file, "fill.jsonc", false)
 
 // ошибки — значения: машиночитаемый код + сообщение
