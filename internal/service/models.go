@@ -273,4 +273,8 @@ const (
 	SearchLimitMax      = 200
 	SuggestDefaultLimit = 10
 	SuggestLimitMax     = 50
+	// Поток изменений (change feed): страница по умолчанию и потолок
+	// GET /api/v1/changes.
+	ChangesDefaultLimit = 100
+	ChangesLimitMax     = 1000
 )

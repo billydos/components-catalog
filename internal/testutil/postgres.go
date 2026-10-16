@@ -63,6 +63,7 @@ var catalogTables = []string{
 	"designation_systems",
 	"kinds",
 	"schema_meta",
+	"change_events",
 }
 
 // DropAllTables очищает одноразовую тестовую базу PostgreSQL между прогонами

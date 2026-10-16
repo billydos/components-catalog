@@ -337,6 +337,39 @@ type statsJSON struct {
 	Kinds           map[string]int `json:"kinds"`
 }
 
+// changeEventJSON — событие потока изменений (GET /changes): коды
+// канонические, отображаемых строк нет — данные для синхронизации
+// производных индексов, не UI.
+type changeEventJSON struct {
+	ID          int64  `json:"id"`
+	Revision    int64  `json:"revision"`
+	Op          string `json:"op"`
+	Kind        string `json:"kind"`
+	Designation string `json:"designation"`
+	DeviceID    int64  `json:"device_id"`
+}
+
+// changesResponseJSON — GET /changes: страница событий (курсор — id
+// последнего события) и текущая data_revision; events — всегда массив.
+type changesResponseJSON struct {
+	Events       []changeEventJSON `json:"events"`
+	DataRevision int64             `json:"data_revision"`
+}
+
+func changesToJSON(p service.ChangesPage) changesResponseJSON {
+	out := changesResponseJSON{
+		Events:       make([]changeEventJSON, 0, len(p.Events)),
+		DataRevision: p.DataRevision,
+	}
+	for _, e := range p.Events {
+		out.Events = append(out.Events, changeEventJSON{
+			ID: e.ID, Revision: e.Revision, Op: string(e.Op),
+			Kind: string(e.Kind), Designation: e.Designation, DeviceID: e.DeviceID,
+		})
+	}
+	return out
+}
+
 // Снимок каталога (GET /catalog): ключи повторяют формат наполнения
 // (snake_case по колонкам каталожных таблиц — docs/plan/04 §4).
 

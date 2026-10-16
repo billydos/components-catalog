@@ -38,6 +38,16 @@ type DeviceService interface {
     Delete(ctx, kind, designation) (bool, error)     // каскад + чистка сирот
     Search(ctx, SearchQuery) (SearchPage, error)     // фильтры, сортировка, пагинация
     Count(ctx, *KindFilter) (int, error)
+    Changes(ctx, after int64, limit int) (ChangesPage, error)
+                                                      // поток событий изменений записей
+                                                      // (change feed, CC-2): события
+                                                      // created/updated/deleted с классом,
+                                                      // обозначением и стабильным id;
+                                                      // курсор — монотонный id события
+                                                      // (after), Skipped событий не
+                                                      // оставляет; покрывает только
+                                                      // data_revision (каталог — ETag
+                                                      // /catalog), лимиты — 100/1000
 }
 
 type CatalogService interface {
@@ -82,6 +92,7 @@ type DesignationService interface {
 | `PUT /api/v1/components/{kind}/{designation}` | upsert с семантикой секций; `name` тела обязан совпадать с designation пути (иначе 422 `designation_mismatch`) |
 | `DELETE /api/v1/components/{kind}/{designation}` | удаление (каскад) |
 | `GET /api/v1/stats` | количества по классам, версия схемы, ревизии |
+| `GET /api/v1/changes?after=&limit=` | поток событий изменений записей (change feed, CC-2) для инкрементальной синхронизации производных индексов: события `created`/`updated`/`deleted` с классом, обозначением и стабильным id записи в порядке возрастания id события; курсор — монотонный id события (`after=0` — с начала фида; не ревизия: id присваивается вставкой и остаётся плотным курсором, связь ревизии с событиями — деталь пути записи), `limit` ≤ 1000 (по умолчанию 100); ответ — события (всегда массив) и текущая `data_revision`; события пишет та же транзакция, что меняет данные (исход `Skipped` событий не оставляет, компенсационные удаления импортёра — штатный `deleted`); фид покрывает только `data_revision` — изменения каталога отслеживаются ETag `/catalog`; акторов и before/after нет (не аудит); автоматической ретенции нет — очистка вручную SQL, REST-пути очистки нет |
 
 Обозначение в пути URL-кодируется; обозначения, содержащие символ `/` (например, MIL-имена `M39003/…`), адресуются через `GET /components/id/{id}` или поиск — прямой путь для них не гарантируется (роутеры по-разному трактуют `%2F`).
 

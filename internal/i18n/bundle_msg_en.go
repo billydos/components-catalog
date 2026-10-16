@@ -273,9 +273,10 @@ var messageFormatsEn = map[string]string{
 	"svc_section_missing":                  "parameter group section name is not set",
 	"svc_section_unknown":                  "section «%[1]s» does not match any catalog group",
 	// Транспортные сообщения REST (internal/httpapi).
-	"api_already_exists": "record «%[1]s» already exists",
-	"api_bad_id":         "path parameter id: an integer is expected",
-	"api_query_invalid":  "query string is not valid: %[1]s", "api_body_read": "failed to read the request body",
+	"api_after_non_negative": "parameter after: a non-negative integer is expected",
+	"api_already_exists":     "record «%[1]s» already exists",
+	"api_bad_id":             "path parameter id: an integer is expected",
+	"api_query_invalid":      "query string is not valid: %[1]s", "api_body_read": "failed to read the request body",
 	"api_body_too_large":       "request body exceeds the allowed size",
 	"api_bool_attr_filter":     "attribute filter «%[1]s»: boolean attributes are not supported in filters",
 	"api_card_not_found":       "record «%[1]s» not found",

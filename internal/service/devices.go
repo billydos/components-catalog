@@ -269,11 +269,14 @@ func skippedOrValidatedCommit(merger *stateMerger, snap *catalog.Snapshot, p dom
 }
 
 // writeUpsert применяет слитое состояние записи в БД (секции целиком)
-// и инкрементирует data_revision. Инвариант полей: хранимые поля =
-// продукты разбора обозначения ∪ явные классификационные поля (explicit)
-// ∪ производное поле base (для строгих систем — продукт парсера, для
-// записей other — вычисляется по явным series/dev_number слитого
-// состояния): при создании все наборы вставляются; при обновлении
+// и фиксирует изменение: инкремент data_revision + событие change_events —
+// одной транзакцией (deviceID == 0 — создание, событие op=created; иначе
+// обновление, op=updated; исход Skipped сюда не доходит — каноническое
+// сравнение выполняется раньше, без записи в БД). Инвариант полей:
+// хранимые поля = продукты разбора обозначения ∪ явные классификационные
+// поля (explicit) ∪ производное поле base (для строгих систем — продукт
+// парсера, для записей other — вычисляется по явным series/dev_number
+// слитого состояния): при создании все наборы вставляются; при обновлении
 // перезаписываются — удаляются имена объединения (прошлые хранимые ∪
 // новые продукты ∪ явные поля ∪ base), вставляются новые продукты
 // разбора, действующие явные поля и base (при заданной секции fields
@@ -282,6 +285,10 @@ func skippedOrValidatedCommit(merger *stateMerger, snap *catalog.Snapshot, p dom
 func (s *DeviceService) writeUpsert(ctx context.Context, tx *storage.Tx, deviceID int64,
 	p domain.ParsedDesignation, in DeviceInput, cur, merged *deviceState,
 	explicit []domain.Field, analogs []resolvedAnalog, snap *catalog.Snapshot, createOnly bool) error {
+	op := ChangeOpUpdated
+	if deviceID == 0 {
+		op = ChangeOpCreated
+	}
 	var otherBase []domain.Field
 	if p.System == domain.SystemOther {
 		otherBase = append(otherBase, baseFieldOfOther(p, merged.fields))
@@ -404,7 +411,7 @@ func (s *DeviceService) writeUpsert(ctx context.Context, tx *storage.Tx, deviceI
 		}
 	}
 
-	if err := tx.BumpDataRevision(ctx); err != nil {
+	if err := tx.RecordChange(ctx, string(op), p.Kind, p.Designation, deviceID); err != nil {
 		return err
 	}
 	return tx.Commit()
@@ -634,7 +641,9 @@ func (s *DeviceService) ListIDsByKind(ctx context.Context, kind domain.Kind) ([]
 // Удаление атомарно по ключу в транзакции записи (без окна между поиском
 // и удалением): конкурентное удаление того же обозначения оставляет этот
 // вызов без «пустого» успеха и без инкремента ревизии. Удаление
-// инкрементирует data_revision.
+// инкрементирует data_revision и пишет событие change_events (op=deleted;
+// компенсационные удаления импортёра идут этим же путём — событие
+// возникает само).
 func (s *DeviceService) Delete(ctx context.Context, kind domain.Kind, designation string) (bool, error) {
 	snap, err := s.app.cache.Snapshot(ctx)
 	if err != nil {
@@ -654,19 +663,19 @@ func (s *DeviceService) Delete(ctx context.Context, kind domain.Kind, designatio
 		return false, err
 	}
 	defer tx.Rollback() //nolint:errcheck — откат нефиксированной транзакции
-	var rows int64
+	var dev *storage.DeviceRow
 	if kind != "" {
-		rows, err = tx.DeleteDeviceByKey(ctx, kind, canonical)
+		dev, err = tx.DeleteDeviceByKey(ctx, kind, canonical)
 	} else {
-		rows, err = tx.DeleteDeviceAnyKindByKey(ctx, canonical)
+		dev, err = tx.DeleteDeviceAnyKindByKey(ctx, canonical)
 	}
 	if err != nil {
 		return false, err
 	}
-	if rows == 0 {
+	if dev == nil {
 		return false, nil
 	}
-	if err := tx.BumpDataRevision(ctx); err != nil {
+	if err := tx.RecordChange(ctx, string(ChangeOpDeleted), dev.Kind, dev.Designation, dev.ID); err != nil {
 		return false, err
 	}
 	if err := tx.Commit(); err != nil {

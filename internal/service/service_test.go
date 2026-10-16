@@ -178,6 +178,7 @@ func runSuite(t *testing.T, factory configFactory) {
 	t.Run("create", func(t *testing.T) { suiteCreate(t, factory) })
 	t.Run("fields rewrite on update", func(t *testing.T) { suiteFieldsRewriteOnUpdate(t, factory) })
 	t.Run("revisions", func(t *testing.T) { suiteRevisions(t, factory) })
+	t.Run("change feed", func(t *testing.T) { suiteChangeFeed(t, factory) })
 	t.Run("catalog import", func(t *testing.T) { suiteCatalogImport(t, factory) })
 	t.Run("classification fields", func(t *testing.T) { suiteClassificationFields(t, factory) })
 	t.Run("parse and suggest", func(t *testing.T) { suiteParseSuggest(t, factory) })
@@ -1306,6 +1307,117 @@ func suiteRevisions(t *testing.T, factory configFactory) {
 	if catNext != catAfter+1 || dataNext != dataAgain {
 		t.Fatalf("ревизии после каталога: catalog %d→%d data %d→%d",
 			catAfter, catNext, dataAgain, dataNext)
+	}
+}
+
+// suiteChangeFeed — поток событий изменений (change feed, CC-2):
+// событие и изменение данных — одна транзакция. Create/Upsert — created/
+// updated с ревизией == data_revision; Skipped событий не оставляет
+// и ревизию не двигает; Delete — deleted с device_id; курсор — id события.
+func suiteChangeFeed(t *testing.T, factory configFactory) {
+	ctx := context.Background()
+	app := openSuiteApp(t, factory)
+	svc := app.Services().Devices
+
+	// Создание: событие created, ревизия события == data_revision /stats.
+	st, err := app.Stats(ctx)
+	if err != nil {
+		t.Fatalf("stats: %v", err)
+	}
+	if out := mustUpsert(t, svc, DeviceInput{
+		Name:       "КТ315Б",
+		Attributes: []catalog.AttributeValue{attrText("structure", "npn")},
+	}); out != OutcomeAdded {
+		t.Fatalf("исход: %s", out)
+	}
+	page, err := svc.Changes(ctx, 0, ChangesLimitMax)
+	if err != nil {
+		t.Fatalf("changes: %v", err)
+	}
+	if len(page.Events) != 1 {
+		t.Fatalf("событий после создания: %d: %+v", len(page.Events), page.Events)
+	}
+	created := page.Events[0]
+	if created.Op != ChangeOpCreated || created.Designation != "КТ315Б" ||
+		created.Kind != domain.KindTransistor || created.DeviceID == 0 {
+		t.Fatalf("событие created: %+v", created)
+	}
+	st, err = app.Stats(ctx)
+	if err != nil {
+		t.Fatalf("stats: %v", err)
+	}
+	if created.Revision != st.DataRevision {
+		t.Fatalf("ревизия события %d != data_revision %d", created.Revision, st.DataRevision)
+	}
+	if page.DataRevision != st.DataRevision {
+		t.Fatalf("data_revision страницы %d != %d", page.DataRevision, st.DataRevision)
+	}
+
+	// Обновление: событие updated с device_id существующей записи.
+	card, found, err := svc.Get(ctx, domain.KindTransistor, "КТ315Б")
+	if err != nil || !found {
+		t.Fatalf("карточка: %v %v", found, err)
+	}
+	if out := mustUpsert(t, svc, DeviceInput{
+		Name:       "КТ315Б",
+		Attributes: []catalog.AttributeValue{attrText("structure", "npn"), attrText("package", "КТ-13")},
+	}); out != OutcomeUpdatedExisting {
+		t.Fatalf("исход обновления: %s", out)
+	}
+	page, err = svc.Changes(ctx, created.ID, ChangesLimitMax)
+	if err != nil {
+		t.Fatalf("changes: %v", err)
+	}
+	if len(page.Events) != 1 || page.Events[0].Op != ChangeOpUpdated ||
+		page.Events[0].Designation != "КТ315Б" || page.Events[0].DeviceID != card.ID {
+		t.Fatalf("событие updated: %+v", page.Events)
+	}
+	updated := page.Events[0]
+
+	// Skipped: событий нет и ревизия не выросла (каноническое сравнение
+	// до записи в БД).
+	_, dataBefore, _ := app.Revisions(ctx)
+	if out := mustUpsert(t, svc, DeviceInput{
+		Name:       "КТ315Б",
+		Attributes: []catalog.AttributeValue{attrText("structure", "npn"), attrText("package", "КТ-13")},
+	}); out != OutcomeSkipped {
+		t.Fatalf("исход повтора: %s", out)
+	}
+	if page, err = svc.Changes(ctx, updated.ID, ChangesLimitMax); err != nil || len(page.Events) != 0 {
+		t.Fatalf("события при Skipped: %+v err=%v", page.Events, err)
+	}
+	if _, dataAfter, _ := app.Revisions(ctx); dataAfter != dataBefore {
+		t.Fatalf("data_revision при Skipped: %d → %d", dataBefore, dataAfter)
+	}
+
+	// Удаление: событие deleted с device_id удалённой записи.
+	if deleted, _ := svc.Delete(ctx, domain.KindTransistor, "кт315б"); !deleted {
+		t.Fatal("удаление не выполнено")
+	}
+	page, err = svc.Changes(ctx, updated.ID, ChangesLimitMax)
+	if err != nil {
+		t.Fatalf("changes: %v", err)
+	}
+	if len(page.Events) != 1 || page.Events[0].Op != ChangeOpDeleted ||
+		page.Events[0].DeviceID != card.ID || page.Events[0].Designation != "КТ315Б" {
+		t.Fatalf("событие deleted: %+v", page.Events)
+	}
+
+	// Курсор за концом — пустая страница (не nil) с текущей ревизией.
+	if page, err = svc.Changes(ctx, page.Events[0].ID, 10); err != nil ||
+		len(page.Events) != 0 || page.DataRevision == 0 {
+		t.Fatalf("за концом фида: %+v err=%v", page, err)
+	}
+
+	// Валидация: after < 0 и limit вне диапазона — domain-ошибки
+	// (тот же контракт, что у REST).
+	_, err = svc.Changes(ctx, -1, ChangesDefaultLimit)
+	wantDomainError(t, err, domain.CodeValidationFailed,
+		"parameter after: a non-negative integer is expected")
+	for _, limit := range []int{0, ChangesLimitMax + 1} {
+		_, err = svc.Changes(ctx, 0, limit)
+		wantDomainError(t, err, domain.CodeValidationFailed,
+			"parameter limit: an integer from 1 to 1000 is expected")
 	}
 }
 

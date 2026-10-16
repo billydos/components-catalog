@@ -343,6 +343,7 @@ const (
 	MsgApiQueryInvalid        MsgID = "api_query_invalid"
 	MsgApiLimitRange          MsgID = "api_limit_range"
 	MsgApiOffsetNonNeg        MsgID = "api_offset_non_negative"
+	MsgApiAfterNonNeg         MsgID = "api_after_non_negative"
 	MsgApiSortKey             MsgID = "api_sort_key_unknown"
 	MsgApiQueryParamUnknown   MsgID = "api_query_param_unknown"
 	MsgApiParamDuplicate      MsgID = "api_param_duplicate"
@@ -847,6 +848,7 @@ var msgRegistry = map[MsgID]struct{}{
 	MsgApiDesignationMissing:          {},
 	MsgApiLimitRange:                  {},
 	MsgApiOffsetNonNeg:                {},
+	MsgApiAfterNonNeg:                 {},
 	MsgApiSortKey:                     {},
 	MsgApiQueryParamUnknown:           {},
 	MsgApiParamDuplicate:              {},

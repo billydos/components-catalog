@@ -1196,12 +1196,13 @@ func (t *Tx) DeleteDevice(ctx context.Context, deviceID int64) error {
 }
 
 // DeleteDeviceByKey удаляет запись по ключу (kind_code, designation)
-// в текущей транзакции и чистит сирот производителей; возвращает число
-// удалённых строк (0 — записи нет). Поиск и удаление атомарны в одном
-// операторе: конкурентное удаление того же ключа даёт ноль строк — без
-// «пустого» успеха и лишнего инкремента ревизии (TOCTOU отдельного
-// поиска и удаления).
-func (t *Tx) DeleteDeviceByKey(ctx context.Context, kind domain.Kind, designation string) (int64, error) {
+// в текущей транзакции и чистит сирот производителей; возвращает удалённую
+// строку (nil — записи нет) — данные для события потока изменений.
+// Поиск и удаление атомарны в одной транзакции: удаляется ровно найденная
+// строка, конкурентное удаление того же ключа даёт nil — без «пустого»
+// успеха и лишнего инкремента ревизии (TOCTOU отдельного поиска
+// и удаления).
+func (t *Tx) DeleteDeviceByKey(ctx context.Context, kind domain.Kind, designation string) (*DeviceRow, error) {
 	return t.deleteDeviceWhere(ctx, `kind_code = @kind AND designation = @designation`,
 		map[string]any{"kind": string(kind), "designation": designation})
 }
@@ -1209,48 +1210,51 @@ func (t *Tx) DeleteDeviceByKey(ctx context.Context, kind domain.Kind, designatio
 // DeleteDeviceAnyKindByKey удаляет запись по обозначению без фильтра
 // классом — детерминированно первая по kind_code, как FindDeviceAnyKind
 // (подзапрос переносим: sqlite и postgres).
-func (t *Tx) DeleteDeviceAnyKindByKey(ctx context.Context, designation string) (int64, error) {
+func (t *Tx) DeleteDeviceAnyKindByKey(ctx context.Context, designation string) (*DeviceRow, error) {
 	return t.deleteDeviceWhere(ctx, `id = (
 SELECT id FROM devices WHERE designation = @designation ORDER BY kind_code LIMIT 1)`,
 		map[string]any{"designation": designation})
 }
 
-func (t *Tx) deleteDeviceWhere(ctx context.Context, cond string, args map[string]any) (int64, error) {
-	// Кандидаты адресной чистки сирот — производители удаляемых записей,
-	// собираются до удаления (каскад FK уберёт их связи вместе с записями).
-	rows, err := t.query(ctx,
-		`SELECT dm.manufacturer_id FROM device_manufacturers dm
-JOIN devices d ON d.id = dm.device_id WHERE `+cond, args)
+func (t *Tx) deleteDeviceWhere(ctx context.Context, cond string, args map[string]any) (*DeviceRow, error) {
+	// Строка к удалению читается тем же условием, по которому удаляется:
+	// событие потока изменений получает id/класс/обозначение именно той
+	// строки, которая удаляется (удаление — по id найденной строки).
+	dev, err := findDeviceWhere(ctx, t.tx, cond, args)
 	if err != nil {
-		return 0, err
+		return nil, err
 	}
-	var orphans []int64
-	for rows.Next() {
-		var mid int64
-		if err := rows.Scan(&mid); err != nil {
-			rows.Close()
-			return 0, err
-		}
-		orphans = append(orphans, mid)
+	if dev == nil {
+		return nil, nil
 	}
-	if err := rows.Err(); err != nil {
-		rows.Close()
-		return 0, err
-	}
-	rows.Close()
-
-	res, err := t.exec(ctx, `DELETE FROM devices WHERE `+cond, args)
+	// Кандидаты адресной чистки сирот — производители удаляемой записи,
+	// собираются до удаления (каскад FK уберёт их связи вместе с записью).
+	orphans, err := t.manufacturersOf(ctx, dev.ID)
 	if err != nil {
-		return 0, err
+		return nil, err
+	}
+	res, err := t.exec(ctx, `DELETE FROM devices WHERE id = @id`,
+		map[string]any{"id": dev.ID})
+	if err != nil {
+		return nil, err
 	}
 	n, err := res.RowsAffected()
 	if err != nil {
-		return 0, err
+		return nil, err
 	}
 	if n == 0 {
-		return 0, nil
+		// Конкурентное удаление той же строки между чтением и удалением.
+		return nil, nil
 	}
-	return n, t.deleteOrphanManufacturers(ctx, orphans)
+	return dev, t.deleteOrphanManufacturers(ctx, orphans)
+}
+
+// findDeviceWhere читает запись по условию удаления (одно соединение
+// транзакции, без LIMIT: условие ключа выбирает не более одной строки).
+func findDeviceWhere(ctx context.Context, q queryer, cond string, args map[string]any) (*DeviceRow, error) {
+	row := queryRowContext(ctx, q,
+		`SELECT id, kind_code, system_code, designation FROM devices WHERE `+cond, args)
+	return scanDevice(row)
 }
 
 // deleteOrphanManufacturers удаляет перечисленных производителей без

@@ -3,8 +3,10 @@ package httpapi
 import (
 	"errors"
 	"io"
+	"maps"
 	"net/http"
 	"net/url"
+	"slices"
 	"strconv"
 
 	"github.com/billydos/components-catalog/internal/domain"
@@ -237,6 +239,55 @@ func (a *API) handleParse(w *responseWriter, r *http.Request, _ map[string]strin
 		return
 	}
 	writeJSON(w, http.StatusOK, parseToJSON(p, candidates))
+}
+
+// handleChanges — GET /api/v1/changes: поток событий изменений записей
+// (change feed — features.log CC-2) для инкрементальной синхронизации
+// производных индексов сайта; курсор — id последнего полученного события
+// (after). Фид покрывает только изменения данных (data_revision):
+// изменения каталога отслеживаются ETag GET /catalog. Повтор разбираемого
+// параметра и посторонний ключ запроса — 400 (опечатки курсора не молчат).
+func (a *API) handleChanges(w *responseWriter, r *http.Request, _ map[string]string) {
+	values, err := parseStrictQuery(r)
+	if err != nil {
+		a.writeDomainErr(w, r, err, true)
+		return
+	}
+	if err := rejectDuplicateParams(values, "after", "limit"); err != nil {
+		a.writeDomainErr(w, r, err, true)
+		return
+	}
+	for _, name := range slices.Sorted(maps.Keys(values)) {
+		if name != "after" && name != "limit" {
+			a.writeError(w, r, http.StatusBadRequest, domain.CodeValidationFailed,
+				domain.MsgApiQueryParamUnknown, name)
+			return
+		}
+	}
+	after := int64(0)
+	if vs := values["after"]; len(vs) > 0 {
+		n, perr := strconv.ParseInt(vs[0], 10, 64)
+		if perr != nil || n < 0 {
+			a.writeError(w, r, http.StatusBadRequest, domain.CodeValidationFailed,
+				domain.MsgApiAfterNonNeg)
+			return
+		}
+		after = n
+	}
+	limit, exists, err := queryLimit(values["limit"], service.ChangesLimitMax)
+	if err != nil {
+		a.writeDomainErr(w, r, err, true)
+		return
+	}
+	if !exists {
+		limit = service.ChangesDefaultLimit
+	}
+	page, err := a.app.Services().Devices.Changes(r.Context(), after, limit)
+	if err != nil {
+		a.writeDomainErr(w, r, err, true)
+		return
+	}
+	writeJSON(w, http.StatusOK, changesToJSON(page))
 }
 
 // handleCreate — POST /api/v1/components: создание; тело — запись

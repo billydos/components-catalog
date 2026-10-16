@@ -96,6 +96,7 @@ var routes = []route{
 	{method: http.MethodGet, pattern: apiPrefix + "/kinds", op: "kinds", handler: (*API).handleKinds},
 	{method: http.MethodGet, pattern: apiPrefix + "/catalog", op: "catalog", handler: (*API).handleCatalog},
 	{method: http.MethodGet, pattern: apiPrefix + "/stats", op: "stats", handler: (*API).handleStats},
+	{method: http.MethodGet, pattern: apiPrefix + "/changes", op: "changes", handler: (*API).handleChanges},
 	{method: http.MethodGet, pattern: apiPrefix + "/components", op: "components_list", handler: (*API).handleSearch},
 	{method: http.MethodPost, pattern: apiPrefix + "/components", op: "components_create", handler: (*API).handleCreate},
 	{method: http.MethodGet, pattern: apiPrefix + "/components/id/{id}", op: "components_by_id", handler: (*API).handleGetByID},

@@ -224,6 +224,103 @@ func runImporterSuite(t *testing.T, factory configFactory) {
 		}
 	})
 
+	// Поток изменений (change feed): применённые записи оставляют события,
+	// повторный импорт (Skipped) — ничего; отвергнутая запись с холостым
+	// созданием компенсируется удалением — фид видит и создание,
+	// и компенсационное deleted.
+	t.Run("ChangeFeedEvents", func(t *testing.T) {
+		app := openApp(t, factory)
+		file := filepath.Join(t.TempDir(), "feed.jsonc")
+		write(t, file, `{
+			"transistors": [
+				{ "name": "МП39", "system": "other", "attributes": { "structure": "npn" } },
+				"ГТ109Г"
+			]
+		}`)
+		rep := importFile(t, app, file, false)
+		if rep.HasIssues() || rep.Added != 2 {
+			t.Fatalf("импорт: %+v; %v", rep, issueMessages(rep.Issues))
+		}
+		page, err := app.Services().Devices.Changes(context.Background(), 0, service.ChangesLimitMax)
+		if err != nil {
+			t.Fatalf("changes: %v", err)
+		}
+		if len(page.Events) != 2 {
+			t.Fatalf("событий: %d, ожидалось 2: %+v", len(page.Events), page.Events)
+		}
+		for i, want := range []struct {
+			op          service.ChangeOp
+			designation string
+		}{{service.ChangeOpCreated, "МП39"}, {service.ChangeOpCreated, "ГТ109Г"}} {
+			e := page.Events[i]
+			if e.Op != want.op || e.Designation != want.designation ||
+				e.Kind != domain.KindTransistor || e.DeviceID == 0 {
+				t.Fatalf("событие %d: %+v, ожидалось %s %s", i, e, want.op, want.designation)
+			}
+		}
+
+		// Повторный импорт — Skipped по всем записям: событий нет,
+		// data_revision не выросла.
+		_, dataBefore, err := app.Revisions(context.Background())
+		if err != nil {
+			t.Fatalf("ревизии: %v", err)
+		}
+		rep = importFile(t, app, file, false)
+		if rep.HasIssues() || rep.Skipped != 2 {
+			t.Fatalf("повторный импорт: %+v; %v", rep, issueMessages(rep.Issues))
+		}
+		page, err = app.Services().Devices.Changes(context.Background(),
+			page.Events[len(page.Events)-1].ID, service.ChangesLimitMax)
+		if err != nil || len(page.Events) != 0 {
+			t.Fatalf("события при повторном импорте: %+v err=%v", page.Events, err)
+		}
+		if _, dataAfter, _ := app.Revisions(context.Background()); dataAfter != dataBefore {
+			t.Fatalf("data_revision при Skipped: %d → %d", dataBefore, dataAfter)
+		}
+	})
+
+	t.Run("ChangeFeedCompensatingDelete", func(t *testing.T) {
+		// Аналог указывает на запись, которая сама отвергается: холостое
+		// создание разрывает ожидание аналога, затем отвергнутая запись
+		// компенсируется удалением — фид: created, deleted (компенсация).
+		app := openApp(t, factory)
+		file := filepath.Join(t.TempDir(), "compensate.jsonc")
+		write(t, file, `{
+			"transistors": [
+				{ "name": "МП39", "system": "other", "analogs": ["ГТ109Г"] },
+				{ "name": "ГТ109Г", "ratings": [ { "parameter": "VceoMax", "value": 0 } ] }
+			]
+		}`)
+		rep := importFile(t, app, file, false)
+		if rep.Rejected != 2 || rep.Added != 0 {
+			t.Fatalf("итог: %+v; %v", rep, issueMessages(rep.Issues))
+		}
+		page, err := app.Services().Devices.Changes(context.Background(), 0, service.ChangesLimitMax)
+		if err != nil {
+			t.Fatalf("changes: %v", err)
+		}
+		if len(page.Events) != 2 {
+			t.Fatalf("событий: %d, ожидалось 2 (created + компенсационный deleted): %+v",
+				len(page.Events), page.Events)
+		}
+		first, last := page.Events[0], page.Events[1]
+		if first.Op != service.ChangeOpCreated || first.Designation != "МП39" ||
+			last.Op != service.ChangeOpDeleted || last.Designation != "МП39" ||
+			first.DeviceID != last.DeviceID {
+			t.Fatalf("события компенсации: %+v", page.Events)
+		}
+		// Компенсационное удаление — позже создания: ревизия не убывает.
+		if last.Revision <= first.Revision {
+			t.Fatalf("ревизии компенсации: %d → %d", first.Revision, last.Revision)
+		}
+		// Отвергнутая запись событий не оставила.
+		for _, e := range page.Events {
+			if e.Designation == "ГТ109Г" {
+				t.Fatalf("отвергнутая запись оставила событие: %+v", e)
+			}
+		}
+	})
+
 	t.Run("NDJSONCatalogBeforeRecords", func(t *testing.T) {
 		app := openApp(t, factory)
 		good := filepath.Join(t.TempDir(), "good.ndjson")

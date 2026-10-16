@@ -103,6 +103,48 @@ paths:
           $ref: "#/components/responses/InternalError"
         "405":
           $ref: "#/components/responses/MethodNotAllowed"
+  /api/v1/changes:
+    get:
+      tags: [service]
+      operationId: changes
+      summary: Поток событий изменений записей (change feed)
+      description: |
+        Инкрементальная синхронизация производных индексов сайта: события
+        применённых операций над записями (created/updated/deleted, класс,
+        обозначение, стабильный id записи) в порядке возрастания id
+        события. События записываются той же транзакцией, что меняет
+        данные: событие и изменение атомарны, исход Skipped событий
+        не оставляет (включая компенсационные удаления импортёра —
+        штатный deleted).
+
+        Курсор — параметр after: id последнего полученного события
+        (after=0 — с начала фида); ревизия курсором быть не может: её
+        связь с событиями — деталь пути записи (возможны несколько
+        событий в одной транзакции либо инкремент мимо фида), id
+        присваивается вставкой и остаётся плотным монотонным курсором.
+        Ответ содержит текущую data_revision (согласована со страницей
+        событий). Фид покрывает только изменения данных (data_revision);
+        изменения каталога (catalog_revision) в фид не входят — для них
+        ETag GET /catalog. Актёров и состояний before/after нет — это
+        не аудит (история изменений — зона сайта). Автоматической
+        ретенции нет: рост ограничен редакционным масштабом, очистка —
+        вручную (SQL), REST-пути очистки нет. Повтор разбираемого
+        параметра и посторонний ключ запроса — 400 validation_failed.
+      parameters:
+        - {name: after, in: query, schema: {type: integer, format: int64, minimum: 0, default: 0}, description: "Курсор: id последнего полученного события (0 — с начала фида)."}
+        - {name: limit, in: query, schema: {type: integer, minimum: 1, maximum: 1000, default: 100}, description: "Число событий страницы (≤ 1000)."}
+      responses:
+        "200":
+          description: Страница событий и текущая data_revision.
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/ChangesResponse"}
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "500":
+          $ref: "#/components/responses/InternalError"
+        "405":
+          $ref: "#/components/responses/MethodNotAllowed"
   /api/v1/components:
     get:
       tags: [components]
@@ -683,6 +725,26 @@ components:
           type: object
           additionalProperties: {type: integer}
           description: Количество записей по кодам классов.
+    ChangeEvent:
+      type: object
+      description: Событие применённой операции над записью устройства.
+      required: [id, revision, op, kind, designation, device_id]
+      properties:
+        id: {type: integer, format: int64, description: Монотонный id события — курсор потребителя.}
+        revision: {type: integer, format: int64, description: data_revision транзакции события (после инкремента).}
+        op: {type: string, enum: [created, updated, deleted]}
+        kind: {type: string, description: Код класса записи.}
+        designation: {type: string, description: Каноническое обозначение.}
+        device_id: {type: integer, format: int64, description: Стабильный id записи.}
+    ChangesResponse:
+      type: object
+      required: [events, data_revision]
+      properties:
+        events:
+          type: array
+          description: События в порядке возрастания id (может быть пустым).
+          items: {$ref: "#/components/schemas/ChangeEvent"}
+        data_revision: {type: integer, format: int64, description: Текущая ревизия данных (согласована со страницей).}
     DeviceRecord:
       description: |
         Запись наполнения: строка-обозначение либо объект «name/system +

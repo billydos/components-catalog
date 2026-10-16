@@ -189,6 +189,13 @@ func restSuite(ctx context.Context, r *report, srv, tmp string, l leg) {
 	r.check("rest/get-after-delete", "GET после DELETE — 404",
 		status == http.StatusNotFound, detail(status, body)...)
 
+	// Change feed: события CRUD-блока — created/updated/deleted по 2N9013.
+	status, body, _ = cl.do(ctx, http.MethodGet, "/changes?limit=1000", "", nil)
+	r.check("rest/changes", "GET /changes: поток событий изменений записей",
+		status == http.StatusOK && strings.Contains(body, `"deleted"`) &&
+			strings.Contains(body, "2N9013"),
+		detail(status, body)...)
+
 	// suggest по префиксу и неизвестный маршрут.
 	status, body, _ = cl.do(ctx, http.MethodGet,
 		"/suggest?"+url.Values{"q": {"КТ3"}, "kind": {"transistor"}}.Encode(), "", nil)

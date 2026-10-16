@@ -23,7 +23,11 @@ import "strings"
 // базовое обозначение записи без буквы классификации и хвостовых
 // элементов): DDL не менялось, но состав строк полей записи расширился —
 // базы прежней версии лишены поля и пересоздаются импортом (D5).
-const SchemaVersion = 8
+// Версия 9 — таблица change_events: поток изменений записей (change feed,
+// features.log CC-2) для инкрементальной синхронизации производных
+// индексов; события пишет та же транзакция записи, что инкрементирует
+// data_revision.
+const SchemaVersion = 9
 
 // autoIncToken — маркер авто-PK в переносимом DDL; диалект заменяет его
 // своим определением в RewriteDDL (sqlite: PRIMARY KEY AUTOINCREMENT —
@@ -217,6 +221,18 @@ var ddlStatements = []string{
     note            TEXT NULL,
     PRIMARY KEY (device_id, analog_device_id),
     CHECK (device_id <> analog_device_id)
+)`,
+
+	// Поток изменений записей (change feed — docs/plan/02-database.md §2.3):
+	// события применённых операций над записями устройств; FK намеренно
+	// нет — события deleted переживают удаляемую строку.
+	`CREATE TABLE IF NOT EXISTS change_events (
+    id          INTEGER ` + autoIncToken + `,
+    revision    INTEGER NOT NULL,
+    op          TEXT NOT NULL,
+    kind_code   TEXT NOT NULL,
+    designation TEXT NOT NULL,
+    device_id   INTEGER NOT NULL
 )`,
 
 	// Индексы — docs/plan/02-database.md §3.
