@@ -4,6 +4,7 @@ import (
 	"github.com/billydos/components-catalog/internal/catalog"
 	"github.com/billydos/components-catalog/internal/domain"
 	"github.com/billydos/components-catalog/internal/i18n"
+	"github.com/billydos/components-catalog/internal/importer"
 	"github.com/billydos/components-catalog/internal/service"
 )
 
@@ -408,6 +409,60 @@ func changesToJSON(p service.ChangesPage) changesResponseJSON {
 		out.Events = append(out.Events, changeEventJSON{
 			ID: e.ID, Revision: e.Revision, Op: string(e.Op),
 			Kind: string(e.Kind), Designation: e.Designation, DeviceID: e.DeviceID,
+		})
+	}
+	return out
+}
+
+// importIssueJSON — проблема прогона импорта (POST /api/v1/import):
+// позиция записи в файле (line — строка NDJSON, no — номер записи
+// в секции документа; опущены, когда не определены), обозначение записи
+// и локализованное сообщение каталога (D9).
+type importIssueJSON struct {
+	Record  string `json:"record,omitempty"`
+	Line    int    `json:"line,omitempty"`
+	No      int    `json:"no,omitempty"`
+	Code    string `json:"code"`
+	Message string `json:"message"`
+}
+
+// importReportJSON — синхронный отчёт прогона импорта POST /api/v1/import
+// (CC-6): счётчики исходов записей и полный список проблем за прогон;
+// issues — всегда массив.
+type importReportJSON struct {
+	Records        int               `json:"records"`
+	Added          int               `json:"added"`
+	Updated        int               `json:"updated"`
+	Skipped        int               `json:"skipped"`
+	Rejected       int               `json:"rejected"`
+	CatalogApplied bool              `json:"catalog_applied"`
+	Issues         []importIssueJSON `json:"issues"`
+}
+
+func importReportToJSON(lang i18n.Language, rep *importer.Report) importReportJSON {
+	out := importReportJSON{
+		Records: rep.Records, Added: rep.Added, Updated: rep.Updated,
+		Skipped: rep.Skipped, Rejected: rep.Rejected, CatalogApplied: rep.CatalogApplied,
+		Issues: make([]importIssueJSON, 0, len(rep.Issues)),
+	}
+	for _, iss := range rep.Issues {
+		// Проблемы с MsgID internal_error — не-доменные ошибки применения
+		// (сбой БД в середине прогона) с сырым техническим текстом
+		// в аргументах: наружу — фиксированный текст и код internal_error
+		// без деталей инфраструктуры (политика writeErr, D9); диагностика —
+		// журнал хендлера (handleImport).
+		if iss.MsgID == domain.MsgInternalError {
+			out.Issues = append(out.Issues, importIssueJSON{
+				Record: iss.Record, Line: iss.Line, No: iss.No,
+				Code:    string(domain.CodeInternal),
+				Message: i18n.Message(lang, string(domain.MsgApiPanic)),
+			})
+			continue
+		}
+		out.Issues = append(out.Issues, importIssueJSON{
+			Record: iss.Record, Line: iss.Line, No: iss.No,
+			Code:    string(iss.Code),
+			Message: i18n.Message(lang, string(iss.MsgID), iss.Args...),
 		})
 	}
 	return out

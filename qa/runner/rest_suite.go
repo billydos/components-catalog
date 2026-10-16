@@ -222,6 +222,31 @@ func restSuite(ctx context.Context, r *report, srv, tmp string, l leg) {
 			strings.Contains(body, "2N9013"),
 		detail(status, body)...)
 
+	// Потоковый импорт NDJSON (CC-6): синхронный отчёт после EOF,
+	// повторный запрос — Skipped, синтаксис — 400 invalid_import_file,
+	// посторонний параметр — 400. КТ361Б — не входит в data/.
+	// Content-Type — заявленный спецификацией application/x-ndjson.
+	ndjsonCT := map[string]string{"Content-Type": "application/x-ndjson"}
+	ndjson := "{\"transistors\": {\"name\": \"КТ361Б\", \"attributes\": {\"structure\": \"pnp\"}}}\n"
+	status, body, _ = cl.do(ctx, http.MethodPost, "/import", ndjson, ndjsonCT)
+	r.check("rest/import", "POST /import: потоковый импорт NDJSON — синхронный отчёт",
+		status == http.StatusOK && strings.Contains(body, `"records":1`) &&
+			strings.Contains(body, `"issues":[]`) &&
+			(strings.Contains(body, `"added":1`) || strings.Contains(body, `"skipped":1`)),
+		detail(status, body)...)
+	status, body, _ = cl.do(ctx, http.MethodPost, "/import", ndjson, ndjsonCT)
+	r.check("rest/import-idempotent", "POST /import: повторный импорт — Skipped без записи",
+		status == http.StatusOK && strings.Contains(body, `"skipped":1`),
+		detail(status, body)...)
+	status, body, _ = cl.do(ctx, http.MethodPost, "/import", "{\"transistors\":\n", ndjsonCT)
+	r.check("rest/import-syntax", "POST /import: синтаксис строки — 400 invalid_import_file",
+		status == http.StatusBadRequest && strings.Contains(body, "invalid_import_file"),
+		detail(status, body)...)
+	status, body, _ = cl.do(ctx, http.MethodPost, "/import?dry_run=1", "{}\n", ndjsonCT)
+	r.check("rest/import-unknown-param", "POST /import: посторонний параметр — 400 validation_failed",
+		status == http.StatusBadRequest && strings.Contains(body, "validation_failed"),
+		detail(status, body)...)
+
 	// suggest по префиксу и неизвестный маршрут.
 	status, body, _ = cl.do(ctx, http.MethodGet,
 		"/suggest?"+url.Values{"q": {"КТ3"}, "kind": {"transistor"}}.Encode(), "", nil)

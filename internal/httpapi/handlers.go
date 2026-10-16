@@ -317,6 +317,48 @@ func (a *API) handleChanges(w *responseWriter, r *http.Request, _ map[string]str
 	writeJSON(w, http.StatusOK, changesToJSON(page))
 }
 
+// handleImport — POST /api/v1/import: потоковый импорт файла наполнения
+// NDJSON (features.log CC-6). Тело читается построчно без загрузки
+// целиком и без потолка тела запроса — память ограничена потолком строки
+// сканера (16 МиБ); ответ — синхронный отчёт после EOF (Issues-модель:
+// корректные записи применяются, ошибочные — нет, отчёт — 200 даже
+// с проблемами). Жёсткая ошибка — только синтаксис формата и чтения
+// потока (400 invalid_import_file). Параметров запроса нет: любой ключ —
+// 400 (опечатки не молчат). Прогресс по REST не отдаётся — запрос
+// синхронный (наблюдение — хук метрик); запись монтируется сайтом
+// только в защищённые маршруты.
+func (a *API) handleImport(w *responseWriter, r *http.Request, _ map[string]string) {
+	values, err := parseStrictQuery(r)
+	if err != nil {
+		a.writeDomainErr(w, r, err, true)
+		return
+	}
+	if names := slices.Sorted(maps.Keys(values)); len(names) > 0 {
+		a.writeError(w, r, http.StatusBadRequest, domain.CodeValidationFailed,
+			domain.MsgApiQueryParamUnknown, names[0])
+		return
+	}
+	rep, err := importer.New(a.app).Import(r.Context(), r.Body, importBodyName, false)
+	if err != nil {
+		a.writeDomainErr(w, r, err, false)
+		return
+	}
+	// Инфраструктурные проблемы прогона (не-доменные ошибки применения)
+	// наружу отдаются санитизированным фиксированным текстом
+	// (importReportToJSON); технические детали — только здесь.
+	for _, iss := range rep.Issues {
+		if iss.MsgID == domain.MsgInternalError {
+			a.log.Error("импорт: непредвиденная проблема записи",
+				"record", iss.Record, "line", iss.Line, "error", iss.Message)
+		}
+	}
+	writeJSON(w, http.StatusOK, importReportToJSON(requestLang(r), &rep))
+}
+
+// importBodyName — условное имя тела запроса POST /import: формат —
+// NDJSON по расширению, в ответ имя не входит (файла нет — тело).
+const importBodyName = "import.ndjson"
+
 // handleCreate — POST /api/v1/components: создание; тело — запись
 // наполнения (name/system + секции), класс — автодетект по обозначению
 // (для system other создание адресуется PUT с классом в пути).

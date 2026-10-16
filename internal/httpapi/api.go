@@ -75,8 +75,11 @@ func (a *API) Handler() http.Handler { return a }
 // apiPrefix — версионируемый префикс всех маршрутов.
 const apiPrefix = "/api/v1"
 
-// maxBodyBytes — потолок тела записи (POST/PUT): запись наполнения
-// заведомо меньше; превышение — 400, а не неограниченное чтение.
+// maxBodyBytes — потолок тела записи (POST/PUT компонентов): запись
+// наполнения заведомо меньше; превышение — 400, а не неограниченное
+// чтение. Исключение — потоковый POST /import: тело NDJSON читается
+// построчно без потолка, память ограничена потолком строки сканера
+// (16 МиБ, internal/importer/ndjson.go).
 const maxBodyBytes = 8 << 20
 
 // route — маршрут: метод, шаблон пути (литеральные сегменты и «{параметр}»),
@@ -105,6 +108,7 @@ var routes = []route{
 	{method: http.MethodDelete, pattern: apiPrefix + "/components/{kind}/{designation}", op: "components_delete", handler: (*API).handleDelete},
 	{method: http.MethodGet, pattern: apiPrefix + "/suggest", op: "suggest", handler: (*API).handleSuggest},
 	{method: http.MethodGet, pattern: apiPrefix + "/parse", op: "parse", handler: (*API).handleParse},
+	{method: http.MethodPost, pattern: apiPrefix + "/import", op: "import", handler: (*API).handleImport},
 }
 
 func init() {

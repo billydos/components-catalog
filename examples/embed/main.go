@@ -2,9 +2,10 @@
 // внешний модуль (docs/plan/04-module-functionality.md §1). Зависимость
 // подключена как у сайт-проекта: require на модуль + replace на локальный
 // путь; пакеты internal/ отсюда не импортируются — только публичный фасад
-// components. Прогон: открытие приложения, импорт файла наполнения,
-// поиск и карточка через сервисный слой, разбор обозначения, поток
-// изменений, round-trip экспорт и REST /api/v1 через app.Handler().
+// components. Прогон: открытие приложения, импорт файла наполнения
+// (включая потоковый NDJSON с колбэком прогресса), поиск и карточка
+// через сервисный слой, разбор обозначения, поток изменений, round-trip
+// экспорт и REST /api/v1 через app.Handler().
 //
 // Сборка и запуск примера — фаза consumer QA-прогонщика: компилируемость
 // у внешнего потребителя — часть контракта фасада.
@@ -18,6 +19,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/billydos/components-catalog/components"
 )
@@ -85,6 +87,20 @@ func run() error {
 	}
 	fmt.Printf("import: records=%d added=%d issues=%d\n",
 		rep.Records, rep.Added, len(rep.Issues))
+
+	// Потоковый импорт NDJSON с колбэком прогресса (CC-6): большие файлы
+	// читаются построчно без загрузки целиком; колбэк наблюдает чтение
+	// и итоговые исходы применения каждой записи.
+	ndjson := "{\"transistors\": {\"name\": \"КТ361Б\", \"attributes\": {\"structure\": \"pnp\"}}}\n" +
+		"{\"transistors\": {\"name\": \"BC557B\"}}\n"
+	var last components.Progress
+	rep, err = app.Importer.Import(ctx, strings.NewReader(ndjson), "example.ndjson", false,
+		components.WithProgress(func(p components.Progress) { last = p }))
+	if err != nil {
+		return err
+	}
+	fmt.Printf("import ndjson: records=%d added=%d issues=%d (progress: read=%d applied=%d line=%d)\n",
+		rep.Records, rep.Added, len(rep.Issues), last.Read, last.Applied, last.Line)
 
 	// Поиск через сервисный слой: подстрока обозначения и класс.
 	page, err := app.Services.Devices.Search(ctx, components.SearchQuery{

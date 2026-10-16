@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 
@@ -998,12 +999,108 @@ func runImporterSuite(t *testing.T, factory configFactory) {
 			t.Fatalf("повторный импорт: %+v; %v", rep, issueMessages(rep.Issues))
 		}
 	})
+
+	// Прогресс импорта (CC-6): колбэк WithProgress наблюдает построчное
+	// чтение NDJSON и итоговые исходы применения (включая dry-run);
+	// документные форматы отмечают чтение одним вызовом после разбора.
+	t.Run("ProgressCallback", func(t *testing.T) {
+		app := openApp(t, factory)
+		ndjson := "{\"transistors\": {\"name\": \"КТ315Б\"}}\n" +
+			"{\"transistors\": {\"name\": \"BC547B\"}}\n" +
+			"{\"transistors\": {\"name\": \"МП39\", \"system\": \"other\"}}\n"
+		var snap []Progress
+		rep, err := New(app).Import(context.Background(),
+			strings.NewReader(ndjson), "progress.ndjson", false,
+			WithProgress(func(p Progress) { snap = append(snap, p) }))
+		if err != nil || rep.HasIssues() || rep.Added != 3 {
+			t.Fatalf("импорт: err=%v %+v; %v", err, rep, issueMessages(rep.Issues))
+		}
+		want := []Progress{
+			{Read: 1, Line: 1},
+			{Read: 2, Line: 2},
+			{Read: 3, Line: 3},
+			{Read: 3, Applied: 1, Line: 3},
+			{Read: 3, Applied: 2, Line: 3},
+			{Read: 3, Applied: 3, Line: 3},
+		}
+		if !slices.Equal(snap, want) {
+			t.Fatalf("снимки прогресса: %+v, ожидались %+v", snap, want)
+		}
+
+		// Dry-run: чтение и исходы те же, записи в базу нет.
+		snap = nil
+		rep, err = New(app).Import(context.Background(),
+			strings.NewReader(ndjson), "progress.ndjson", true,
+			WithProgress(func(p Progress) { snap = append(snap, p) }))
+		if err != nil || rep.HasIssues() || rep.Skipped != 3 {
+			t.Fatalf("dry-run: err=%v %+v; %v", err, rep, issueMessages(rep.Issues))
+		}
+		if len(snap) != 6 || snap[len(snap)-1] != (Progress{Read: 3, Applied: 3, Line: 3}) {
+			t.Fatalf("снимки dry-run: %+v", snap)
+		}
+
+		// Документ (jsonc): чтение — один вызов, далее — исходы записей.
+		snap = nil
+		rep, err = New(app).Import(context.Background(),
+			strings.NewReader(`{"transistors": ["КТ315Б", "BC547B"]}`),
+			"progress.jsonc", false,
+			WithProgress(func(p Progress) { snap = append(snap, p) }))
+		if err != nil || rep.HasIssues() || rep.Skipped != 2 {
+			t.Fatalf("документ: err=%v %+v; %v", err, rep, issueMessages(rep.Issues))
+		}
+		want = []Progress{
+			{Read: 2},
+			{Read: 2, Applied: 1},
+			{Read: 2, Applied: 2},
+		}
+		if !slices.Equal(snap, want) {
+			t.Fatalf("снимки документа: %+v, ожидались %+v", snap, want)
+		}
+
+		// Прямая ссылка аналога на позднейшую запись (requeue без исхода
+		// не считается) и запись, отвергнутая чтением (в Read входит,
+		// в Applied — нет).
+		snap = nil
+		rep, err = New(app).Import(context.Background(), strings.NewReader(
+			"{\"diodes\": {\"name\": \"Д226\", \"system\": \"other\", \"analogs\": [\"1N4007\"]}}\n"+
+				"{\"diodes\": {\"name\": \"1N4007\"}}\n"+
+				"{\"diodes\": 42}\n"),
+			"progress.ndjson", false,
+			WithProgress(func(p Progress) { snap = append(snap, p) }))
+		if err != nil || rep.Added != 2 || rep.Rejected != 1 {
+			t.Fatalf("аналоги/отказ: err=%v %+v; %v", err, rep, issueMessages(rep.Issues))
+		}
+		want = []Progress{
+			{Read: 1, Line: 1},
+			{Read: 2, Line: 2},
+			{Read: 3, Line: 3},
+			{Read: 3, Applied: 1, Line: 3},
+			{Read: 3, Applied: 2, Line: 3},
+		}
+		if !slices.Equal(snap, want) {
+			t.Fatalf("снимки аналогов: %+v, ожидались %+v", snap, want)
+		}
+	})
 }
 
 func write(t *testing.T, path, content string) {
 	t.Helper()
 	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
 		t.Fatalf("запись %s: %v", path, err)
+	}
+}
+
+// Строка NDJSON сверх потолка сканера (16 МиБ) — доменная ошибка
+// invalid_import_file (REST — 400): проблема файла, а не инфраструктуры.
+func TestNDJSONLineTooLongIsDomainError(t *testing.T) {
+	app := openApp(t, memoryConfig)
+	long := strings.Repeat("a", 17*1024*1024)
+	_, err := New(app).Import(context.Background(),
+		strings.NewReader("{\"transistors\": {\"name\": \""+long+"\"}}"),
+		"big.ndjson", false)
+	de, ok := domain.AsError(err)
+	if !ok || de.Code != domain.CodeInvalidImportFile {
+		t.Fatalf("ошибка: %v (domain=%+v)", err, de)
 	}
 }
 

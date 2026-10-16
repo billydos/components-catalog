@@ -1,9 +1,10 @@
 // Пин-тест полноты фасада: внутренний сервисный слой — публичный API
 // библиотеки (план 01 §2.4), его экспортированная поверхность открывается
 // фасадом целиком, а сам фасад остаётся тонким — собственные объявления
-// только App/Config/Open/AsError, всё прочее — алиасы внутренних пакетов.
-// Новая сущность в internal/service без алиаса — видимый отказ: расширение
-// публичной поверхности — осознанное решение, а не случайность.
+// только App/Config/Open/AsError/WithProgress, всё прочее — алиасы
+// внутренних пакетов. Новая сущность в internal/service без алиаса —
+// видимый отказ: расширение публичной поверхности — осознанное решение,
+// а не случайность.
 package components_test
 
 import (
@@ -27,12 +28,16 @@ var serviceExceptions = map[string]bool{
 }
 
 // ownFacadeNames — собственные (не алиасные) экспортируемые имена фасада:
-// App/Config/Open и тонкая обёртка AsError над domain.AsError.
+// App/Config/Open, тонкая обёртка AsError над domain.AsError и обёртка
+// WithProgress над importer.WithProgress (колбэк прогресса импорта,
+// CC-6 — тип ImportOption/Progress открыты алиасами, конструктор — имя
+// фасада).
 var ownFacadeNames = map[string]bool{
-	"App":     true,
-	"Config":  true,
-	"Open":    true,
-	"AsError": true,
+	"App":          true,
+	"Config":       true,
+	"Open":         true,
+	"AsError":      true,
+	"WithProgress": true,
 }
 
 // internalPrefixes — пакеты, на которые фасаду разрешено ссылаться в

@@ -12,6 +12,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"strings"
 	"testing"
@@ -92,6 +93,23 @@ func runFacadeContract(t *testing.T, factory facadeConfig) {
 	}
 	if rep.Added != 0 || rep.Skipped != 2 {
 		t.Fatalf("reimport report: %+v", rep)
+	}
+
+	// Прогресс импорта (CC-6): колбэк WithProgress наблюдает чтение
+	// и применение; NDJSON — построчно (документ — один вызов чтения).
+	var snaps []components.Progress
+	rep, err = app.Importer.Import(ctx, strings.NewReader(fillJSONC), "fill.jsonc", false,
+		components.WithProgress(func(p components.Progress) { snaps = append(snaps, p) }))
+	if err != nil {
+		t.Fatalf("import with progress: %v", err)
+	}
+	want := []components.Progress{
+		{Read: 2},
+		{Read: 2, Applied: 1},
+		{Read: 2, Applied: 2},
+	}
+	if !slices.Equal(snaps, want) {
+		t.Fatalf("progress snapshots: %+v, want %+v", snaps, want)
 	}
 
 	// Поиск: подстрока обозначения и параметрический фильтр.
@@ -209,6 +227,16 @@ func runFacadeContract(t *testing.T, factory facadeConfig) {
 		http.StatusOK, `"system":"gost"`)
 	restWant(t, h, http.MethodGet, "/api/v1/nosuchroute",
 		http.StatusNotFound, `"code":"not_found"`)
+
+	// Потоковый импорт NDJSON через REST-обработчик фасада (CC-6):
+	// синхронный отчёт после EOF.
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/import",
+		strings.NewReader("{\"transistors\": {\"name\": \"КТ3102А\"}}\n"))
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), `"added":1`) {
+		t.Fatalf("POST /api/v1/import: статус %d, тело: %s", rec.Code, rec.Body.String())
+	}
 
 	// Round-trip экспорт записей.
 	var buf bytes.Buffer

@@ -82,11 +82,14 @@ page, err := app.Services.Devices.Search(ctx, components.SearchQuery{
 	Query: "КТ3",
 })
 
-// импорт файла наполнения (jsonc/yaml/ndjson; формат — по расширению)
+// импорт файла наполнения (jsonc/yaml/ndjson; формат — по расширению);
+// опция WithProgress — колбэк прогресса больших файлов (NDJSON читается
+// построчно, без загрузки целиком)
 file, err := os.Open("fill.jsonc")
 if err != nil { … }
 defer file.Close()
-rep, err := app.Importer.Import(ctx, file, "fill.jsonc", false)
+rep, err := app.Importer.Import(ctx, file, "fill.jsonc", false,
+	components.WithProgress(func(p components.Progress) { … }))
 
 // ошибки — значения: машиночитаемый код + сообщение
 if de, ok := components.AsError(err); ok { … de.Code … }
@@ -118,6 +121,7 @@ mux.Handle("/api/v1/", app.Handler())
 | `DELETE /components/{kind}/{designation}` | удаление |
 | `GET /suggest` | автодополнение по префиксу |
 | `GET /stats` | количества по классам, версия схемы, ревизии; `?kind=<код>` — фасетные агрегаты класса: min/max численных параметров (границы — как у фильтров поиска) и частоты текстовых/enum значений |
+| `POST /import` | потоковый импорт NDJSON (тело — строки-обёртки записей и блока `catalog`): синхронный отчёт после EOF, проблемы — в отчёте; жёсткая ошибка — только синтаксис формата и чтение потока (400) |
 
 Ошибки — JSON `{"code", "message", "details"}` со статусами 400/404/409/422/500. Отображаемые поля (`name`, `kind_name`, символы единиц, тексты ошибок) заполняются по `Accept-Language` (по умолчанию `en`); кодовые поля (`kind`, `system`, `unit`…) и коды ошибок от локали не зависят. Полный контракт — `api/openapi.yaml` (OpenAPI 3.1; совпадение с реализацией закреплено тестом).
 

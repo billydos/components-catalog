@@ -40,17 +40,21 @@ func (r *Report) HasIssues() bool { return len(r.Issues) > 0 }
 // Жёсткая ошибка (возвращается как error, прогона нет) — только синтаксис
 // формата; проблемы формы и значений накапливаются в Report.Issues:
 // корректные записи применяются, ошибочные — нет (запись не применяется
-// вовсе, частичное применение записи запрещено).
-func (m *Importer) Import(ctx context.Context, r io.Reader, name string, dryRun bool) (Report, error) {
+// вовсе, частичное применение записи запрещено). Опции (CC-6):
+// WithProgress — колбэк нарастающих счётчиков чтения и применения
+// (NDJSON читается построчно, без загрузки файла целиком).
+func (m *Importer) Import(ctx context.Context, r io.Reader, name string, dryRun bool,
+	opts ...ImportOption) (Report, error) {
 	format, err := FormatByFilename(name)
 	if err != nil {
 		return Report{}, err
 	}
+	o := newImportOptions(opts)
 	switch format {
 	case FormatNDJSON:
-		return m.importNDJSON(ctx, r, name, dryRun, false)
+		return m.importNDJSON(ctx, r, name, dryRun, false, o)
 	default:
-		return m.importDocument(ctx, r, name, format, dryRun, false)
+		return m.importDocument(ctx, r, name, format, dryRun, false, o)
 	}
 }
 
@@ -58,16 +62,18 @@ func (m *Importer) Import(ctx context.Context, r io.Reader, name string, dryRun 
 // (catalog import): записи в файле не допускаются — для них есть import.
 // Смешанный файл отвергается до каких-либо записей в БД: признак «есть
 // записи» известен фазе чтения, применение каталога отложено до проверки.
-func (m *Importer) ImportCatalogFile(ctx context.Context, r io.Reader, name string, dryRun bool) (Report, error) {
+func (m *Importer) ImportCatalogFile(ctx context.Context, r io.Reader, name string,
+	dryRun bool, opts ...ImportOption) (Report, error) {
 	format, err := FormatByFilename(name)
 	if err != nil {
 		return Report{}, err
 	}
+	o := newImportOptions(opts)
 	switch format {
 	case FormatNDJSON:
-		return m.importNDJSON(ctx, r, name, dryRun, true)
+		return m.importNDJSON(ctx, r, name, dryRun, true, o)
 	default:
-		return m.importDocument(ctx, r, name, format, dryRun, true)
+		return m.importDocument(ctx, r, name, format, dryRun, true, o)
 	}
 }
 
@@ -77,7 +83,7 @@ func (m *Importer) ImportCatalogFile(ctx context.Context, r io.Reader, name stri
 // catalogOnly — режим catalog import: применение каталога отложено до
 // проверки отсутствия записей (смешанный файл — отказ до записи в БД).
 func (m *Importer) importDocument(ctx context.Context, r io.Reader, name string, format Format,
-	dryRun, catalogOnly bool) (Report, error) {
+	dryRun, catalogOnly bool, o *importOptions) (Report, error) {
 	data, err := io.ReadAll(r)
 	if err != nil {
 		return Report{}, err
@@ -103,6 +109,7 @@ func (m *Importer) importDocument(ctx context.Context, r io.Reader, name string,
 	rep.Issues = append(rep.Issues, issues...)
 	rep.Records = len(doc.Records) + doc.Rejected
 	rep.Rejected = doc.Rejected
+	o.recordsLoaded(rep.Records)
 	if catalogOnly && rep.Records > 0 {
 		return rep, domain.NewErrorf(domain.CodeInvalidImportFile, domain.MsgImportCatalogRecordsMixed)
 	}
@@ -110,7 +117,7 @@ func (m *Importer) importDocument(ctx context.Context, r io.Reader, name string,
 	if err != nil {
 		return rep, err
 	}
-	m.applyRecords(ctx, doc.Records, readSnap, dryRun, &rep)
+	m.applyRecords(ctx, doc.Records, readSnap, dryRun, &rep, o)
 	return rep, nil
 }
 
@@ -132,7 +139,7 @@ func (m *Importer) importDocument(ctx context.Context, r io.Reader, name string,
 // (отвергнутой): гейт смешанного файла catalog import видит её и
 // отвергает файл до применения каталога.
 func (m *Importer) importNDJSON(ctx context.Context, r io.Reader, name string,
-	dryRun, catalogOnly bool) (Report, error) {
+	dryRun, catalogOnly bool, o *importOptions) (Report, error) {
 	snap, err := m.app.Snapshot(ctx)
 	if err != nil {
 		return Report{}, err
@@ -161,7 +168,13 @@ func (m *Importer) importNDJSON(ctx context.Context, r io.Reader, name string,
 	for {
 		line, number, ok, err := sc.next()
 		if err != nil {
-			return rep, err
+			// Ошибка чтения потока (обрыв источника, строка сверх потолка
+			// сканера 16 МиБ) — проблема файла, а не инфраструктуры:
+			// доменная ошибка invalid_import_file (REST — 400). Номер
+			// строки — следующий за последней прочитанной: отказная
+			// строка не завершилась.
+			return rep, domain.NewErrorf(domain.CodeInvalidImportFile,
+				domain.MsgImportNdjsonLineError, number+1, err.Error())
 		}
 		if !ok {
 			break
@@ -188,6 +201,7 @@ func (m *Importer) importNDJSON(ctx context.Context, r io.Reader, name string,
 				rep.Issues = append(rep.Issues, issuef(number, domain.MsgImportNdjsonWrapperSingle))
 				rep.Records++
 				rep.Rejected++
+				o.recordRead(number, rep.Records)
 				catTainted = true
 				continue
 			}
@@ -212,6 +226,7 @@ func (m *Importer) importNDJSON(ctx context.Context, r io.Reader, name string,
 		rec, ok, issues := ReadRecordLine(plan.read, v, number)
 		rep.Issues = append(rep.Issues, issues...)
 		rep.Records++
+		o.recordRead(number, rep.Records)
 		if ok {
 			records = append(records, rec)
 		} else {
@@ -226,7 +241,7 @@ func (m *Importer) importNDJSON(ctx context.Context, r io.Reader, name string,
 	if err != nil {
 		return rep, err
 	}
-	m.applyRecords(ctx, records, readSnap, dryRun, &rep)
+	m.applyRecords(ctx, records, readSnap, dryRun, &rep, o)
 	return rep, nil
 }
 
@@ -322,8 +337,9 @@ type pendingRecord struct {
 // ссылок-аналогов (прямые ссылки на позднейшие записи файла), исходы
 // считаются по записям. В dry-run записи проверяются без записи в БД;
 // ссылки на создаваемые этим же прогоном обозначения допускаются.
+// Итоговый исход каждой записи отмечается прогрессом (o.appliedOutcome).
 func (m *Importer) applyRecords(ctx context.Context, records []Record, snap *catalog.Snapshot,
-	dryRun bool, rep *Report) {
+	dryRun bool, rep *Report, o *importOptions) {
 	if len(records) == 0 {
 		return
 	}
@@ -357,6 +373,7 @@ func (m *Importer) applyRecords(ctx context.Context, records []Record, snap *cat
 		case service.OutcomeSkipped:
 			rep.Skipped++
 		}
+		o.appliedOutcome()
 	}
 	// recordIssue выводит запись из очереди проблемой прогона; холостое
 	// создание компенсируется удалением — контракт «запись не применяется
@@ -368,6 +385,7 @@ func (m *Importer) applyRecords(ctx context.Context, records []Record, snap *cat
 	recordIssue := func(p *pendingRecord, err error) {
 		rep.Rejected++
 		rep.Issues = append(rep.Issues, issueFromError(p.rec, err))
+		o.appliedOutcome()
 		if !p.created {
 			return
 		}
@@ -411,6 +429,7 @@ func (m *Importer) applyRecords(ctx context.Context, records []Record, snap *cat
 			case p.created:
 				// Запись создана холостым применением — в этом прогоне она новая.
 				rep.Added++
+				o.appliedOutcome()
 			default:
 				recordOutcome(p.rec, outcome)
 			}
