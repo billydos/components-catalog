@@ -295,6 +295,39 @@ type suggestionJSON struct {
 	Designation string `json:"designation"`
 }
 
+// parseCandidateJSON — кандидат разбора: строгая система, принявшая
+// обозначение (порядок автодетекта).
+type parseCandidateJSON struct {
+	Kind   string `json:"kind"`
+	System string `json:"system"`
+}
+
+// parseResponseJSON — GET /parse: основной разбор (класс, система,
+// каноническое обозначение, поля) и кандидаты строгих систем.
+type parseResponseJSON struct {
+	Kind        string               `json:"kind"`
+	System      string               `json:"system"`
+	Designation string               `json:"designation"`
+	Fields      []fieldJSON          `json:"fields"`
+	Candidates  []parseCandidateJSON `json:"candidates"`
+}
+
+func parseToJSON(p domain.ParsedDesignation, candidates []domain.ParsedDesignation) parseResponseJSON {
+	out := parseResponseJSON{
+		Kind:        string(p.Kind),
+		System:      string(p.System),
+		Designation: p.Designation,
+		Fields:      fieldsToJSON(p.Fields),
+		Candidates:  make([]parseCandidateJSON, 0, len(candidates)),
+	}
+	for _, c := range candidates {
+		out.Candidates = append(out.Candidates, parseCandidateJSON{
+			Kind: string(c.Kind), System: string(c.System),
+		})
+	}
+	return out
+}
+
 // statsJSON — GET /stats: количества по классам, версия схемы, ревизии.
 type statsJSON struct {
 	SchemaVersion   int            `json:"schema_version"`

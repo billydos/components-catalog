@@ -340,6 +340,42 @@ paths:
           $ref: "#/components/responses/InternalError"
         "405":
           $ref: "#/components/responses/MethodNotAllowed"
+  /api/v1/parse:
+    get:
+      tags: [service]
+      operationId: parse
+      summary: Разбор обозначения
+      description: |
+        Разбор обозначения теми же строгими грамматиками, что и CLI parse:
+        без system — автодетект (фиксированный порядок: полупроводник
+        gost → pro → jedec → jis → резистор gost/ost → конденсатор gost);
+        с system — разбор в явной системе (для other класс kind обязателен,
+        иначе 400 kind_ambiguous). Обозначение канонизируется (регистр,
+        пробелы, типографские дефисы не важны); system/kind переопределяют
+        автодетект, противоречие — 400 designation_mismatch. Ответ — класс,
+        система, каноническое обозначение, поля разбора и кандидаты: все
+        успешные строгие разборы в порядке автодетекта без дублей пары
+        класс/система (первый кандидат при автодетекте совпадает
+        с основным результатом). Числового «конфиденса» у строгих
+        грамматик нет — перечень кандидатов и есть эквивалент. Повтор
+        любого разбираемого параметра запроса — 400 validation_failed.
+      parameters:
+        - {name: designation, in: query, required: true, schema: {type: string}, description: "Обозначение (канонизируется)."}
+        - {name: system, in: query, schema: {type: string, enum: [gost, ost, pro, jedec, jis, other]}, description: "Система обозначений; без параметра — автодетект."}
+        - {name: kind, in: query, schema: {type: string}, description: "Класс приборов (переопределяет автодетект; обязателен для system=other)."}
+        - $ref: "#/components/parameters/AcceptLanguage"
+      responses:
+        "200":
+          description: Разбор обозначения с кандидатами строгих систем.
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/ParseResponse"}
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "500":
+          $ref: "#/components/responses/InternalError"
+        "405":
+          $ref: "#/components/responses/MethodNotAllowed"
 components:
   parameters:
     Kind:
@@ -608,6 +644,33 @@ components:
         items:
           type: array
           items: {$ref: "#/components/schemas/Suggestion"}
+    ParseCandidate:
+      type: object
+      required: [kind, system]
+      description: Строгая система, принявшая обозначение.
+      properties:
+        kind: {type: string}
+        system: {type: string}
+    ParseResponse:
+      type: object
+      required: [kind, system, designation, fields, candidates]
+      properties:
+        kind: {type: string}
+        system: {type: string}
+        designation: {type: string, description: Каноническое обозначение.}
+        fields:
+          type: array
+          items: {$ref: "#/components/schemas/Field"}
+        candidates:
+          type: array
+          description: |
+            Все успешные строгие разборы в фиксированном порядке
+            автодетекта без дублей пары класс/система; первый элемент
+            при автодетекте совпадает с основным результатом. Числового
+            «конфиденса» у строгих грамматик нет — перечень кандидатов
+            и есть эквивалент. Пуст для записей вне строгих грамматик
+            (явная система other).
+          items: {$ref: "#/components/schemas/ParseCandidate"}
     Stats:
       type: object
       required: [schema_version, catalog_revision, data_revision, total, kinds]

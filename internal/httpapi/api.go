@@ -103,6 +103,7 @@ var routes = []route{
 	{method: http.MethodPut, pattern: apiPrefix + "/components/{kind}/{designation}", op: "components_put", handler: (*API).handlePut},
 	{method: http.MethodDelete, pattern: apiPrefix + "/components/{kind}/{designation}", op: "components_delete", handler: (*API).handleDelete},
 	{method: http.MethodGet, pattern: apiPrefix + "/suggest", op: "suggest", handler: (*API).handleSuggest},
+	{method: http.MethodGet, pattern: apiPrefix + "/parse", op: "parse", handler: (*API).handleParse},
 }
 
 func init() {
@@ -334,7 +335,10 @@ func (a *API) writeErr(w *responseWriter, r *http.Request, err error) {
 
 // statusFor — HTTP-статус по коду ошибки (план 04 §2: 400/404/405/409/422/500).
 // Контекст query: ошибки параметров запроса и пути — 400 (фильтр по
-// неприменимому параметру — 400 по плану); контекст body: синтаксис
+// неприменимому параметру — 400 по плану), включая семантику обозначения
+// в параметрах запроса (GET /parse: неоднозначный/неподдерживаемый класс,
+// хвост мощности, несоответствие системе/классу — вход пользователя,
+// а не семантика хранимой записи); контекст body: синтаксис
 // тела — 400, конфликт — 409, семантика записи — 422. Инфраструктурные
 // коды (недоступная база, DDL, сидирование, внутренняя ошибка) — 500
 // независимо от контекста.
@@ -356,7 +360,9 @@ func statusFor(code domain.Code, inQuery bool) int {
 		case domain.CodeValidationFailed,
 			domain.CodeUnknownParameter, domain.CodeUnknownAttribute, domain.CodeUnknownCondition,
 			domain.CodeParameterNotApplicable, domain.CodeAttributeNotApplicable,
-			domain.CodeInvalidDesignation:
+			domain.CodeInvalidDesignation,
+			domain.CodeKindAmbiguous, domain.CodeKindNotSupported,
+			domain.CodePowerSuffix, domain.CodeDesignationMismatch:
 			return http.StatusBadRequest
 		}
 	}

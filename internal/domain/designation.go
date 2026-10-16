@@ -479,6 +479,48 @@ func ParseDesignationForSystem(text string, system System, kind Kind) (ParsedDes
 	return parseDesignation(text, system, kind)
 }
 
+// ParseDesignationCandidates перечисляет все успешные разборы обозначения
+// строгими системами в фиксированном порядке автодетекта — эквивалент
+// «конфиденса» строгих грамматик (числовой уверенности нет): перечень пар
+// класс/система без дублей; первый элемент совпадает с результатом
+// ParseDesignation при той же подсказке kind (подсказка разрешает
+// неоднозначный класс Ф грамматики gost, как в автодетекте). Контракт
+// ошибок общий с автодетектом: ошибки канонизации и вердикты isVerdictError
+// возвращаются как есть (вердикт прерывает перебор), ни один парсер
+// не принял — autodetect_failed.
+func ParseDesignationCandidates(text string, kind Kind) ([]ParsedDesignation, error) {
+	if kind != "" && !kind.IsValid() {
+		return nil, NewErrorf(CodeValidationFailed, MsgKindUnknown, string(kind))
+	}
+	canonical, err := Canonicalize(text)
+	if err != nil {
+		return nil, err
+	}
+	runes := []rune(canonical)
+	scan := func() *scanner { return newScannerRunes(runes, canonical) }
+	var out []ParsedDesignation
+	seen := make(map[[2]string]bool)
+	for _, parse := range autodetectParsers {
+		p, err := parse(scan(), kind)
+		if err != nil {
+			if isVerdictError(err) {
+				return nil, err
+			}
+			continue
+		}
+		key := [2]string{string(p.Kind), string(p.System)}
+		if seen[key] {
+			continue
+		}
+		seen[key] = true
+		out = append(out, p)
+	}
+	if len(out) == 0 {
+		return nil, NewErrorf(CodeInvalidDesignation, MsgAutodetectFailed, canonical)
+	}
+	return out, nil
+}
+
 // strictParser — парсер строгой системы: получает сканер над каноническими
 // рунами (одно декодирование строки на весь автодетект).
 type strictParser func(s *scanner, kind Kind) (ParsedDesignation, error)
@@ -617,15 +659,22 @@ func runStrict(scan func() *scanner, kind Kind, parse strictParser,
 	return p, nil
 }
 
+// autodetectParsers — фиксированный порядок строгих парсеров автодетекта
+// (план 03 §2.4): полупроводник gost → pro → jedec → jis → резистор
+// gost/ost → конденсатор gost. Единый источник порядка для автодетекта
+// и перечисления кандидатов (ParseDesignationCandidates): порядок обязан
+// совпадать — первый кандидат и есть результат автодетекта.
+var autodetectParsers = []strictParser{
+	parseGostSemiconductor, parsePro, parseJedec, parseJis,
+	parseResistorGost, parseResistorOst, parseCapacitorGost,
+}
+
 // autodetect — порядок попыток фиксирован планом 03 §2.4: только строгие
 // системы. Вердикты прерывают перебор; обозначения вне строгих грамматик
 // не опознаются — итоговый отказ autodetect_failed (явный ключ system
 // переопределяет автодетект).
 func autodetect(scan func() *scanner, canonical string, kind Kind) (ParsedDesignation, error) {
-	for _, parse := range []strictParser{
-		parseGostSemiconductor, parsePro, parseJedec, parseJis,
-		parseResistorGost, parseResistorOst, parseCapacitorGost,
-	} {
+	for _, parse := range autodetectParsers {
 		p, err := parse(scan(), kind)
 		if err == nil {
 			return p, nil

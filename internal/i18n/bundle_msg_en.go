@@ -280,6 +280,7 @@ var messageFormatsEn = map[string]string{
 	"api_bool_attr_filter":     "attribute filter «%[1]s»: boolean attributes are not supported in filters",
 	"api_card_not_found":       "record «%[1]s» not found",
 	"api_designation_mismatch": "the designation in the request body does not match the designation in the path",
+	"api_designation_missing":  "query parameter designation is not set",
 	"api_id_not_found":         "record with identifier %[1]s not found",
 	"api_limit_range":          "parameter limit: an integer from 1 to %[1]d is expected",
 	"api_method_not_allowed":   "method not allowed for this route",

@@ -279,6 +279,7 @@ var messageFormatsRu = map[string]string{
 	"api_bool_attr_filter":     "фильтр атрибута «%[1]s»: логические атрибуты не поддерживаются в фильтрах",
 	"api_card_not_found":       "запись «%[1]s» не найдена",
 	"api_designation_mismatch": "обозначение тела запроса не совпадает с обозначением в пути",
+	"api_designation_missing":  "не задан параметр designation",
 	"api_id_not_found":         "запись с идентификатором %[1]s не найдена",
 	"api_limit_range":          "параметр limit: ожидается целое от 1 до %[1]d",
 	"api_method_not_allowed":   "метод не допускается для этого маршрута",

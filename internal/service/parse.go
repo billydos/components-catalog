@@ -27,6 +27,27 @@ func (s *DesignationService) ParseForSystem(ctx context.Context, text string,
 	return domain.ParseDesignationForSystem(text, system, kind)
 }
 
+// ParseWithCandidates разбирает обозначение (автодетект либо явная система
+// с необязательным классом) и перечисляет всех кандидатов строгих систем
+// в фиксированном порядке автодетекта — REST GET /api/v1/parse: перечень
+// принявших обозначение систем заменяет числовой «конфиденс» строгих
+// грамматик (первый кандидат при автодетекте совпадает с основным
+// разбором). Явная система авторитетна: когда основной разбор удался,
+// а перечисление кандидатов — нет (other вне строгих грамматик),
+// кандидаты пусты.
+func (s *DesignationService) ParseWithCandidates(ctx context.Context, text string,
+	system domain.System, kind domain.Kind) (domain.ParsedDesignation, []domain.ParsedDesignation, error) {
+	p, err := domain.ParseDesignationForSystem(text, system, kind)
+	if err != nil {
+		return domain.ParsedDesignation{}, nil, err
+	}
+	candidates, err := domain.ParseDesignationCandidates(text, kind)
+	if err != nil {
+		return p, nil, nil
+	}
+	return p, candidates, nil
+}
+
 // Suggest возвращает обозначения по префиксу (канонизация префикса;
 // подстрочный регистр не важен — хранятся канонические строки).
 func (s *DesignationService) Suggest(ctx context.Context, prefix string, kind domain.Kind, limit int) ([]Suggestion, error) {

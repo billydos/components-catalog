@@ -339,6 +339,7 @@ const (
 	MsgApiDesignationMismatch MsgID = "api_designation_mismatch"
 	MsgApiBadID               MsgID = "api_bad_id"
 	MsgApiQMissing            MsgID = "api_q_missing"
+	MsgApiDesignationMissing  MsgID = "api_designation_missing"
 	MsgApiQueryInvalid        MsgID = "api_query_invalid"
 	MsgApiLimitRange          MsgID = "api_limit_range"
 	MsgApiOffsetNonNeg        MsgID = "api_offset_non_negative"
@@ -843,6 +844,7 @@ var msgRegistry = map[MsgID]struct{}{
 	MsgApiBadID:                       {},
 	MsgApiQueryInvalid:                {},
 	MsgApiQMissing:                    {},
+	MsgApiDesignationMissing:          {},
 	MsgApiLimitRange:                  {},
 	MsgApiOffsetNonNeg:                {},
 	MsgApiSortKey:                     {},

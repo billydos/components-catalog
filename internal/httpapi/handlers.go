@@ -211,6 +211,34 @@ func (a *API) handleSuggest(w *responseWriter, r *http.Request, _ map[string]str
 	writeJSON(w, http.StatusOK, resp)
 }
 
+// handleParse — GET /api/v1/parse: разбор обозначения (автодетект либо
+// явная система/класс) с перечнем кандидатов строгих систем — основа UX
+// ввода обозначения (features.log CC-1); разбор — только сервисный слой.
+func (a *API) handleParse(w *responseWriter, r *http.Request, _ map[string]string) {
+	values, err := parseStrictQuery(r)
+	if err != nil {
+		a.writeDomainErr(w, r, err, true)
+		return
+	}
+	if err := rejectDuplicateParams(values, "designation", "system", "kind"); err != nil {
+		a.writeDomainErr(w, r, err, true)
+		return
+	}
+	designation := values.Get("designation")
+	if designation == "" {
+		a.writeError(w, r, http.StatusBadRequest, domain.CodeValidationFailed, domain.MsgApiDesignationMissing)
+		return
+	}
+	p, candidates, err := a.app.Services().Designations.ParseWithCandidates(
+		r.Context(), designation,
+		domain.System(values.Get("system")), domain.Kind(values.Get("kind")))
+	if err != nil {
+		a.writeDomainErr(w, r, err, true)
+		return
+	}
+	writeJSON(w, http.StatusOK, parseToJSON(p, candidates))
+}
+
 // handleCreate — POST /api/v1/components: создание; тело — запись
 // наполнения (name/system + секции), класс — автодетект по обозначению
 // (для system other создание адресуется PUT с классом в пути).
