@@ -1,10 +1,12 @@
 // Команда runner — кроссплатформенный прогон QA справочника (Linux, macOS,
 // Windows; регламент — qa/README.md). Фазы: определение окружения и железа,
 // сборка catalogctl/restsrv, статические проверки (go build/vet, gofmt,
-// go test), сквозные сценарии CLI и REST на SQLite (всегда) и PostgreSQL
-// (при CATALOG_TEST_POSTGRES_DSN либо -postgres-dsn), опциональная
-// нагрузочная прикидка (-scale). Итог — структурный отчёт qa-log/1
-// (qa/reports/*.log); код выхода 0 — все проверки зелёные.
+// go test), сборка и запуск примера встраивания examples/embed (внешний
+// модуль — контракт фасада components), сквозные сценарии CLI и REST на
+// SQLite (всегда) и PostgreSQL (при CATALOG_TEST_POSTGRES_DSN либо
+// -postgres-dsn), опциональная нагрузочная прикидка (-scale). Итог —
+// структурный отчёт qa-log/1 (qa/reports/*.log); код выхода 0 — все
+// проверки зелёные.
 //
 // Прогон целиком на Go: внешние команды — только go и собранные бинарники
 // проекта; никаких sh/bat/cmd-скриптов.
@@ -163,6 +165,10 @@ func run(ctx context.Context, r *report, root string, opts runOptions) {
 	}
 	ctl, srv, buildOK := buildBinaries(ctx, r, root, tmp)
 	staticPhase(ctx, r, root, opts)
+	if cancelled(ctx, r) {
+		return
+	}
+	consumerPhase(ctx, r, root, tmp)
 	if cancelled(ctx, r) {
 		return
 	}

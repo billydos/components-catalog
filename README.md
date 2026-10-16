@@ -63,10 +63,12 @@ catalogctl export --format ndjson --db catalog.db            # round-trip экс
 
 ## Встраивание (Go API)
 
-Модуль не запускает серверов и не читает глобальных флагов и env: сайт создаёт `App` при старте и закрывает при завершении.
+Публичный фасад — пакет `components` (план 01 §2.4): модуль не запускает серверов и не читает глобальных флагов и env — сайт создаёт `App` при старте и закрывает при завершении. Импортируется только `components`; пакеты `internal/` внешнему модулю недоступны, типы сервисного слоя открыты алиасами.
 
 ```go
-app, err := service.Open(ctx, service.Config{
+import "github.com/billydos/components-catalog/components"
+
+app, err := components.Open(ctx, components.Config{
 	Dialect:       "sqlite", // "sqlite" | "postgres"
 	DSN:           "catalog.db",
 	EnsureCreated: true, // DDL + сиды каталога на пустую базу
@@ -74,20 +76,31 @@ app, err := service.Open(ctx, service.Config{
 if err != nil { … }
 defer app.Close()
 
-app.Services() // Devices / Designations / Catalog
+// сервисный слой: Devices / Designations / Catalog
+page, err := app.Services.Devices.Search(ctx, components.SearchQuery{
+	Kind:  components.KindTransistor,
+	Query: "КТ3",
+})
+
+// импорт файла наполнения (jsonc/yaml/ndjson; формат — по расширению)
+rep, err := app.Importer.Import(ctx, file, "fill.jsonc", false)
+
+// ошибки — значения: машиночитаемый код + сообщение
+if de, ok := components.AsError(err); ok { … de.Code … }
 ```
+
+Готовый runnable-пример — [`examples/embed`](examples/embed/main.go): внешний модуль с `replace` на локальный путь; его сборка и запуск — фаза consumer QA-прогонщика (компилируемость у внешнего потребителя — часть контракта).
 
 ## REST API
 
-`httpapi.New(app, cfg).Handler()` возвращает обычный `http.Handler` — монтируется в любой роутер сайта. Аутентификация, авторизация, rate limiting и CORS — на стороне сайта (запись монтируется только в защищённые маршруты).
+`app.Handler()` возвращает обычный `http.Handler` REST `/api/v1` — монтируется в любой роутер сайта. Аутентификация, авторизация, rate limiting и CORS — на стороне сайта (запись монтируется только в защищённые маршруты).
 
 ```go
 mux := http.NewServeMux()
-mux.Handle("/api/v1/", httpapi.New(app, httpapi.Config{
-	// Log:            slog.Default(), // nil — slog.Default()
-	// DisableSuggest: true,           // не монтировать GET /suggest
-	// Metrics:        myMetrics,      // хук счётчиков сайта
-}).Handler())
+mux.Handle("/api/v1/", app.Handler())
+// опции REST — в components.Config:
+// DisableSuggest: true — не монтировать GET /suggest
+// Metrics:        myMetrics — хук счётчиков сайта
 ```
 
 | Маршрут | Назначение |
