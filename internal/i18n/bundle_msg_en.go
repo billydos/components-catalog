@@ -264,6 +264,9 @@ var messageFormatsEn = map[string]string{
 	"svc_search_value_duplicate":           "field filter «%[1]s»: value «%[2]s» is set more than once",
 	"svc_search_id_max":                    "id filter: no more than %[1]d values are allowed",
 	"svc_search_id_positive":               "id filter: a positive integer is expected (got %[1]d)",
+	"svc_search_values_duplicate":          "value column «%[1]s» is set more than once",
+	"svc_search_values_max":                "value columns: no more than %[1]d codes are allowed",
+	"svc_values_attr_bool":                 "value column «attr.%[1]s»: boolean attributes are not supported in value columns",
 	"svc_filter_attr_number_expected":      "attribute filter «%[1]s»: a number is expected",
 	"svc_filter_attr_text_expected":        "attribute filter «%[1]s»: a text value is expected",
 	"svc_filter_param_number_expected":     "parameter filter «%[1]s»: a number is expected",
@@ -300,6 +303,7 @@ var messageFormatsEn = map[string]string{
 	"api_query_param_unknown":  "unknown query parameter «%[1]s»",
 	"api_route_not_found":      "unknown request route",
 	"api_sort_key_unknown":     "parameter sort: unknown sort key «%[1]s»",
+	"api_values_code":          "parameter values: a parameter code or «attr.<code>» is expected (got «%[1]s»)",
 	"internal_error":           "internal error: %[1]s",
 	// Интерфейсные строки CLI (internal/cli).
 	"cli_analogs":                    "Analogs: %[1]s",

@@ -236,10 +236,36 @@ type SortField struct {
 	Desc    bool
 }
 
+// ValueColumn — колонка значений строки поиска (CC-13): код параметра
+// каталога либо код атрибута (Attr — форма запроса attr.<код>). Коды
+// передаются явно: модуль не знает о курируемом наборе колонок сайта.
+type ValueColumn struct {
+	Code string
+	Attr bool
+}
+
+// String — форма колонки запроса (attr.<код> для атрибутов) для
+// сообщений об ошибках.
+func (c ValueColumn) String() string {
+	if c.Attr {
+		return "attr." + c.Code
+	}
+	return c.Code
+}
+
+// SearchValue — значение колонки значений строки поиска (CC-13):
+// запрошенная колонка и её значение у записи формы CardValue (у атрибутов
+// Parameter — код атрибута, заполнены Text либо Exact).
+type SearchValue struct {
+	Column ValueColumn
+	Value  CardValue
+}
+
 // SearchQuery — запрос поиска: класс, система, подстрока обозначения,
 // фильтр по набору стабильных id (пересечение с прочими фильтрами; без
 // сортировки порядок выдачи — порядок передачи id), фильтры полей/
-// атрибутов/параметров, сортировка, пагинация
+// атрибутов/параметров, сортировка, колонки значений (CC-13 — пакетная
+// проекция в строки выдачи), пагинация
 // (docs/plan/04-module-functionality.md §1.1).
 type SearchQuery struct {
 	Kind       domain.Kind
@@ -250,17 +276,21 @@ type SearchQuery struct {
 	Attributes []AttributeFilter
 	Parameters []ParameterFilter
 	Sort       []SortField
+	Values     []ValueColumn
 	Limit      int
 	Offset     int
 }
 
-// SearchItem — строка результатов поиска.
+// SearchItem — строка результатов поиска; Values — значения запрошенных
+// колонок (CC-13) в порядке запроса, присутствующие у записи (нет
+// значения — нет элемента).
 type SearchItem struct {
 	ID          int64
 	Kind        domain.Kind
 	System      domain.System
 	Designation string
 	Fields      []domain.Field
+	Values      []SearchValue
 }
 
 // SearchPage — страница результатов с общим числом записей под фильтрами.
@@ -288,6 +318,9 @@ const (
 	// Фильтр по набору id (docs/plan/04-module-functionality.md §1.1):
 	// до 200 положительных значений повторяемого параметра id.
 	SearchIDsMax = 200
+	// Колонки значений строк поиска (CC-13): до 16 кодов повторяемого
+	// параметра values (параметр либо attr.<атрибут>).
+	SearchValuesMax = 16
 	// Поток изменений (change feed): страница по умолчанию и потолок
 	// GET /api/v1/changes.
 	ChangesDefaultLimit = 100

@@ -155,7 +155,7 @@ func (a *API) handleSearch(w *responseWriter, r *http.Request, _ map[string]stri
 		a.writeDomainErr(w, r, err, true)
 		return
 	}
-	writeJSON(w, http.StatusOK, searchPageToJSON(page))
+	writeJSON(w, http.StatusOK, searchPageToJSON(requestLang(r), q.Values, page))
 }
 
 // handleGet — GET /api/v1/components/{kind}/{designation}: карточка

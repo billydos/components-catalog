@@ -14,12 +14,12 @@ import (
 )
 
 // Разбор параметров поиска GET /api/v1/components
-// (docs/plan/04-module-functionality.md §2): kind, system, q, набор id
-// и словарные фильтры мультивыбора (повторяемые параметры — намеренные
-// исключения строгости: значения набора, семантика ИЛИ), поля обозначения
-// (коды полей разбора — реестр домена), attr.<код>, par.<код>(.min/.max/
-// .exact), sort, limit, offset. Неизвестный ключ — ошибка (опечатки
-// не молчат).
+// (docs/plan/04-module-functionality.md §2): kind, system, q, набор id,
+// словарные фильтры мультивыбора и колонки значений (повторяемые
+// параметры — намеренные исключения строгости: значения набора),
+// поля обозначения (коды полей разбора — реестр домена), attr.<код>,
+// par.<код>(.min/.max/.exact), sort, limit, offset. Неизвестный ключ —
+// ошибка (опечатки не молчат).
 
 // queryLimit — разбор limit с потолком (поиск 200, suggest 50).
 func queryLimit(values []string, max int) (int, bool, error) {
@@ -67,10 +67,10 @@ func dictionaryQueryParam(name string) bool {
 }
 
 // repeatableQueryParam — намеренно повторяемые параметры поиска: набор
-// id (CC-8) и словарные фильтры мультивыбора (CC-11); из проверки
-// повторов их исключает parseSearchQuery.
+// id (CC-8), словарные фильтры мультивыбора (CC-11) и колонки значений
+// (CC-13); из проверки повторов их исключает parseSearchQuery.
 func repeatableQueryParam(name string) bool {
-	return name == "id" || dictionaryQueryParam(name)
+	return name == "id" || name == "values" || dictionaryQueryParam(name)
 }
 
 // parseSearchQuery разбирает параметры поиска в запрос сервисного слоя;
@@ -105,6 +105,17 @@ func parseSearchQuery(values url.Values, snap *catalog.Snapshot) (service.Search
 			ids = append(ids, n)
 		}
 		q.IDs = ids
+	}
+	if vs := values["values"]; len(vs) > 0 {
+		cols := make([]service.ValueColumn, 0, len(vs))
+		for _, v := range vs {
+			col, ok := parseValueColumn(v)
+			if !ok {
+				return q, domain.NewErrorf(domain.CodeValidationFailed, domain.MsgApiValuesCode, v)
+			}
+			cols = append(cols, col)
+		}
+		q.Values = cols
 	}
 	if v, exists, err := queryLimit(values["limit"], service.SearchLimitMax); err != nil {
 		return q, err
@@ -184,14 +195,31 @@ func parseSearchQuery(values url.Values, snap *catalog.Snapshot) (service.Search
 	return q, nil
 }
 
-// reservedQueryParam — служебные параметры поиска (id разобран
-// повторяемым набором выше).
+// reservedQueryParam — служебные параметры поиска (id и values разобраны
+// повторяемыми наборами выше).
 func reservedQueryParam(name string) bool {
 	switch name {
-	case "kind", "system", "q", "id", "sort", "limit", "offset":
+	case "kind", "system", "q", "id", "values", "sort", "limit", "offset":
 		return true
 	}
 	return false
+}
+
+// parseValueColumn — элемент повторяемого параметра values (CC-13): код
+// параметра каталога либо attr.<код атрибута>; пустой код — ошибка
+// разбора (известность, применимость к классу и логические атрибуты
+// проверяет сервис по снимку — единая точка валидации).
+func parseValueColumn(v string) (service.ValueColumn, bool) {
+	if code, ok := strings.CutPrefix(v, "attr."); ok {
+		if code == "" {
+			return service.ValueColumn{}, false
+		}
+		return service.ValueColumn{Code: code, Attr: true}, true
+	}
+	if v == "" {
+		return service.ValueColumn{}, false
+	}
+	return service.ValueColumn{Code: v}, true
 }
 
 // canonicalizeFieldCode канонизирует значение словарного поля разбора

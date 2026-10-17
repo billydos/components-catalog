@@ -559,6 +559,107 @@ func TestBatchDeviceReads(t *testing.T) {
 	}
 }
 
+// TestLoadByIDsCodes — пакетные чтения с фильтром кодов (CC-13): значения
+// и атрибуты по списку записей × запрошенные коды; посторонние коды
+// не читаются, порядок строк — как у чтений без фильтра.
+func TestLoadByIDsCodes(t *testing.T) {
+	for _, dialect := range []string{"sqlite", "postgres"} {
+		t.Run(dialect, func(t *testing.T) {
+			db := openDevicesDB(t, dialect)
+			ctx := context.Background()
+
+			tx, err := db.Begin(ctx)
+			if err != nil {
+				t.Fatalf("begin: %v", err)
+			}
+			for _, q := range []string{
+				`INSERT INTO parameter_groups(code, section_name, sort_order) VALUES ('grp', 'params', 0)`,
+				`INSERT INTO parameters(code, group_code, value_type, sort_order) VALUES ('vp', 'grp', 'exact', 0), ('vt', 'grp', 'text', 1)`,
+				`INSERT INTO conditions(code) VALUES ('temp')`,
+				`INSERT INTO attributes(code, value_type, sort_order) VALUES ('a1', 'text', 0), ('a2', 'number', 1)`,
+			} {
+				if _, err := tx.exec(ctx, q, nil); err != nil {
+					t.Fatalf("сид %q: %v", q, err)
+				}
+			}
+			id, _, err := tx.InsertDevice(ctx, "resistor", "gost", "DEV-V")
+			if err != nil {
+				t.Fatalf("вставка: %v", err)
+			}
+			exact, min := 1.5, 0.5
+			textVal, attrText := "abc", "ту"
+			if err := tx.InsertValues(ctx, id, nil, []ParamValue{
+				{Parameter: "vp", Min: &min, Max: &exact},
+				{Parameter: "vt", Text: &textVal},
+			}); err != nil {
+				t.Fatalf("значения: %v", err)
+			}
+			vid, err := tx.InsertVariant(ctx, id, "5%", 0)
+			if err != nil {
+				t.Fatalf("исполнение: %v", err)
+			}
+			if err := tx.InsertValues(ctx, id, &vid, []ParamValue{
+				{Parameter: "vp", Exact: &exact, Conditions: []Cond{{Code: "temp", Value: 25}}},
+			}); err != nil {
+				t.Fatalf("значения исполнения: %v", err)
+			}
+			if err := tx.ReplaceAttributes(ctx, id, []AttrRow{
+				{Attribute: "a1", Text: &attrText}, {Attribute: "a2", Num: &exact},
+			}); err != nil {
+				t.Fatalf("атрибуты: %v", err)
+			}
+			if err := tx.Commit(); err != nil {
+				t.Fatalf("commit: %v", err)
+			}
+
+			values, err := db.LoadValuesByIDsCodes(ctx, []int64{id}, []string{"vp"})
+			if err != nil {
+				t.Fatalf("значения по кодам: %v", err)
+			}
+			rows := values[id]
+			if len(rows) != 2 { // тип + исполнение, посторонний vt отфильтрован
+				t.Fatalf("значения по кодам: %d строк, ожидалось 2 (vp типа и исполнения)", len(rows))
+			}
+			if rows[0].VariantID != nil || rows[0].Value.Min == nil || *rows[0].Value.Min != min {
+				t.Fatalf("строка типа: %+v", rows[0])
+			}
+			if rows[1].VariantID == nil || rows[1].Value.Exact == nil ||
+				len(rows[1].Value.Conditions) != 1 {
+				t.Fatalf("строка исполнения: %+v", rows[1])
+			}
+
+			attrs, err := db.LoadAttributesByIDsCodes(ctx, []int64{id}, []string{"a2"})
+			if err != nil {
+				t.Fatalf("атрибуты по кодам: %v", err)
+			}
+			if len(attrs[id]) != 1 || attrs[id][0].Attribute != "a2" || attrs[id][0].Num == nil {
+				t.Fatalf("атрибуты по кодам: %+v, ожидался только a2", attrs[id])
+			}
+
+			// Чтение в транзакции (путь проекции поиска) даёт то же самое.
+			rtx, err := db.BeginReadOnly(ctx)
+			if err != nil {
+				t.Fatalf("begin чтения: %v", err)
+			}
+			defer rtx.Rollback() //nolint:errcheck — чтение без побочных эффектов
+			txValues, err := rtx.LoadValuesByIDsCodes(ctx, []int64{id}, []string{"vp"})
+			if err != nil {
+				t.Fatalf("значения по кодам в транзакции: %v", err)
+			}
+			if !reflect.DeepEqual(txValues, values) {
+				t.Fatalf("чтение в транзакции: %+v, ожидалось %+v", txValues, values)
+			}
+			txAttrs, err := rtx.LoadAttributesByIDsCodes(ctx, []int64{id}, []string{"a2"})
+			if err != nil {
+				t.Fatalf("атрибуты по кодам в транзакции: %v", err)
+			}
+			if !reflect.DeepEqual(txAttrs, attrs) {
+				t.Fatalf("чтение в транзакции: %+v, ожидалось %+v", txAttrs, attrs)
+			}
+		})
+	}
+}
+
 // TestManufacturerTargetedOrphanCleanup — адресная чистка сирот:
 // производитель, общий у нескольких записей, переживает замену списка
 // одной из них; потеряв последнюю связь — удаляется; удаление записи

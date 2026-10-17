@@ -187,9 +187,10 @@ paths:
         ETag — по data_revision и канонической строке запроса (разные
         фильтры/сортировки — разные ETag). Повтор любого параметра
         запроса — 400 validation_failed; исключения — намеренно
-        повторяемые id (набор фильтра, до 200 значений) и словарные
+        повторяемые id (набор фильтра, до 200 значений), словарные
         фильтры material/subclass/adjustment/category (мультивыбор —
-        семантика ИЛИ внутри поля, features.log CC-11).
+        семантика ИЛИ внутри поля, features.log CC-11) и values (колонки
+        значений строк выдачи, features.log CC-13).
 
         Помимо перечисленных параметров допустимы:
 
@@ -242,6 +243,31 @@ paths:
             minItems: 1
             maxItems: 200
             uniqueItems: true
+          style: form
+          explode: true
+        - name: values
+          in: query
+          description: |
+            Колонки значений строк выдачи (CC-13) — намеренно повторяемый
+            параметр: код параметра каталога либо attr.<код атрибута>,
+            до 16 кодов, дубликат — 400 validation_failed. Значение —
+            элемент формы CardValue по каждому коду, присутствующему
+            у записи (нет значения — нет элемента), в порядке запроса:
+            name — локаль запроса, unit — канонический код единицы,
+            conditions — только у параметров. Правило выбора значения
+            при нескольких строках у записи (данные типа + исполнения):
+            численные — агрегат границ MIN/MAX (одиночная строка
+            сохраняет форму exact/at_least/at_most), текстовые/enum —
+            данные типа поверх исполнений. Логические атрибуты —
+            400 validation_failed; неизвестный код — 400
+            unknown_parameter/unknown_attribute, неприменимый к классу
+            запроса — 400 parameter_not_applicable/
+            attribute_not_applicable (как у фильтров).
+          schema:
+            type: array
+            items: {type: string, minLength: 1}
+            minItems: 1
+            maxItems: 16
           style: form
           explode: true
         - name: sort
@@ -813,6 +839,12 @@ components:
         fields:
           type: array
           items: {$ref: "#/components/schemas/Field"}
+        values:
+          type: array
+          description: Значения запрошенных колонок (параметр values,
+            CC-13) в порядке запроса; элемент формы CardValue по каждому
+            коду, присутствующему у записи (нет значения — нет элемента).
+          items: {$ref: "#/components/schemas/CardValue"}
     SearchPage:
       type: object
       required: [items, total, limit, offset]

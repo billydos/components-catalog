@@ -59,8 +59,10 @@ func (s *CatalogService) Import(ctx context.Context, in catalog.Input) error {
 // (пересечение с прочими фильтрами; без сортировки — порядок передачи
 // id), фильтры полей/атрибутов/параметров (применимость к классу
 // запроса — D7, ошибки валидации запроса), сортировка с финальным
-// (kind, designation), пагинация (limit ≤ 200); вариантные
-// параметрические фильтры применяются в пределах одного исполнения
+// (kind, designation), колонки значений (CC-13 — пакетная проекция
+// значений параметров/атрибутов в строки выдачи), пагинация
+// (limit ≤ 200); вариантные параметрические фильтры применяются
+// в пределах одного исполнения
 // (docs/plan/04-module-functionality.md §1.1).
 func (s *DeviceService) Search(ctx context.Context, q SearchQuery) (SearchPage, error) {
 	snap, err := s.app.cache.Snapshot(ctx)
@@ -97,7 +99,182 @@ func (s *DeviceService) Search(ctx context.Context, q SearchQuery) (SearchPage, 
 		}
 		page.Items = append(page.Items, item)
 	}
+	if len(q.Values) > 0 && len(page.Items) > 0 {
+		if err := s.attachSearchValues(ctx, snap, q.Values, page.Items); err != nil {
+			return SearchPage{}, err
+		}
+	}
 	return page, nil
+}
+
+// attachSearchValues — пакетная проекция колонок значений (CC-13) в строки
+// страницы: одним чтением по id страницы × запрошенные коды (без сборки
+// карточек целиком — N+1 внутри модуля не возникает), в транзакции чтения
+// (снимок един для чтений значений и атрибутов проекции; сама страница
+// ищется db.Search вне её — как у карточек, конкурентная запись меняет
+// данные между поиском и проекцией не атомарно).
+func (s *DeviceService) attachSearchValues(ctx context.Context, snap *catalog.Snapshot,
+	cols []ValueColumn, items []SearchItem) error {
+	ids := make([]int64, len(items))
+	for i := range items {
+		ids[i] = items[i].ID
+	}
+	paramCodes := make([]string, 0, len(cols))
+	attrCodes := make([]string, 0, len(cols))
+	for _, col := range cols {
+		if col.Attr {
+			attrCodes = append(attrCodes, col.Code)
+		} else {
+			paramCodes = append(paramCodes, col.Code)
+		}
+	}
+	tx, err := s.app.db.BeginReadOnly(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback() //nolint:errcheck — откат транзакции чтения
+	var values map[int64][]storage.ValueRow
+	if len(paramCodes) > 0 {
+		if values, err = tx.LoadValuesByIDsCodes(ctx, ids, paramCodes); err != nil {
+			return err
+		}
+	}
+	var attrs map[int64][]storage.AttrRow
+	if len(attrCodes) > 0 {
+		if attrs, err = tx.LoadAttributesByIDsCodes(ctx, ids, attrCodes); err != nil {
+			return err
+		}
+	}
+	for i := range items {
+		items[i].Values = projectSearchValues(snap, cols, values[items[i].ID], attrs[items[i].ID])
+	}
+	return nil
+}
+
+// projectSearchValues собирает значения запрошенных колонок одной записи
+// в порядке запроса (нет значения — нет элемента). Правило выбора значения
+// при нескольких строках у записи (данные типа + исполнения, повторные
+// строки) — paramSearchValue; атрибут — text/exact-num по типу каталога.
+func projectSearchValues(snap *catalog.Snapshot, cols []ValueColumn,
+	values []storage.ValueRow, attrs []storage.AttrRow) []SearchValue {
+	out := make([]SearchValue, 0, len(cols))
+	for _, col := range cols {
+		if col.Attr {
+			if v, ok := attrSearchValue(col, snap, attrs); ok {
+				out = append(out, v)
+			}
+			continue
+		}
+		def, ok := snap.Parameter(col.Code)
+		if !ok {
+			continue // неизвестные каталогу не проектируются (снимок един с валидацией)
+		}
+		var rows []storage.ValueRow
+		for _, vr := range values {
+			if vr.Value.Parameter == col.Code {
+				rows = append(rows, vr)
+			}
+		}
+		if len(rows) == 0 {
+			continue
+		}
+		out = append(out, SearchValue{Column: col, Value: paramSearchValue(def, rows)})
+	}
+	return out
+}
+
+// paramSearchValue — значение параметра записи для колонки: единственная
+// строка — как есть, с условиями измерения (тултип карточки); несколько —
+// численные агрегируются границами MIN/MAX (семантика фасетов CC-5
+// и сортировки CC-12: нижняя — MIN нижних границ строк, верхняя — MAX
+// верхних, точное значение участвует в обеих), текстовые/enum — данные
+// типа поверх исполнений (порядок строк: тип в целом, затем исполнения),
+// среди уровня — первая строка; у агрегата смешанного происхождения
+// условия не показываются.
+func paramSearchValue(def *catalog.ParameterDef, rows []storage.ValueRow) CardValue {
+	if !def.ValueType.Numeric() {
+		for _, vr := range rows {
+			if vr.VariantID == nil && vr.Value.Text != nil {
+				return cardValueOf(def, vr)
+			}
+		}
+		for _, vr := range rows {
+			if vr.Value.Text != nil {
+				return cardValueOf(def, vr)
+			}
+		}
+		return CardValue{}
+	}
+	if len(rows) == 1 {
+		return cardValueOf(def, rows[0])
+	}
+	v := CardValue{Parameter: def.Code, Unit: def.Unit}
+	for _, vr := range rows {
+		if lower := coalesceLower(vr.Value); lower != nil && (v.Min == nil || *lower < *v.Min) {
+			v.Min = lower
+		}
+		if upper := coalesceUpper(vr.Value); upper != nil && (v.Max == nil || *upper > *v.Max) {
+			v.Max = upper
+		}
+	}
+	return v
+}
+
+// coalesceLower — нижняя граница строки значений: value_min, точное
+// значение либо единственная верхняя (правило выбора значения CC-12).
+func coalesceLower(v storage.ParamValue) *float64 {
+	if v.Min != nil {
+		return v.Min
+	}
+	if v.Exact != nil {
+		return v.Exact
+	}
+	return v.Max
+}
+
+// coalesceUpper — верхняя граница: value_max, точное значение либо
+// единственная нижняя.
+func coalesceUpper(v storage.ParamValue) *float64 {
+	if v.Max != nil {
+		return v.Max
+	}
+	if v.Exact != nil {
+		return v.Exact
+	}
+	return v.Min
+}
+
+// cardValueOf — значение строки параметра формы CardValue (единица —
+// из определения параметра, условия — строки).
+func cardValueOf(def *catalog.ParameterDef, vr storage.ValueRow) CardValue {
+	return CardValue{
+		Parameter:  vr.Value.Parameter,
+		Unit:       def.Unit,
+		Exact:      vr.Value.Exact,
+		Min:        vr.Value.Min,
+		Max:        vr.Value.Max,
+		Text:       vr.Value.Text,
+		Conditions: condsFromStorage(vr.Value.Conditions),
+	}
+}
+
+// attrSearchValue — значение атрибута записи для колонки: text/enum —
+// текст, int/number — точное число, name/unit — из определения (логические
+// отвергаются валидацией запроса); у записи не более одной строки.
+func attrSearchValue(col ValueColumn, snap *catalog.Snapshot, attrs []storage.AttrRow) (SearchValue, bool) {
+	def, ok := snap.Attribute(col.Code)
+	if !ok {
+		return SearchValue{}, false
+	}
+	for _, a := range attrs {
+		if a.Attribute != col.Code {
+			continue
+		}
+		return SearchValue{Column: col, Value: CardValue{
+			Parameter: col.Code, Unit: def.Unit, Text: a.Text, Exact: a.Num,
+		}}, true
+	}
+	return SearchValue{}, false
 }
 
 // ValidateSearch проверяет поисковый запрос по каталогу (класс, система,
@@ -271,6 +448,47 @@ func buildSearchRequest(snap *catalog.Snapshot, q SearchQuery) (storage.SearchRe
 			}
 		}
 		req.Sorts = append(req.Sorts, storage.SortKey{Key: so.Key, Numeric: so.Numeric, Param: so.Param, Desc: so.Desc})
+	}
+	// Колонки значений (CC-13): известность и применимость кодов — по
+	// снимку, по образцу фильтров (в единую точку валидации — их тексты
+	// не дублируются); логические атрибуты формы CardValue не имеют —
+	// 400, как у фильтров; дубликат кода и потолок набора — как у набора
+	// id. В storage-запрос колонки не входят — это проекция ответа.
+	if len(q.Values) > SearchValuesMax {
+		return req, domain.NewErrorf(domain.CodeValidationFailed,
+			domain.MsgSvcSearchValuesMax, SearchValuesMax)
+	}
+	seenValues := make(map[string]struct{}, len(q.Values))
+	for _, col := range q.Values {
+		key := col.String()
+		if _, dup := seenValues[key]; dup {
+			return req, domain.NewErrorf(domain.CodeValidationFailed,
+				domain.MsgSvcSearchValuesDuplicate, key)
+		}
+		seenValues[key] = struct{}{}
+		if col.Attr {
+			def, ok := snap.Attribute(col.Code)
+			if !ok {
+				return req, domain.NewErrorf(domain.CodeUnknownAttribute, domain.MsgEngineAttrUnknown, col.Code)
+			}
+			if q.Kind != "" && !def.AppliesTo(q.Kind) {
+				return req, domain.NewErrorf(domain.CodeAttributeNotApplicable,
+					domain.MsgEngineAttrNotApplicable, col.Code, string(q.Kind))
+			}
+			if def.Type == catalog.AttrBool {
+				return req, domain.NewErrorf(domain.CodeValidationFailed,
+					domain.MsgSvcValuesBoolAttr, col.Code)
+			}
+			continue
+		}
+		def, ok := snap.Parameter(col.Code)
+		if !ok {
+			return req, domain.NewErrorf(domain.CodeUnknownParameter, domain.MsgEngineParamUnknown, col.Code)
+		}
+		if q.Kind != "" && !def.AppliesTo(q.Kind) {
+			return req, domain.NewErrorf(domain.CodeParameterNotApplicable,
+				domain.MsgEngineParamNotApplicable, col.Code, string(q.Kind))
+		}
 	}
 	return req, nil
 }

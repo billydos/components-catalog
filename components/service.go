@@ -53,16 +53,19 @@ type (
 	FindResult      = service.FindResult
 )
 
-// Поиск: запрос, фильтры, сортировка, страница результатов.
+// Поиск: запрос, фильтры, сортировка, колонки значений, страница
+// результатов.
 
 type (
 	SearchQuery     = service.SearchQuery
 	SearchPage      = service.SearchPage
 	SearchItem      = service.SearchItem
+	SearchValue     = service.SearchValue
 	SortField       = service.SortField
 	FieldFilter     = service.FieldFilter
 	AttributeFilter = service.AttributeFilter
 	ParameterFilter = service.ParameterFilter
+	ValueColumn     = service.ValueColumn
 	FilterOp        = service.FilterOp
 )
 
@@ -78,6 +81,7 @@ const (
 	SearchDefaultLimit  = service.SearchDefaultLimit
 	SearchLimitMax      = service.SearchLimitMax
 	SearchIDsMax        = service.SearchIDsMax
+	SearchValuesMax     = service.SearchValuesMax
 	SuggestDefaultLimit = service.SuggestDefaultLimit
 	SuggestLimitMax     = service.SuggestLimitMax
 	ChangesDefaultLimit = service.ChangesDefaultLimit

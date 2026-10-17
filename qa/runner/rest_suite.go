@@ -196,6 +196,28 @@ func restSuite(ctx context.Context, r *report, srv, tmp string, l leg) {
 		status == http.StatusBadRequest && strings.Contains(body, "validation_failed"),
 		detail(status, body)...)
 
+	// GET /components: колонки значений строк поиска (CC-13) — повторяемый
+	// параметр values: вариантные численные К50-35 агрегируются границами
+	// (Vnom 6.3…315), атрибут — текстом (spec К50-35); негативные случаи —
+	// логический атрибут и неизвестный код.
+	status, body, _ = cl.do(ctx, http.MethodGet,
+		"/components?kind=capacitor&values=Vnom&values=attr.spec", "", nil)
+	r.check("rest/components-values", "GET /components: колонки значений — параметры и атрибуты",
+		status == http.StatusOK && strings.Contains(body, `"parameter":"Vnom"`) &&
+			strings.Contains(body, `"min":6.3`) && strings.Contains(body, `"max":315`) &&
+			strings.Contains(body, "ОЖ0.464.214ТУ"),
+		detail(status, body)...)
+	status, body, _ = cl.do(ctx, http.MethodGet, "/components?values=attr.polarized", "", nil)
+	r.check("rest/components-values-bool",
+		"GET /components: values=bool-атрибут — 400 validation_failed",
+		status == http.StatusBadRequest && strings.Contains(body, "validation_failed"),
+		detail(status, body)...)
+	status, body, _ = cl.do(ctx, http.MethodGet, "/components?values=bogus", "", nil)
+	r.check("rest/components-values-unknown",
+		"GET /components: values=неизвестный код — 400 unknown_parameter",
+		status == http.StatusBadRequest && strings.Contains(body, "unknown_parameter"),
+		detail(status, body)...)
+
 	// Карточка по ключу (с исполнениями) и по стабильному id.
 	status, body, _ = cl.do(ctx, http.MethodGet,
 		"/components/capacitor/"+url.PathEscape("К50-35"), "", nil)

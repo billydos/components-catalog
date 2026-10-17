@@ -263,6 +263,9 @@ var messageFormatsRu = map[string]string{
 	"svc_search_value_duplicate":           "фильтр поля «%[1]s»: значение «%[2]s» задано повторно",
 	"svc_search_id_max":                    "фильтр id: допустимо не более %[1]d значений",
 	"svc_search_id_positive":               "фильтр id: ожидается целое положительное число (получено %[1]d)",
+	"svc_search_values_duplicate":          "колонка значений «%[1]s» задана повторно",
+	"svc_search_values_max":                "колонки значений: допустимо не более %[1]d кодов",
+	"svc_values_attr_bool":                 "колонка значений «attr.%[1]s»: логические атрибуты не поддерживаются в колонках значений",
 	"svc_filter_attr_number_expected":      "фильтр атрибута «%[1]s»: ожидается число",
 	"svc_filter_attr_text_expected":        "фильтр атрибута «%[1]s»: ожидается текстовое значение",
 	"svc_filter_param_number_expected":     "фильтр параметра «%[1]s»: ожидается число",
@@ -299,6 +302,7 @@ var messageFormatsRu = map[string]string{
 	"api_query_param_unknown":  "неизвестный параметр запроса «%[1]s»",
 	"api_route_not_found":      "неизвестный маршрут запроса",
 	"api_sort_key_unknown":     "параметр sort: неизвестный ключ сортировки «%[1]s»",
+	"api_values_code":          "параметр values: ожидается код параметра либо «attr.<код>» (получено «%[1]s»)",
 	"internal_error":           "внутренняя ошибка: %[1]s",
 	// Интерфейсные строки CLI (internal/cli).
 	"cli_analogs":                    "Аналоги: %[1]s",

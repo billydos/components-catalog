@@ -764,6 +764,56 @@ func TestSearch(t *testing.T) {
 	if len(page.Items) != 0 || page.Total != 0 {
 		t.Fatalf("мультивыбор ∩ kind=capacitor: %v total=%d", page.Items, page.Total)
 	}
+
+	// Колонки значений (CC-13): повторяемый параметр values — коды
+	// параметров и attr.<код>, элемент формы CardValue по каждому коду,
+	// присутствующему у записи, порядок — запрос; вариантные значения
+	// К50-35 агрегируются границами MIN/MAX; name — локаль запроса.
+	_, body, _ = do(t, srv, http.MethodGet,
+		apiPrefix+"/components?kind=capacitor&values=Cnom&values=Vnom", "")
+	page = decode[searchPageJSON](t, body)
+	if len(page.Items) != 1 || page.Items[0].Designation != "К50-35" ||
+		len(page.Items[0].Values) != 2 {
+		t.Fatalf("колонки значений: %+v", page.Items)
+	}
+	cnom, vnom := page.Items[0].Values[0], page.Items[0].Values[1]
+	if cnom.Parameter != "Cnom" || cnom.Name != "nominal capacitance (series range)" ||
+		cnom.Unit != "pF" || *cnom.Min != 1000000 || *cnom.Max != 4700000000 {
+		t.Fatalf("Cnom К50-35: %+v", cnom)
+	}
+	if vnom.Parameter != "Vnom" || vnom.Unit != "V" ||
+		*vnom.Min != 25 || *vnom.Max != 160 {
+		t.Fatalf("Vnom К50-35: %+v", vnom)
+	}
+	// Атрибуты числом и текстом; условия — только у параметров.
+	_, body, _ = do(t, srv, http.MethodGet,
+		apiPrefix+"/components?kind=transistor&values=hfe&values=attr.yearFrom&values=attr.structure", "")
+	page = decode[searchPageJSON](t, body)
+	if len(page.Items) != 3 { // ГТ109Г из блока мультивыбора — без значений
+		t.Fatalf("колонки значений транзисторов: %d записей", len(page.Items))
+	}
+	bc, gt, kt := page.Items[0], page.Items[1], page.Items[2]
+	if kt.Designation != "КТ315Б" || len(kt.Values) != 3 {
+		t.Fatalf("колонки КТ315Б: %+v", kt.Values)
+	}
+	if kt.Values[0].Parameter != "hfe" || *kt.Values[0].Min != 50 ||
+		*kt.Values[0].Max != 350 || len(kt.Values[0].Conditions) != 2 {
+		t.Fatalf("hfe КТ315Б: %+v", kt.Values[0])
+	}
+	if kt.Values[1].Parameter != "yearFrom" || kt.Values[1].Name != "first production year" ||
+		*kt.Values[1].Exact != 1967 || len(kt.Values[1].Conditions) != 0 {
+		t.Fatalf("yearFrom КТ315Б: %+v", kt.Values[1])
+	}
+	if kt.Values[2].Parameter != "structure" || *kt.Values[2].Text != "npn" {
+		t.Fatalf("structure КТ315Б: %+v", kt.Values[2])
+	}
+	if bc.Designation != "BC547B" || len(bc.Values) != 2 ||
+		bc.Values[1].Parameter != "structure" || *bc.Values[1].Text != "npn" {
+		t.Fatalf("колонки BC547B (нет yearFrom — нет элемента): %+v", bc.Values)
+	}
+	if gt.Designation != "ГТ109Г" || len(gt.Values) != 0 {
+		t.Fatalf("колонки ГТ109Г (нет значений — нет элементов): %+v", gt.Values)
+	}
 }
 
 func TestSearchETagChangesOnWrite(t *testing.T) {
@@ -845,6 +895,22 @@ func TestSearchErrors(t *testing.T) {
 			"field filter «material»: value «si» is set more than once"},
 		{"category=power&category=power", "validation_failed",
 			"field filter «category»: value «power» is set more than once"},
+		// Колонки значений (CC-13): неизвестный код, неприменимость
+		// к классу, логический атрибут, форма кода, дубликат набора.
+		{"values=bogus", "unknown_parameter", "unknown parameter «bogus»"},
+		{"values=attr.bogus", "unknown_attribute", "unknown attribute «bogus»"},
+		{"kind=resistor&values=hfe", "parameter_not_applicable",
+			"parameter «hfe» is not applicable to kind resistor"},
+		{"kind=capacitor&values=attr.structure", "attribute_not_applicable",
+			"attribute «structure» is not applicable to kind capacitor"},
+		{"values=attr.polarized", "validation_failed",
+			"value column «attr.polarized»: boolean attributes are not supported in value columns"},
+		{"values=", "validation_failed",
+			"parameter values: a parameter code or «attr.<code>» is expected (got «»)"},
+		{"values=attr.", "validation_failed",
+			"parameter values: a parameter code or «attr.<code>» is expected (got «attr.»)"},
+		{"values=hfe&values=hfe", "validation_failed",
+			"value column «hfe» is set more than once"},
 	}
 	for _, tc := range cases {
 		t.Run(tc.query, func(t *testing.T) {
@@ -866,6 +932,19 @@ func TestSearchErrors(t *testing.T) {
 	status, _, eb := do(t, srv, http.MethodGet, apiPrefix+"/components?"+sb.String(), "")
 	wantError(t, status, eb, http.StatusBadRequest, "validation_failed",
 		"id filter: no more than 200 values are allowed")
+
+	// Потолок набора колонок значений (CC-13): 17 кодов — 400 (потолок
+	// проверяется раньше известности кодов).
+	var vb strings.Builder
+	for i := 0; i <= service.SearchValuesMax; i++ {
+		if i > 0 {
+			vb.WriteByte('&')
+		}
+		fmt.Fprintf(&vb, "values=c%d", i)
+	}
+	status, _, eb = do(t, srv, http.MethodGet, apiPrefix+"/components?"+vb.String(), "")
+	wantError(t, status, eb, http.StatusBadRequest, "validation_failed",
+		"value columns: no more than 16 codes are allowed")
 }
 
 func TestCard(t *testing.T) {

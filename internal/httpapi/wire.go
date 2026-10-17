@@ -244,13 +244,16 @@ type upsertResponseJSON struct {
 	Card    cardJSON `json:"card"`
 }
 
-// searchItemJSON — строка результатов поиска.
+// searchItemJSON — строка результатов поиска; values — значения
+// запрошенных колонок (CC-13) в порядке запроса, присутствующие у записи
+// (нет значения — нет элемента; опущено без колонок в запросе).
 type searchItemJSON struct {
-	ID          int64       `json:"id"`
-	Kind        string      `json:"kind"`
-	System      string      `json:"system"`
-	Designation string      `json:"designation"`
-	Fields      []fieldJSON `json:"fields"`
+	ID          int64           `json:"id"`
+	Kind        string          `json:"kind"`
+	System      string          `json:"system"`
+	Designation string          `json:"designation"`
+	Fields      []fieldJSON     `json:"fields"`
+	Values      []cardValueJSON `json:"values,omitempty"`
 }
 
 // searchPageJSON — страница поиска с общим числом под фильтрами.
@@ -261,18 +264,41 @@ type searchPageJSON struct {
 	Offset int              `json:"offset"`
 }
 
-func searchPageToJSON(p service.SearchPage) searchPageJSON {
+func searchPageToJSON(lang i18n.Language, cols []service.ValueColumn, p service.SearchPage) searchPageJSON {
 	out := searchPageJSON{
 		Items: make([]searchItemJSON, 0, len(p.Items)),
 		Total: p.Total, Limit: p.Limit, Offset: p.Offset,
 	}
 	for _, it := range p.Items {
-		out.Items = append(out.Items, searchItemJSON{
+		item := searchItemJSON{
 			ID: it.ID, Kind: string(it.Kind), System: string(it.System),
 			Designation: it.Designation, Fields: fieldsToJSON(it.Fields),
-		})
+		}
+		for _, v := range it.Values {
+			item.Values = append(item.Values, searchValueToJSON(lang, v))
+		}
+		out.Items = append(out.Items, item)
 	}
 	return out
+}
+
+// searchValueToJSON — элемент колонки значений строки поиска (CC-13):
+// форма CardValue (conditions — только у параметров), name — локаль
+// запроса по виду колонки, unit — канонический код единицы.
+func searchValueToJSON(lang i18n.Language, v service.SearchValue) cardValueJSON {
+	vj := cardValueJSON{
+		Parameter: v.Column.Code,
+		Name:      i18n.ParameterName(lang, v.Column.Code),
+		Unit:      v.Value.Unit,
+		Exact:     v.Value.Exact, Min: v.Value.Min, Max: v.Value.Max, Text: v.Value.Text,
+	}
+	if v.Column.Attr {
+		vj.Name = i18n.AttributeName(lang, v.Column.Code)
+	}
+	for _, c := range v.Value.Conditions {
+		vj.Conditions = append(vj.Conditions, conditionJSON{Condition: c.Condition, Value: c.Value})
+	}
+	return vj
 }
 
 // kindsResponseJSON — GET /kinds.

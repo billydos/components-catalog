@@ -473,24 +473,41 @@ WHERE device_id IN `+inList("id", chunk, args)+` ORDER BY device_id, field`, arg
 
 // LoadAttributesByIDs — значения атрибутов по списку записей.
 func (d *DB) LoadAttributesByIDs(ctx context.Context, ids []int64) (map[int64][]AttrRow, error) {
-	return loadAttributesByIDs(ctx, d.reads, ids)
+	return loadAttributesByIDs(ctx, d.reads, ids, nil)
+}
+
+// LoadAttributesByIDsCodes — значения атрибутов по списку записей
+// и кодов атрибутов (пакетная проекция колонок значений поиска, CC-13).
+func (d *DB) LoadAttributesByIDsCodes(ctx context.Context, ids []int64, codes []string) (map[int64][]AttrRow, error) {
+	return loadAttributesByIDs(ctx, d.reads, ids, codes)
 }
 
 func (t *Tx) LoadAttributesByIDs(ctx context.Context, ids []int64) (map[int64][]AttrRow, error) {
-	return loadAttributesByIDs(ctx, t.tx, ids)
+	return loadAttributesByIDs(ctx, t.tx, ids, nil)
 }
 
-func loadAttributesByIDs(ctx context.Context, q queryer, ids []int64) (map[int64][]AttrRow, error) {
+// LoadAttributesByIDsCodes — значения атрибутов по списку записей
+// и кодов атрибутов; вызывается в транзакции чтения — согласованный
+// снимок с прочими чтениями страницы.
+func (t *Tx) LoadAttributesByIDsCodes(ctx context.Context, ids []int64, codes []string) (map[int64][]AttrRow, error) {
+	return loadAttributesByIDs(ctx, t.tx, ids, codes)
+}
+
+func loadAttributesByIDs(ctx context.Context, q queryer, ids []int64, codes []string) (map[int64][]AttrRow, error) {
 	if len(ids) == 0 {
 		return nil, nil
 	}
 	out := make(map[int64][]AttrRow, len(ids))
 	err := eachIDChunk(ids, func(chunk []int64) error {
 		args := make(map[string]any, len(chunk))
+		where := `WHERE device_id IN ` + inList("id", chunk, args)
+		if len(codes) > 0 {
+			where += ` AND attribute_code IN ` + inTextList("code", codes, args)
+		}
 		rows, err := queryContext(ctx, q, `
 SELECT device_id, attribute_code, text_value, num_value, bool_value
 FROM device_attribute_values
-WHERE device_id IN `+inList("id", chunk, args)+` ORDER BY device_id, attribute_code`, args)
+`+where+` ORDER BY device_id, attribute_code`, args)
 		if err != nil {
 			return err
 		}
@@ -527,14 +544,28 @@ WHERE device_id IN `+inList("id", chunk, args)+` ORDER BY device_id, attribute_c
 // с условиями по списку записей; порядок строк внутри записи — как у
 // LoadValues.
 func (d *DB) LoadValuesByIDs(ctx context.Context, ids []int64) (map[int64][]ValueRow, error) {
-	return loadValuesByIDs(ctx, d.reads, ids)
+	return loadValuesByIDs(ctx, d.reads, ids, nil)
+}
+
+// LoadValuesByIDsCodes — значения параметров (тип в целом и исполнения)
+// с условиями по списку записей и кодов параметров (пакетная проекция
+// колонок значений поиска, CC-13).
+func (d *DB) LoadValuesByIDsCodes(ctx context.Context, ids []int64, codes []string) (map[int64][]ValueRow, error) {
+	return loadValuesByIDs(ctx, d.reads, ids, codes)
 }
 
 func (t *Tx) LoadValuesByIDs(ctx context.Context, ids []int64) (map[int64][]ValueRow, error) {
-	return loadValuesByIDs(ctx, t.tx, ids)
+	return loadValuesByIDs(ctx, t.tx, ids, nil)
 }
 
-func loadValuesByIDs(ctx context.Context, q queryer, ids []int64) (map[int64][]ValueRow, error) {
+// LoadValuesByIDsCodes — значения параметров с условиями по списку
+// записей и кодов параметров; вызывается в транзакции чтения —
+// согласованный снимок с прочими чтениями страницы.
+func (t *Tx) LoadValuesByIDsCodes(ctx context.Context, ids []int64, codes []string) (map[int64][]ValueRow, error) {
+	return loadValuesByIDs(ctx, t.tx, ids, codes)
+}
+
+func loadValuesByIDs(ctx context.Context, q queryer, ids []int64, codes []string) (map[int64][]ValueRow, error) {
 	if len(ids) == 0 {
 		return nil, nil
 	}
@@ -542,12 +573,16 @@ func loadValuesByIDs(ctx context.Context, q queryer, ids []int64) (map[int64][]V
 	pos := make(map[int64]int) // parameter_values.id → индекс в out[device_id]
 	err := eachIDChunk(ids, func(chunk []int64) error {
 		args := make(map[string]any, len(chunk))
+		where := `WHERE pv.device_id IN ` + inList("id", chunk, args)
+		if len(codes) > 0 {
+			where += ` AND pv.parameter_code IN ` + inTextList("code", codes, args)
+		}
 		rows, err := queryContext(ctx, q, `
 SELECT pv.device_id, pv.id, pv.variant_id, pv.parameter_code, pv.value_exact, pv.value_min,
        pv.value_max, pv.value_text, pvc.condition_code, pvc.value
 FROM parameter_values pv
 LEFT JOIN parameter_value_conditions pvc ON pvc.parameter_value_id = pv.id
-WHERE pv.device_id IN `+inList("id", chunk, args)+`
+`+where+`
 ORDER BY pv.device_id, (CASE WHEN pv.variant_id IS NULL THEN 0 ELSE 1 END),
          pv.variant_id, pv.sort_order, pv.id, pvc.condition_code`, args)
 		if err != nil {

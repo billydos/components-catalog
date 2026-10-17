@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"fmt"
 	"path/filepath"
 	"reflect"
 	"slices"
@@ -174,6 +175,7 @@ func runSuite(t *testing.T, factory configFactory) {
 	t.Run("get by ids", func(t *testing.T) { suiteGetByIDs(t, factory) })
 	t.Run("search", func(t *testing.T) { suiteSearch(t, factory) })
 	t.Run("search validation", func(t *testing.T) { suiteSearchValidation(t, factory) })
+	t.Run("search values", func(t *testing.T) { suiteSearchValues(t, factory) })
 	t.Run("delete cascade", func(t *testing.T) { suiteDeleteCascade(t, factory) })
 	t.Run("create", func(t *testing.T) { suiteCreate(t, factory) })
 	t.Run("fields rewrite on update", func(t *testing.T) { suiteFieldsRewriteOnUpdate(t, factory) })
@@ -1185,6 +1187,185 @@ func suiteSearchValidation(t *testing.T, factory configFactory) {
 	})
 	wantDomainError(t, err, domain.CodeValidationFailed,
 		"field filter «material»: value «si» is set more than once")
+}
+
+// suiteSearchValues — колонки значений строк поиска (CC-13): пакетная
+// проекция параметров и атрибутов в строки страницы (порядок запроса,
+// отсутствующий код — нет элемента), агрегация численных границ по строкам
+// записи (тип + исполнения), сохранение формы и условий одиночной строки,
+// приоритет текстовых данных типа над исполнениями, атрибуты text/num,
+// валидация кодов (известность, применимость к классу, логические
+// атрибуты, дубликат, потолок набора).
+func suiteSearchValues(t *testing.T, factory configFactory) {
+	ctx := context.Background()
+	app := openSuiteApp(t, factory)
+	svc := app.Services().Devices
+	seedTransistors(t, svc)
+	mustUpsert(t, svc, DeviceInput{
+		Name:       "К50-35",
+		Attributes: []catalog.AttributeValue{{Attribute: "polarized", Bool: ptr(true)}},
+		Variants: &[]VariantInput{
+			{Label: "160 В", Sections: []SectionInput{
+				section("parameters", pvExact("Vnom", 160), pvRange("Cnom", 1000000, 10000000)),
+			}},
+			{Label: "25 В", Sections: []SectionInput{
+				section("parameters", pvExact("Vnom", 25), pvRange("Cnom", 47000000, 4700000000)),
+			}},
+		},
+	})
+	mustUpsert(t, svc, DeviceInput{
+		Name: "К10-17Б",
+		Sections: []SectionInput{
+			section("parameters", pvText("TCC", "Н30"), pvExact("Vnom", 25)),
+		},
+		Variants: &[]VariantInput{
+			{Label: "25 В", Sections: []SectionInput{
+				section("parameters", pvText("TCC", "М75"),
+					pvExact("Vnom", 25), pvRange("Cnom", 22, 1000000)),
+			}},
+		},
+	})
+
+	valuesOf := func(page SearchPage, designation string) []SearchValue {
+		for _, it := range page.Items {
+			if it.Designation == designation {
+				return it.Values
+			}
+		}
+		return nil
+	}
+
+	// Численные по строкам типа и исполнений — агрегат границ MIN/MAX;
+	// текстовый TCC К50-35 отсутствует — элемента нет; порядок — запрос.
+	page, err := svc.Search(ctx, SearchQuery{
+		Kind:   domain.KindCapacitor,
+		Values: []ValueColumn{{Code: "Vnom"}, {Code: "TCC"}},
+	})
+	if err != nil {
+		t.Fatalf("значения: %v", err)
+	}
+	k50 := valuesOf(page, "К50-35")
+	if len(k50) != 1 || k50[0].Column.Code != "Vnom" ||
+		k50[0].Value.Min == nil || *k50[0].Value.Min != 25 ||
+		k50[0].Value.Max == nil || *k50[0].Value.Max != 160 {
+		t.Fatalf("Vnom К50-35 (агрегат исполнений): %+v", k50)
+	}
+	k10 := valuesOf(page, "К10-17Б")
+	if len(k10) != 2 || k10[0].Column.Code != "Vnom" ||
+		k10[0].Value.Min == nil || *k10[0].Value.Min != 25 ||
+		k10[0].Value.Max == nil || *k10[0].Value.Max != 25 {
+		t.Fatalf("Vnom К10-17Б (тип + исполнение — агрегат): %+v", k10)
+	}
+	if k10[1].Column.Code != "TCC" || k10[1].Value.Text == nil || *k10[1].Value.Text != "Н30" {
+		t.Fatalf("TCC К10-17Б (данные типа поверх исполнения): %+v", k10)
+	}
+
+	// Одиночная строка сохраняет форму и условия: диапазон hfe,
+	// односторонние Icbo (at_most) и fT (at_least, у BC547B) с условиями
+	// измерения; одиночное точное — VceoMax.
+	page, err = svc.Search(ctx, SearchQuery{
+		Kind:   domain.KindTransistor,
+		Values: []ValueColumn{{Code: "hfe"}, {Code: "Icbo"}, {Code: "fT"}, {Code: "VceoMax"}},
+	})
+	if err != nil {
+		t.Fatalf("значения транзисторов: %v", err)
+	}
+	kt := valuesOf(page, "КТ315Б")
+	if len(kt) != 3 {
+		t.Fatalf("колонки КТ315Б: %+v", kt)
+	}
+	if kt[0].Value.Min == nil || *kt[0].Value.Min != 50 || kt[0].Value.Max == nil ||
+		*kt[0].Value.Max != 350 || len(kt[0].Value.Conditions) != 2 {
+		t.Fatalf("hfe КТ315Б (диапазон с условиями): %+v", kt[0].Value)
+	}
+	if kt[1].Value.Min != nil || kt[1].Value.Max == nil || *kt[1].Value.Max != 0.5 ||
+		len(kt[1].Value.Conditions) != 2 {
+		t.Fatalf("Icbo КТ315Б (at_most с условиями): %+v", kt[1].Value)
+	}
+	if kt[2].Value.Exact == nil || *kt[2].Value.Exact != 20 ||
+		kt[2].Value.Min != nil || kt[2].Value.Max != nil {
+		t.Fatalf("VceoMax КТ315Б (точное значение): %+v", kt[2].Value)
+	}
+	bc := valuesOf(page, "BC547B")
+	if len(bc) != 3 || bc[1].Value.Min == nil || *bc[1].Value.Min != 300 ||
+		bc[1].Value.Max != nil || len(bc[1].Value.Conditions) != 2 {
+		t.Fatalf("fT BC547B (at_least с условиями): %+v", bc)
+	}
+
+	// Атрибуты: текст и число, отсутствующий код — нет элемента.
+	page, err = svc.Search(ctx, SearchQuery{
+		Kind: domain.KindTransistor,
+		Values: []ValueColumn{
+			{Code: "description", Attr: true}, {Code: "yearFrom", Attr: true},
+		},
+	})
+	if err != nil {
+		t.Fatalf("атрибуты: %v", err)
+	}
+	mp := valuesOf(page, "МП39")
+	if len(mp) != 1 || mp[0].Column.Code != "description" ||
+		mp[0].Value.Text == nil || *mp[0].Value.Text != "низкочастотный" {
+		t.Fatalf("description МП39: %+v", mp)
+	}
+	if kt := valuesOf(page, "КТ315Б"); len(kt) != 1 || kt[0].Column.Code != "yearFrom" ||
+		kt[0].Value.Exact == nil || *kt[0].Value.Exact != 1967 {
+		t.Fatalf("yearFrom КТ315Б: %+v", kt)
+	}
+
+	// Параметр и атрибут — разные пространства кодов: набор из тех и
+	// прочих легален.
+	if _, err = svc.Search(ctx, SearchQuery{
+		Kind: domain.KindTransistor,
+		Values: []ValueColumn{
+			{Code: "hfe"}, {Code: "structure", Attr: true}, {Code: "yearFrom", Attr: true},
+		},
+	}); err != nil {
+		t.Fatalf("параметры и атрибуты вместе: %v", err)
+	}
+
+	// Валидация: неизвестные коды, применимость к классу, логический
+	// атрибут, дубликат и потолок набора.
+	_, err = svc.Search(ctx, SearchQuery{Values: []ValueColumn{{Code: "nosuch"}}})
+	wantDomainError(t, err, domain.CodeUnknownParameter, "unknown parameter «nosuch»")
+	_, err = svc.Search(ctx, SearchQuery{Values: []ValueColumn{{Code: "nosuch", Attr: true}}})
+	wantDomainError(t, err, domain.CodeUnknownAttribute, "unknown attribute «nosuch»")
+	_, err = svc.Search(ctx, SearchQuery{
+		Kind:   domain.KindResistor,
+		Values: []ValueColumn{{Code: "hfe"}},
+	})
+	wantDomainError(t, err, domain.CodeParameterNotApplicable,
+		"parameter «hfe» is not applicable to kind resistor")
+	_, err = svc.Search(ctx, SearchQuery{
+		Kind:   domain.KindTransistor,
+		Values: []ValueColumn{{Code: "polarized", Attr: true}},
+	})
+	wantDomainError(t, err, domain.CodeAttributeNotApplicable,
+		"attribute «polarized» is not applicable to kind transistor")
+	_, err = svc.Search(ctx, SearchQuery{
+		Kind:   domain.KindCapacitor,
+		Values: []ValueColumn{{Code: "polarized", Attr: true}},
+	})
+	wantDomainError(t, err, domain.CodeValidationFailed,
+		"value column «attr.polarized»: boolean attributes are not supported in value columns")
+	_, err = svc.Search(ctx, SearchQuery{
+		Values: []ValueColumn{{Code: "hfe"}, {Code: "hfe"}},
+	})
+	wantDomainError(t, err, domain.CodeValidationFailed,
+		"value column «hfe» is set more than once")
+	_, err = svc.Search(ctx, SearchQuery{
+		Values: []ValueColumn{
+			{Code: "description", Attr: true}, {Code: "description", Attr: true},
+		},
+	})
+	wantDomainError(t, err, domain.CodeValidationFailed,
+		"value column «attr.description» is set more than once")
+	tooManyCols := make([]ValueColumn, SearchValuesMax+1)
+	for i := range tooManyCols {
+		tooManyCols[i] = ValueColumn{Code: fmt.Sprintf("c%d", i)}
+	}
+	_, err = svc.Search(ctx, SearchQuery{Values: tooManyCols})
+	wantDomainError(t, err, domain.CodeValidationFailed,
+		"value columns: no more than 16 codes are allowed")
 }
 
 // suiteDeleteCascade — каскадное удаление записи с данными и ссылками,
