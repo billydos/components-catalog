@@ -189,11 +189,17 @@ const (
 )
 
 // FieldFilter — фильтр по полю разбора обозначения (material, subclass,
-// junctions, group, dev_number, series…): текстовое равенство (Text) либо
-// числовое со сравнением (Num + Op).
+// junctions, group, dev_number, series…): текстовое равенство (Text),
+// набор текстовых значений с семантикой ИЛИ (Texts — словарные поля
+// мультивыбора material/subclass/adjustment/category, CC-11; повторные
+// фильтры того же поля в запросе не сливаются — каждое значение отдельно
+// остаётся семантикой И; потолка размера набора нет — REST ограничен
+// мощностью словаря канонизацией значений, прямые Go-вызовы держат
+// набор разумным) либо числовое со сравнением (Num + Op).
 type FieldFilter struct {
 	Field  string
 	Text   string
+	Texts  []string
 	Num    float64
 	HasNum bool
 	Op     FilterOp

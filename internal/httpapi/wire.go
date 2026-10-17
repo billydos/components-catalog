@@ -474,17 +474,38 @@ func importReportToJSON(lang i18n.Language, rep *importer.Report) importReportJS
 // (snake_case по колонкам каталожных таблиц — docs/plan/04 §4).
 
 type catalogSnapshotJSON struct {
-	Revision    int64               `json:"revision"`
-	Kinds       []kindDefJSON       `json:"kinds"`
-	Systems     []systemDefJSON     `json:"systems"`
-	SystemKinds []systemKindRefJSON `json:"system_kinds"`
-	Units       []unitDefJSON       `json:"units"`
-	Conditions  []conditionDefJSON  `json:"conditions"`
-	Groups      []groupDefJSON      `json:"groups"`
-	Parameters  []parameterDefJSON  `json:"parameters"`
-	Attributes  []attributeDefJSON  `json:"attributes"`
-	Rules       []ruleDefJSON       `json:"rules"`
-	KindRules   []kindRuleRefJSON   `json:"kind_rules"`
+	Revision     int64                 `json:"revision"`
+	Kinds        []kindDefJSON         `json:"kinds"`
+	Systems      []systemDefJSON       `json:"systems"`
+	SystemKinds  []systemKindRefJSON   `json:"system_kinds"`
+	Units        []unitDefJSON         `json:"units"`
+	Conditions   []conditionDefJSON    `json:"conditions"`
+	Groups       []groupDefJSON        `json:"groups"`
+	Parameters   []parameterDefJSON    `json:"parameters"`
+	Attributes   []attributeDefJSON    `json:"attributes"`
+	Rules        []ruleDefJSON         `json:"rules"`
+	KindRules    []kindRuleRefJSON     `json:"kind_rules"`
+	Dictionaries fieldDictionariesJSON `json:"dictionaries"`
+}
+
+// fieldValueDefJSON — значение словарного поля обозначения: стабильный
+// код (значение фильтров и секции fields) и отображаемое название
+// по локали запроса.
+type fieldValueDefJSON struct {
+	Code string `json:"code"`
+	Name string `json:"name"`
+}
+
+// fieldDictionariesJSON — словари значений словарных полей обозначения
+// (CC-11) для построения мультивыборных фильтров: material, subclass,
+// adjustment — константные реестры internal/domain; category — данные
+// каталога (Snapshot.Categories, расширяется импортом; расширения без
+// записи в бандле отображаются кодом — D9).
+type fieldDictionariesJSON struct {
+	Material   []fieldValueDefJSON `json:"material"`
+	Subclass   []fieldValueDefJSON `json:"subclass"`
+	Adjustment []fieldValueDefJSON `json:"adjustment"`
+	Category   []fieldValueDefJSON `json:"category"`
 }
 
 type systemDefJSON struct {
@@ -648,6 +669,35 @@ func catalogToJSON(lang i18n.Language, s *catalog.Snapshot) catalogSnapshotJSON 
 	for _, kr := range s.KindRules {
 		out.KindRules = append(out.KindRules, kindRuleRefJSON{Kind: string(kr.Kind), Rule: kr.Rule})
 	}
+	// Словари значений полей обозначения (CC-11): порядок кодов —
+	// стабильный порядок реестров домена и строк снимка.
+	dicts := fieldDictionariesJSON{
+		Material:   make([]fieldValueDefJSON, 0, len(domain.Materials())),
+		Subclass:   make([]fieldValueDefJSON, 0, len(domain.Subclasses())),
+		Adjustment: make([]fieldValueDefJSON, 0, len(domain.Adjustments())),
+		Category:   make([]fieldValueDefJSON, 0, len(s.Categories)),
+	}
+	for _, m := range domain.Materials() {
+		dicts.Material = append(dicts.Material, fieldValueDefJSON{
+			Code: m.Code, Name: i18n.MaterialName(lang, m.Code),
+		})
+	}
+	for _, sc := range domain.Subclasses() {
+		dicts.Subclass = append(dicts.Subclass, fieldValueDefJSON{
+			Code: sc.Code, Name: i18n.SubclassName(lang, sc.Code),
+		})
+	}
+	for _, a := range domain.Adjustments() {
+		dicts.Adjustment = append(dicts.Adjustment, fieldValueDefJSON{
+			Code: a.Code, Name: i18n.AdjustmentName(lang, a.Code),
+		})
+	}
+	for _, c := range s.Categories {
+		dicts.Category = append(dicts.Category, fieldValueDefJSON{
+			Code: c.Code, Name: i18n.CategoryName(lang, c.Code),
+		})
+	}
+	out.Dictionaries = dicts
 	return out
 }
 

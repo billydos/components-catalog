@@ -15,10 +15,11 @@ import (
 
 // Разбор параметров поиска GET /api/v1/components
 // (docs/plan/04-module-functionality.md §2): kind, system, q, набор id
-// (повторяемый параметр — единственное намеренное исключение строгости:
-// значения набора фильтра), поля обозначения (коды полей разбора —
-// реестр домена), attr.<код>, par.<код>(.min/.max/.exact), sort, limit,
-// offset. Неизвестный ключ — ошибка (опечатки не молчат).
+// и словарные фильтры мультивыбора (повторяемые параметры — намеренные
+// исключения строгости: значения набора, семантика ИЛИ), поля обозначения
+// (коды полей разбора — реестр домена), attr.<код>, par.<код>(.min/.max/
+// .exact), sort, limit, offset. Неизвестный ключ — ошибка (опечатки
+// не молчат).
 
 // queryLimit — разбор limit с потолком (поиск 200, suggest 50).
 func queryLimit(values []string, max int) (int, bool, error) {
@@ -34,11 +35,11 @@ func queryLimit(values []string, max int) (int, bool, error) {
 
 // rejectDuplicateParams — строгость разбора запроса: повтор параметра —
 // ошибка, молчаливый выбор первого значения маскирует опечатку
-// (?q=a&q=b). Повторяемые параметры контракта (набор id поиска)
-// исключает вызывающий — передавая имена без них. Без имён — все
-// параметры в отсортированном порядке (поиск разбирает каждый), иначе
-// только названные (suggest разбирает подмножество, прочие параметры
-// запроса игнорирует).
+// (?q=a&q=b). Повторяемые параметры контракта (набор id поиска,
+// словарные фильтры мультивыбора) исключает вызывающий — передавая имена
+// без них. Без имён — все параметры в отсортированном порядке (поиск
+// разбирает каждый), иначе только названные (suggest разбирает
+// подмножество, прочие параметры запроса игнорирует).
 func rejectDuplicateParams(values url.Values, names ...string) error {
 	if len(names) == 0 {
 		names = slices.Sorted(maps.Keys(values))
@@ -52,17 +53,38 @@ func rejectDuplicateParams(values url.Values, names ...string) error {
 	return nil
 }
 
+// dictionaryQueryParam — словарные поля мультивыбора (CC-11): конечные
+// стабильные множества значений (материал/подкласс/подстройка — реестры
+// internal/domain; категория — словарь каталога), повтор параметра —
+// семантика ИЛИ внутри поля. Повтор составных текстовых полей (letters,
+// family, series…) — отдельное решение, остаётся 400.
+func dictionaryQueryParam(name string) bool {
+	switch name {
+	case "material", "subclass", "adjustment", "category":
+		return true
+	}
+	return false
+}
+
+// repeatableQueryParam — намеренно повторяемые параметры поиска: набор
+// id (CC-8) и словарные фильтры мультивыбора (CC-11); из проверки
+// повторов их исключает parseSearchQuery.
+func repeatableQueryParam(name string) bool {
+	return name == "id" || dictionaryQueryParam(name)
+}
+
 // parseSearchQuery разбирает параметры поиска в запрос сервисного слоя;
 // применимость фильтров к классу и типы значений проверяет сервис
 // (единственная точка валидации — тексты ошибок не дублируются).
 func parseSearchQuery(values url.Values, snap *catalog.Snapshot) (service.SearchQuery, error) {
-	// id — намеренно повторяемый параметр (набор фильтра по стабильным
-	// id, CC-8): из проверки повторов исключён; потолок набора,
-	// положительность и дубликат значения проверяет сервис. Пустой
-	// список прочих имён — запрос из одних id — проверки не вызывает
-	// (пустые имена в rejectDuplicateParams значат «все параметры»).
+	// Повторяемые параметры (набор id, словарные фильтры мультивыбора)
+	// исключены из проверки повторов; потолок набора id, положительность
+	// и дубликаты значений проверяет сервис, дубликаты канонических
+	// кодов словарных наборов — тоже. Пустой список прочих имён — запрос
+	// из одних повторяемых параметров — проверки не вызывает (пустые
+	// имена в rejectDuplicateParams значат «все параметры»).
 	checked := slices.DeleteFunc(slices.Sorted(maps.Keys(values)),
-		func(name string) bool { return name == "id" })
+		func(name string) bool { return repeatableQueryParam(name) })
 	if len(checked) > 0 {
 		if err := rejectDuplicateParams(values, checked...); err != nil {
 			return service.SearchQuery{}, err
@@ -113,6 +135,21 @@ func parseSearchQuery(values url.Values, snap *catalog.Snapshot) (service.Search
 		switch {
 		case reservedQueryParam(name):
 			// разобраны выше
+		case known && !numeric && dictionaryQueryParam(name):
+			// Словарное поле мультивыбора (CC-11): каждое значение
+			// канонизируется (код либо название локали → код), набор —
+			// семантика ИЛИ; неканонизируемое значение — ошибка по
+			// первому в порядке передачи (дубликаты канонических кодов
+			// отвергает сервис).
+			codes := make([]string, 0, len(values[name]))
+			for _, val := range values[name] {
+				code, args, msgID, ok := canonicalizeFieldCode(name, val, snap)
+				if !ok {
+					return q, domain.NewErrorf(domain.CodeValidationFailed, msgID, args...)
+				}
+				codes = append(codes, code)
+			}
+			q.Fields = append(q.Fields, service.FieldFilter{Field: name, Texts: codes})
 		case known && !numeric:
 			if code, args, msgID, ok := canonicalizeFieldCode(name, v, snap); !ok {
 				return q, domain.NewErrorf(domain.CodeValidationFailed, msgID, args...)

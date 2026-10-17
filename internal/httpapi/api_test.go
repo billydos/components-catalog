@@ -338,6 +338,97 @@ func TestCatalogAndETag(t *testing.T) {
 	}
 }
 
+// Словари значений полей обозначения в снимке каталога (CC-11): состав
+// material/subclass/adjustment — реестры internal/domain (пин-тест полноты),
+// category — словарь данных каталога (снимок, расширяемый импортом);
+// названия — по локали запроса (D9).
+func TestCatalogDictionaries(t *testing.T) {
+	_, srv := newTestAPI(t, Config{})
+	get := func(lang string) fieldDictionariesJSON {
+		t.Helper()
+		req, _ := http.NewRequest(http.MethodGet, srv.URL+apiPrefix+"/catalog", nil)
+		if lang != "" {
+			req.Header.Set("Accept-Language", lang)
+		}
+		resp, err := srv.Client().Do(req)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer resp.Body.Close()
+		data, _ := io.ReadAll(resp.Body)
+		if resp.StatusCode != http.StatusOK {
+			t.Fatalf("статус: %d, тело %s", resp.StatusCode, data)
+		}
+		return decode[catalogSnapshotJSON](t, string(data)).Dictionaries
+	}
+	name := func(vals []fieldValueDefJSON, code string) string {
+		t.Helper()
+		for _, v := range vals {
+			if v.Code == code {
+				return v.Name
+			}
+		}
+		t.Fatalf("код %s отсутствует в словаре", code)
+		return ""
+	}
+	codesOf := func(vals []fieldValueDefJSON) []string {
+		t.Helper()
+		out := make([]string, 0, len(vals))
+		for _, v := range vals {
+			out = append(out, v.Code)
+		}
+		return out
+	}
+
+	en := get("")
+	// Пин состава по реестрам домена — полные наборы кодов и порядок
+	// (по образцу seed/seed_test.go), не только длины.
+	wantMaterial := make([]string, 0, len(domain.Materials()))
+	for _, m := range domain.Materials() {
+		wantMaterial = append(wantMaterial, m.Code)
+	}
+	wantSubclass := make([]string, 0, len(domain.Subclasses()))
+	for _, s := range domain.Subclasses() {
+		wantSubclass = append(wantSubclass, s.Code)
+	}
+	wantAdjustment := make([]string, 0, len(domain.Adjustments()))
+	for _, a := range domain.Adjustments() {
+		wantAdjustment = append(wantAdjustment, a.Code)
+	}
+	if !slices.Equal(codesOf(en.Material), wantMaterial) ||
+		!slices.Equal(codesOf(en.Subclass), wantSubclass) ||
+		!slices.Equal(codesOf(en.Adjustment), wantAdjustment) {
+		t.Fatalf("состав словарей (пин реестров домена): material=%v subclass=%v adjustment=%v",
+			codesOf(en.Material), codesOf(en.Subclass), codesOf(en.Adjustment))
+	}
+	if got := name(en.Material, "si"); got != "silicon" {
+		t.Errorf("material si (en): %q", got)
+	}
+	if got := name(en.Subclass, "bjt"); got != "bipolar transistor" {
+		t.Errorf("subclass bjt (en): %q", got)
+	}
+	if got := name(en.Adjustment, "fixed"); got != "fixed" {
+		t.Errorf("adjustment fixed (en): %q", got)
+	}
+	if got := name(en.Category, "power"); got != "power" {
+		t.Errorf("category power (en): %q", got)
+	}
+
+	ru := get("ru")
+	if got := name(ru.Material, "si"); got != "кремний" {
+		t.Errorf("material si (ru): %q", got)
+	}
+	if got := name(ru.Subclass, "zener"); got != "стабилитрон" {
+		t.Errorf("subclass zener (ru): %q", got)
+	}
+	if got := name(ru.Adjustment, "preset"); got != "подстроечный" {
+		t.Errorf("adjustment preset (ru): %q", got)
+	}
+	if got := name(ru.Category, "general_purpose"); got != "универсальный" {
+		t.Errorf("category general_purpose (ru): %q", got)
+	}
+}
+
 func TestStats(t *testing.T) {
 	_, srv := newTestAPI(t, Config{})
 	status, body, _ := do(t, srv, http.MethodGet, apiPrefix+"/stats", "")
@@ -629,6 +720,38 @@ func TestSearch(t *testing.T) {
 		page.Items[1].Designation != "КТ315Б" {
 		t.Fatalf("набор id + sort=-id: %v", page.Items)
 	}
+
+	// Мультивыбор словарных фильтров (CC-11): повторяемый параметр,
+	// семантика ИЛИ внутри поля, значения — код либо название локали
+	// (канонизация внутри набора); пересечение с kind. Ошибки повтора
+	// составных полей и дубликата канонического кода — TestSearchErrors.
+	status, body, _ = do(t, srv, http.MethodPost, apiPrefix+"/components", `{"name":"ГТ109Г"}`)
+	if status != http.StatusCreated {
+		t.Fatalf("создание ГТ109Г: %d, тело %s", status, body)
+	}
+	status, body, _ = do(t, srv, http.MethodGet,
+		apiPrefix+"/components?material=ge&material=silicon", "")
+	if status != http.StatusOK {
+		t.Fatalf("мультивыбор: статус %d, тело %s", status, body)
+	}
+	page = decode[searchPageJSON](t, body)
+	got = make([]string, 0, len(page.Items))
+	for _, it := range page.Items {
+		got = append(got, it.Designation)
+	}
+	if !slices.Equal(got, []string{"BC547B", "ГТ109Г", "КТ315Б"}) {
+		t.Fatalf("мультивыбор material=ge|silicon: %v", got)
+	}
+	// Пересечение с kind: конденсаторы материала не имеют — пусто.
+	status, body, _ = do(t, srv, http.MethodGet,
+		apiPrefix+"/components?kind=capacitor&material=ge&material=si", "")
+	if status != http.StatusOK {
+		t.Fatalf("мультивыбор ∩ kind: статус %d, тело %s", status, body)
+	}
+	page = decode[searchPageJSON](t, body)
+	if len(page.Items) != 0 || page.Total != 0 {
+		t.Fatalf("мультивыбор ∩ kind=capacitor: %v total=%d", page.Items, page.Total)
+	}
 }
 
 func TestSearchETagChangesOnWrite(t *testing.T) {
@@ -685,8 +808,8 @@ func TestSearchErrors(t *testing.T) {
 		{"kind=transistor&kind=diode", "validation_failed",
 			"query parameter «kind» is set more than once"},
 		{"limit=1&limit=2", "validation_failed", "query parameter «limit» is set more than once"},
-		{"material=si&material=ge", "validation_failed",
-			"query parameter «material» is set more than once"},
+		{"series=А&series=Б", "validation_failed",
+			"query parameter «series» is set more than once"},
 		{"attr.structure=npn&attr.structure=pnp", "validation_failed",
 			"query parameter «attr.structure» is set more than once"},
 		{"par.hfe.min=abc", "validation_failed", "parameter «par.hfe.min»: a number is expected"},
@@ -696,6 +819,14 @@ func TestSearchErrors(t *testing.T) {
 		{"id=0", "validation_failed", "id filter: a positive integer is expected (got 0)"},
 		{"id=-5", "validation_failed", "id filter: a positive integer is expected (got -5)"},
 		{"id=7&id=9&id=7", "validation_failed", "id filter: value 7 is set more than once"},
+		// Мультивыбор словарных фильтров (CC-11): дубликат канонического
+		// кода набора — 400 (в том числе код + название одной локали).
+		{"material=si&material=si", "validation_failed",
+			"field filter «material»: value «si» is set more than once"},
+		{"material=si&material=silicon", "validation_failed",
+			"field filter «material»: value «si» is set more than once"},
+		{"category=power&category=power", "validation_failed",
+			"field filter «category»: value «power» is set more than once"},
 	}
 	for _, tc := range cases {
 		t.Run(tc.query, func(t *testing.T) {

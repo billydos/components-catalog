@@ -316,6 +316,7 @@ const (
 	MsgSvcSearchIDMax           MsgID = "svc_search_id_max"
 	MsgSvcSearchIDPositive      MsgID = "svc_search_id_positive"
 	MsgSvcSearchIDDuplicate     MsgID = "svc_search_id_duplicate"
+	MsgSvcSearchValueDuplicate  MsgID = "svc_search_value_duplicate"
 	MsgSvcFilterAttrText        MsgID = "svc_filter_attr_text_expected"
 	MsgSvcFilterAttrNumber      MsgID = "svc_filter_attr_number_expected"
 	MsgSvcFilterParamSet        MsgID = "svc_filter_param_value_missing"
@@ -835,6 +836,7 @@ var msgRegistry = map[MsgID]struct{}{
 	MsgSvcSearchIDMax:                 {},
 	MsgSvcSearchIDPositive:            {},
 	MsgSvcSearchIDDuplicate:           {},
+	MsgSvcSearchValueDuplicate:        {},
 	MsgSvcFieldParserOwned:            {},
 	MsgSvcFieldBaseDerived:            {},
 	MsgSvcFieldNotApplicable:          {},

@@ -260,6 +260,7 @@ var messageFormatsRu = map[string]string{
 	"svc_filter_op_unknown":                "операция фильтра — eq, gte либо lte (получено %[1]q)",
 	"svc_search_field_unknown":             "неизвестное поле разбора «%[1]s»",
 	"svc_search_id_duplicate":              "фильтр id: значение %[1]d задано повторно",
+	"svc_search_value_duplicate":           "фильтр поля «%[1]s»: значение «%[2]s» задано повторно",
 	"svc_search_id_max":                    "фильтр id: допустимо не более %[1]d значений",
 	"svc_search_id_positive":               "фильтр id: ожидается целое положительное число (получено %[1]d)",
 	"svc_filter_attr_number_expected":      "фильтр атрибута «%[1]s»: ожидается число",

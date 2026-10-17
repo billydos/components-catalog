@@ -261,6 +261,7 @@ var messageFormatsEn = map[string]string{
 	"svc_filter_op_unknown":                "filter operation must be eq, gte or lte (got %[1]q)",
 	"svc_search_field_unknown":             "unknown designation field «%[1]s»",
 	"svc_search_id_duplicate":              "id filter: value %[1]d is set more than once",
+	"svc_search_value_duplicate":           "field filter «%[1]s»: value «%[2]s» is set more than once",
 	"svc_search_id_max":                    "id filter: no more than %[1]d values are allowed",
 	"svc_search_id_positive":               "id filter: a positive integer is expected (got %[1]d)",
 	"svc_filter_attr_number_expected":      "attribute filter «%[1]s»: a number is expected",

@@ -30,11 +30,13 @@ func (op FilterOp) sql() string {
 	}
 }
 
-// FieldCond — фильтр по полю разбора обозначения: текстовое значение (Text)
-// либо числовое со сравнением (Num + Op).
+// FieldCond — фильтр по полю разбора обозначения: текстовое значение (Text),
+// набор текстовых значений с семантикой ИЛИ (Texts — словарные поля
+// мультивыбора; приоритетнее Text) либо числовое со сравнением (Num + Op).
 type FieldCond struct {
 	Field  string
 	Text   string
+	Texts  []string
 	Num    float64
 	HasNum bool
 	Op     FilterOp
@@ -149,12 +151,25 @@ func buildSearchWhere(r SearchRequest) (*whereBuilder, string) {
 		w.add("d.id IN (" + strings.Join(parts, ", ") + ")")
 	}
 	for i, f := range r.Fields {
-		if f.HasNum {
+		switch {
+		case len(f.Texts) > 0:
+			// Мультивыбор словарного поля (CC-11): IN-список именованными
+			// аргументами самого конструктора WHERE — по пути фильтра id;
+			// словари конечны, чанкование не требуется.
+			parts := make([]string, len(f.Texts))
+			for j, v := range f.Texts {
+				parts[j] = w.arg(fmt.Sprintf("ft%d_%d", i, j), v)
+			}
+			w.add(fmt.Sprintf(
+				`EXISTS (SELECT 1 FROM device_designation_fields df%d
+WHERE df%d.device_id = d.id AND df%d.field = %s AND df%d.text_value IN (%s))`,
+				i, i, i, w.arg(fmt.Sprintf("ff%d", i), f.Field), i, strings.Join(parts, ", ")))
+		case f.HasNum:
 			w.add(fmt.Sprintf(
 				`EXISTS (SELECT 1 FROM device_designation_fields df%d
 WHERE df%d.device_id = d.id AND df%d.field = %s AND df%d.num_value %s %s)`,
 				i, i, i, w.arg(fmt.Sprintf("ff%d", i), f.Field), i, f.Op.sql(), w.arg(fmt.Sprintf("fn%d", i), f.Num)))
-		} else {
+		default:
 			w.add(fmt.Sprintf(
 				`EXISTS (SELECT 1 FROM device_designation_fields df%d
 WHERE df%d.device_id = d.id AND df%d.field = %s AND df%d.text_value = %s)`,

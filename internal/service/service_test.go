@@ -1106,6 +1106,26 @@ func suiteSearch(t *testing.T, factory configFactory) {
 	if n, _ := svc.Count(ctx, &k); n != 3 {
 		t.Fatalf("count transistors: %d", n)
 	}
+
+	// Мультивыбор словарного поля (CC-11): набор Texts — семантика ИЛИ
+	// внутри одного фильтра; запись без поля набором не накрывается
+	// (пересечение с kind пусто — как у одиночного фильтра).
+	mustUpsert(t, svc, DeviceInput{Name: "ГТ109Г"})
+	page, err = svc.Search(ctx, SearchQuery{
+		Kind:   domain.KindTransistor,
+		Fields: []FieldFilter{{Field: "material", Texts: []string{"ge", "si"}}},
+	})
+	if err != nil || !slices.Equal(designations(page), []string{"BC547B", "ГТ109Г", "КТ315Б"}) {
+		t.Fatalf("material=ge|si: %v err=%v", designations(page), err)
+	}
+	page, err = svc.Search(ctx, SearchQuery{
+		Kind:   domain.KindCapacitor,
+		Fields: []FieldFilter{{Field: "material", Texts: []string{"ge", "si"}}},
+	})
+	if err != nil || len(page.Items) != 0 || page.Total != 0 {
+		t.Fatalf("material ∩ capacitor: %v total=%d err=%v",
+			designations(page), page.Total, err)
+	}
 }
 
 // suiteSearchValidation — ошибки валидации запроса (D7, неизвестные коды).
@@ -1158,6 +1178,13 @@ func suiteSearchValidation(t *testing.T, factory configFactory) {
 	_, err = svc.Search(ctx, SearchQuery{IDs: tooMany})
 	wantDomainError(t, err, domain.CodeValidationFailed,
 		"id filter: no more than 200 values are allowed")
+
+	// Мультивыбор словарного поля (CC-11): дубликат значения набора.
+	_, err = svc.Search(ctx, SearchQuery{
+		Fields: []FieldFilter{{Field: "material", Texts: []string{"si", "ge", "si"}}},
+	})
+	wantDomainError(t, err, domain.CodeValidationFailed,
+		"field filter «material»: value «si» is set more than once")
 }
 
 // suiteDeleteCascade — каскадное удаление записи с данными и ссылками,

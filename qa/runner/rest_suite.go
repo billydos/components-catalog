@@ -157,6 +157,28 @@ func restSuite(ctx context.Context, r *report, srv, tmp string, l leg) {
 		status == http.StatusBadRequest && strings.Contains(body, "validation_failed"),
 		detail(status, body)...)
 
+	// GET /catalog: словари значений словарных полей обозначения (CC-11) —
+	// состав мультивыборных фильтров (коды и названия по локали).
+	status, body, _ = cl.do(ctx, http.MethodGet, "/catalog", "", nil)
+	r.check("rest/catalog-dicts", "GET /catalog: словари значений словарных полей (CC-11)",
+		status == http.StatusOK && strings.Contains(body, `"dictionaries"`) &&
+			strings.Contains(body, `"gaas"`) && strings.Contains(body, "bipolar transistor"),
+		detail(status, body)...)
+
+	// GET /components: мультивыбор словарного фильтра (CC-11) — повторяемый
+	// параметр, семантика ИЛИ внутри поля (германий и кремний вместе);
+	// дубликат значения — 400.
+	status, body, _ = cl.do(ctx, http.MethodGet, "/components?material=ge&material=si", "", nil)
+	r.check("rest/components-dictmulti", "GET /components: мультивыбор словарного фильтра — семантика ИЛИ",
+		status == http.StatusOK && strings.Contains(body, "ГТ109Г") &&
+			strings.Contains(body, "КТ315Б"),
+		detail(status, body)...)
+	status, body, _ = cl.do(ctx, http.MethodGet, "/components?material=ge&material=ge", "", nil)
+	r.check("rest/components-dictmulti-dup",
+		"GET /components: дубликат значения словарного фильтра — 400 validation_failed",
+		status == http.StatusBadRequest && strings.Contains(body, "validation_failed"),
+		detail(status, body)...)
+
 	// Карточка по ключу (с исполнениями) и по стабильному id.
 	status, body, _ = cl.do(ctx, http.MethodGet,
 		"/components/capacitor/"+url.PathEscape("К50-35"), "", nil)

@@ -63,8 +63,10 @@ paths:
       operationId: catalog
       summary: Снимок каталога
       description: |
-        Параметры, атрибуты, условия, единицы, группы, системы обозначений
-        и семейства — для построения форм и фильтров. Ключи полей повторяют
+        Параметры, атрибуты, условия, единицы, группы, системы обозначений,
+        семейства и словари значений словарных полей обозначения
+        (material, subclass, adjustment, category — features.log CC-11) —
+        для построения форм и фильтров. Ключи полей повторяют
         формат наполнения (snake_case по колонкам каталожных таблиц);
         отображаемые строки (name, описания, имена и символы единиц) —
         по локали запроса (D9).
@@ -184,22 +186,29 @@ paths:
         список с обозначением, классом, системой и ключевыми полями;
         ETag — по data_revision и канонической строке запроса (разные
         фильтры/сортировки — разные ETag). Повтор любого параметра
-        запроса — 400 validation_failed; исключение — намеренно
-        повторяемый id (набор фильтра, до 200 значений).
+        запроса — 400 validation_failed; исключения — намеренно
+        повторяемые id (набор фильтра, до 200 значений) и словарные
+        фильтры material/subclass/adjustment/category (мультивыбор —
+        семантика ИЛИ внутри поля, features.log CC-11).
 
         Помимо перечисленных параметров допустимы:
 
         * фильтры полей обозначения — код поля как имя параметра:
           текстовые `material`, `subclass`, `letters`, `prefix`, `family`,
-          `series`, `base` (тип — базовое обозначение записи, значение
-          канонизируется как обозначение); числовые `junctions`, `group`,
-          `dev_number`, `assembly`, `feature`, `modification`, `chip`
-          (равенство);
-          значение `material` — стабильный код словаря (`si`, `ge`,
-          `ga`, `in`, `sic`, `other`, `gaas`; D9) либо отображаемое
-          название локали (канонизируется); прочие текстовые поля —
-          нормативные элементы обозначения (для записей `other` поле
-          `series` задаётся секцией `fields`);
+          `series`, `adjustment`, `category`, `base` (тип — базовое
+          обозначение записи, значение канонизируется как обозначение);
+          числовые `junctions`, `group`, `dev_number`, `assembly`,
+          `feature`, `modification`, `chip` (равенство);
+          значения словарных полей `material` (`si`, `ge`, `ga`, `in`,
+          `sic`, `other`, `gaas`), `subclass` (`bjt`, `zener`, …),
+          `adjustment` (`fixed`, `variable`, `preset`) и `category` (коды
+          словаря каталога — секция `dictionaries` GET /catalog) —
+          стабильный код словаря либо отображаемое название локали
+          (канонизируется; D9); словарные поля повторяемы: каждое значение
+          канонизируется отдельно, набор — семантика ИЛИ, дубликат
+          канонического кода — 400 validation_failed; прочие текстовые
+          поля — нормативные элементы обозначения (для записей `other`
+          поле `series` задаётся секцией `fields`);
         * `attr.<код>=<значение>` — фильтр по атрибуту (текст либо число
           по типу атрибута; логические атрибуты не фильтруются);
         * `par.<код>.min=`, `par.<код>.max=`, `par.<код>.exact=` — границы
@@ -217,8 +226,9 @@ paths:
         - name: id
           in: query
           description: |
-            Фильтр по набору стабильных id записей — повторяемый параметр
-            (единственное исключение строгости запроса): до 200 значений,
+            Фильтр по набору стабильных id записей — намеренно повторяемый
+            параметр (одно из исключений строгости запроса — второе,
+            словарные фильтры мультивыбора, описано выше): до 200 значений,
             каждое — целое положительное, дубликат значения — 400
             validation_failed. Семантика — пересечение с прочими фильтрами;
             id без записи либо отсечённые прочими фильтрами — отсутствие
@@ -603,6 +613,37 @@ components:
         name: {type: string}
         text: {type: string}
         num: {type: number}
+    FieldValueDef:
+      type: object
+      description: Значение словарного поля обозначения — стабильный код
+        (значение фильтров и секции fields) и отображаемое название
+        по локали запроса (D9).
+      required: [code, name]
+      properties:
+        code: {type: string}
+        name: {type: string}
+    FieldDictionaries:
+      type: object
+      description: |
+        Словари значений словарных полей обозначения (features.log CC-11) —
+        состав мультивыборных фильтров: material/subclass/adjustment —
+        константные реестры домена, category — словарь данных каталога
+        (расширяется импортом; расширения без записи в бандле отображаются
+        кодом). Порядок значений стабилен (реестры домена и строки снимка).
+      required: [material, subclass, adjustment, category]
+      properties:
+        material:
+          type: array
+          items: {$ref: "#/components/schemas/FieldValueDef"}
+        subclass:
+          type: array
+          items: {$ref: "#/components/schemas/FieldValueDef"}
+        adjustment:
+          type: array
+          items: {$ref: "#/components/schemas/FieldValueDef"}
+        category:
+          type: array
+          items: {$ref: "#/components/schemas/FieldValueDef"}
     Condition:
       type: object
       required: [condition, value]
@@ -1051,7 +1092,7 @@ components:
         rule: {type: string}
     CatalogSnapshot:
       type: object
-      required: [revision, kinds, systems, system_kinds, units, conditions, groups, parameters, attributes, rules, kind_rules]
+      required: [revision, kinds, systems, system_kinds, units, conditions, groups, parameters, attributes, rules, kind_rules, dictionaries]
       properties:
         revision: {type: integer, format: int64, description: catalog_revision.}
         kinds:
@@ -1084,3 +1125,5 @@ components:
         kind_rules:
           type: array
           items: {$ref: "#/components/schemas/KindRuleRef"}
+        dictionaries:
+          $ref: "#/components/schemas/FieldDictionaries"

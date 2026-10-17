@@ -169,8 +169,22 @@ func buildSearchRequest(snap *catalog.Snapshot, q SearchQuery) (storage.SearchRe
 		if err := knownFilterOp(f.Op); err != nil {
 			return req, err
 		}
+		// Мультивыбор словарного поля (CC-11): набор Texts — семантика
+		// ИЛИ внутри одного фильтра; дубликат значения набора — ошибка
+		// валидации (как у набора id). Транспорты канонизируют значения
+		// к кодам словаря до сервисного слоя; набор приоритетнее
+		// одиночного Text.
+		seenTexts := make(map[string]struct{}, len(f.Texts))
+		for _, v := range f.Texts {
+			if _, dup := seenTexts[v]; dup {
+				return req, domain.NewErrorf(domain.CodeValidationFailed,
+					domain.MsgSvcSearchValueDuplicate, f.Field, v)
+			}
+			seenTexts[v] = struct{}{}
+		}
 		req.Fields = append(req.Fields, storage.FieldCond{
-			Field: f.Field, Text: f.Text, Num: f.Num, HasNum: f.HasNum, Op: storage.FilterOp(f.Op),
+			Field: f.Field, Text: f.Text, Texts: f.Texts, Num: f.Num,
+			HasNum: f.HasNum, Op: storage.FilterOp(f.Op),
 		})
 	}
 	for _, a := range q.Attributes {
