@@ -53,7 +53,7 @@ func rejectDuplicateParams(values url.Values, names ...string) error {
 	return nil
 }
 
-// dictionaryQueryParam — словарные поля мультивыбора (CC-11): конечные
+// dictionaryQueryParam — словарные поля мультивыбора: конечные
 // стабильные множества значений (материал/подкласс/подстройка — реестры
 // internal/domain; категория — словарь каталога), повтор параметра —
 // семантика ИЛИ внутри поля. Повтор составных текстовых полей (letters,
@@ -67,8 +67,8 @@ func dictionaryQueryParam(name string) bool {
 }
 
 // repeatableQueryParam — намеренно повторяемые параметры поиска: набор
-// id (CC-8), словарные фильтры мультивыбора (CC-11) и колонки значений
-// (CC-13); из проверки повторов их исключает parseSearchQuery.
+// id, словарные фильтры мультивыбора и колонки значений;
+// из проверки повторов их исключает parseSearchQuery.
 func repeatableQueryParam(name string) bool {
 	return name == "id" || name == "values" || dictionaryQueryParam(name)
 }
@@ -147,7 +147,7 @@ func parseSearchQuery(values url.Values, snap *catalog.Snapshot) (service.Search
 		case reservedQueryParam(name):
 			// разобраны выше
 		case known && !numeric && dictionaryQueryParam(name):
-			// Словарное поле мультивыбора (CC-11): каждое значение
+			// Словарное поле мультивыбора: каждое значение
 			// канонизируется (код либо название локали → код), набор —
 			// семантика ИЛИ; неканонизируемое значение — ошибка по
 			// первому в порядке передачи (дубликаты канонических кодов
@@ -205,7 +205,7 @@ func reservedQueryParam(name string) bool {
 	return false
 }
 
-// parseValueColumn — элемент повторяемого параметра values (CC-13): код
+// parseValueColumn — элемент повторяемого параметра values: код
 // параметра каталога либо attr.<код атрибута>; пустой код — ошибка
 // разбора (известность, применимость к классу и логические атрибуты
 // проверяет сервис по снимку — единая точка валидации).
@@ -269,7 +269,7 @@ func canonicalizeFieldCode(field, value string, snap *catalog.Snapshot) (string,
 
 // parseSort — сортировка: ключи через запятую, «-» — убывание;
 // «designation»/«id», код поля разбора либо код параметра каталога
-// (CC-12; известность по снимку, численность типа и применимость к классу
+// (известность по снимку, численность типа и применимость к классу
 // проверяет сервис). При пересечении словарей поле разбора приоритетнее.
 func parseSort(spec string, snap *catalog.Snapshot) ([]service.SortField, error) {
 	parts := strings.Split(spec, ",")

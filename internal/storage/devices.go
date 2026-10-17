@@ -477,7 +477,7 @@ func (d *DB) LoadAttributesByIDs(ctx context.Context, ids []int64) (map[int64][]
 }
 
 // LoadAttributesByIDsCodes — значения атрибутов по списку записей
-// и кодов атрибутов (пакетная проекция колонок значений поиска, CC-13).
+// и кодов атрибутов (пакетная проекция колонок значений поиска).
 func (d *DB) LoadAttributesByIDsCodes(ctx context.Context, ids []int64, codes []string) (map[int64][]AttrRow, error) {
 	return loadAttributesByIDs(ctx, d.reads, ids, codes)
 }
@@ -549,7 +549,7 @@ func (d *DB) LoadValuesByIDs(ctx context.Context, ids []int64) (map[int64][]Valu
 
 // LoadValuesByIDsCodes — значения параметров (тип в целом и исполнения)
 // с условиями по списку записей и кодов параметров (пакетная проекция
-// колонок значений поиска, CC-13).
+// колонок значений поиска).
 func (d *DB) LoadValuesByIDsCodes(ctx context.Context, ids []int64, codes []string) (map[int64][]ValueRow, error) {
 	return loadValuesByIDs(ctx, d.reads, ids, codes)
 }

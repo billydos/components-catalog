@@ -997,7 +997,7 @@ func suiteSearch(t *testing.T, factory configFactory) {
 	}
 
 	// Фильтр по набору id: пересечение с прочими фильтрами, дырки —
-	// отсутствие строки; без сортировки — порядок передачи id (CC-8).
+	// отсутствие строки; без сортировки — порядок передачи id.
 	all, err := svc.Search(ctx, SearchQuery{Limit: 200})
 	if err != nil || len(all.Items) != 4 {
 		t.Fatalf("все: %d err=%v", len(all.Items), err)
@@ -1109,7 +1109,7 @@ func suiteSearch(t *testing.T, factory configFactory) {
 		t.Fatalf("count transistors: %d", n)
 	}
 
-	// Мультивыбор словарного поля (CC-11): набор Texts — семантика ИЛИ
+	// Мультивыбор словарного поля: набор Texts — семантика ИЛИ
 	// внутри одного фильтра; запись без поля набором не накрывается
 	// (пересечение с kind пусто — как у одиночного фильтра).
 	mustUpsert(t, svc, DeviceInput{Name: "ГТ109Г"})
@@ -1163,7 +1163,7 @@ func suiteSearchValidation(t *testing.T, factory configFactory) {
 	_, err = svc.Search(ctx, SearchQuery{Kind: domain.Kind("thyristor")})
 	wantDomainError(t, err, domain.CodeValidationFailed, "unknown device kind «thyristor»")
 
-	// Набор id: неположительное значение, дубликат и потолок набора (CC-8).
+	// Набор id: неположительное значение, дубликат и потолок набора.
 	_, err = svc.Search(ctx, SearchQuery{IDs: []int64{5, 0}})
 	wantDomainError(t, err, domain.CodeValidationFailed,
 		"id filter: a positive integer is expected (got 0)")
@@ -1181,7 +1181,7 @@ func suiteSearchValidation(t *testing.T, factory configFactory) {
 	wantDomainError(t, err, domain.CodeValidationFailed,
 		"id filter: no more than 200 values are allowed")
 
-	// Мультивыбор словарного поля (CC-11): дубликат значения набора.
+	// Мультивыбор словарного поля: дубликат значения набора.
 	_, err = svc.Search(ctx, SearchQuery{
 		Fields: []FieldFilter{{Field: "material", Texts: []string{"si", "ge", "si"}}},
 	})
@@ -1189,7 +1189,7 @@ func suiteSearchValidation(t *testing.T, factory configFactory) {
 		"field filter «material»: value «si» is set more than once")
 }
 
-// suiteSearchValues — колонки значений строк поиска (CC-13): пакетная
+// suiteSearchValues — колонки значений строк поиска: пакетная
 // проекция параметров и атрибутов в строки страницы (порядок запроса,
 // отсутствующий код — нет элемента), агрегация численных границ по строкам
 // записи (тип + исполнения), сохранение формы и условий одиночной строки,
@@ -1589,7 +1589,7 @@ func suiteRevisions(t *testing.T, factory configFactory) {
 	}
 }
 
-// suiteChangeFeed — поток событий изменений (change feed, CC-2):
+// suiteChangeFeed — поток событий изменений (change feed):
 // событие и изменение данных — одна транзакция. Create/Upsert — created/
 // updated с ревизией == data_revision; Skipped событий не оставляет
 // и ревизию не двигает; Delete — deleted с device_id; курсор — id события.
@@ -1700,7 +1700,7 @@ func suiteChangeFeed(t *testing.T, factory configFactory) {
 	}
 }
 
-// suiteParameterStats — фасетные агрегаты класса (CC-5): границы
+// suiteParameterStats — фасетные агрегаты класса: границы
 // численных параметров по смешанным формам значений (range/exact/
 // at_least/at_most — семантика фильтров поиска), частоты enum-значений
 // по записям, валидация класса; порядок параметров — алфавит кодов.

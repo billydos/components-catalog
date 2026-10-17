@@ -55,8 +55,8 @@ func (a *App) Stats(ctx context.Context) (Stats, error) {
 	return st, nil
 }
 
-// ParameterStats — фасетные агрегаты значений параметров класса
-// (features.log CC-5): min/max численных параметров для слайдеров
+// ParameterStats — фасетные агрегаты значений параметров класса:
+// min/max численных параметров для слайдеров
 // параметрических фильтров и частоты текстовых (enum) значений.
 type ParameterStats struct {
 	Kind         domain.Kind

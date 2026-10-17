@@ -82,7 +82,7 @@ ok   rest/components-paramsort — GET /components: сортировка по ч
 ok   rest/components-paramsort-na — GET /components: сортировка по неприменимому параметру — 400 parameter_not_applicable
 ok   rest/components-paramsort-unknown — GET /components: неизвестный ключ сортировки — 400 validation_failed
 ok   rest/components-unknown-key — GET /components: неизвестный ключ запроса — 400, код validation_failed
-ok   rest/catalog-dicts — GET /catalog: словари значений словарных полей (CC-11)
+ok   rest/catalog-dicts — GET /catalog: словари значений словарных полей
 ok   rest/components-dictmulti — GET /components: мультивыбор словарного фильтра — семантика ИЛИ
 ok   rest/components-dictmulti-dup — GET /components: дубликат значения словарного фильтра — 400 validation_failed
 ok   rest/components-values — GET /components: колонки значений — параметры и атрибуты

@@ -338,7 +338,7 @@ func TestCatalogAndETag(t *testing.T) {
 	}
 }
 
-// Словари значений полей обозначения в снимке каталога (CC-11): состав
+// Словари значений полей обозначения в снимке каталога: состав
 // material/subclass/adjustment — реестры internal/domain (пин-тест полноты),
 // category — словарь данных каталога (снимок, расширяемый импортом);
 // названия — по локали запроса (D9).
@@ -444,7 +444,7 @@ func TestStats(t *testing.T) {
 	}
 }
 
-// TestStatsKindFacets — GET /stats?kind=: фасетные агрегаты класса (CC-5):
+// TestStatsKindFacets — GET /stats?kind=: фасетные агрегаты класса:
 // min/max численных параметров по смешанным формам значений (включая
 // исполнения), частоты enum, локализация имени, строгий разбор запроса.
 func TestStatsKindFacets(t *testing.T) {
@@ -654,7 +654,7 @@ func TestSearch(t *testing.T) {
 		t.Fatalf("пагинация: %+v", page)
 	}
 
-	// Сортировка по параметру (CC-12) не размножает строки: вариантные
+	// Сортировка по параметру не размножает строки: вариантные
 	// значения К50-35 агрегируются в одну строку записи.
 	_, body, _ = do(t, srv, http.MethodGet, apiPrefix+"/components?sort=-Vnom", "")
 	page = decode[searchPageJSON](t, body)
@@ -687,7 +687,7 @@ func TestSearch(t *testing.T) {
 		t.Fatalf("вариантный фильтр: %v", page.Items)
 	}
 
-	// Фильтр по набору id (CC-8): повторяемый параметр, порядок передачи
+	// Фильтр по набору id: повторяемый параметр, порядок передачи
 	// без sort, пересечение с kind, дырки — отсутствие строки.
 	_, body, _ = do(t, srv, http.MethodGet, apiPrefix+"/components?sort=id", "")
 	allPage := decode[searchPageJSON](t, body)
@@ -733,7 +733,7 @@ func TestSearch(t *testing.T) {
 		t.Fatalf("набор id + sort=-id: %v", page.Items)
 	}
 
-	// Мультивыбор словарных фильтров (CC-11): повторяемый параметр,
+	// Мультивыбор словарных фильтров: повторяемый параметр,
 	// семантика ИЛИ внутри поля, значения — код либо название локали
 	// (канонизация внутри набора); пересечение с kind. Ошибки повтора
 	// составных полей и дубликата канонического кода — TestSearchErrors.
@@ -765,7 +765,7 @@ func TestSearch(t *testing.T) {
 		t.Fatalf("мультивыбор ∩ kind=capacitor: %v total=%d", page.Items, page.Total)
 	}
 
-	// Колонки значений (CC-13): повторяемый параметр values — коды
+	// Колонки значений: повторяемый параметр values — коды
 	// параметров и attr.<код>, элемент формы CardValue по каждому коду,
 	// присутствующему у записи, порядок — запрос; вариантные значения
 	// К50-35 агрегируются границами MIN/MAX; name — локаль запроса.
@@ -862,7 +862,7 @@ func TestSearchErrors(t *testing.T) {
 		{"limit=abc", "validation_failed", "parameter limit: an integer from 1 to 200 is expected"},
 		{"offset=-1", "validation_failed", "parameter offset: a non-negative integer is expected"},
 		{"sort=bogus", "validation_failed", "parameter sort: unknown sort key «bogus»"},
-		// Сортировка по параметру (CC-12): неприменимый к классу — 400
+		// Сортировка по параметру: неприменимый к классу — 400
 		// (как у параметрических фильтров), text/enum-параметр — 400.
 		{"kind=transistor&sort=Rnom", "parameter_not_applicable",
 			"parameter «Rnom» is not applicable to kind transistor"},
@@ -887,7 +887,7 @@ func TestSearchErrors(t *testing.T) {
 		{"id=0", "validation_failed", "id filter: a positive integer is expected (got 0)"},
 		{"id=-5", "validation_failed", "id filter: a positive integer is expected (got -5)"},
 		{"id=7&id=9&id=7", "validation_failed", "id filter: value 7 is set more than once"},
-		// Мультивыбор словарных фильтров (CC-11): дубликат канонического
+		// Мультивыбор словарных фильтров: дубликат канонического
 		// кода набора — 400 (в том числе код + название одной локали).
 		{"material=si&material=si", "validation_failed",
 			"field filter «material»: value «si» is set more than once"},
@@ -895,7 +895,7 @@ func TestSearchErrors(t *testing.T) {
 			"field filter «material»: value «si» is set more than once"},
 		{"category=power&category=power", "validation_failed",
 			"field filter «category»: value «power» is set more than once"},
-		// Колонки значений (CC-13): неизвестный код, неприменимость
+		// Колонки значений: неизвестный код, неприменимость
 		// к классу, логический атрибут, форма кода, дубликат набора.
 		{"values=bogus", "unknown_parameter", "unknown parameter «bogus»"},
 		{"values=attr.bogus", "unknown_attribute", "unknown attribute «bogus»"},
@@ -933,7 +933,7 @@ func TestSearchErrors(t *testing.T) {
 	wantError(t, status, eb, http.StatusBadRequest, "validation_failed",
 		"id filter: no more than 200 values are allowed")
 
-	// Потолок набора колонок значений (CC-13): 17 кодов — 400 (потолок
+	// Потолок набора колонок значений: 17 кодов — 400 (потолок
 	// проверяется раньше известности кодов).
 	var vb strings.Builder
 	for i := 0; i <= service.SearchValuesMax; i++ {

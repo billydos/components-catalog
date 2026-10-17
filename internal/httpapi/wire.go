@@ -245,7 +245,7 @@ type upsertResponseJSON struct {
 }
 
 // searchItemJSON — строка результатов поиска; values — значения
-// запрошенных колонок (CC-13) в порядке запроса, присутствующие у записи
+// запрошенных колонок в порядке запроса, присутствующие у записи
 // (нет значения — нет элемента; опущено без колонок в запросе).
 type searchItemJSON struct {
 	ID          int64           `json:"id"`
@@ -282,7 +282,7 @@ func searchPageToJSON(lang i18n.Language, cols []service.ValueColumn, p service.
 	return out
 }
 
-// searchValueToJSON — элемент колонки значений строки поиска (CC-13):
+// searchValueToJSON — элемент колонки значений строки поиска:
 // форма CardValue (conditions — только у параметров), name — локаль
 // запроса по виду колонки, unit — канонический код единицы.
 func searchValueToJSON(lang i18n.Language, v service.SearchValue) cardValueJSON {
@@ -365,7 +365,7 @@ type statsJSON struct {
 }
 
 // parameterStatsJSON — GET /stats?kind=: фасетные агрегаты значений
-// параметров класса (CC-5): границы численных параметров для слайдеров
+// параметров класса: границы численных параметров для слайдеров
 // фильтров и частоты текстовых/enum значений; name — по локали запроса,
 // unit — канонический код единицы.
 type parameterStatsJSON struct {
@@ -452,8 +452,8 @@ type importIssueJSON struct {
 	Message string `json:"message"`
 }
 
-// importReportJSON — синхронный отчёт прогона импорта POST /api/v1/import
-// (CC-6): признак контрольного прогона (dry_run), счётчики исходов записей
+// importReportJSON — синхронный отчёт прогона импорта POST /api/v1/import:
+// признак контрольного прогона (dry_run), счётчики исходов записей
 // и полный список проблем за прогон; issues — всегда массив.
 type importReportJSON struct {
 	DryRun         bool              `json:"dry_run"`
@@ -523,7 +523,7 @@ type fieldValueDefJSON struct {
 }
 
 // fieldDictionariesJSON — словари значений словарных полей обозначения
-// (CC-11) для построения мультивыборных фильтров: material, subclass,
+// для построения мультивыборных фильтров: material, subclass,
 // adjustment — константные реестры internal/domain; category — данные
 // каталога (Snapshot.Categories, расширяется импортом; расширения без
 // записи в бандле отображаются кодом — D9).
@@ -695,7 +695,7 @@ func catalogToJSON(lang i18n.Language, s *catalog.Snapshot) catalogSnapshotJSON 
 	for _, kr := range s.KindRules {
 		out.KindRules = append(out.KindRules, kindRuleRefJSON{Kind: string(kr.Kind), Rule: kr.Rule})
 	}
-	// Словари значений полей обозначения (CC-11): порядок кодов —
+	// Словари значений полей обозначения: порядок кодов —
 	// стабильный порядок реестров домена и строк снимка.
 	dicts := fieldDictionariesJSON{
 		Material:   make([]fieldValueDefJSON, 0, len(domain.Materials())),

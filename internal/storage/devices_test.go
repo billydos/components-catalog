@@ -559,7 +559,7 @@ func TestBatchDeviceReads(t *testing.T) {
 	}
 }
 
-// TestLoadByIDsCodes — пакетные чтения с фильтром кодов (CC-13): значения
+// TestLoadByIDsCodes — пакетные чтения с фильтром кодов: значения
 // и атрибуты по списку записей × запрошенные коды; посторонние коды
 // не читаются, порядок строк — как у чтений без фильтра.
 func TestLoadByIDsCodes(t *testing.T) {

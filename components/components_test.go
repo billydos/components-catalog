@@ -95,7 +95,7 @@ func runFacadeContract(t *testing.T, factory facadeConfig) {
 		t.Fatalf("reimport report: %+v", rep)
 	}
 
-	// Прогресс импорта (CC-6): колбэк WithProgress наблюдает чтение
+	// Прогресс импорта: колбэк WithProgress наблюдает чтение
 	// и применение; NDJSON — построчно (документ — один вызов чтения).
 	var snaps []components.Progress
 	rep, err = app.Importer.Import(ctx, strings.NewReader(fillJSONC), "fill.jsonc", false,
@@ -228,7 +228,7 @@ func runFacadeContract(t *testing.T, factory facadeConfig) {
 	restWant(t, h, http.MethodGet, "/api/v1/nosuchroute",
 		http.StatusNotFound, `"code":"not_found"`)
 
-	// Потоковый импорт NDJSON через REST-обработчик фасада (CC-6):
+	// Потоковый импорт NDJSON через REST-обработчик фасада:
 	// синхронный отчёт после EOF.
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/import",
 		strings.NewReader("{\"transistors\": {\"name\": \"КТ3102А\"}}\n"))

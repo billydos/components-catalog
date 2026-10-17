@@ -53,7 +53,7 @@ func (a *API) handleCatalog(w *responseWriter, r *http.Request, _ map[string]str
 }
 
 // handleStats — GET /api/v1/stats: количества по классам, версия схемы,
-// ревизии; с kind — фасетные агрегаты значений параметров класса (CC-5):
+// ревизии; с kind — фасетные агрегаты значений параметров класса:
 // min/max численных параметров и частоты текстовых/enum значений.
 // Повтор разбираемого параметра и посторонний ключ запроса — 400.
 func (a *API) handleStats(w *responseWriter, r *http.Request, _ map[string]string) {
@@ -242,7 +242,7 @@ func (a *API) handleSuggest(w *responseWriter, r *http.Request, _ map[string]str
 
 // handleParse — GET /api/v1/parse: разбор обозначения (автодетект либо
 // явная система/класс) с перечнем кандидатов строгих систем — основа UX
-// ввода обозначения (features.log CC-1); разбор — только сервисный слой.
+// ввода обозначения; разбор — только сервисный слой.
 func (a *API) handleParse(w *responseWriter, r *http.Request, _ map[string]string) {
 	values, err := parseStrictQuery(r)
 	if err != nil {
@@ -269,7 +269,7 @@ func (a *API) handleParse(w *responseWriter, r *http.Request, _ map[string]strin
 }
 
 // handleChanges — GET /api/v1/changes: поток событий изменений записей
-// (change feed — features.log CC-2) для инкрементальной синхронизации
+// (change feed) для инкрементальной синхронизации
 // производных индексов сайта; курсор — id последнего полученного события
 // (after). Фид покрывает только изменения данных (data_revision):
 // изменения каталога отслеживаются ETag GET /catalog. Повтор разбираемого
@@ -318,7 +318,7 @@ func (a *API) handleChanges(w *responseWriter, r *http.Request, _ map[string]str
 }
 
 // handleImport — POST /api/v1/import: потоковый импорт файла наполнения
-// NDJSON (features.log CC-6). Тело читается построчно без загрузки
+// NDJSON. Тело читается построчно без загрузки
 // целиком и без потолка тела запроса — память ограничена потолком строки
 // сканера (16 МиБ); ответ — синхронный отчёт после EOF (Issues-модель:
 // корректные записи применяются, ошибочные — нет, отчёт — 200 даже

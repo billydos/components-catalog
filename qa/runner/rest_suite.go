@@ -120,7 +120,7 @@ func restSuite(ctx context.Context, r *report, srv, tmp string, l leg) {
 		status == http.StatusOK && strings.Contains(body, "data_revision"),
 		detail(status, body)...)
 
-	// GET /stats?kind=: фасетные агрегаты параметров класса (CC-5) и
+	// GET /stats?kind=: фасетные агрегаты параметров класса и
 	// негативный случай — неизвестный класс.
 	status, body, _ = cl.do(ctx, http.MethodGet, "/stats?kind=capacitor", "", nil)
 	r.check("rest/stats-kind", "GET /stats?kind=: диапазоны и частоты значений параметров класса",
@@ -153,7 +153,7 @@ func restSuite(ctx context.Context, r *report, srv, tmp string, l leg) {
 		status == http.StatusBadRequest && strings.Contains(body, "unknown_parameter"),
 		detail(status, body)...)
 
-	// GET /components: сортировка по числовому параметру (CC-12) и
+	// GET /components: сортировка по числовому параметру и
 	// негативные случаи — неприменимый к классу параметр, неизвестный ключ.
 	status, body, _ = cl.do(ctx, http.MethodGet, "/components?kind=transistor&sort=-hfe", "", nil)
 	r.check("rest/components-paramsort", "GET /components: сортировка по числовому параметру",
@@ -174,15 +174,15 @@ func restSuite(ctx context.Context, r *report, srv, tmp string, l leg) {
 		status == http.StatusBadRequest && strings.Contains(body, "validation_failed"),
 		detail(status, body)...)
 
-	// GET /catalog: словари значений словарных полей обозначения (CC-11) —
+	// GET /catalog: словари значений словарных полей обозначения —
 	// состав мультивыборных фильтров (коды и названия по локали).
 	status, body, _ = cl.do(ctx, http.MethodGet, "/catalog", "", nil)
-	r.check("rest/catalog-dicts", "GET /catalog: словари значений словарных полей (CC-11)",
+	r.check("rest/catalog-dicts", "GET /catalog: словари значений словарных полей",
 		status == http.StatusOK && strings.Contains(body, `"dictionaries"`) &&
 			strings.Contains(body, `"gaas"`) && strings.Contains(body, "bipolar transistor"),
 		detail(status, body)...)
 
-	// GET /components: мультивыбор словарного фильтра (CC-11) — повторяемый
+	// GET /components: мультивыбор словарного фильтра — повторяемый
 	// параметр, семантика ИЛИ внутри поля (германий и кремний вместе);
 	// дубликат значения — 400.
 	status, body, _ = cl.do(ctx, http.MethodGet, "/components?material=ge&material=si", "", nil)
@@ -196,7 +196,7 @@ func restSuite(ctx context.Context, r *report, srv, tmp string, l leg) {
 		status == http.StatusBadRequest && strings.Contains(body, "validation_failed"),
 		detail(status, body)...)
 
-	// GET /components: колонки значений строк поиска (CC-13) — повторяемый
+	// GET /components: колонки значений строк поиска — повторяемый
 	// параметр values: вариантные численные К50-35 агрегируются границами
 	// (Vnom 6.3…315), атрибут — текстом (spec К50-35); негативные случаи —
 	// логический атрибут и неизвестный код.
@@ -232,7 +232,7 @@ func restSuite(ctx context.Context, r *report, srv, tmp string, l leg) {
 		status, body, _ = cl.do(ctx, http.MethodGet, "/components/id/"+id, "", nil)
 		r.check("rest/card-by-id", "GET /components/id/{id}: карточка по стабильному id",
 			status == http.StatusOK, detail(status, body)...)
-		// Фильтр по набору id — повторяемый параметр (CC-8): выдача
+		// Фильтр по набору id — повторяемый параметр: выдача
 		// следует порядку передачи, дырка — отсутствие строки, дубликат
 		// значения — 400.
 		status, body, _ = cl.do(ctx, http.MethodGet,
@@ -283,7 +283,7 @@ func restSuite(ctx context.Context, r *report, srv, tmp string, l leg) {
 			strings.Contains(body, "2N9013"),
 		detail(status, body)...)
 
-	// Потоковый импорт NDJSON (CC-6): синхронный отчёт после EOF,
+	// Потоковый импорт NDJSON: синхронный отчёт после EOF,
 	// повторный запрос — Skipped, синтаксис — 400 invalid_import_file,
 	// посторонний параметр — 400. КТ361Б — не входит в data/.
 	// Content-Type — заявленный спецификацией application/x-ndjson.

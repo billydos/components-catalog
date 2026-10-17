@@ -88,7 +88,7 @@ func run() error {
 	fmt.Printf("import: records=%d added=%d issues=%d\n",
 		rep.Records, rep.Added, len(rep.Issues))
 
-	// Потоковый импорт NDJSON с колбэком прогресса (CC-6): большие файлы
+	// Потоковый импорт NDJSON с колбэком прогресса: большие файлы
 	// читаются построчно без загрузки целиком; колбэк наблюдает чтение
 	// и итоговые исходы применения каждой записи.
 	ndjson := "{\"transistors\": {\"name\": \"КТ361Б\", \"attributes\": {\"structure\": \"pnp\"}}}\n" +

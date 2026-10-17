@@ -88,7 +88,7 @@ const (
 	ChangesLimitMax     = service.ChangesLimitMax
 )
 
-// Поток изменений записей (change feed, CC-2).
+// Поток изменений записей (change feed).
 
 type (
 	ChangeEvent = service.ChangeEvent
@@ -109,7 +109,7 @@ type (
 	Suggestion = service.Suggestion
 )
 
-// Фасетные агрегаты значений параметров класса (ParameterStats — CC-5).
+// Фасетные агрегаты значений параметров класса (ParameterStats).
 
 type (
 	ParameterStats     = service.ParameterStats

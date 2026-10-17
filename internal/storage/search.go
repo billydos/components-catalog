@@ -156,7 +156,7 @@ func buildSearchWhere(r SearchRequest) (*whereBuilder, string) {
 	for i, f := range r.Fields {
 		switch {
 		case len(f.Texts) > 0:
-			// Мультивыбор словарного поля (CC-11): IN-список именованными
+			// Мультивыбор словарного поля: IN-список именованными
 			// аргументами самого конструктора WHERE — по пути фильтра id;
 			// словари конечны, чанкование не требуется.
 			parts := make([]string, len(f.Texts))
@@ -256,7 +256,7 @@ WHERE (pv%d.variant_id = dv.id OR (pv%d.device_id = d.id AND pv%d.variant_id IS 
 // полю разбора соответствует LEFT JOIN device_designation_fields (PK
 // (device_id, field) даёт не более одной строки — дублирования записей
 // нет) вместо коррелированного подзапроса на каждую строку. Ключу по
-// параметру (CC-12) соответствует LEFT JOIN производной таблицы по
+// параметру соответствует LEFT JOIN производной таблицы по
 // parameter_values с GROUP BY device_id: уникальности (device_id,
 // parameter_code) нет (вариантные и повторные значения), наивный JOIN
 // размножил бы строки и сломал total; в сортировочное значение входят все

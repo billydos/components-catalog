@@ -1000,7 +1000,7 @@ func runImporterSuite(t *testing.T, factory configFactory) {
 		}
 	})
 
-	// Прогресс импорта (CC-6): колбэк WithProgress наблюдает построчное
+	// Прогресс импорта: колбэк WithProgress наблюдает построчное
 	// чтение NDJSON и итоговые исходы применения (включая dry-run);
 	// документные форматы отмечают чтение одним вызовом после разбора.
 	t.Run("ProgressCallback", func(t *testing.T) {

@@ -496,8 +496,8 @@ func TestSearchSortByFieldKeys(t *testing.T) {
 	}
 }
 
-// TestSearchSortByParamKeys — сортировка по кодам числовых параметров
-// (CC-12): производная таблица по parameter_values с GROUP BY device_id
+// TestSearchSortByParamKeys — сортировка по кодам числовых параметров:
+// производная таблица по parameter_values с GROUP BY device_id
 // не размножает строки (повторные и вариантные значения одного кода),
 // правило значения — по направлению (MIN нижних / MAX верхних границ,
 // COALESCE падает на точное значение и единственную границу односторонних

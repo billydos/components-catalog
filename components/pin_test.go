@@ -29,8 +29,8 @@ var serviceExceptions = map[string]bool{
 
 // ownFacadeNames — собственные (не алиасные) экспортируемые имена фасада:
 // App/Config/Open, тонкая обёртка AsError над domain.AsError и обёртка
-// WithProgress над importer.WithProgress (колбэк прогресса импорта,
-// CC-6 — тип ImportOption/Progress открыты алиасами, конструктор — имя
+// WithProgress над importer.WithProgress (колбэк прогресса импорта;
+// тип ImportOption/Progress открыты алиасами, конструктор — имя
 // фасада).
 var ownFacadeNames = map[string]bool{
 	"App":          true,
