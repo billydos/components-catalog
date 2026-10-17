@@ -225,11 +225,14 @@ type ParameterFilter struct {
 	Text      string
 }
 
-// SortField — ключ сортировки: "designation", "id" либо код поля разбора
-// (Numeric — поле числовое).
+// SortField — ключ сортировки: "designation", "id", код поля разбора
+// (Numeric — поле числовое) либо код параметра каталога (Param — всегда
+// численная сортировка по значению параметра; допустимость — сервисный
+// слой по снимку каталога).
 type SortField struct {
 	Key     string
 	Numeric bool
+	Param   bool
 	Desc    bool
 }
 

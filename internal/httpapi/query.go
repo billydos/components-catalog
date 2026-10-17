@@ -119,7 +119,7 @@ func parseSearchQuery(values url.Values, snap *catalog.Snapshot) (service.Search
 		q.Offset = n
 	}
 	if vs := values["sort"]; len(vs) > 0 && strings.TrimSpace(vs[0]) != "" {
-		sorts, err := parseSort(vs[0])
+		sorts, err := parseSort(vs[0], snap)
 		if err != nil {
 			return q, err
 		}
@@ -240,8 +240,10 @@ func canonicalizeFieldCode(field, value string, snap *catalog.Snapshot) (string,
 }
 
 // parseSort — сортировка: ключи через запятую, «-» — убывание;
-// «designation»/«id» либо код поля разбора.
-func parseSort(spec string) ([]service.SortField, error) {
+// «designation»/«id», код поля разбора либо код параметра каталога
+// (CC-12; известность по снимку, численность типа и применимость к классу
+// проверяет сервис). При пересечении словарей поле разбора приоритетнее.
+func parseSort(spec string, snap *catalog.Snapshot) ([]service.SortField, error) {
 	parts := strings.Split(spec, ",")
 	out := make([]service.SortField, 0, len(parts))
 	for _, part := range parts {
@@ -250,6 +252,7 @@ func parseSort(spec string) ([]service.SortField, error) {
 		if strings.HasPrefix(key, "-") {
 			desc, key = true, key[1:]
 		}
+		_, param := snap.Parameter(key)
 		switch {
 		case key == "designation":
 			out = append(out, service.SortField{Key: key, Desc: desc})
@@ -258,6 +261,8 @@ func parseSort(spec string) ([]service.SortField, error) {
 		case domain.KnownDesignationField(key):
 			numeric, _ := domain.NumericDesignationField(key)
 			out = append(out, service.SortField{Key: key, Numeric: numeric, Desc: desc})
+		case param:
+			out = append(out, service.SortField{Key: key, Param: true, Desc: desc})
 		default:
 			return nil, domain.NewErrorf(domain.CodeValidationFailed, domain.MsgApiSortKey, key)
 		}

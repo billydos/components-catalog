@@ -244,7 +244,21 @@ paths:
             uniqueItems: true
           style: form
           explode: true
-        - {name: sort, in: query, schema: {type: string}, description: "Ключи сортировки через запятую, «-» — убывание (designation, id либо код поля разбора). К любому порядку добавляется финальный (kind, designation)."}
+        - name: sort
+          in: query
+          schema: {type: string}
+          description: |
+            Ключи сортировки через запятую, «-» — убывание: designation,
+            id, код поля разбора либо код числового параметра каталога,
+            применимого к классу запроса (CC-12). Параметры text/enum и
+            неприменимые к классу — 400 (validation_failed/
+            parameter_not_applicable). Значение записи по параметру —
+            по направлению: возрастание — нижняя граница (value_min,
+            точное либо единственная верхняя), убывание — верхняя
+            (value_max, точное либо единственная нижняя); учитываются
+            значения типа и исполнений (как в фильтрах), записи без
+            значения — в конце независимо от направления. К любому
+            порядку добавляется финальный (kind, designation).
         - {name: limit, in: query, schema: {type: integer, minimum: 1, maximum: 200, default: 50}, description: "Размер страницы (≤ 200)."}
         - {name: offset, in: query, schema: {type: integer, minimum: 0, default: 0}, description: "Смещение страницы."}
       responses:

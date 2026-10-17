@@ -244,18 +244,33 @@ func buildSearchRequest(snap *catalog.Snapshot, q SearchQuery) (storage.SearchRe
 		req.Params = append(req.Params, cond)
 	}
 	for _, so := range q.Sort {
-		// "designation"/"id" — колонки записи; прочие ключи — коды полей
-		// разбора (значение передаётся параметром, записи без поля —
-		// в конце порядка). Известность ключа проверяется по единому
-		// реестру полей — неизвестный не «молча пустой порядок».
-		switch so.Key {
-		case "designation", "id":
+		// "designation"/"id" — колонки записи; коды полей разбора —
+		// реестр домена (значение передаётся параметром, записи без
+		// поля — в конце порядка); коды параметров каталога (CC-12) —
+		// только численные и применимые к классу запроса (D7, по образцу
+		// параметрических фильтров). Известность ключа проверяется по
+		// единому реестру — неизвестный не «молча пустой порядок».
+		switch {
+		case so.Key == "designation" || so.Key == "id":
+		case so.Param:
+			def, ok := snap.Parameter(so.Key)
+			if !ok {
+				return req, domain.NewErrorf(domain.CodeUnknownParameter, domain.MsgEngineParamUnknown, so.Key)
+			}
+			if q.Kind != "" && !def.AppliesTo(q.Kind) {
+				return req, domain.NewErrorf(domain.CodeParameterNotApplicable,
+					domain.MsgEngineParamNotApplicable, so.Key, string(q.Kind))
+			}
+			if !def.ValueType.Numeric() {
+				return req, domain.NewErrorf(domain.CodeValidationFailed,
+					domain.MsgSvcSortParamNumber, so.Key)
+			}
 		default:
 			if !domain.KnownDesignationField(so.Key) {
 				return req, domain.NewErrorf(domain.CodeValidationFailed, domain.MsgSvcSearchFieldUnknown, so.Key)
 			}
 		}
-		req.Sorts = append(req.Sorts, storage.SortKey{Key: so.Key, Numeric: so.Numeric, Desc: so.Desc})
+		req.Sorts = append(req.Sorts, storage.SortKey{Key: so.Key, Numeric: so.Numeric, Param: so.Param, Desc: so.Desc})
 	}
 	return req, nil
 }

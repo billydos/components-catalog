@@ -322,6 +322,7 @@ const (
 	MsgSvcFilterParamSet        MsgID = "svc_filter_param_value_missing"
 	MsgSvcFilterParamText       MsgID = "svc_filter_param_text_expected"
 	MsgSvcFilterParamNumber     MsgID = "svc_filter_param_number_expected"
+	MsgSvcSortParamNumber       MsgID = "svc_sort_param_number_expected"
 	MsgSvcFieldDuplicate        MsgID = "svc_field_duplicate"
 	MsgSvcFieldUnknown          MsgID = "svc_field_unknown"
 	MsgSvcFieldParserOwned      MsgID = "svc_field_parser_owned"
@@ -831,6 +832,7 @@ var msgRegistry = map[MsgID]struct{}{
 	MsgSvcFilterParamSet:              {},
 	MsgSvcFilterParamText:             {},
 	MsgSvcFilterParamNumber:           {},
+	MsgSvcSortParamNumber:             {},
 	MsgSvcFieldDuplicate:              {},
 	MsgSvcSearchFieldUnknown:          {},
 	MsgSvcSearchIDMax:                 {},

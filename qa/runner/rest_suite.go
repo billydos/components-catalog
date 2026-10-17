@@ -152,6 +152,23 @@ func restSuite(ctx context.Context, r *report, srv, tmp string, l leg) {
 	r.check("rest/components-unknown-par", "GET /components: неизвестный параметр — 400, код unknown_parameter",
 		status == http.StatusBadRequest && strings.Contains(body, "unknown_parameter"),
 		detail(status, body)...)
+
+	// GET /components: сортировка по числовому параметру (CC-12) и
+	// негативные случаи — неприменимый к классу параметр, неизвестный ключ.
+	status, body, _ = cl.do(ctx, http.MethodGet, "/components?kind=transistor&sort=-hfe", "", nil)
+	r.check("rest/components-paramsort", "GET /components: сортировка по числовому параметру",
+		status == http.StatusOK && strings.Contains(body, `"total":`),
+		detail(status, body)...)
+	status, body, _ = cl.do(ctx, http.MethodGet, "/components?kind=transistor&sort=Rnom", "", nil)
+	r.check("rest/components-paramsort-na",
+		"GET /components: сортировка по неприменимому параметру — 400 parameter_not_applicable",
+		status == http.StatusBadRequest && strings.Contains(body, "parameter_not_applicable"),
+		detail(status, body)...)
+	status, body, _ = cl.do(ctx, http.MethodGet, "/components?sort=bogus", "", nil)
+	r.check("rest/components-paramsort-unknown",
+		"GET /components: неизвестный ключ сортировки — 400 validation_failed",
+		status == http.StatusBadRequest && strings.Contains(body, "validation_failed"),
+		detail(status, body)...)
 	status, body, _ = cl.do(ctx, http.MethodGet, "/components?kind=transistor&bogus=1", "", nil)
 	r.check("rest/components-unknown-key", "GET /components: неизвестный ключ запроса — 400, код validation_failed",
 		status == http.StatusBadRequest && strings.Contains(body, "validation_failed"),

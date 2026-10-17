@@ -495,3 +495,92 @@ func TestSearchSortByFieldKeys(t *testing.T) {
 		})
 	}
 }
+
+// TestSearchSortByParamKeys — сортировка по кодам числовых параметров
+// (CC-12): производная таблица по parameter_values с GROUP BY device_id
+// не размножает строки (повторные и вариантные значения одного кода),
+// правило значения — по направлению (MIN нижних / MAX верхних границ,
+// COALESCE падает на точное значение и единственную границу односторонних
+// форм), записи без значения — в конце независимо от направления.
+func TestSearchSortByParamKeys(t *testing.T) {
+	for _, dialect := range []string{"sqlite", "postgres"} {
+		t.Run(dialect, func(t *testing.T) {
+			db := openDevicesDB(t, dialect)
+			seedFacetCatalog(t, db)
+			ctx := context.Background()
+			seedSortDevice := func(designation string, typeVals, variantVals []ParamValue) {
+				t.Helper()
+				tx, err := db.Begin(ctx)
+				if err != nil {
+					t.Fatalf("begin: %v", err)
+				}
+				id, _, err := tx.InsertDevice(ctx, "resistor", "gost", designation)
+				if err != nil {
+					t.Fatalf("запись %q: %v", designation, err)
+				}
+				if len(typeVals) > 0 {
+					if err := tx.InsertValues(ctx, id, nil, typeVals); err != nil {
+						t.Fatalf("значения %q: %v", designation, err)
+					}
+				}
+				if len(variantVals) > 0 {
+					vid, err := tx.InsertVariant(ctx, id, "", 0)
+					if err != nil {
+						t.Fatalf("исполнение %q: %v", designation, err)
+					}
+					if err := tx.InsertValues(ctx, id, &vid, variantVals); err != nil {
+						t.Fatalf("вариантные значения %q: %v", designation, err)
+					}
+				}
+				if err := tx.Commit(); err != nil {
+					t.Fatalf("commit: %v", err)
+				}
+			}
+			// R1 — размножение строк: две строки типа (10..20 и 5..30)
+			// и вариантное значение 25 одного кода: ключ ASC — 5
+			// (минимум нижних), DESC — 30 (максимум верхних), total — 1.
+			seedSortDevice("R1",
+				[]ParamValue{
+					{Parameter: "hfe", Min: f(10), Max: f(20)},
+					{Parameter: "hfe", Min: f(5), Max: f(30)},
+				},
+				[]ParamValue{{Parameter: "hfe", Exact: f(25)}})
+			// R2 — точное значение: участвует в обоих направлениях.
+			seedSortDevice("R2", []ParamValue{{Parameter: "hfe", Exact: f(15)}}, nil)
+			// R3 — односторонняя форма (at_most): единственная граница
+			// становится ключом в обоих направлениях.
+			seedSortDevice("R3", []ParamValue{{Parameter: "hfe", Max: f(100)}}, nil)
+			// R4 — значения параметра нет (текстовое значение другого
+			// кода не считается): в конце независимо от направления.
+			seedSortDevice("R4", []ParamValue{{Parameter: "case", Text: s("A")}}, nil)
+
+			par := SortKey{Key: "hfe", Param: true}
+			for _, tc := range []struct {
+				name  string
+				sorts []SortKey
+				want  []string
+			}{
+				{"возрастание (минимум нижних границ)", []SortKey{par}, []string{"R1", "R2", "R3", "R4"}},
+				{"убывание (максимум верхних границ)", []SortKey{{Key: "hfe", Param: true, Desc: true}}, []string{"R3", "R1", "R2", "R4"}},
+				{"вместе с ключом-полем", []SortKey{par, {Key: "dev_number", Numeric: true}}, []string{"R1", "R2", "R3", "R4"}},
+			} {
+				t.Run(tc.name, func(t *testing.T) {
+					items, total, err := db.Search(ctx, SearchRequest{Sorts: tc.sorts, Limit: 10})
+					if err != nil {
+						t.Fatalf("search: %v", err)
+					}
+					if total != 4 {
+						t.Fatalf("total: %d — строки размножились", total)
+					}
+					got := make([]string, len(items))
+					for i, it := range items {
+						got[i] = it.Designation
+					}
+					if !slices.Equal(got, tc.want) {
+						t.Fatalf("порядок: %v, ожидался %v", got, tc.want)
+					}
+				})
+			}
+		})
+	}
+}

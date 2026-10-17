@@ -266,6 +266,7 @@ var messageFormatsRu = map[string]string{
 	"svc_filter_attr_number_expected":      "фильтр атрибута «%[1]s»: ожидается число",
 	"svc_filter_attr_text_expected":        "фильтр атрибута «%[1]s»: ожидается текстовое значение",
 	"svc_filter_param_number_expected":     "фильтр параметра «%[1]s»: ожидается число",
+	"svc_sort_param_number_expected":       "ключ сортировки «%[1]s»: ожидается числовой параметр",
 	"svc_filter_param_text_expected":       "фильтр параметра «%[1]s»: ожидается текстовое значение",
 	"svc_filter_param_value_missing":       "фильтр параметра «%[1]s»: задайте значение",
 	"svc_manufacturer_duplicate":           "производитель «%[1]s» задан повторно",

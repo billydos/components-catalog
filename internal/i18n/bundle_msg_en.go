@@ -267,6 +267,7 @@ var messageFormatsEn = map[string]string{
 	"svc_filter_attr_number_expected":      "attribute filter «%[1]s»: a number is expected",
 	"svc_filter_attr_text_expected":        "attribute filter «%[1]s»: a text value is expected",
 	"svc_filter_param_number_expected":     "parameter filter «%[1]s»: a number is expected",
+	"svc_sort_param_number_expected":       "sort key «%[1]s»: a numeric parameter is expected",
 	"svc_filter_param_text_expected":       "parameter filter «%[1]s»: a text value is expected",
 	"svc_filter_param_value_missing":       "parameter filter «%[1]s»: set a value",
 	"svc_manufacturer_duplicate":           "manufacturer «%[1]s» is set more than once",

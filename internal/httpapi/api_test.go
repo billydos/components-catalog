@@ -612,6 +612,9 @@ func TestSearch(t *testing.T) {
 		{"атрибут", "attr.structure=npn", []string{"BC547B", "КТ315Б"}, false},
 		{"атрибут number", "attr.yearFrom=1967", []string{"КТ315Б"}, false},
 		{"сортировка", "kind=transistor&sort=-designation", []string{"КТ315Б", "BC547B"}, false},
+		{"сортировка по параметру (возрастание)", "kind=transistor&sort=hfe", []string{"КТ315Б", "BC547B"}, false},
+		{"сортировка по параметру (убывание)", "kind=transistor&sort=-hfe", []string{"BC547B", "КТ315Б"}, false},
+		{"сортировка по параметру: без значения — в конце", "sort=-Vnom", []string{"К50-35", "МЛТ-0.5", "BC547B", "КТ315Б"}, false},
 		{"пагинация", "sort=designation&limit=2&offset=2", []string{"КТ315Б", "МЛТ-0.5"}, false},
 	}
 	for _, tc := range cases {
@@ -649,6 +652,15 @@ func TestSearch(t *testing.T) {
 	page := decode[searchPageJSON](t, body)
 	if page.Total != 4 || len(page.Items) != 2 || page.Limit != 2 {
 		t.Fatalf("пагинация: %+v", page)
+	}
+
+	// Сортировка по параметру (CC-12) не размножает строки: вариантные
+	// значения К50-35 агрегируются в одну строку записи.
+	_, body, _ = do(t, srv, http.MethodGet, apiPrefix+"/components?sort=-Vnom", "")
+	page = decode[searchPageJSON](t, body)
+	if page.Total != 4 || len(page.Items) != 4 {
+		t.Fatalf("сортировка по параметру: total=%d, записей %d — ожидались 4 и 4",
+			page.Total, len(page.Items))
 	}
 
 	// Неизвестные коды словарных фильтров — 400 с дословным текстом.
@@ -800,6 +812,12 @@ func TestSearchErrors(t *testing.T) {
 		{"limit=abc", "validation_failed", "parameter limit: an integer from 1 to 200 is expected"},
 		{"offset=-1", "validation_failed", "parameter offset: a non-negative integer is expected"},
 		{"sort=bogus", "validation_failed", "parameter sort: unknown sort key «bogus»"},
+		// Сортировка по параметру (CC-12): неприменимый к классу — 400
+		// (как у параметрических фильтров), text/enum-параметр — 400.
+		{"kind=transistor&sort=Rnom", "parameter_not_applicable",
+			"parameter «Rnom» is not applicable to kind transistor"},
+		{"sort=nominalRow", "validation_failed",
+			"sort key «nominalRow»: a numeric parameter is expected"},
 		{"bogus=1", "validation_failed", "unknown query parameter «bogus»"},
 		{"junctions=abc", "validation_failed", "parameter «junctions»: a number is expected"},
 		{"par.hfe.min=1&par.hfe.min=2", "validation_failed",

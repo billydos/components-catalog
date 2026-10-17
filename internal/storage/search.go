@@ -63,11 +63,14 @@ type ParamCond struct {
 	Text              string
 }
 
-// SortKey — ключ сортировки: "designation", "id" либо код поля разбора
-// (Numeric — числовая сортировка поля, иначе текстовая).
+// SortKey — ключ сортировки: "designation", "id", код поля разбора
+// (Numeric — числовая сортировка поля, иначе текстовая) либо код
+// числового параметра (Param — значение записи агрегируется из
+// parameter_values производной таблицей).
 type SortKey struct {
 	Key     string
 	Numeric bool
+	Param   bool
 	Desc    bool
 }
 
@@ -252,10 +255,19 @@ WHERE (pv%d.variant_id = dv.id OR (pv%d.device_id = d.id AND pv%d.variant_id IS 
 // в конце независимо от направления (переносимо). Ключу сортировки по
 // полю разбора соответствует LEFT JOIN device_designation_fields (PK
 // (device_id, field) даёт не более одной строки — дублирования записей
-// нет) вместо коррелированного подзапроса на каждую строку. Без ключей
-// сортировки и с непустым набором ids первым ключом становится порядок
-// передачи id (CASE d.id WHEN … THEN n — переносимо; финальный ключ не
-// мешает — id уникальны), значения переиспользуют аргументы фильтра IN.
+// нет) вместо коррелированного подзапроса на каждую строку. Ключу по
+// параметру (CC-12) соответствует LEFT JOIN производной таблицы по
+// parameter_values с GROUP BY device_id: уникальности (device_id,
+// parameter_code) нет (вариантные и повторные значения), наивный JOIN
+// размножил бы строки и сломал total; в сортировочное значение входят все
+// строки записи — и данные типа, и вариантные, как в фильтрах и фасетах.
+// Правило выбора значения — по направлению: ASC — MIN нижних границ,
+// DESC — MAX верхних (семантика фасетов ParameterBounds); COALESCE
+// падает на единственную границу односторонних форм (at_least/at_most),
+// точное значение участвует в обоих направлениях. Без ключей сортировки
+// и с непустым набором ids первым ключом становится порядок передачи id
+// (CASE d.id WHEN … THEN n — переносимо; финальный ключ не мешает — id
+// уникальны), значения переиспользуют аргументы фильтра IN.
 func orderJoinClause(sorts []SortKey, ids []int64, w *whereBuilder) (joins, order string) {
 	var joinParts, orderParts []string
 	if len(ids) > 0 && len(sorts) == 0 {
@@ -270,11 +282,22 @@ func orderJoinClause(sorts []SortKey, ids []int64, w *whereBuilder) (joins, orde
 		if s.Desc {
 			dir = "DESC"
 		}
-		switch s.Key {
-		case "designation":
+		switch {
+		case s.Key == "designation":
 			orderParts = append(orderParts, "d.designation "+dir)
-		case "id":
+		case s.Key == "id":
 			orderParts = append(orderParts, "d.id "+dir)
+		case s.Param:
+			alias := fmt.Sprintf("so%d", i)
+			agg := "MIN(COALESCE(pv.value_min, pv.value_exact, pv.value_max))"
+			if s.Desc {
+				agg = "MAX(COALESCE(pv.value_max, pv.value_exact, pv.value_min))"
+			}
+			joinParts = append(joinParts, fmt.Sprintf(
+				"LEFT JOIN (SELECT pv.device_id, %s AS sort_value FROM parameter_values pv WHERE pv.parameter_code = %s GROUP BY pv.device_id) %s ON %s.device_id = d.id",
+				agg, w.arg(fmt.Sprintf("sortp%d", i), s.Key), alias, alias))
+			col := alias + ".sort_value"
+			orderParts = append(orderParts, "(CASE WHEN "+col+" IS NULL THEN 1 ELSE 0 END) ASC", col+" "+dir)
 		default:
 			alias := fmt.Sprintf("so%d", i)
 			joinParts = append(joinParts, fmt.Sprintf(
