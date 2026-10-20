@@ -32,10 +32,12 @@ type stateValue struct {
 	Conditions []catalog.ConditionValue
 }
 
-// stateVariant — исполнение: метка и плоский упорядоченный список значений.
+// stateVariant — исполнение: метка, плоский упорядоченный список значений
+// и атрибуты исполнения (отсортированы по коду).
 type stateVariant struct {
-	Label  string
-	Values []stateValue
+	Label      string
+	Values     []stateValue
+	Attributes []catalog.AttributeValue
 }
 
 // stateAnalog — исходящая ссылка-аналог в состоянии.
@@ -121,6 +123,27 @@ func (s *stateMerger) loadState(ctx context.Context, tx *storage.Tx, deviceID in
 		byVariant[v.ID] = len(st.variants)
 		st.variants = append(st.variants, stateVariant{Label: v.Label})
 	}
+	// Атрибуты исполнений — форма значения по типу атрибута каталога,
+	// как у атрибутов записи (варианты уже прочитаны — ids локальные).
+	vattrRows, err := tx.LoadVariantAttributesByIDs(ctx, variantIDsOf(variants))
+	if err != nil {
+		return nil, err
+	}
+	for vid, rows := range vattrRows {
+		idx, ok := byVariant[vid]
+		if !ok {
+			continue
+		}
+		for _, a := range rows {
+			av := catalog.AttributeValue{Attribute: a.Attribute, Num: a.Num, Bool: a.Bool}
+			if def, ok := s.snap.Attribute(a.Attribute); ok && def.Type == catalog.AttrTextList {
+				av.Texts = a.Texts
+			} else {
+				av.Text = a.Text
+			}
+			st.variants[idx].Attributes = append(st.variants[idx].Attributes, av)
+		}
+	}
 	for _, vr := range values {
 		if vr.VariantID != nil {
 			idx, ok := byVariant[*vr.VariantID]
@@ -165,6 +188,15 @@ func toStateValue(v storage.ParamValue) stateValue {
 		Text:       v.Text,
 		Conditions: sortedConds(v.Conditions),
 	}
+}
+
+// variantIDsOf — id исполнений одним срезом.
+func variantIDsOf(variants []storage.VariantRow) []int64 {
+	ids := make([]int64, 0, len(variants))
+	for _, v := range variants {
+		ids = append(ids, v.ID)
+	}
+	return ids
 }
 
 // sectionOf — имя секции группы параметра по снимку ("" — параметр
@@ -237,7 +269,7 @@ func (s *stateMerger) merge(cur *deviceState, in *DeviceInput, explicit []domain
 	if in.Variants != nil {
 		out.variants = make([]stateVariant, 0, len(*in.Variants))
 		for _, v := range *in.Variants {
-			sv := stateVariant{Label: v.Label}
+			sv := stateVariant{Label: v.Label, Attributes: normalizeAttrs(v.Attributes)}
 			for _, sec := range v.Sections {
 				for _, val := range sec.Values {
 					sv.Values = append(sv.Values, stateValue{
@@ -344,13 +376,15 @@ func groupValuesEqual(a, b map[string][]stateValue) bool {
 	return true
 }
 
-// variantsEqual — порядок исполнений значим (sort_order).
+// variantsEqual — порядок исполнений значим (sort_order); атрибуты
+// сравниваются как множества по коду.
 func variantsEqual(a, b []stateVariant) bool {
 	if len(a) != len(b) {
 		return false
 	}
 	for i := range a {
-		if a[i].Label != b[i].Label || !valuesEqual(a[i].Values, b[i].Values) {
+		if a[i].Label != b[i].Label || !valuesEqual(a[i].Values, b[i].Values) ||
+			!attrsEqual(a[i].Attributes, b[i].Attributes) {
 			return false
 		}
 	}
@@ -464,7 +498,7 @@ func (s *stateMerger) toCatalogDevice(p domain.ParsedDesignation, st *deviceStat
 		}
 	}
 	for _, v := range st.variants {
-		cv := catalog.Variant{Label: v.Label}
+		cv := catalog.Variant{Label: v.Label, Attributes: v.Attributes}
 		for _, val := range v.Values {
 			cv.Values = append(cv.Values, stateToParameterValue(val.Section, val))
 		}

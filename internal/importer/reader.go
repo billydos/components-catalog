@@ -395,11 +395,44 @@ func (r *reader) classificationFields(rec *Record, v value) ([]domain.Field, boo
 	return out, true
 }
 
-// attributes читает секцию attributes: объект «код атрибута → значение»
-// (массив строк — значение атрибута типа text_list).
+// attrErrors — сообщения ошибок разбора секции attributes: уровня записи
+// (аргумент значений — код атрибута) и уровня исполнения (перед кодом —
+// позиция «где»).
+type attrErrors struct {
+	object  domain.MsgID
+	number  domain.MsgID
+	bad     domain.MsgID
+	element domain.MsgID
+	where   any // nil — секция записи (позиция не подставляется)
+}
+
+// attributes читает секцию attributes записи: объект «код атрибута →
+// значение» (массив строк — значение атрибута типа text_list).
 func (r *reader) attributes(rec *Record, v value) ([]catalog.AttributeValue, bool) {
+	return r.attributeValues(rec, v, attrErrors{
+		object:  domain.MsgImportAttributesObject,
+		number:  domain.MsgImportAttrNumber,
+		bad:     domain.MsgImportAttrBadValue,
+		element: domain.MsgImportAttrElementString,
+	})
+}
+
+// attributeValues читает объект «код атрибута → значение» с сообщениями
+// заданного уровня (запись/исполнение).
+func (r *reader) attributeValues(rec *Record, v value, errs attrErrors) ([]catalog.AttributeValue, bool) {
+	fail := func(id domain.MsgID, code string) {
+		if errs.where == nil {
+			r.recFail(rec, id, code)
+			return
+		}
+		r.recFail(rec, id, errs.where, code)
+	}
 	if v.kind != kindObject {
-		r.recFail(rec, domain.MsgImportAttributesObject)
+		if errs.where == nil {
+			r.recFail(rec, errs.object)
+		} else {
+			r.recFail(rec, errs.object, errs.where)
+		}
 		return nil, false
 	}
 	attrs := make([]catalog.AttributeValue, 0, len(v.members))
@@ -415,7 +448,7 @@ func (r *reader) attributes(rec *Record, v value) ([]catalog.AttributeValue, boo
 			bad := false
 			for _, item := range m.value.items {
 				if item.kind != kindString {
-					r.recFail(rec, domain.MsgImportAttrElementString, m.name)
+					fail(errs.element, m.name)
 					bad = true
 					break
 				}
@@ -428,7 +461,7 @@ func (r *reader) attributes(rec *Record, v value) ([]catalog.AttributeValue, boo
 		case kindNumber:
 			f, err := strconv.ParseFloat(m.value.num, 64)
 			if err != nil {
-				r.recFail(rec, domain.MsgImportAttrNumber, m.name)
+				fail(errs.number, m.name)
 				return nil, false
 			}
 			attrs = append(attrs, catalog.AttributeValue{Attribute: m.name, Num: &f})
@@ -436,7 +469,7 @@ func (r *reader) attributes(rec *Record, v value) ([]catalog.AttributeValue, boo
 			b := m.value.boolean
 			attrs = append(attrs, catalog.AttributeValue{Attribute: m.name, Bool: &b})
 		default:
-			r.recFail(rec, domain.MsgImportAttrBadValue, m.name)
+			fail(errs.bad, m.name)
 			return nil, false
 		}
 	}
@@ -529,7 +562,8 @@ func (r *reader) numberKey(rec *Record, where any, m member) (f float64, ok bool
 	return f, true, false
 }
 
-// variant читает исполнение: метка + секции групп (те же, что у записи).
+// variant читает исполнение: метка, атрибуты исполнения (конструктивные
+// признаки — план 03 §7) и секции групп (те же, что у записи).
 func (r *reader) variant(rec *Record, index int, v value) (service.VariantInput, bool) {
 	where := domain.MsgArg(domain.MsgImportWhereVariant, index+1)
 	if v.kind != kindObject {
@@ -546,6 +580,9 @@ func (r *reader) variant(rec *Record, index int, v value) (service.VariantInput,
 			vi.Label = strings.TrimSpace(m.value.str)
 			continue
 		}
+		if m.name == "attributes" {
+			continue // разбирается вторым проходом (нужна позиция «где»)
+		}
 		if _, ok := r.snap.GroupBySection(m.name); !ok {
 			r.recFail(rec, domain.MsgImportVariantUnknownField, where, m.name, sectionKeys(r.snap))
 			return service.VariantInput{}, false
@@ -553,6 +590,23 @@ func (r *reader) variant(rec *Record, index int, v value) (service.VariantInput,
 	}
 	for _, m := range v.members {
 		if m.name == "label" {
+			continue
+		}
+		if m.name == "attributes" {
+			if m.value.kind == kindNull {
+				continue // null — у исполнения атрибутов нет
+			}
+			attrs, ok := r.attributeValues(rec, m.value, attrErrors{
+				object:  domain.MsgImportVariantAttributesObject,
+				number:  domain.MsgImportVariantAttrNumber,
+				bad:     domain.MsgImportVariantAttrBadValue,
+				element: domain.MsgImportVariantAttrElementString,
+				where:   where,
+			})
+			if !ok {
+				return service.VariantInput{}, false
+			}
+			vi.Attributes = attrs
 			continue
 		}
 		if m.value.kind == kindNull {

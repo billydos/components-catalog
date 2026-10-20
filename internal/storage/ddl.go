@@ -35,7 +35,11 @@ import "strings"
 // attribute_code, sort_order) таблицы device_attribute_values: атрибуты
 // типа text_list хранятся списком строк (первый — notes); базы прежних
 // версий пересоздаются импортом (D5).
-const SchemaVersion = 11
+// Версия 12 — таблица device_variant_attribute_values: атрибуты
+// исполнений записей (план 03 §7/§10 — атрибуты двухуровневые: запись
+// и исполнение); замена набора исполнений пересоздаёт строки каскадом
+// FK device_variants; базы прежних версий пересоздаются импортом (D5).
+const SchemaVersion = 12
 
 // autoIncToken — маркер авто-PK в переносимом DDL; диалект заменяет его
 // своим определением в RewriteDDL (sqlite: PRIMARY KEY AUTOINCREMENT —
@@ -194,6 +198,20 @@ var ddlStatements = []string{
     sort_order INTEGER NOT NULL DEFAULT 0
 )`,
 
+	// Атрибуты исполнений (план 03 §7): форма строк — как у атрибутов
+	// записи (device_attribute_values), владелец — вариант; замена набора
+	// исполнений удаляет строки каскадом FK.
+	`CREATE TABLE IF NOT EXISTS device_variant_attribute_values (
+    variant_id     INTEGER NOT NULL REFERENCES device_variants(id) ON DELETE CASCADE,
+    attribute_code TEXT NOT NULL REFERENCES attributes(code),
+    text_value     TEXT NULL,
+    num_value      REAL NULL,
+    bool_value     INTEGER NULL,
+    sort_order     INTEGER NOT NULL DEFAULT 0,
+    PRIMARY KEY (variant_id, attribute_code, sort_order),
+    CHECK (bool_value IS NULL OR bool_value IN (0, 1))
+)`,
+
 	`CREATE TABLE IF NOT EXISTS parameter_values (
     id             INTEGER ` + autoIncToken + `,
     device_id      INTEGER NOT NULL REFERENCES devices(id) ON DELETE CASCADE,
@@ -266,6 +284,9 @@ var ddlStatements = []string{
 
 	`CREATE INDEX IF NOT EXISTS idx_dav_attr_text ON device_attribute_values(attribute_code, text_value)`,
 	`CREATE INDEX IF NOT EXISTS idx_dav_attr_num ON device_attribute_values(attribute_code, num_value)`,
+
+	`CREATE INDEX IF NOT EXISTS idx_dvav_attr_text ON device_variant_attribute_values(attribute_code, text_value)`,
+	`CREATE INDEX IF NOT EXISTS idx_dvav_attr_num ON device_variant_attribute_values(attribute_code, num_value)`,
 
 	`CREATE INDEX IF NOT EXISTS idx_pv_code_min ON parameter_values(parameter_code, value_min)`,
 	`CREATE INDEX IF NOT EXISTS idx_pv_code_max ON parameter_values(parameter_code, value_max)`,

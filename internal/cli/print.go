@@ -102,25 +102,7 @@ func printCard(w io.Writer, lang i18n.Language, c *service.Card, snap *catalog.S
 	if len(c.Attributes) > 0 {
 		section()
 		fmt.Fprintln(w, i18n.Message(lang, string(domain.MsgCliHAttrs)))
-		for _, a := range c.Attributes {
-			value := ""
-			switch {
-			case a.Text != nil:
-				value = *a.Text
-			case a.Texts != nil:
-				// Список заметок — одной строкой через «; »: карточка —
-				// чтение, элемент за элементом — файл наполнения.
-				value = strings.Join(a.Texts, "; ")
-			case a.Num != nil:
-				value = i18n.FormatNumber(lang, *a.Num)
-			case a.Bool != nil:
-				value = strconv.FormatBool(*a.Bool)
-			}
-			// Код атрибута не повторяется: назначение — ключ файла
-			// наполнения, выводится catalog list; карточка — чтение.
-			fmt.Fprintln(w, i18n.Message(lang, string(domain.MsgCliFieldLine),
-				i18n.AttributeName(lang, a.Code), value))
-		}
+		printAttrLines(w, lang, c.Attributes, "")
 	}
 	for _, g := range c.Groups {
 		section()
@@ -134,6 +116,10 @@ func printCard(w io.Writer, lang i18n.Language, c *service.Card, snap *catalog.S
 		section()
 		label := cmp.Or(v.Label, i18n.Message(lang, string(domain.MsgCliNoLabel)))
 		fmt.Fprintln(w, i18n.Message(lang, string(domain.MsgCliVariantHead), label))
+		if len(v.Attributes) > 0 {
+			fmt.Fprintln(w, "  "+i18n.Message(lang, string(domain.MsgCliHAttrs)))
+			printAttrLines(w, lang, v.Attributes, "  ")
+		}
 		for _, g := range v.Groups {
 			fmt.Fprintf(w, "  %s:\n", i18n.GroupName(lang, g.Code))
 			for _, val := range g.Values {
@@ -188,6 +174,30 @@ func printCard(w io.Writer, lang i18n.Language, c *service.Card, snap *catalog.S
 			parts = append(parts, b.Designation)
 		}
 		fmt.Fprintln(w, i18n.Message(lang, string(domain.MsgCliBacklinks), joinParts(parts)))
+	}
+}
+
+// printAttrLines выводит значения атрибутов (записи либо исполнения)
+// строками с заданным отступом: текст/enum — текст, text_list — заметки
+// одной строкой через «; » (карточка — чтение, элемент за элементом —
+// файл наполнения), числа — компактной записью локали. Код атрибута
+// не повторяется: назначение — ключ файла наполнения, выводится
+// catalog list.
+func printAttrLines(w io.Writer, lang i18n.Language, attrs []service.CardAttribute, indent string) {
+	for _, a := range attrs {
+		value := ""
+		switch {
+		case a.Text != nil:
+			value = *a.Text
+		case a.Texts != nil:
+			value = strings.Join(a.Texts, "; ")
+		case a.Num != nil:
+			value = i18n.FormatNumber(lang, *a.Num)
+		case a.Bool != nil:
+			value = strconv.FormatBool(*a.Bool)
+		}
+		fmt.Fprintf(w, "%s%s\n", indent, i18n.Message(lang, string(domain.MsgCliFieldLine),
+			i18n.AttributeName(lang, a.Code), value))
 	}
 }
 

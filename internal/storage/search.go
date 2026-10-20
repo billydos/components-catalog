@@ -190,23 +190,25 @@ WHERE df%d.device_id = d.id AND df%d.field = %s AND df%d.text_value = %s)`,
 				i, i, i, w.arg(fmt.Sprintf("ff%d", i), f.Field), i, w.arg(fmt.Sprintf("ft%d", i), f.Text)))
 		}
 	}
-	for i, a := range r.Attrs {
-		if a.HasNum {
-			w.add(fmt.Sprintf(
-				`EXISTS (SELECT 1 FROM device_attribute_values av%d
-WHERE av%d.device_id = d.id AND av%d.attribute_code = %s AND av%d.num_value %s %s)`,
-				i, i, i, w.arg(fmt.Sprintf("ac%d", i), a.Code), i, a.Op.sql(), w.arg(fmt.Sprintf("an%d", i), a.Num)))
-		} else {
-			w.add(fmt.Sprintf(
-				`EXISTS (SELECT 1 FROM device_attribute_values av%d
-WHERE av%d.device_id = d.id AND av%d.attribute_code = %s AND av%d.text_value = %s)`,
-				i, i, i, w.arg(fmt.Sprintf("ac%d", i), a.Code), i, w.arg(fmt.Sprintf("at%d", i), a.Text)))
-		}
-	}
-	if len(r.Params) > 0 {
-		w.add(buildParamScope(r.Params, w))
+	if len(r.Attrs) > 0 || len(r.Params) > 0 {
+		w.add(buildValueScope(r.Attrs, r.Params, w))
 	}
 	return w, w.clause()
+}
+
+// attrCondSQL — условие атрибутного фильтра на псевдониме таблицы
+// атрибутов (записи либо исполнения): принадлежность коду + равенство
+// текста либо сравнение числа (границы применяются к num_value).
+func attrCondSQL(alias string, i int, a AttrCond, w *whereBuilder) string {
+	parts := []string{fmt.Sprintf("%s.attribute_code = %s", alias, w.arg(fmt.Sprintf("ac%d", i), a.Code))}
+	if a.HasNum {
+		parts = append(parts, fmt.Sprintf("%s.num_value %s %s",
+			alias, a.Op.sql(), w.arg(fmt.Sprintf("an%d", i), a.Num)))
+	} else {
+		parts = append(parts, fmt.Sprintf("%s.text_value = %s",
+			alias, w.arg(fmt.Sprintf("at%d", i), a.Text)))
+	}
+	return strings.Join(parts, " AND ")
 }
 
 // paramCondSQL — условие одного параметрового фильтра на псевдониме pvX:
@@ -233,24 +235,40 @@ func paramCondSQL(i int, p ParamCond, w *whereBuilder) string {
 	return strings.Join(parts, " AND ")
 }
 
-// buildParamScope — вариантная семантика параметрических фильтров: все
-// фильтры должны выполняться в пределах данных типа (variant_id IS NULL)
-// либо одного исполнения вместе с данными типа; сочетание значений разных
-// исполнений не допускается (R8).
-func buildParamScope(params []ParamCond, w *whereBuilder) string {
-	typeLevel := make([]string, 0, len(params))
+// buildValueScope — вариантная семантика фильтров атрибутов и параметров:
+// все фильтры должны выполняться в пределах данных типа (variant_id IS
+// NULL, атрибуты записи) либо одного исполнения вместе с данными типа;
+// сочетание значений разных исполнений не допускается (R8). Атрибуты
+// исполнения — конструктивные признаки (план 03 §7), участвуют наравне
+// со значениями параметров исполнения.
+func buildValueScope(attrs []AttrCond, params []ParamCond, w *whereBuilder) string {
+	typeLevel := make([]string, 0, len(attrs)+len(params))
 	for i, p := range params {
 		typeLevel = append(typeLevel, fmt.Sprintf(
 			`EXISTS (SELECT 1 FROM parameter_values pv%d
 WHERE pv%d.device_id = d.id AND pv%d.variant_id IS NULL AND %s)`,
 			i, i, i, paramCondSQL(i, p, w)))
 	}
-	variantLevel := make([]string, 0, len(params))
+	for i, a := range attrs {
+		typeLevel = append(typeLevel, fmt.Sprintf(
+			`EXISTS (SELECT 1 FROM device_attribute_values av%d
+WHERE av%d.device_id = d.id AND %s)`,
+			i, i, attrCondSQL(fmt.Sprintf("av%d", i), i, a, w)))
+	}
+	variantLevel := make([]string, 0, len(attrs)+len(params))
 	for i, p := range params {
 		variantLevel = append(variantLevel, fmt.Sprintf(
 			`EXISTS (SELECT 1 FROM parameter_values pv%d
 WHERE (pv%d.variant_id = dv.id OR (pv%d.device_id = d.id AND pv%d.variant_id IS NULL)) AND %s)`,
 			i, i, i, i, paramCondSQL(i, p, w)))
+	}
+	for i, a := range attrs {
+		variantLevel = append(variantLevel, fmt.Sprintf(
+			`(EXISTS (SELECT 1 FROM device_variant_attribute_values vav%d
+WHERE vav%d.variant_id = dv.id AND %s) OR EXISTS (SELECT 1 FROM device_attribute_values dav%d
+WHERE dav%d.device_id = d.id AND %s))`,
+			i, i, attrCondSQL(fmt.Sprintf("vav%d", i), i, a, w),
+			i, i, attrCondSQL(fmt.Sprintf("dav%d", i), i, a, w)))
 	}
 	return "(" +
 		"(" + strings.Join(typeLevel, " AND ") + ")" +

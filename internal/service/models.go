@@ -26,11 +26,13 @@ type SectionInput struct {
 	Values  []catalog.ParameterValue
 }
 
-// VariantInput — исполнение типа (D6): метка для карточки и собственные
-// значения параметров по секциям групп.
+// VariantInput — исполнение типа (D6): метка для карточки, собственные
+// значения параметров по секциям групп и атрибуты исполнения —
+// конструктивные признаки, различающиеся по исполнениям (план 03 §7/§10).
 type VariantInput struct {
-	Label    string
-	Sections []SectionInput
+	Label      string
+	Sections   []SectionInput
+	Attributes []catalog.AttributeValue
 }
 
 // AnalogInput — исходящая ссылка-аналог (D8): обозначение того же класса,
@@ -120,10 +122,12 @@ type CardGroup struct {
 }
 
 // CardVariant — исполнение на карточке (матрица «номинал × напряжение →
-// габариты/масса» собирается группами каталога).
+// габариты/масса» собирается группами каталога; атрибуты — конструктивные
+// признаки исполнения).
 type CardVariant struct {
-	Label  string
-	Groups []CardGroup
+	Label      string
+	Groups     []CardGroup
+	Attributes []CardAttribute
 }
 
 // CardTypeSibling — запись группы типа: запись того же класса с тем же

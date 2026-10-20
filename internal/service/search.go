@@ -140,13 +140,37 @@ func (s *DeviceService) attachSearchValues(ctx context.Context, snap *catalog.Sn
 		}
 	}
 	var attrs map[int64][]storage.AttrRow
+	// variantAttrsByDevice — атрибуты исполнений колонок attr.<код>,
+	// сгруппированные по записи в порядке исполнений.
+	var variantAttrsByDevice map[int64][]storage.AttrRow
 	if len(attrCodes) > 0 {
 		if attrs, err = tx.LoadAttributesByIDsCodes(ctx, ids, attrCodes); err != nil {
 			return err
 		}
+		variants, err := tx.LoadVariantsByIDs(ctx, ids)
+		if err != nil {
+			return err
+		}
+		variantIDs := make([]int64, 0, len(variants)*2)
+		for _, rows := range variants {
+			for _, v := range rows {
+				variantIDs = append(variantIDs, v.ID)
+			}
+		}
+		variantAttrs, err := tx.LoadVariantAttributesByIDsCodes(ctx, variantIDs, attrCodes)
+		if err != nil {
+			return err
+		}
+		variantAttrsByDevice = make(map[int64][]storage.AttrRow, len(variants))
+		for devID, rows := range variants {
+			for _, v := range rows {
+				variantAttrsByDevice[devID] = append(variantAttrsByDevice[devID], variantAttrs[v.ID]...)
+			}
+		}
 	}
 	for i := range items {
-		items[i].Values = projectSearchValues(snap, cols, values[items[i].ID], attrs[items[i].ID])
+		items[i].Values = projectSearchValues(snap, cols, values[items[i].ID],
+			attrs[items[i].ID], variantAttrsByDevice[items[i].ID])
 	}
 	return nil
 }
@@ -154,13 +178,14 @@ func (s *DeviceService) attachSearchValues(ctx context.Context, snap *catalog.Sn
 // projectSearchValues собирает значения запрошенных колонок одной записи
 // в порядке запроса (нет значения — нет элемента). Правило выбора значения
 // при нескольких строках у записи (данные типа + исполнения, повторные
-// строки) — paramSearchValue; атрибут — text/exact-num по типу каталога.
+// строки) — paramSearchValue; атрибут — attrSearchValue: значение записи,
+// при его отсутствии — атрибуты исполнений.
 func projectSearchValues(snap *catalog.Snapshot, cols []ValueColumn,
-	values []storage.ValueRow, attrs []storage.AttrRow) []SearchValue {
+	values []storage.ValueRow, attrs, variantAttrs []storage.AttrRow) []SearchValue {
 	out := make([]SearchValue, 0, len(cols))
 	for _, col := range cols {
 		if col.Attr {
-			if v, ok := attrSearchValue(col, snap, attrs); ok {
+			if v, ok := attrSearchValue(col, snap, attrs, variantAttrs); ok {
 				out = append(out, v)
 			}
 			continue
@@ -258,11 +283,13 @@ func cardValueOf(def *catalog.ParameterDef, vr storage.ValueRow) CardValue {
 	}
 }
 
-// attrSearchValue — значение атрибута записи для колонки: text/enum —
-// текст, text_list — заметки одной строкой через «; », int/number — точное
-// число, name/unit — из определения (логические отвергаются валидацией
-// запроса).
-func attrSearchValue(col ValueColumn, snap *catalog.Snapshot, attrs []storage.AttrRow) (SearchValue, bool) {
+// attrSearchValue — значение атрибута для колонки: значение записи,
+// при его отсутствии — атрибуты исполнений (текстовые/enum — различные
+// значения исполнений одной строкой через «; » в порядке исполнений;
+// text_list — заметки одной строкой через «; »; int/number — агрегат
+// границ MIN/MAX по исполнениям; логические отвергаются валидацией
+// запроса); name/unit — из определения.
+func attrSearchValue(col ValueColumn, snap *catalog.Snapshot, attrs, variantAttrs []storage.AttrRow) (SearchValue, bool) {
 	def, ok := snap.Attribute(col.Code)
 	if !ok {
 		return SearchValue{}, false
@@ -271,16 +298,69 @@ func attrSearchValue(col ValueColumn, snap *catalog.Snapshot, attrs []storage.At
 		if a.Attribute != col.Code {
 			continue
 		}
-		v := CardValue{Parameter: col.Code, Unit: def.Unit, Exact: a.Num}
-		if def.Type == catalog.AttrTextList {
-			joined := strings.Join(a.Texts, "; ")
-			v.Text = &joined
-		} else {
-			v.Text = a.Text
+		return attrRowSearchValue(col, def, a), true
+	}
+	var rows []storage.AttrRow
+	for _, a := range variantAttrs {
+		if a.Attribute == col.Code {
+			rows = append(rows, a)
+		}
+	}
+	if len(rows) == 0 {
+		return SearchValue{}, false
+	}
+	if def.Type == catalog.AttrInt || def.Type == catalog.AttrNumber {
+		v := CardValue{Parameter: col.Code, Unit: def.Unit}
+		for _, r := range rows {
+			if r.Num != nil {
+				if v.Min == nil || *r.Num < *v.Min {
+					v.Min = r.Num
+				}
+				if v.Max == nil || *r.Num > *v.Max {
+					v.Max = r.Num
+				}
+			}
+		}
+		if v.Min == nil && v.Max == nil {
+			return SearchValue{}, false // численных строк нет — элемента нет
 		}
 		return SearchValue{Column: col, Value: v}, true
 	}
-	return SearchValue{}, false
+	// Текстовые/enum/text_list: различные значения исполнений — одной
+	// строкой (у text_list каждый вариант уже одной строкой через «; »).
+	seen := make(map[string]bool, len(rows))
+	var parts []string
+	for _, r := range rows {
+		texts := r.Texts
+		if def.Type != catalog.AttrTextList && r.Text != nil {
+			texts = []string{*r.Text}
+		}
+		for _, s := range texts {
+			if !seen[s] {
+				seen[s] = true
+				parts = append(parts, s)
+			}
+		}
+	}
+	if len(parts) == 0 {
+		return SearchValue{}, false // текстов нет — элемента нет
+	}
+	joined := strings.Join(parts, "; ")
+	return SearchValue{Column: col, Value: CardValue{
+		Parameter: col.Code, Unit: def.Unit, Text: &joined,
+	}}, true
+}
+
+// attrRowSearchValue — значение одной строки атрибута записи для колонки.
+func attrRowSearchValue(col ValueColumn, def *catalog.AttributeDef, a storage.AttrRow) SearchValue {
+	v := CardValue{Parameter: col.Code, Unit: def.Unit, Exact: a.Num}
+	if def.Type == catalog.AttrTextList {
+		joined := strings.Join(a.Texts, "; ")
+		v.Text = &joined
+	} else {
+		v.Text = a.Text
+	}
+	return SearchValue{Column: col, Value: v}
 }
 
 // ValidateSearch проверяет поисковый запрос по каталогу (класс, система,

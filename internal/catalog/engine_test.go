@@ -486,6 +486,49 @@ func TestVariantSectionMismatch(t *testing.T) {
 	}
 }
 
+// Атрибуты исполнения валидируются движком как атрибуты записи:
+// существование, применимость к классу, тип значения (план 03 §7/§10).
+func TestVariantAttributeValidation(t *testing.T) {
+	e := seedEngine(t)
+	d := catalog.Device{
+		Kind: domain.KindResistor, System: domain.SystemGost,
+		Variants: []catalog.Variant{{
+			Label: "24",
+			Values: []catalog.ParameterValue{
+				{Parameter: "Pnom", Section: "ratings", Exact: f(0.125)},
+			},
+			Attributes: []catalog.AttributeValue{
+				{Attribute: "functionalChar", Text: s("А")},
+			},
+		}},
+	}
+	if probs := e.ValidateDevice(&d); len(probs) != 0 {
+		t.Fatalf("корректный атрибут исполнения: %v", messages(probs))
+	}
+	d.Variants[0].Attributes = []catalog.AttributeValue{
+		{Attribute: "functionalChar", Text: s("Г")},
+	}
+	probs := e.ValidateDevice(&d)
+	if len(probs) != 1 || probs[0].MsgID != domain.MsgEngineAttrEnumInvalid {
+		t.Fatalf("enum вне списка: %v", messages(probs))
+	}
+	d.Variants[0].Attributes = []catalog.AttributeValue{
+		{Attribute: "noSuch", Text: s("x")},
+	}
+	probs = e.ValidateDevice(&d)
+	if len(probs) != 1 || probs[0].MsgID != domain.MsgEngineAttrUnknown {
+		t.Fatalf("неизвестный атрибут: %v", messages(probs))
+	}
+	// Атрибут чужого класса — полярность конденсаторов.
+	d.Variants[0].Attributes = []catalog.AttributeValue{
+		{Attribute: "polarized", Bool: b(true)},
+	}
+	probs = e.ValidateDevice(&d)
+	if len(probs) != 1 || probs[0].MsgID != domain.MsgEngineAttrNotApplicable {
+		t.Fatalf("неприменимый атрибут: %v", messages(probs))
+	}
+}
+
 // Значения атрибутов по типам (§9): текст непустой, bool, enum, int.
 func TestAttributeValueTypes(t *testing.T) {
 	e := seedEngine(t)

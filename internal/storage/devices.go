@@ -255,6 +255,54 @@ func (t *Tx) LoadAttributes(ctx context.Context, deviceID int64) ([]AttrRow, err
 	return loadAttributes(ctx, t.tx, deviceID)
 }
 
+// LoadVariantAttributesByIDs — атрибуты исполнений по списку id
+// исполнений (карточки, слитое состояние Upsert).
+func (t *Tx) LoadVariantAttributesByIDs(ctx context.Context, ids []int64) (map[int64][]AttrRow, error) {
+	return loadVariantAttributesByIDs(ctx, t.tx, ids, nil)
+}
+
+// LoadVariantAttributesByIDsCodes — атрибуты исполнений по списку id
+// исполнений и кодов атрибутов (пакетная проекция колонок значений
+// поиска); вызывается в транзакции чтения — согласованный снимок.
+func (t *Tx) LoadVariantAttributesByIDsCodes(ctx context.Context, ids []int64, codes []string) (map[int64][]AttrRow, error) {
+	return loadVariantAttributesByIDs(ctx, t.tx, ids, codes)
+}
+
+func loadVariantAttributesByIDs(ctx context.Context, q queryer, ids []int64, codes []string) (map[int64][]AttrRow, error) {
+	if len(ids) == 0 {
+		return nil, nil
+	}
+	out := make(map[int64][]AttrRow, len(ids))
+	err := eachIDChunk(ids, func(chunk []int64) error {
+		args := make(map[string]any, len(chunk))
+		where := `WHERE variant_id IN ` + inList("id", chunk, args)
+		if len(codes) > 0 {
+			where += ` AND attribute_code IN ` + inTextList("code", codes, args)
+		}
+		rows, err := queryContext(ctx, q, `
+SELECT variant_id, attribute_code, text_value, num_value, bool_value
+FROM device_variant_attribute_values
+`+where+` ORDER BY variant_id, attribute_code, sort_order`, args)
+		if err != nil {
+			return err
+		}
+		defer rows.Close()
+		for rows.Next() {
+			var id int64
+			var code string
+			var text sql.NullString
+			var num sql.NullFloat64
+			var b sql.NullInt64
+			if err := rows.Scan(&id, &code, &text, &num, &b); err != nil {
+				return err
+			}
+			out[id] = appendAttrRow(out[id], code, text, num, b)
+		}
+		return rows.Err()
+	})
+	return out, err
+}
+
 func loadAttributes(ctx context.Context, q queryer, deviceID int64) ([]AttrRow, error) {
 	rows, err := queryContext(ctx, q, `
 SELECT attribute_code, text_value, num_value, bool_value FROM device_attribute_values
@@ -1130,6 +1178,43 @@ VALUES (@id, @code, @text, @pos)`,
 INSERT INTO device_attribute_values(device_id, attribute_code, text_value, num_value, bool_value)
 VALUES (@id, @code, @text, @num, @bool)`,
 			map[string]any{"id": deviceID, "code": r.Attribute, "text": text, "num": num, "bool": b}); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// InsertVariantAttributes вставляет атрибуты исполнения после InsertVariant:
+// строки нового варианта пусты (DELETE не нужен — замена набора исполнений
+// пересоздаёт варианты целиком, старые строки уходят каскадом FK);
+// построчное подавление конфликтов уникальности — как у ReplaceAttributes.
+func (t *Tx) InsertVariantAttributes(ctx context.Context, variantID int64, rows []AttrRow) error {
+	for _, r := range rows {
+		if r.Texts != nil {
+			for i, s := range r.Texts {
+				if _, err := t.InsertIfAbsent(ctx, `
+INSERT INTO device_variant_attribute_values(variant_id, attribute_code, text_value, sort_order)
+VALUES (@id, @code, @text, @pos)`,
+					map[string]any{"id": variantID, "code": r.Attribute, "text": s, "pos": i}); err != nil {
+					return err
+				}
+			}
+			continue
+		}
+		var text, num, b any
+		if r.Text != nil {
+			text = *r.Text
+		}
+		if r.Num != nil {
+			num = *r.Num
+		}
+		if r.Bool != nil {
+			b = boolInt(*r.Bool)
+		}
+		if _, err := t.InsertIfAbsent(ctx, `
+INSERT INTO device_variant_attribute_values(variant_id, attribute_code, text_value, num_value, bool_value)
+VALUES (@id, @code, @text, @num, @bool)`,
+			map[string]any{"id": variantID, "code": r.Attribute, "text": text, "num": num, "bool": b}); err != nil {
 			return err
 		}
 	}

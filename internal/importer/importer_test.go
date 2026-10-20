@@ -138,6 +138,46 @@ func runImporterSuite(t *testing.T, factory configFactory) {
 		}
 	})
 
+	t.Run("VariantAttributesRoundTrip", func(t *testing.T) {
+		app := openApp(t, factory)
+		file := filepath.Join(t.TempDir(), "vars.jsonc")
+		write(t, file, `{
+			"resistors": [
+				{
+					"name": "СП3-33",
+					"attributes": { "spec": "ОЖ0.467.093ТУ" },
+					"variants": [
+						{ "label": "24",
+							"attributes": { "functionalChar": "А", "package": "DIP" },
+							"ratings": [ { "parameter": "Pnom", "value": 0.125 } ] },
+						{ "label": "28",
+							"attributes": { "functionalChar": "Б" },
+							"ratings": [ { "parameter": "Pnom", "value": 0.25 } ] }
+					]
+				}
+			]
+		}`)
+		rep := importFile(t, app, file, false)
+		if rep.HasIssues() || rep.Added != 1 {
+			t.Fatalf("импорт: %+v; %v", rep, issueMessages(rep.Issues))
+		}
+		var buf bytes.Buffer
+		if err := New(app).Export(context.Background(), &buf, FormatJSONC, nil); err != nil {
+			t.Fatalf("экспорт: %v", err)
+		}
+		if !strings.Contains(buf.String(), `"functionalChar"`) {
+			t.Fatalf("экспорт без атрибутов исполнения:\n%s", buf.String())
+		}
+		// Повторный импорт экспорта — Skipped по всем записям:
+		// round-trip идемпотентен и с атрибутами исполнений.
+		exp := filepath.Join(t.TempDir(), "export.jsonc")
+		write(t, exp, buf.String())
+		rep = importFile(t, app, exp, false)
+		if rep.HasIssues() || rep.Skipped != 1 {
+			t.Fatalf("повторный импорт: %+v; %v", rep, issueMessages(rep.Issues))
+		}
+	})
+
 	t.Run("ForwardAnalogReferencesResolved", func(t *testing.T) {
 		app := openApp(t, factory)
 		// Прямая ссылка на позднейшую запись файла: многопроходное

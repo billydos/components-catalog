@@ -203,6 +203,37 @@ func TestReadDocumentAttrTextList(t *testing.T) {
 	}
 }
 
+// Атрибуты исполнения: ошибки разбора несут позицию исполнения.
+func TestReadDocumentVariantAttrErrors(t *testing.T) {
+	cases := []struct {
+		name string
+		body string
+		want string
+	}{
+		{"не-объект", `5`,
+			`record «К50-35»: variant no. 1: "attributes" must be an object of «attribute code: value»`},
+		{"значение не по типу", `{"polarized": {"v": 1}}`,
+			`record «К50-35»: variant no. 1: attribute «polarized»: a string, number, boolean, array of strings or null is expected`},
+		{"элементы массива не строки", `{"notes": ["a", 5]}`,
+			`record «К50-35»: variant no. 1: attribute «notes»: array items must be strings`},
+		{"непредставимое число", `{"yearFrom": 1e999}`,
+			`record «К50-35»: variant no. 1: attribute «yearFrom»: value must be a number`},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			root, snap := parseDoc(t, `{
+				"capacitors": [ { "name": "К50-35", "variants": [
+					{ "label": "a", "attributes": `+tc.body+` }
+				] } ]
+			}`)
+			_, issues := ReadDocument(root, snap)
+			if len(issues) == 0 || issues[0].String() != tc.want {
+				t.Fatalf("ожидалась проблема %q, получено: %v", tc.want, issueMessages(issues))
+			}
+		})
+	}
+}
+
 func TestReadDocumentAttrTextListErrors(t *testing.T) {
 	cases := []struct {
 		name string
@@ -321,6 +352,7 @@ func TestReadDocumentVariantsAndAnalogs(t *testing.T) {
 				"variants": [
 					{
 						"label": "160 В",
+						"attributes": { "polarized": true },
 						"parameters": [ { "parameter": "Vnom", "value": 160 } ],
 						"dimensions": [ { "parameter": "massMax", "value": 1.5 } ]
 					}
@@ -345,6 +377,10 @@ func TestReadDocumentVariantsAndAnalogs(t *testing.T) {
 	v := (*cap.Variants)[0]
 	if v.Label != "160 В" || len(v.Sections) != 2 {
 		t.Fatalf("вариант: %+v", v)
+	}
+	if len(v.Attributes) != 1 || v.Attributes[0].Attribute != "polarized" ||
+		v.Attributes[0].Bool == nil || !*v.Attributes[0].Bool {
+		t.Fatalf("атрибуты варианта: %+v", v.Attributes)
 	}
 	dio := doc.Records[1].Input
 	if dio.Analogs == nil || len(*dio.Analogs) != 2 {

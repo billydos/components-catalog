@@ -47,6 +47,17 @@ func (s *DeviceService) buildCards(ctx context.Context, snap *catalog.Snapshot, 
 	if err != nil {
 		return nil, err
 	}
+	// Атрибуты исполнений — пакетное чтение по id исполнений страницы.
+	variantIDs := make([]int64, 0, len(variants)*2)
+	for _, rows := range variants {
+		for _, v := range rows {
+			variantIDs = append(variantIDs, v.ID)
+		}
+	}
+	variantAttrs, err := tx.LoadVariantAttributesByIDs(ctx, variantIDs)
+	if err != nil {
+		return nil, err
+	}
 	manufacturers, err := tx.LoadManufacturersByIDs(ctx, ids)
 	if err != nil {
 		return nil, err
@@ -88,7 +99,7 @@ func (s *DeviceService) buildCards(ctx context.Context, snap *catalog.Snapshot, 
 			continue // параллельное удаление — запись уже не собирается
 		}
 		cards = append(cards, assembleCard(snap, dev, fields[id], attrRows[id],
-			values[id], variants[id], manufacturers[id], outgoing[id], backlinks[id], synonyms[id]))
+			values[id], variants[id], variantAttrs, manufacturers[id], outgoing[id], backlinks[id], synonyms[id]))
 	}
 	for _, c := range cards {
 		attachTypeGroup(snap, c, fields[c.ID], values[c.ID], siblings, sibValues)
@@ -258,7 +269,8 @@ func cardValueEqual(a, b CardValue) bool {
 // assembleCard собирает карточку из считанных строк (без обращений к БД).
 func assembleCard(snap *catalog.Snapshot, dev *storage.DeviceRow,
 	fields []domain.Field, attrRows []storage.AttrRow, values []storage.ValueRow,
-	variants []storage.VariantRow, manufacturers []string,
+	variants []storage.VariantRow, variantAttrs map[int64][]storage.AttrRow,
+	manufacturers []string,
 	outgoing []storage.AnalogRow, backlinks []storage.BacklinkRow,
 	synonyms []storage.SynonymRow) *Card {
 	card := &Card{
@@ -270,23 +282,7 @@ func assembleCard(snap *catalog.Snapshot, dev *storage.DeviceRow,
 		Manufacturers: manufacturers,
 	}
 	// Атрибуты — в порядке каталога.
-	byAttr := make(map[string]storage.AttrRow, len(attrRows))
-	for _, a := range attrRows {
-		byAttr[a.Attribute] = a
-	}
-	for _, def := range snap.Attributes {
-		row, ok := byAttr[def.Code]
-		if !ok {
-			continue
-		}
-		ca := CardAttribute{Code: def.Code, Num: row.Num, Bool: row.Bool}
-		if def.Type == catalog.AttrTextList {
-			ca.Texts = row.Texts
-		} else {
-			ca.Text = row.Text
-		}
-		card.Attributes = append(card.Attributes, ca)
-	}
+	card.Attributes = cardAttributes(snap, attrRows)
 
 	// Значения типа в целом и исполнений — по группам каталога
 	// (предгруппировка — один проход по значениям).
@@ -295,8 +291,9 @@ func assembleCard(snap *catalog.Snapshot, dev *storage.DeviceRow,
 	for _, v := range variants {
 		vID := v.ID
 		card.Variants = append(card.Variants, CardVariant{
-			Label:  v.Label,
-			Groups: cardGroups(snap, grouped, &vID),
+			Label:      v.Label,
+			Groups:     cardGroups(snap, grouped, &vID),
+			Attributes: cardAttributes(snap, variantAttrs[vID]),
 		})
 	}
 
@@ -321,6 +318,33 @@ func assembleCard(snap *catalog.Snapshot, dev *storage.DeviceRow,
 		})
 	}
 	return card
+}
+
+// cardAttributes — значения атрибутов (записи либо исполнения) в порядке
+// каталога; форма значения — по типу атрибута (text_list — список строк).
+func cardAttributes(snap *catalog.Snapshot, rows []storage.AttrRow) []CardAttribute {
+	if len(rows) == 0 {
+		return nil
+	}
+	byAttr := make(map[string]storage.AttrRow, len(rows))
+	for _, a := range rows {
+		byAttr[a.Attribute] = a
+	}
+	var out []CardAttribute
+	for _, def := range snap.Attributes {
+		row, ok := byAttr[def.Code]
+		if !ok {
+			continue
+		}
+		ca := CardAttribute{Code: def.Code, Num: row.Num, Bool: row.Bool}
+		if def.Type == catalog.AttrTextList {
+			ca.Texts = row.Texts
+		} else {
+			ca.Text = row.Text
+		}
+		out = append(out, ca)
+	}
+	return out
 }
 
 // variantKey — ключ предгруппировки значений: данные типа в целом

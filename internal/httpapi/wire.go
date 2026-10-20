@@ -80,10 +80,12 @@ type cardGroupJSON struct {
 }
 
 // cardVariantJSON — исполнение (матрица «номинал × напряжение → габариты»
-// собирается группами каталога).
+// собирается группами каталога; attributes — конструктивные признаки
+// исполнения, план 03 §7).
 type cardVariantJSON struct {
-	Label  string          `json:"label"`
-	Groups []cardGroupJSON `json:"groups"`
+	Label      string          `json:"label"`
+	Attributes []cardAttrJSON  `json:"attributes"`
+	Groups     []cardGroupJSON `json:"groups"`
 }
 
 // cardTypeSiblingJSON — соседняя запись группы типа.
@@ -173,15 +175,14 @@ func cardToJSON(lang i18n.Language, c *service.Card) cardJSON {
 		Backlinks:     make([]linkJSON, 0, len(c.Backlinks)),
 		Synonyms:      make([]synonymJSON, 0, len(c.Synonyms)),
 	}
-	for _, a := range c.Attributes {
-		out.Attributes = append(out.Attributes, cardAttrJSON{
-			Code: a.Code, Name: i18n.AttributeName(lang, a.Code),
-			Text: a.Text, Texts: a.Texts, Num: a.Num, Bool: a.Bool,
-		})
-	}
+	out.Attributes = cardAttrsToJSON(lang, c.Attributes)
 	out.Groups = groupsToJSON(lang, c.Groups)
 	for _, v := range c.Variants {
-		out.Variants = append(out.Variants, cardVariantJSON{Label: v.Label, Groups: groupsToJSON(lang, v.Groups)})
+		out.Variants = append(out.Variants, cardVariantJSON{
+			Label:      v.Label,
+			Attributes: cardAttrsToJSON(lang, v.Attributes),
+			Groups:     groupsToJSON(lang, v.Groups),
+		})
 	}
 	if c.TypeGroup != nil {
 		tg := &cardTypeGroupJSON{
@@ -221,6 +222,17 @@ func cardToJSON(lang i18n.Language, c *service.Card) cardJSON {
 	for _, s := range c.Synonyms {
 		out.Synonyms = append(out.Synonyms, synonymJSON{
 			Designation: s.Designation, Note: s.Note, YearFrom: s.YearFrom, YearTo: s.YearTo,
+		})
+	}
+	return out
+}
+
+func cardAttrsToJSON(lang i18n.Language, attrs []service.CardAttribute) []cardAttrJSON {
+	out := make([]cardAttrJSON, 0, len(attrs))
+	for _, a := range attrs {
+		out = append(out, cardAttrJSON{
+			Code: a.Code, Name: i18n.AttributeName(lang, a.Code),
+			Text: a.Text, Texts: a.Texts, Num: a.Num, Bool: a.Bool,
 		})
 	}
 	return out

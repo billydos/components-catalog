@@ -218,6 +218,13 @@ func recordTree(c *service.Card, parsed *domain.ParsedDesignation) value {
 			if v.Label != "" {
 				variantPairs = append(variantPairs, pair("label", str(v.Label)))
 			}
+			if len(v.Attributes) > 0 {
+				attrPairs := make([]member, 0, len(v.Attributes))
+				for _, a := range v.Attributes {
+					attrPairs = append(attrPairs, pair(a.Code, attrTreeValue(a)))
+				}
+				variantPairs = append(variantPairs, pair("attributes", object(attrPairs...)))
+			}
 			for _, g := range v.Groups {
 				if len(g.Values) == 0 {
 					continue

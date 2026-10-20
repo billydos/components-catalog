@@ -45,6 +45,7 @@ func (e *Engine) ValidateDevice(d *Device) []Problem {
 		}
 		for i := range d.Variants {
 			probs = append(probs, e.validateValues(d.Kind, d.Variants[i].Values)...)
+			probs = append(probs, e.validateAttributes(d.Kind, d.Variants[i].Attributes)...)
 		}
 	}
 	probs = append(probs, e.runKindRules(d)...)

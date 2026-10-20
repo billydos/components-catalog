@@ -730,9 +730,13 @@ components:
           items: {$ref: "#/components/schemas/CardValue"}
     CardVariant:
       type: object
-      required: [label, groups]
+      required: [label, attributes, groups]
       properties:
         label: {type: string}
+        attributes:
+          type: array
+          description: Атрибуты исполнения — конструктивные признаки.
+          items: {$ref: "#/components/schemas/CardAttribute"}
         groups:
           type: array
           items: {$ref: "#/components/schemas/CardGroup"}
@@ -1072,6 +1076,13 @@ components:
       type: object
       properties:
         label: {type: string}
+        attributes:
+          type: object
+          description: "Код атрибута → значение исполнения (конструктивные
+            признаки, различающиеся по исполнениям — docs/fill-format.md §6):
+            строка / массив строк для атрибутов типа text_list / число /
+            логическое; форма значений как у attributes записи, null — атрибут
+            не задаётся; заменяются вместе с набором variants."
     UnitDef:
       type: object
       required: [code, name, symbol]

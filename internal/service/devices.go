@@ -391,14 +391,7 @@ func (s *DeviceService) writeUpsert(ctx context.Context, tx *storage.Tx, deviceI
 	}
 
 	if in.Attributes != nil {
-		rows := make([]storage.AttrRow, 0, len(merged.attributes))
-		for _, a := range merged.attributes {
-			rows = append(rows, storage.AttrRow{
-				Attribute: a.Attribute, Text: a.Text, Texts: a.Texts,
-				Num: a.Num, Bool: a.Bool,
-			})
-		}
-		if err := tx.ReplaceAttributes(ctx, deviceID, rows); err != nil {
+		if err := tx.ReplaceAttributes(ctx, deviceID, attrsToRows(merged.attributes)); err != nil {
 			return err
 		}
 	}
@@ -425,6 +418,9 @@ func (s *DeviceService) writeUpsert(ctx context.Context, tx *storage.Tx, deviceI
 		for i, v := range merged.variants {
 			vid, err := tx.InsertVariant(ctx, deviceID, v.Label, i)
 			if err != nil {
+				return err
+			}
+			if err := tx.InsertVariantAttributes(ctx, vid, attrsToRows(v.Attributes)); err != nil {
 				return err
 			}
 			vals := make([]storage.ParamValue, 0, len(v.Values))
@@ -541,6 +537,21 @@ func validateInputShape(in *DeviceInput) error {
 		}
 		seenAttrs[a.Attribute] = true
 	}
+	// Дубликаты атрибутов исполнения — та же форма, что у записи (код
+	// атрибута идентифицирует проблему; позиция исполнения выводу не нужна).
+	checkAttrs := func(attrs []catalog.AttributeValue) error {
+		seen := make(map[string]bool, len(attrs))
+		for _, a := range attrs {
+			if strings.TrimSpace(a.Attribute) == "" {
+				return domain.NewErrorf(domain.CodeValidationFailed, domain.MsgSvcAttrCodeMissing)
+			}
+			if seen[a.Attribute] {
+				return domain.NewErrorf(domain.CodeValidationFailed, domain.MsgSvcAttrDuplicate, a.Attribute)
+			}
+			seen[a.Attribute] = true
+		}
+		return nil
+	}
 	if in.Manufacturers != nil {
 		seen := make(map[string]bool, len(*in.Manufacturers))
 		for i, name := range *in.Manufacturers {
@@ -559,6 +570,9 @@ func validateInputShape(in *DeviceInput) error {
 		if err := checkSections(v.Sections); err != nil {
 			return err
 		}
+		if err := checkAttrs(v.Attributes); err != nil {
+			return err
+		}
 	}
 	return nil
 }
@@ -568,6 +582,19 @@ func safeVariants(in *DeviceInput) []VariantInput {
 		return nil
 	}
 	return *in.Variants
+}
+
+// attrsToRows — значения атрибутов в строки хранилища (записи либо
+// исполнения): text_list — по строке на элемент, скалярные — одна строка.
+func attrsToRows(attrs []catalog.AttributeValue) []storage.AttrRow {
+	rows := make([]storage.AttrRow, 0, len(attrs))
+	for _, a := range attrs {
+		rows = append(rows, storage.AttrRow{
+			Attribute: a.Attribute, Text: a.Text, Texts: a.Texts,
+			Num: a.Num, Bool: a.Bool,
+		})
+	}
+	return rows
 }
 
 // resolveAnalogs разрешает обозначения аналогов в пределах класса записи

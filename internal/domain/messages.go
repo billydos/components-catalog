@@ -225,6 +225,10 @@ const (
 	MsgImportVariantLabelString       MsgID = "import_variant_label_string"
 	MsgImportVariantUnknownField      MsgID = "import_variant_unknown_field"
 	MsgImportVariantSectionArray      MsgID = "import_variant_section_array"
+	MsgImportVariantAttributesObject  MsgID = "import_variant_attributes_object"
+	MsgImportVariantAttrNumber        MsgID = "import_variant_attr_number"
+	MsgImportVariantAttrBadValue      MsgID = "import_variant_attr_bad_value"
+	MsgImportVariantAttrElementString MsgID = "import_variant_attr_element_string"
 	MsgImportAnalogNameRequired       MsgID = "import_analog_name_required"
 	MsgImportAnalogNoteString         MsgID = "import_analog_note_string"
 	MsgImportAnalogUnknownField       MsgID = "import_analog_unknown_field"
@@ -773,6 +777,10 @@ var msgRegistry = map[MsgID]struct{}{
 	MsgImportVariantLabelString:       {},
 	MsgImportVariantUnknownField:      {},
 	MsgImportVariantSectionArray:      {},
+	MsgImportVariantAttributesObject:  {},
+	MsgImportVariantAttrNumber:        {},
+	MsgImportVariantAttrBadValue:      {},
+	MsgImportVariantAttrElementString: {},
 	MsgImportAnalogNameRequired:       {},
 	MsgImportAnalogNoteString:         {},
 	MsgImportAnalogUnknownField:       {},

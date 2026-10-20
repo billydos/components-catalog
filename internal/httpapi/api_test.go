@@ -134,16 +134,20 @@ func seedDevices(t *testing.T, app *service.App) {
 			{Attribute: "polarized", Bool: ptr(true)},
 		},
 		Variants: &[]service.VariantInput{
-			{Label: "160 В", Sections: []service.SectionInput{
-				{Section: "parameters", Values: []catalog.ParameterValue{
-					{Parameter: "Vnom", Exact: ptr(160.0)},
-					{Parameter: "Cnom", Min: ptr(1000000.0), Max: ptr(10000000.0)},
+			{Label: "160 В",
+				Attributes: []catalog.AttributeValue{
+					{Attribute: "package", Text: ptr("корпус 160-вольтового ряда")},
+				},
+				Sections: []service.SectionInput{
+					{Section: "parameters", Values: []catalog.ParameterValue{
+						{Parameter: "Vnom", Exact: ptr(160.0)},
+						{Parameter: "Cnom", Min: ptr(1000000.0), Max: ptr(10000000.0)},
+					}},
+					{Section: "dimensions", Values: []catalog.ParameterValue{
+						{Parameter: "diameter", Exact: ptr(8.0)},
+						{Parameter: "leadLength", Exact: ptr(12.0)},
+					}},
 				}},
-				{Section: "dimensions", Values: []catalog.ParameterValue{
-					{Parameter: "diameter", Exact: ptr(8.0)},
-					{Parameter: "leadLength", Exact: ptr(12.0)},
-				}},
-			}},
 			{Label: "25 В", Sections: []service.SectionInput{
 				{Section: "parameters", Values: []catalog.ParameterValue{
 					{Parameter: "Vnom", Exact: ptr(25.0)},
@@ -1014,11 +1018,21 @@ func TestCard(t *testing.T) {
 		t.Fatalf("встречные ссылки: %+v", back.Backlinks)
 	}
 
-	// Исполнения: матрица «ёмкость × напряжение → габариты».
+	// Исполнения: матрица «ёмкость × напряжение → габариты»
+	// и атрибуты исполнения (конструктивные признаки, D12).
 	_, body, _ = do(t, srv, http.MethodGet, apiPrefix+"/components/capacitor/"+esc("К50-35"), "")
 	capCard := decode[cardJSON](t, body)
 	if len(capCard.Variants) != 2 || capCard.Variants[0].Label != "160 В" {
 		t.Fatalf("исполнения: %+v", capCard.Variants)
+	}
+	if len(capCard.Variants[0].Attributes) != 1 ||
+		capCard.Variants[0].Attributes[0].Code != "package" ||
+		capCard.Variants[0].Attributes[0].Text == nil ||
+		*capCard.Variants[0].Attributes[0].Text != "корпус 160-вольтового ряда" {
+		t.Fatalf("атрибуты исполнения: %+v", capCard.Variants[0].Attributes)
+	}
+	if len(capCard.Variants[1].Attributes) != 0 {
+		t.Fatalf("атрибуты второго исполнения: %+v", capCard.Variants[1].Attributes)
 	}
 	found := false
 	for _, g := range capCard.Variants[0].Groups {

@@ -10,6 +10,7 @@ import (
 
 	"github.com/billydos/components-catalog/internal/catalog"
 	"github.com/billydos/components-catalog/internal/domain"
+	"github.com/billydos/components-catalog/internal/storage"
 	"github.com/billydos/components-catalog/internal/testutil"
 )
 
@@ -175,6 +176,7 @@ func runSuite(t *testing.T, factory configFactory) {
 	t.Run("attributes text_list", func(t *testing.T) { suiteAttrTextList(t, factory) })
 	t.Run("atomic on error", func(t *testing.T) { suiteAtomicOnError(t, factory) })
 	t.Run("variants", func(t *testing.T) { suiteVariants(t, factory) })
+	t.Run("variant attributes", func(t *testing.T) { suiteVariantAttributes(t, factory) })
 	t.Run("variant filters", func(t *testing.T) { suiteVariantFilters(t, factory) })
 	t.Run("analogs", func(t *testing.T) { suiteAnalogs(t, factory) })
 	t.Run("synonyms", func(t *testing.T) { suiteSynonyms(t, factory) })
@@ -534,6 +536,162 @@ func suiteVariants(t *testing.T, factory configFactory) {
 	_, err = svc.Upsert(ctx, DeviceInput{Name: "К50-35", Variants: &cv})
 	wantDomainError(t, err, domain.CodeValidationFailed,
 		"variant «25 В»: mandatory parameter Cnom is missing")
+}
+
+// suiteVariantAttributes — атрибуты исполнений (план 03 §7/§10):
+// карточка, канонический Skipped, замена набора исполнений вместе
+// с атрибутами, валидация движком, фильтры attr. по вариантным значениям
+// в пределах одного исполнения и проекция колонки attr.
+func suiteVariantAttributes(t *testing.T, factory configFactory) {
+	ctx := context.Background()
+	app := openSuiteApp(t, factory)
+	svc := app.Services().Devices
+
+	variants := func() []VariantInput {
+		return []VariantInput{
+			{
+				Label:    "24",
+				Sections: []SectionInput{section("ratings", pvExact("Pnom", 0.125))},
+				Attributes: []catalog.AttributeValue{
+					attrText("functionalChar", "А"), attrText("package", "DIP"),
+				},
+			},
+			{
+				Label:    "28",
+				Sections: []SectionInput{section("ratings", pvExact("Pnom", 0.25))},
+				Attributes: []catalog.AttributeValue{
+					attrText("functionalChar", "Б"),
+				},
+			},
+		}
+	}
+	rec := func() DeviceInput {
+		return DeviceInput{
+			Name:       "СП3-33",
+			Attributes: []catalog.AttributeValue{attrText("spec", "ОЖ0.467.093ТУ")},
+		}
+	}
+	input := rec()
+	vars := variants()
+	input.Variants = &vars
+	if out := mustUpsert(t, svc, input); out != OutcomeAdded {
+		t.Fatalf("исход: %s", out)
+	}
+
+	// Повтор того же входа — Skipped (атрибуты исполнений входят
+	// в каноническое сравнение состояний).
+	if out := mustUpsert(t, svc, input); out != OutcomeSkipped {
+		t.Fatalf("повтор: %s", out)
+	}
+
+	// Карточка: атрибуты исполнения в порядке каталога, атрибут записи
+	// — на месте.
+	card, found, err := svc.Get(ctx, domain.KindResistor, "СП3-33")
+	if err != nil || !found {
+		t.Fatalf("карточка: %v %v", found, err)
+	}
+	attrByCode := func(attrs []CardAttribute) map[string]string {
+		out := make(map[string]string, len(attrs))
+		for _, a := range attrs {
+			out[a.Code] = *a.Text
+		}
+		return out
+	}
+	if len(card.Attributes) != 1 || card.Attributes[0].Code != "spec" {
+		t.Fatalf("атрибуты записи: %+v", card.Attributes)
+	}
+	if len(card.Variants) != 2 {
+		t.Fatalf("исполнения: %+v", card.Variants)
+	}
+	v24 := attrByCode(card.Variants[0].Attributes)
+	if v24["functionalChar"] != "А" || v24["package"] != "DIP" {
+		t.Fatalf("атрибуты исполнения 24: %+v", card.Variants[0].Attributes)
+	}
+	if v28 := attrByCode(card.Variants[1].Attributes); v28["functionalChar"] != "Б" {
+		t.Fatalf("атрибуты исполнения 28: %+v", card.Variants[1].Attributes)
+	}
+
+	// Фильтр attr. по вариантному значению (у записи атрибута нет).
+	page, err := svc.Search(ctx, SearchQuery{
+		Kind:       domain.KindResistor,
+		Attributes: []AttributeFilter{{Attribute: "functionalChar", Text: "Б"}},
+	})
+	if err != nil || page.Total != 1 || page.Items[0].Designation != "СП3-33" {
+		t.Fatalf("фильтр по атрибуту исполнения: %v %d", err, page.Total)
+	}
+	// Фильтр по атрибуту записи.
+	page, err = svc.Search(ctx, SearchQuery{
+		Kind:       domain.KindResistor,
+		Attributes: []AttributeFilter{{Attribute: "spec", Text: "ОЖ0.467.093ТУ"}},
+	})
+	if err != nil || page.Total != 1 {
+		t.Fatalf("фильтр по атрибуту записи: %v %d", err, page.Total)
+	}
+
+	// Сочетание атрибутов одного исполнения — совпадение, разных — нет
+	// (семантика одного исполнения, как у параметров).
+	match := func(filters ...AttributeFilter) bool {
+		t.Helper()
+		page, err := svc.Search(ctx, SearchQuery{Kind: domain.KindResistor, Attributes: filters})
+		if err != nil {
+			t.Fatalf("фильтр: %v", err)
+		}
+		return page.Total == 1
+	}
+	if !match(AttributeFilter{Attribute: "functionalChar", Text: "А"},
+		AttributeFilter{Attribute: "package", Text: "DIP"}) {
+		t.Fatal("атрибуты одного исполнения не сопоставились")
+	}
+	if match(AttributeFilter{Attribute: "functionalChar", Text: "Б"},
+		AttributeFilter{Attribute: "package", Text: "DIP"}) {
+		t.Fatal("сочетание атрибутов разных исполнений сопоставилось")
+	}
+
+	// Проекция колонки attr: значения записи нет — различные значения
+	// исполнений одной строкой в порядке исполнений.
+	page, err = svc.Search(ctx, SearchQuery{
+		Kind:   domain.KindResistor,
+		Values: []ValueColumn{{Code: "functionalChar", Attr: true}},
+	})
+	if err != nil {
+		t.Fatalf("проекция: %v", err)
+	}
+	if page.Total != 1 || len(page.Items[0].Values) != 1 ||
+		page.Items[0].Values[0].Value.Text == nil ||
+		*page.Items[0].Values[0].Value.Text != "А; Б" {
+		t.Fatalf("колонка attr.functionalChar: %+v", page.Items[0].Values)
+	}
+
+	// Замена набора исполнений заменяет и атрибуты исполнений.
+	changed := variants()
+	changed[0].Attributes = []catalog.AttributeValue{attrText("functionalChar", "В")}
+	if out := mustUpsert(t, svc, DeviceInput{Name: "СП3-33", Variants: &changed}); out != OutcomeUpdatedExisting {
+		t.Fatalf("замена: %s", out)
+	}
+	card, _, _ = svc.Get(ctx, domain.KindResistor, "СП3-33")
+	if v := attrByCode(card.Variants[0].Attributes); v["functionalChar"] != "В" || len(v) != 1 {
+		t.Fatalf("атрибуты после замены: %+v", card.Variants[0].Attributes)
+	}
+
+	// Валидация движком: неизвестный атрибут и значение вне enum.
+	bad := variants()
+	bad[0].Attributes = []catalog.AttributeValue{attrText("noSuchAttr", "x")}
+	_, err = svc.Upsert(ctx, DeviceInput{Name: "СП3-33", Variants: &bad})
+	wantDomainError(t, err, domain.CodeUnknownAttribute, "unknown attribute «noSuchAttr»")
+	badEnum := variants()
+	badEnum[0].Attributes = []catalog.AttributeValue{attrText("functionalChar", "К")}
+	_, err = svc.Upsert(ctx, DeviceInput{Name: "СП3-33", Variants: &badEnum})
+	wantDomainError(t, err, domain.CodeValidationFailed,
+		"attribute «functionalChar»: value «К» is not among the allowed ones (А, Б, В)")
+
+	// Дубликат атрибута исполнения — ошибка формы входа.
+	dup := variants()
+	dup[0].Attributes = []catalog.AttributeValue{
+		attrText("functionalChar", "А"), attrText("functionalChar", "Б"),
+	}
+	_, err = svc.Upsert(ctx, DeviceInput{Name: "СП3-33", Variants: &dup})
+	wantDomainError(t, err, domain.CodeValidationFailed,
+		"attribute «functionalChar» is set more than once")
 }
 
 // suiteVariantFilters — вариантные параметрические фильтры применяются
@@ -2311,5 +2469,55 @@ func TestDeleteKindBySnapshot(t *testing.T) {
 	found, err := svc.Delete(ctx, "thyristor", "КУ101")
 	if err != nil || found {
 		t.Fatalf("удаление по классу из снимка: %v %v", found, err)
+	}
+}
+
+// TestAttrSearchValueVariantLevels — правило колонки attr.<код> при
+// отсутствующем значении записи: численные атрибуты исполнений —
+// агрегат границ MIN/MAX, text_list — заметки исполнений одной строкой
+// через «; » с дедупликацией; пустой вклад строк — элемента нет.
+func TestAttrSearchValueVariantLevels(t *testing.T) {
+	app := openSuiteApp(t, memoryConfig)
+	snap, err := app.Services().Catalog.Snapshot(context.Background())
+	if err != nil {
+		t.Fatalf("снимок: %v", err)
+	}
+
+	// Численный (int) атрибут исполнений: MIN/MAX по исполнениям.
+	col := ValueColumn{Code: "yearFrom", Attr: true}
+	v, ok := attrSearchValue(col, snap, nil, []storage.AttrRow{
+		{Attribute: "yearFrom", Num: ptr(1967.0)},
+		{Attribute: "yearFrom", Num: ptr(1992.0)},
+	})
+	if !ok || v.Value.Min == nil || *v.Value.Min != 1967 ||
+		v.Value.Max == nil || *v.Value.Max != 1992 {
+		t.Fatalf("численный агрегат исполнений: %+v", v)
+	}
+	// Значение записи приоритетнее вариантных.
+	_, ok = attrSearchValue(col, snap,
+		[]storage.AttrRow{{Attribute: "yearFrom", Num: ptr(1980.0)}},
+		[]storage.AttrRow{{Attribute: "yearFrom", Num: ptr(1992.0)}})
+	if !ok {
+		t.Fatal("значение записи не нашлось")
+	}
+
+	// text_list: заметки двух исполнений одной строкой, дедупликация.
+	listCol := ValueColumn{Code: "notes", Attr: true}
+	v, ok = attrSearchValue(listCol, snap, nil, []storage.AttrRow{
+		{Attribute: "notes", Texts: []string{"паспорт 24", "общая"}},
+		{Attribute: "notes", Texts: []string{"общая", "паспорт 28"}},
+	})
+	if !ok || v.Value.Text == nil || *v.Value.Text != "паспорт 24; общая; паспорт 28" {
+		t.Fatalf("text_list исполнений: %+v", v)
+	}
+
+	// Строки без вклада (ни чисел, ни текстов) — элемента нет.
+	if _, ok := attrSearchValue(col, snap, nil,
+		[]storage.AttrRow{{Attribute: "yearFrom"}}); ok {
+		t.Fatal("пустой вклад численных строк дал элемент")
+	}
+	if _, ok := attrSearchValue(listCol, snap, nil,
+		[]storage.AttrRow{{Attribute: "notes"}}); ok {
+		t.Fatal("пустой вклад текстовых строк дал элемент")
 	}
 }

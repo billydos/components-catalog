@@ -472,6 +472,47 @@ func TestNotesTextListCard(t *testing.T) {
 	}
 }
 
+// TestVariantAttributesCard — атрибуты исполнений: импорт, карточка info
+// выводит их внутри блока исполнения, повторный импорт — идемпотентность.
+func TestVariantAttributesCard(t *testing.T) {
+	db := testDB(t)
+	run(t, "init", "--db", db)
+	file := filepath.Join(t.TempDir(), "vars.jsonc")
+	body := `{
+	"resistors": [
+		{ "name": "С2-44",
+			"attributes": { "spec": "ОЖ0.467.093ТУ" },
+			"variants": [
+				{ "label": "0.125 Вт",
+					"attributes": { "functionalChar": "А", "package": "минидип" },
+					"ratings": [ { "parameter": "Pnom", "value": 0.125 } ] },
+				{ "label": "0.25 Вт",
+					"attributes": { "functionalChar": "Б" },
+					"ratings": [ { "parameter": "Pnom", "value": 0.25 } ] }
+			] }
+	]
+}
+`
+	if err := os.WriteFile(file, []byte(body), 0o600); err != nil {
+		t.Fatalf("запись файла: %v", err)
+	}
+	stdout, stderr, code := run(t, "import", file, "--db", db)
+	if code != 0 || stderr != "" || !strings.Contains(stdout, "added: 1") {
+		t.Fatalf("import: код %d, %q, %q", code, stdout, stderr)
+	}
+	stdout, stderr, code = run(t, "info", "С2-44", "--lang", "ru", "--db", db)
+	if code != 0 || stderr != "" ||
+		!strings.Contains(stdout, "Исполнение «0.125 Вт»:") ||
+		!strings.Contains(stdout, "Атрибуты:\n    функциональная характеристика (закон изменения сопротивления): А") ||
+		!strings.Contains(stdout, "корпус: минидип") {
+		t.Fatalf("info (ru): код %d, %q, %q", code, stdout, stderr)
+	}
+	stdout, _, code = run(t, "import", file, "--db", db)
+	if code != 0 || !strings.Contains(stdout, "unchanged: 1") {
+		t.Fatalf("повторный import: код %d, %q", code, stdout)
+	}
+}
+
 func TestAddRequiresKindForOther(t *testing.T) {
 	db := testDB(t)
 	run(t, "init", "--db", db)

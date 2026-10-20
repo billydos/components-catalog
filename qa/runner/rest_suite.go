@@ -276,6 +276,34 @@ func restSuite(ctx context.Context, r *report, srv, tmp string, l leg) {
 	r.check("rest/textlist-filter-values", "GET /components: фильтр attr.notes по элементу, колонка — строкой",
 		status == http.StatusOK && strings.Contains(body, "заметка один; заметка два"),
 		detail(status, body)...)
+	// Атрибуты исполнений (план 03 §7): создание с вариантами и атрибутами,
+	// карточка несёт attributes внутри исполнения, фильтр attr. и колонка
+	// values — по вариантным значениям.
+	cl.do(ctx, http.MethodDelete, "/components/resistor/"+url.PathEscape("С2-44"), "", nil) // остаток прошлого прогона
+	status, body, _ = cl.do(ctx, http.MethodPost, "/components", `{
+		"name":"С2-44","system":"gost",
+		"variants":[
+			{"label":"0.125 Вт","attributes":{"package":"минидип"},"ratings":[{"parameter":"Pnom","value":0.125}]},
+			{"label":"0.25 Вт","attributes":{"package":"плоский"},"ratings":[{"parameter":"Pnom","value":0.25}]}
+		]}`, nil)
+	r.check("rest/post-variant-attrs", "POST /components: атрибуты исполнений — 201 Added",
+		status == http.StatusCreated && strings.Contains(body, "Added"),
+		detail(status, body)...)
+	status, body, _ = cl.do(ctx, http.MethodGet,
+		"/components/resistor/"+url.PathEscape("С2-44"), "", nil)
+	r.check("rest/get-variant-attrs", "GET карточка: attributes внутри исполнения",
+		status == http.StatusOK && strings.Contains(body, `"package"`) &&
+			strings.Contains(body, `"плоский"`),
+		detail(status, body)...)
+	status, body, _ = cl.do(ctx, http.MethodGet,
+		"/components?kind=resistor&attr.package="+url.QueryEscape("плоский")+
+			"&values=attr.package", "", nil)
+	r.check("rest/variant-attrs-filter-values",
+		"GET /components: фильтр attr. по значению исполнения, колонка — строкой значений исполнений",
+		status == http.StatusOK && strings.Contains(body, `"total":1,`) &&
+			strings.Contains(body, "минидип; плоский"),
+		detail(status, body)...)
+	cl.do(ctx, http.MethodDelete, "/components/resistor/"+url.PathEscape("С2-44"), "", nil)
 	status, body, _ = cl.do(ctx, http.MethodPut, "/components/transistor/2N9013",
 		`{"name":"2N9014"}`, nil)
 	r.check("rest/put-mismatch", "PUT /components: несовпадение обозначения — 422 designation_mismatch",

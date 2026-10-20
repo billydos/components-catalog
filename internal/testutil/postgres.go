@@ -43,6 +43,7 @@ var catalogTables = []string{
 	"parameter_value_conditions",
 	"parameter_values",
 	"device_variants",
+	"device_variant_attribute_values",
 	"device_attribute_values",
 	"device_designation_fields",
 	"devices",
