@@ -361,15 +361,15 @@
         { "parameter": "Rnom", "min": 470, "max": 2200000 },
         { "parameter": "Tolerance", "max": 30 }
       ],
-      "variants": [                         // номер исполнения — метка; закон изменения и корпус — по исполнению
+      "variants": [                         // номер исполнения — метка; секции, вал и закон изменения — по исполнению
         {
           "label": "24",
-          "attributes": { "functionalChar": "А", "package": "минидип" },
+          "attributes": { "sections": 1, "shaftEnd": "шлиц", "functionalChar": "А" },
           "ratings": [ { "parameter": "Pnom", "value": 0.125 } ]
         },
         {
           "label": "28",
-          "attributes": { "functionalChar": "Б" },
+          "attributes": { "sections": 2, "shaftEnd": "гладкий", "functionalChar": "Б" },
           "ratings": [ { "parameter": "Pnom", "value": 0.25 } ]
         }
       ]

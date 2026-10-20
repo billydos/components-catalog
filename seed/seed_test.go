@@ -19,7 +19,7 @@ func TestSeedAppliesCleanly(t *testing.T) {
 		}
 		t.Fatal("стартовый каталог не проходит метасхему")
 	}
-	if len(snap.Parameters) != 104 || len(snap.Attributes) != 19 ||
+	if len(snap.Parameters) != 104 || len(snap.Attributes) != 21 ||
 		len(snap.Units) != 26 || len(snap.Conditions) != 20 {
 		t.Fatalf("состав каталога: параметры %d, атрибуты %d, единицы %d, условия %d",
 			len(snap.Parameters), len(snap.Attributes), len(snap.Units), len(snap.Conditions))
@@ -268,6 +268,16 @@ func TestSeedSpotChecks(t *testing.T) {
 	if a := attr("functionalChar"); a.Type != catalog.AttrEnum || !slices.Equal(a.EnumValues, []string{"А", "Б", "В"}) ||
 		!a.AppliesTo(domain.KindResistor) || a.AppliesTo(domain.KindCapacitor) {
 		t.Errorf("functionalChar: %+v", a)
+	}
+	// Конструктивные признаки переменных резисторов (03 §10):
+	// число секций и вид конца вала — уровни записи/исполнения (D12).
+	if a := attr("sections"); a.Type != catalog.AttrInt || !a.AppliesTo(domain.KindResistor) ||
+		a.AppliesTo(domain.KindCapacitor) {
+		t.Errorf("sections: %+v", a)
+	}
+	if a := attr("shaftEnd"); a.Type != catalog.AttrEnum || !a.AppliesTo(domain.KindResistor) ||
+		!slices.Equal(a.EnumValues, []string{"шлиц", "лыска", "гладкий", "резьбовой"}) {
+		t.Errorf("shaftEnd: %+v", a)
 	}
 	if a := attr("polarized"); a.Type != catalog.AttrBool || a.AppliesTo(domain.KindResistor) {
 		t.Errorf("polarized: %+v", a)

@@ -307,6 +307,8 @@ var bundleEn = map[string]string{
 	"attr.datasheetUrl":      "datasheet URL",
 	"attr.relayType":         "relay type",
 	"attr.contactForm":       "contact form (make/break/changeover)",
+	"attr.sections":          "sections (gang count)",
+	"attr.shaftEnd":          "shaft end type",
 
 	// Именованные правила (validation_rules).
 	"rule.year_range":             "production years: yearFrom < yearTo; range 1949–2100",

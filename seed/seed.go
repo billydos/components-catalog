@@ -550,5 +550,13 @@ func attributes() []catalog.AttributeDef {
 				// (З замыкающий, Р размыкающий, П переключающий).
 				"1З", "1Р", "1П", "2З", "2Р", "2П", "3П", "4П",
 			}},
+		{Code: "sections", Type: catalog.AttrInt, SortOrder: 200, Active: true,
+			Kinds: []domain.Kind{domain.KindResistor}},
+		{Code: "shaftEnd", Type: catalog.AttrEnum, SortOrder: 210, Active: true,
+			Kinds: []domain.Kind{domain.KindResistor}, EnumValues: []string{
+				// Вид конца вала переменного резистора (03 §10):
+				// термины НТД.
+				"шлиц", "лыска", "гладкий", "резьбовой",
+			}},
 	}
 }

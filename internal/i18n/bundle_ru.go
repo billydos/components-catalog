@@ -305,6 +305,8 @@ var bundleRu = map[string]string{
 	"attr.datasheetUrl":      "ссылка на документацию (datasheet)",
 	"attr.relayType":         "тип реле",
 	"attr.contactForm":       "контактная группа (зам./разм./переключ.)",
+	"attr.sections":          "число секций",
+	"attr.shaftEnd":          "вид конца вала",
 
 	// Именованные правила (validation_rules).
 	"rule.year_range":             "годы выпуска: yearFrom < yearTo; диапазон 1949–2100",
