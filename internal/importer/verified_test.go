@@ -146,9 +146,9 @@ func runVerifiedSuite(t *testing.T, factory configFactory) {
 					for _, a := range in.Attributes {
 						switch a.Attribute {
 						case "spec":
-							spec = a.Text != nil && *a.Text != ""
+							spec = len(a.Texts) > 0
 						case "datasheetUrl":
-							url = a.Text != nil && *a.Text != ""
+							url = len(a.Texts) > 0
 						}
 					}
 					if !spec && !url {

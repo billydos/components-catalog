@@ -568,7 +568,7 @@ func suiteVariantAttributes(t *testing.T, factory configFactory) {
 	rec := func() DeviceInput {
 		return DeviceInput{
 			Name:       "СП3-33",
-			Attributes: []catalog.AttributeValue{attrText("spec", "ОЖ0.467.093ТУ")},
+			Attributes: []catalog.AttributeValue{attrTexts("spec", "ОЖ0.467.093ТУ")},
 		}
 	}
 	input := rec()

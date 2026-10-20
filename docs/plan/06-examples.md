@@ -16,7 +16,7 @@
       "name": "КТ315Б",
       "system": "gost",
       "attributes": {
-        "structure": "npn", "package": "КТ-13", "spec": "ЖК3.365.200ТУ",
+        "structure": "npn", "package": "КТ-13", "spec": ["ЖК3.365.200ТУ"],
         "yearFrom": 1967, "yearTo": 1992,
         "notes": ["группа по усилению — буква Б", "выпускался в корпусе КТ-13"]
       },
@@ -356,7 +356,7 @@
     {
       "name": "СП3-33",                    // переменный с исполнениями: конструктивные признаки — атрибуты исполнений (03 §7/§10)
       "system": "gost",
-      "attributes": { "spec": "ОЖ0.467.093ТУ" },
+      "attributes": { "spec": ["ОЖ0.467.093ТУ"] },
       "parameters": [
         { "parameter": "Rnom", "min": 470, "max": 2200000 },
         { "parameter": "Tolerance", "max": 30 }
@@ -488,7 +488,7 @@
     {
       "name": "К50-35",
       "system": "gost",
-      "attributes": { "polarized": true, "spec": "ОЖ0.464.214ТУ" },
+      "attributes": { "polarized": true, "spec": ["ОЖ0.464.214ТУ"] },
       "parameters": [                       // тип в целом (variant_id NULL)
         { "parameter": "Tolerance", "max": 50 },                              // +50/−20 %
         { "parameter": "DF", "max": 30, "temp": 20 }                   // 30 % (6,3–16 В) … 10 % (160 В)
@@ -522,7 +522,7 @@
     {
       "name": "К10-17Б",
       "system": "gost",
-      "attributes": { "package": "монолитный", "spec": "ОЖ0.460.172ТУ" },
+      "attributes": { "package": "монолитный", "spec": ["ОЖ0.460.172ТУ"] },
       "parameters": [
         { "parameter": "Cnom", "min": 2.2, "max": 2200000 },        // 2,2 пФ – 2,2 мкФ (по группам ТКЕ)
         { "parameter": "TCC", "text": "Н50" },
@@ -642,7 +642,7 @@
       "fields": { "series": "РЭС", "dev_number": 9 },
       "attributes": {
         "relayType": "electromagnetic", "contactForm": "2П",
-        "description": "завальцованное негерметичное", "spec": "РС0.452.045ТУ"
+        "description": "завальцованное негерметичное", "spec": ["РС0.452.045ТУ"]
       },
       "parameters": [                       // общее для паспортов
         { "parameter": "Rins", "min": 200000000 },
@@ -687,7 +687,7 @@
       "fields": { "series": "G5V", "dev_number": 1 },
       "attributes": { "relayType": "electromagnetic", "contactForm": "1П",
                       "description": "сигнальное герметичное", "package": "12,5×7,5×10 мм",
-                      "datasheetUrl": "https://omronfs.omron.com/en_US/ecb/products/pdf/en-g5v_1.pdf" },
+                      "datasheetUrl": ["https://omronfs.omron.com/en_US/ecb/products/pdf/en-g5v_1.pdf"] },
       "parameters": [
         { "parameter": "Pcoil", "max": 0.15 },
         { "parameter": "Rcontact", "max": 0.1 },

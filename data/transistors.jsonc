@@ -10,8 +10,8 @@
       "name": "КТ315Б",                      // h21э 50–350; UкэR 20 В
       "system": "gost",
       "attributes": {
-        "structure": "npn", "package": "КТ-13", "spec": "ЖК3.365.200ТУ",
-        "yearFrom": 1967, "datasheetUrl": "https://esociety.ru/poznavatelnoe/tranzistor-kt315-harakteristiki-markirovka-tsokolevka-i-analogi/"
+        "structure": "npn", "package": "КТ-13", "spec": ["ЖК3.365.200ТУ"],
+        "yearFrom": 1967, "datasheetUrl": ["https://esociety.ru/poznavatelnoe/tranzistor-kt315-harakteristiki-markirovka-tsokolevka-i-analogi/"]
       },
       "manufacturers": ["Кремний (Брянск)", "Элькор (Нальчик)", "НИИПП (Томск)"],
       "parameters": [
@@ -34,8 +34,8 @@
       "name": "КТ315Г",                      // отличия от Б: напряжения 35 В
       "system": "gost",
       "attributes": {
-        "structure": "npn", "package": "КТ-13", "spec": "ЖК3.365.200ТУ",
-        "yearFrom": 1967, "datasheetUrl": "https://esociety.ru/poznavatelnoe/tranzistor-kt315-harakteristiki-markirovka-tsokolevka-i-analogi/"
+        "structure": "npn", "package": "КТ-13", "spec": ["ЖК3.365.200ТУ"],
+        "yearFrom": 1967, "datasheetUrl": ["https://esociety.ru/poznavatelnoe/tranzistor-kt315-harakteristiki-markirovka-tsokolevka-i-analogi/"]
       },
       "parameters": [
         { "parameter": "hfe", "min": 50, "max": 350, "Vce": 10, "Ic": 1 },
@@ -56,8 +56,8 @@
       "name": "КТ361А",                      // pnp-комплемент КТ315
       "system": "gost",
       "attributes": {
-        "structure": "pnp", "spec": "ФЫО.336.201ТУ",
-        "datasheetUrl": "https://r9al.ru/data/transistors/rus/kt361/index.htm"
+        "structure": "pnp", "spec": ["ФЫО.336.201ТУ"],
+        "datasheetUrl": ["https://r9al.ru/data/transistors/rus/kt361/index.htm"]
       },
       "parameters": [
         { "parameter": "hfe", "min": 20, "max": 90, "Vce": 10, "Ic": 1 },
@@ -78,7 +78,7 @@
       "name": "КТ3102А",
       "system": "gost",
       "attributes": {
-        "structure": "npn", "datasheetUrl": "https://r9al.ru/data/transistors/rus/kt3102/index.htm"
+        "structure": "npn", "datasheetUrl": ["https://r9al.ru/data/transistors/rus/kt3102/index.htm"]
       },
       "parameters": [
         { "parameter": "hfe", "min": 100, "max": 250, "Vce": 5, "Ic": 2 },
@@ -100,7 +100,7 @@
       "name": "КТ3102Б",
       "system": "gost",
       "attributes": {
-        "structure": "npn", "datasheetUrl": "http://www.5v.ru/ds/trnz/kt3102.htm"
+        "structure": "npn", "datasheetUrl": ["http://www.5v.ru/ds/trnz/kt3102.htm"]
       },
       "parameters": [
         { "parameter": "hfe", "min": 200, "max": 500, "Vce": 5, "Ic": 2 },
@@ -123,7 +123,7 @@
       "system": "gost",
       "attributes": {
         "structure": "pnp",
-        "datasheetUrl": "https://elektrouzel.ru/reference/transistors/163-tranzistory-tipa-gt109a-gt109b-gt109v-gt109g-gt109d-gt109e-gt109zh-gt109i.html"
+        "datasheetUrl": ["https://elektrouzel.ru/reference/transistors/163-tranzistory-tipa-gt109a-gt109b-gt109v-gt109g-gt109d-gt109e-gt109zh-gt109i.html"]
       },
       "parameters": [
         { "parameter": "hfe", "min": 110, "max": 250, "Vcb": 5, "Ie": 1 },
@@ -145,7 +145,7 @@
       "system": "gost",
       "attributes": {
         "structure": "npn", "description": "низкочастотный мощный",
-        "datasheetUrl": "https://rudatasheet.ru/transistors/kt805/"
+        "datasheetUrl": ["https://rudatasheet.ru/transistors/kt805/"]
       },
       "parameters": [
         { "parameter": "hfe", "min": 15, "max": 35, "Vce": 10, "Ic": 2000 }
@@ -167,7 +167,7 @@
       "system": "pro",
       "attributes": {
         "structure": "npn", "package": "TO-92",
-        "datasheetUrl": "https://web.archive.org/web/20160613155425/https://www.fairchildsemi.com/datasheets/BC/BC547.pdf"
+        "datasheetUrl": ["https://web.archive.org/web/20160613155425/https://www.fairchildsemi.com/datasheets/BC/BC547.pdf"]
       },
       "manufacturers": ["Fairchild", "Philips", "onsemi"],
       "parameters": [
@@ -190,7 +190,7 @@
       "system": "pro",
       "attributes": {
         "structure": "pnp", "package": "TO-92",
-        "datasheetUrl": "https://www.onsemi.com/pub/Collateral/BC556B-D.PDF"
+        "datasheetUrl": ["https://www.onsemi.com/pub/Collateral/BC556B-D.PDF"]
       },
       "manufacturers": ["onsemi", "Philips"],
       "parameters": [
@@ -213,7 +213,7 @@
       "system": "pro",
       "attributes": {
         "structure": "npn", "description": "низкочастотный мощной", "yearFrom": 1962,
-        "datasheetUrl": "https://www.radiomuseum.org/tubes/tube_ad161.html"
+        "datasheetUrl": ["https://www.radiomuseum.org/tubes/tube_ad161.html"]
       },
       "manufacturers": ["Valvo", "Telefunken", "Mullard", "Tesla"]
     },
@@ -225,7 +225,7 @@
       "fields": { "material": "si", "subclass": "bjt", "category": "general_purpose" },
       "attributes": {
         "structure": "npn", "description": "универсальный", "package": "TO-18",
-        "datasheetUrl": "https://web.archive.org/web/20220331223626/https://www.st.com/resource/en/datasheet/CD00003223.pdf"
+        "datasheetUrl": ["https://web.archive.org/web/20220331223626/https://www.st.com/resource/en/datasheet/CD00003223.pdf"]
       },
       "manufacturers": ["ST", "Motorola", "Texas Instruments"],
       "parameters": [
@@ -250,7 +250,7 @@
       "fields": { "material": "si", "subclass": "bjt", "category": "power" },
       "attributes": {
         "structure": "npn", "description": "низкочастотный мощный", "package": "TO-3",
-        "datasheetUrl": "https://www.st.com/resource/en/datasheet/cd00000895.pdf"
+        "datasheetUrl": ["https://www.st.com/resource/en/datasheet/cd00000895.pdf"]
       },
       "manufacturers": ["ST", "onsemi", "Motorola", "RCA"],
       "parameters": [
@@ -275,7 +275,7 @@
       "fields": { "material": "si", "subclass": "bjt", "category": "general_purpose" },
       "attributes": {
         "structure": "npn", "description": "универсальный", "package": "TO-92",
-        "datasheetUrl": "https://www.mccsemi.com/pdf/Products/2N3904(TO-92).pdf"
+        "datasheetUrl": ["https://www.mccsemi.com/pdf/Products/2N3904(TO-92).pdf"]
       },
       "manufacturers": ["onsemi", "Motorola", "MCC"],
       "parameters": [
@@ -300,7 +300,7 @@
       "system": "jis",
       "attributes": {
         "structure": "pnp", "package": "TO-92",
-        "datasheetUrl": "https://media.digikey.com/pdf/Data%20Sheets/Toshiba%20PDFs/2SA1015.pdf"
+        "datasheetUrl": ["https://media.digikey.com/pdf/Data%20Sheets/Toshiba%20PDFs/2SA1015.pdf"]
       },
       "manufacturers": ["Toshiba"],
       "parameters": [
@@ -324,7 +324,7 @@
       "system": "jis",
       "attributes": {
         "structure": "npn", "package": "TO-92",
-        "datasheetUrl": "https://media.digikey.com/pdf/Data%20Sheets/Toshiba%20PDFs/2SC1815.pdf"
+        "datasheetUrl": ["https://media.digikey.com/pdf/Data%20Sheets/Toshiba%20PDFs/2SC1815.pdf"]
       },
       "manufacturers": ["Toshiba"],
       "parameters": [
@@ -348,7 +348,7 @@
       "system": "jis",
       "attributes": {
         "structure": "n-канал", "package": "TO-3P",
-        "datasheetUrl": "https://diyaudioprojects.com/Solid/ZCA/Hitachi-2SK1056-2SK1057-2SK1058-Datatsheet.pdf"
+        "datasheetUrl": ["https://diyaudioprojects.com/Solid/ZCA/Hitachi-2SK1056-2SK1057-2SK1058-Datatsheet.pdf"]
       },
       "manufacturers": ["Hitachi"],
       "ratings": [
@@ -368,7 +368,7 @@
       "fields": { "material": "ge", "subclass": "bjt", "category": "audio", "series": "МП", "dev_number": 39 },
       "attributes": {
         "structure": "pnp", "description": "низкочастотный",
-        "datasheetUrl": "https://elektrouzel.ru/reference/transistors/215-tranzistory-tipa-mp39-mp39b-mp40-mp40a-mp41-mp41a.html"
+        "datasheetUrl": ["https://elektrouzel.ru/reference/transistors/215-tranzistory-tipa-mp39-mp39b-mp40-mp40a-mp41-mp41a.html"]
       },
       "manufacturers": ["Светлана (Ленинград)", "Кремний", "Планета (Великий Новгород)"],
       "parameters": [
@@ -392,7 +392,7 @@
       "fields": { "material": "ge", "subclass": "bjt", "category": "audio", "series": "МП", "dev_number": 41, "letters": "А" },
       "attributes": {
         "structure": "pnp", "description": "низкочастотный",
-        "datasheetUrl": "https://elektrouzel.ru/reference/transistors/215-tranzistory-tipa-mp39-mp39b-mp40-mp40a-mp41-mp41a.html"
+        "datasheetUrl": ["https://elektrouzel.ru/reference/transistors/215-tranzistory-tipa-mp39-mp39b-mp40-mp40a-mp41-mp41a.html"]
       },
       "parameters": [
         { "parameter": "hfe", "min": 50, "max": 100, "Vcb": 5, "Ie": 1 },
@@ -415,7 +415,7 @@
       "fields": { "material": "ge", "subclass": "bjt", "category": "power", "series": "П", "dev_number": 214 },
       "attributes": {
         "structure": "pnp", "description": "низкочастотный мощной",
-        "datasheetUrl": "http://d-vt.ru/p214.html"
+        "datasheetUrl": ["http://d-vt.ru/p214.html"]
       },
       "parameters": [
         { "parameter": "hfe", "min": 20, "max": 60, "Vce": 5, "Ic": 200 },
@@ -441,7 +441,7 @@
       "fields": { "material": "si", "subclass": "bjt", "category": "composite", "series": "TIP", "dev_number": 120 },
       "attributes": {
         "structure": "npn", "description": "составной", "package": "TO-220",
-        "datasheetUrl": "https://www.st.com/resource/en/datasheet/tip120.pdf"
+        "datasheetUrl": ["https://www.st.com/resource/en/datasheet/tip120.pdf"]
       },
       "manufacturers": ["ST", "onsemi"],
       "parameters": [
@@ -465,7 +465,7 @@
       "fields": { "material": "si", "subclass": "bjt", "category": "high_voltage", "series": "MPSA", "dev_number": 42 },
       "attributes": {
         "structure": "npn", "description": "высоковольтный универсальный", "package": "TO-92",
-        "datasheetUrl": "https://www.onsemi.com/pub/Collateral/MPSA42-D.PDF"
+        "datasheetUrl": ["https://www.onsemi.com/pub/Collateral/MPSA42-D.PDF"]
       },
       "manufacturers": ["onsemi", "Philips"],
       "parameters": [
@@ -491,7 +491,7 @@
       "fields": { "material": "si", "subclass": "fet", "category": "power" },
       "attributes": {
         "structure": "n-канал", "description": "МОП мощный", "package": "TO-220AB",
-        "datasheetUrl": "https://www.vishay.com/docs/91021/irf540.pdf"
+        "datasheetUrl": ["https://www.vishay.com/docs/91021/irf540.pdf"]
       },
       "manufacturers": ["Vishay Siliconix", "International Rectifier"],
       "ratings": [
@@ -509,7 +509,7 @@
       "fields": { "material": "si", "subclass": "bjt", "category": "high_voltage" },
       "attributes": {
         "structure": "npn", "description": "высоковольтный универсальный", "package": "TO-126",
-        "datasheetUrl": "https://www.st.com/resource/en/datasheet/mje340.pdf"
+        "datasheetUrl": ["https://www.st.com/resource/en/datasheet/mje340.pdf"]
       },
       "manufacturers": ["ST", "onsemi"],
       "parameters": [

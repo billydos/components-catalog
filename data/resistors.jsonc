@@ -9,8 +9,8 @@
       "name": "С2-33Н",                      // металлодиэлектрические постоянные; ряд мощностей — исполнениями
       "system": "gost",
       "attributes": {
-        "technology": "металлодиэлектрические", "spec": "ОЖ0.467.173ТУ",
-        "datasheetUrl": "http://l7805cv.ru/handbook-res-S2-33N.html"
+        "technology": "металлодиэлектрические", "spec": ["ОЖ0.467.173ТУ"],
+        "datasheetUrl": ["http://l7805cv.ru/handbook-res-S2-33N.html"]
       },
       "manufacturers": ["НПО «ЭРКОН» (Нижний Новгород)"],
       "parameters": [
@@ -71,7 +71,7 @@
       "system": "gost",
       "attributes": {
         "functionalChar": "А",
-        "datasheetUrl": "https://www.ecworld.ru/support/ssf/pot.htm"
+        "datasheetUrl": ["https://www.ecworld.ru/support/ssf/pot.htm"]
       },
       "manufacturers": ["РИКОР"],
       "parameters": [
@@ -86,8 +86,8 @@
       "name": "С5-16МВ",                     // прецизионные проволочные; мощности — исполнениями
       "system": "gost",
       "attributes": {
-        "technology": "проволочные", "spec": "ОЖ0.467.545ТУ",
-        "datasheetUrl": "http://l7805cv.ru/handbook-res-S5-16MV.html"
+        "technology": "проволочные", "spec": ["ОЖ0.467.545ТУ"],
+        "datasheetUrl": ["http://l7805cv.ru/handbook-res-S5-16MV.html"]
       },
       "manufacturers": ["Завод «Элия»"],
       "parameters": [
@@ -134,7 +134,7 @@
       "system": "ost",
       "attributes": {
         "technology": "непроволочные",
-        "datasheetUrl": "http://l7805cv.ru/handbook-res-R1-4.html"
+        "datasheetUrl": ["http://l7805cv.ru/handbook-res-R1-4.html"]
       },
       "parameters": [
         { "parameter": "Tolerance", "max": 5 },                          // ±1; ±2; ±5 %
@@ -171,7 +171,7 @@
       "system": "ost",
       "attributes": {
         "description": "переменный подстроечный",
-        "datasheetUrl": "http://www.155la3.ru/rp1_46.htm"
+        "datasheetUrl": ["http://www.155la3.ru/rp1_46.htm"]
       }
     },
 
@@ -181,8 +181,8 @@
       "system": "other",
       "fields": { "adjustment": "fixed", "series": "МЛТ" },
       "attributes": {
-        "technology": "металлоплёночные", "spec": "ОЖ0.467.180ТУ", "yearFrom": 1964,
-        "datasheetUrl": "https://www.radiolibrary.ru/reference/resistor/mlt-0_5.html"
+        "technology": "металлоплёночные", "spec": ["ОЖ0.467.180ТУ"], "yearFrom": 1964,
+        "datasheetUrl": ["https://www.radiolibrary.ru/reference/resistor/mlt-0_5.html"]
       },
       "manufacturers": ["Резистор-НН (Нижний Новгород)", "Кермет (Пенза)"],
       "parameters": [
@@ -209,7 +209,7 @@
       "fields": { "adjustment": "fixed", "series": "ВС" },
       "attributes": {
         "technology": "углеродистые",
-        "datasheetUrl": "http://www.155la3.ru/vs.htm"
+        "datasheetUrl": ["http://www.155la3.ru/vs.htm"]
       },
       "parameters": [
         { "parameter": "Rnom", "min": 10, "max": 10000000 },       // по серии ВС
@@ -228,8 +228,8 @@
       "system": "other",
       "fields": { "adjustment": "fixed", "series": "ПЭВ" },
       "attributes": {
-        "technology": "проволочные", "spec": "ОЖ0.467.576ТУ",
-        "datasheetUrl": "https://eandc.ru/catalog/pev-10-10/"
+        "technology": "проволочные", "spec": ["ОЖ0.467.576ТУ"],
+        "datasheetUrl": ["https://eandc.ru/catalog/pev-10-10/"]
       },
       "parameters": [
         { "parameter": "Rnom", "min": 1.8, "max": 10000 },         // 1,8 Ом – 10 кОм
@@ -255,7 +255,7 @@
       "fields": { "adjustment": "fixed" },
       "attributes": {
         "technology": "углеродистые",
-        "datasheetUrl": "https://www.datasheetarchive.com/CFR-25-datasheet.html"
+        "datasheetUrl": ["https://www.datasheetarchive.com/CFR-25-datasheet.html"]
       },
       "manufacturers": ["YAGEO"],
       "parameters": [ { "parameter": "Tolerance", "max": 5 } ],

@@ -19,8 +19,8 @@
       "fields": { "series": "РЭС", "dev_number": 9 },
       "attributes": {
         "relayType": "electromagnetic", "contactForm": "2П",
-        "description": "завальцованное негерметичное", "spec": "РС0.452.045ТУ",
-        "datasheetUrl": "https://rudatasheet.ru/relay/res9/"
+        "description": "завальцованное негерметичное", "spec": ["РС0.452.045ТУ"],
+        "datasheetUrl": ["https://rudatasheet.ru/relay/res9/"]
       },
       "parameters": [                              // общее для паспортов
         { "parameter": "Rins", "min": 200000000 },
@@ -155,8 +155,8 @@
       "fields": { "series": "РЭС", "dev_number": 15 },
       "attributes": {
         "relayType": "electromagnetic", "contactForm": "1П",
-        "description": "пылебрызгозащищённое", "spec": "РС0.325.037ТУ",
-        "datasheetUrl": "https://rudatasheet.ru/relay/res15/"
+        "description": "пылебрызгозащищённое", "spec": ["РС0.325.037ТУ"],
+        "datasheetUrl": ["https://rudatasheet.ru/relay/res15/"]
       },
       "parameters": [
         { "parameter": "Rcontact", "max": 1.0 },
@@ -204,8 +204,8 @@
       "fields": { "series": "РЭС", "dev_number": 22 },
       "attributes": {
         "relayType": "electromagnetic", "contactForm": "4П",
-        "description": "зачехлённое негерметичное", "spec": "РФ4.523.023ТУ",
-        "datasheetUrl": "https://rudatasheet.ru/relay/res22/"
+        "description": "зачехлённое негерметичное", "spec": ["РФ4.523.023ТУ"],
+        "datasheetUrl": ["https://rudatasheet.ru/relay/res22/"]
       },
       "parameters": [
         { "parameter": "Rins", "min": 100000000 },
@@ -266,8 +266,8 @@
       "fields": { "series": "РЭС", "dev_number": 34 },
       "attributes": {
         "relayType": "electromagnetic", "contactForm": "1П",
-        "description": "зачехлённое, металлический корпус", "spec": "РС0.459.001ТУ",
-        "datasheetUrl": "http://electra-hvac.ru/rele-res-34.html"
+        "description": "зачехлённое, металлический корпус", "spec": ["РС0.459.001ТУ"],
+        "datasheetUrl": ["http://electra-hvac.ru/rele-res-34.html"]
       },
       "parameters": [
         { "parameter": "Rins", "min": 200000000 },
@@ -319,8 +319,8 @@
       "fields": { "series": "РЭС", "dev_number": 47 },
       "attributes": {
         "relayType": "electromagnetic", "contactForm": "1П",
-        "description": "миниатюрное негерметичное", "spec": "АЕЖР.682364.001ТУ",
-        "datasheetUrl": "https://rudatasheet.ru/relay/res47/"
+        "description": "миниатюрное негерметичное", "spec": ["АЕЖР.682364.001ТУ"],
+        "datasheetUrl": ["https://rudatasheet.ru/relay/res47/"]
       },
       "parameters": [
         { "parameter": "Rcontact", "max": 1.0 },
@@ -355,7 +355,7 @@
       "attributes": {
         "relayType": "electromagnetic", "contactForm": "1П",
         "description": "миниатюрное открытое",
-        "datasheetUrl": "https://rudatasheet.ru/relay/res49/"
+        "datasheetUrl": ["https://rudatasheet.ru/relay/res49/"]
       },
       "parameters": [
         { "parameter": "Rcoil", "min": 100, "max": 3200 },       // обмотки 100…3200 Ом на 3,2–24 В
@@ -377,8 +377,8 @@
       "attributes": {
         "relayType": "electromagnetic",
         "description": "миниатюрное негерметичное пылебрызгозащищённое",
-        "spec": "РС0.456.011ТУ",
-        "datasheetUrl": "http://www.rezonance.ru/news/tehinfo/206.htm"
+        "spec": ["РС0.456.011ТУ"],
+        "datasheetUrl": ["http://www.rezonance.ru/news/tehinfo/206.htm"]
       },
       "parameters": [
         { "parameter": "Rins", "min": 500000000 },
@@ -453,7 +453,7 @@
       "attributes": {
         "relayType": "electromagnetic", "contactForm": "1П",
         "description": "малогабаритное герметичное",
-        "datasheetUrl": "https://rudatasheet.ru/relay/res60/"
+        "datasheetUrl": ["https://rudatasheet.ru/relay/res60/"]
       },
       "parameters": [
         { "parameter": "Rcoil", "min": 1500, "max": 4300 },
@@ -475,7 +475,7 @@
       "attributes": {
         "relayType": "polarized", "contactForm": "1П",
         "description": "поляризованное двухпозиционное, зачехлённое",
-        "datasheetUrl": "https://rudatasheet.ru/relay/rps32/"
+        "datasheetUrl": ["https://rudatasheet.ru/relay/rps32/"]
       },
       "parameters": [
         { "parameter": "Rcoil", "min": 1100, "max": 6000 },      // обмотки РС4.520.050-00…-03
@@ -497,7 +497,7 @@
       "attributes": {
         "relayType": "polarized", "contactForm": "2П",
         "description": "поляризованное двухпозиционное",
-        "datasheetUrl": "https://rudatasheet.ru/relay/rps43/"
+        "datasheetUrl": ["https://rudatasheet.ru/relay/rps43/"]
       },
       "parameters": [
         { "parameter": "Rcoil", "min": 400, "max": 8000 },       // обмотки РС4.520.065-00…-05
@@ -519,7 +519,7 @@
       "attributes": {
         "relayType": "reed", "contactForm": "4П",
         "description": "герконовое поляризованное двустабильное (импульсное)",
-        "datasheetUrl": "https://rudatasheet.ru/relay/rps49_56/"
+        "datasheetUrl": ["https://rudatasheet.ru/relay/rps49_56/"]
       },
       "parameters": [
         { "parameter": "Rcontact", "max": 1.5 },
@@ -539,8 +539,8 @@
       "attributes": {
         "relayType": "electromagnetic",
         "description": "многокатушечное кодовое телефонное реле АТС (1–6П по исполнению)",
-        "spec": "КЩ0.450.000ТУ",
-        "datasheetUrl": "https://rudatasheet.ru/relay/rkm1/"
+        "spec": ["КЩ0.450.000ТУ"],
+        "datasheetUrl": ["https://rudatasheet.ru/relay/rkm1/"]
       },
       "parameters": [
         { "parameter": "Rcontact", "max": 1.0 },                 // в эксплуатации (при поставке 0,25–0,3)
@@ -560,8 +560,8 @@
       "attributes": {
         "relayType": "electromagnetic",
         "description": "многоконтактное унифицированное (1–6П по исполнению), обмотки 12–380 В",
-        "spec": "РА0.450.002ТУ",
-        "datasheetUrl": "https://rudatasheet.ru/relay/mku48-s/"
+        "spec": ["РА0.450.002ТУ"],
+        "datasheetUrl": ["https://rudatasheet.ru/relay/mku48-s/"]
       },
       "parameters": [
         { "parameter": "Rcontact", "max": 1.5 },                 // после хранения (при поставке 0,1)
@@ -581,8 +581,8 @@
       "attributes": {
         "relayType": "electromagnetic",
         "description": "кодовое диспетчерское реле ж/д автоматики и телемеханики",
-        "spec": "ТУ 32 ЦШ 475-95",
-        "datasheetUrl": "https://texnogaz.ru/kodovye-rele-kdr"
+        "spec": ["ТУ 32 ЦШ 475-95"],
+        "datasheetUrl": ["https://texnogaz.ru/kodovye-rele-kdr"]
       },
       "parameters": [
         { "parameter": "Rins", "min": 500000000 },
@@ -609,7 +609,7 @@
       "attributes": {
         "relayType": "electromagnetic", "contactForm": "1П",
         "description": "сигнальное, герметичное", "package": "12,5×7,5×10 мм",
-        "datasheetUrl": "https://omronfs.omron.com/en_US/ecb/products/pdf/en-g5v_1.pdf"
+        "datasheetUrl": ["https://omronfs.omron.com/en_US/ecb/products/pdf/en-g5v_1.pdf"]
       },
       "parameters": [
         { "parameter": "Pcoil", "max": 0.15 },
@@ -661,7 +661,7 @@
       "attributes": {
         "relayType": "electromagnetic", "contactForm": "2П",
         "description": "общего назначения, вставное (в розетку)",
-        "datasheetUrl": "https://media.digikey.com/pdf/Data%20Sheets/Omron%20PDFs/G2R.pdf"
+        "datasheetUrl": ["https://media.digikey.com/pdf/Data%20Sheets/Omron%20PDFs/G2R.pdf"]
       },
       "parameters": [
         { "parameter": "Pcoil", "max": 0.53 },

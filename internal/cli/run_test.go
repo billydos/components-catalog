@@ -481,7 +481,7 @@ func TestVariantAttributesCard(t *testing.T) {
 	body := `{
 	"resistors": [
 		{ "name": "С2-44",
-			"attributes": { "spec": "ОЖ0.467.093ТУ" },
+			"attributes": { "spec": ["ОЖ0.467.093ТУ"] },
 			"variants": [
 				{ "label": "0.125 Вт",
 					"attributes": { "functionalChar": "А", "package": "минидип" },

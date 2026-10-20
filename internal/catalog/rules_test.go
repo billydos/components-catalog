@@ -371,7 +371,7 @@ func TestCapacitorVariants(t *testing.T) {
 		Kind: domain.KindCapacitor, System: domain.SystemGost, Designation: "К50-35",
 		Attributes: []catalog.AttributeValue{
 			{Attribute: "polarized", Bool: b(true)},
-			{Attribute: "spec", Text: s("ОЖ0.464.036ТУ")},
+			{Attribute: "spec", Texts: []string{"ОЖ0.464.036ТУ"}},
 			{Attribute: "yearFrom", Num: f(1980)},
 		},
 		Values: []catalog.ParameterValue{

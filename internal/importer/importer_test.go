@@ -145,7 +145,7 @@ func runImporterSuite(t *testing.T, factory configFactory) {
 			"resistors": [
 				{
 					"name": "СП3-33",
-					"attributes": { "spec": "ОЖ0.467.093ТУ" },
+					"attributes": { "spec": ["ОЖ0.467.093ТУ"] },
 					"variants": [
 						{ "label": "24",
 							"attributes": { "functionalChar": "А", "package": "DIP" },

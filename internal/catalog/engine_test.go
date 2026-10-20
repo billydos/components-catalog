@@ -68,7 +68,7 @@ func TestValidateDeviceTransistorExample(t *testing.T) {
 		Attributes: []catalog.AttributeValue{
 			{Attribute: "structure", Text: s("npn")},
 			{Attribute: "package", Text: s("КТ-13")},
-			{Attribute: "spec", Text: s("ЖК3.365.200ТУ")},
+			{Attribute: "spec", Texts: []string{"ЖК3.365.200ТУ"}},
 			{Attribute: "yearFrom", Num: f(1967)},
 			{Attribute: "yearTo", Num: f(1992)},
 		},

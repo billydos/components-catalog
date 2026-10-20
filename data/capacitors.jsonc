@@ -11,7 +11,7 @@
     {
       "name": "К50-35",                      // алюминиевые оксидно-электролитические
       "system": "gost",
-      "attributes": { "polarized": true, "spec": "ОЖ0.464.214ТУ" },
+      "attributes": { "polarized": true, "spec": ["ОЖ0.464.214ТУ"] },
       "parameters": [                        // тип в целом (variant_id NULL)
         { "parameter": "Tolerance", "max": 50 },                    // +50/−20 %
         { "parameter": "DF", "max": 30, "temp": 20 },        // 30 % (6,3–16 В) … 10 % (160 В)
@@ -134,7 +134,7 @@
     {
       "name": "К10-17Б",                     // керамический многослойный; ТКЕ/допуск зависят от группы (М47, М1500, Н20, Н50, Н90)
       "system": "gost",
-      "attributes": { "package": "монолитный", "spec": "ОЖ0.460.172ТУ" },
+      "attributes": { "package": "монолитный", "spec": ["ОЖ0.460.172ТУ"] },
       "parameters": [
         { "parameter": "Cnom", "min": 2.2, "max": 2200000 },  // 2,2 пФ – 2,2 мкФ (по группам ТКЕ)
         { "parameter": "Tolerance", "max": 80 },                    // ±5…±20 %; +80/−20 % (Н90)
@@ -153,7 +153,7 @@
     {
       "name": "К73-17",                      // металлизированные ПЭТ (лавсановые)
       "system": "gost",
-      "attributes": { "spec": "ТУ 6261-015-07594095-2006" },
+      "attributes": { "spec": ["ТУ 6261-015-07594095-2006"] },
       "manufacturers": ["СКЗ (Северо-Задонский завод)"],
       "parameters": [
         { "parameter": "Cnom", "min": 1000, "max": 4700000 },   // 0,001–4,7 мкФ
@@ -168,7 +168,7 @@
       "name": "К42-19",                      // металлобумажные уплотнённые частотные
       "system": "gost",
       "attributes": {
-        "datasheetUrl": "https://eandc.ru/pdf/kondensator/k42-19.pdf"
+        "datasheetUrl": ["https://eandc.ru/pdf/kondensator/k42-19.pdf"]
       },
       "parameters": [
         { "parameter": "Tolerance", "max": 20 },                      // ±10/±20 %
@@ -201,7 +201,7 @@
       "name": "КСО-2",                       // слюдяные опрессованные
       "system": "other",
       "fields": { "adjustment": "fixed", "series": "КСО", "dev_number": 2 },
-      "attributes": { "datasheetUrl": "https://rudatasheet.ru/capacitors/kso-2/" },
+      "attributes": { "datasheetUrl": ["https://rudatasheet.ru/capacitors/kso-2/"] },
       "parameters": [
         { "parameter": "Cnom", "min": 100, "max": 2400 },
         { "parameter": "Tolerance", "max": 20 },                      // классы 0…III: ±2…±20 %
@@ -215,7 +215,7 @@
       "name": "МБМ",                         // металлобумажные малогабаритные
       "system": "other",
       "fields": { "adjustment": "fixed", "series": "МБМ" },
-      "attributes": { "datasheetUrl": "https://eandc.ru/pdf/kondensator/mbm.pdf" },
+      "attributes": { "datasheetUrl": ["https://eandc.ru/pdf/kondensator/mbm.pdf"] },
       "parameters": [
         { "parameter": "Tolerance", "max": 20 },
         { "parameter": "DF", "max": 1.5 },
@@ -277,7 +277,7 @@
       "name": "МБГЧ-1",                      // металлобумажные герметизированные частотные
       "system": "other",
       "fields": { "adjustment": "fixed", "series": "МБГЧ", "dev_number": 1 },
-      "attributes": { "datasheetUrl": "https://asenergi.ru/catalog/kondensatory-puskovye/mbgch.html" },
+      "attributes": { "datasheetUrl": ["https://asenergi.ru/catalog/kondensatory-puskovye/mbgch.html"] },
       "parameters": [
         { "parameter": "Tolerance", "max": 20 },
         { "parameter": "DF", "max": 2.5 },
@@ -327,7 +327,7 @@
       "fields": { "adjustment": "fixed" },
       "attributes": {
         "technology": "керамика X7R", "package": "0603 (1608)",
-        "datasheetUrl": "https://www.digikey.com/en/products/detail/murata-electronics/GRM188R71H104KA93D/587143"
+        "datasheetUrl": ["https://www.digikey.com/en/products/detail/murata-electronics/GRM188R71H104KA93D/587143"]
       },
       "manufacturers": ["Murata"],
       "parameters": [
@@ -345,7 +345,7 @@
       "fields": { "adjustment": "fixed" },
       "attributes": {
         "polarized": true, "technology": "танталовые", "package": "C (6032-28)",
-        "datasheetUrl": "https://content.kemet.com/datasheets/KEM_T2005_T491.pdf"
+        "datasheetUrl": ["https://content.kemet.com/datasheets/KEM_T2005_T491.pdf"]
       },
       "manufacturers": ["KEMET"],
       "parameters": [
