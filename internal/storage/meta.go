@@ -24,6 +24,12 @@ const (
 // создание той же меты ошибки не даёт. Возвращает true, если база
 // создана этим вызовом (мета была вставлена).
 func (d *DB) EnsureCreated(ctx context.Context) (bool, error) {
+	// База прежней версии не мутируется: версия сверяется до DDL,
+	// отказ schema_version_mismatch оставляет базу нетронутой (D5 —
+	// отказ без изменений, а не после частичного применения).
+	if err := d.refuseForeignSchema(ctx); err != nil {
+		return false, err
+	}
 	tx, err := d.Begin(ctx)
 	if err != nil {
 		return false, err
@@ -72,6 +78,31 @@ ON CONFLICT DO NOTHING`,
 		return false, err
 	}
 	return created, nil
+}
+
+// refuseForeignSchema отвергает базу версии, отличной от версии модуля,
+// до выполнения DDL (чтение без записи). Отсутствие меты (таблицы либо
+// строки) и нечисловая версия — не отказ: эти случаи разбирает путь
+// создания/CheckSchema после DDL с их каноническими ошибками
+// (database_not_initialized), как до введения предпроверки.
+func (d *DB) refuseForeignSchema(ctx context.Context) error {
+	var version string
+	err := d.queryRow(ctx, `SELECT value FROM schema_meta WHERE key = @key`,
+		map[string]any{"key": metaSchemaVersion}).Scan(&version)
+	if err != nil {
+		if isNoTableError(err) || errors.Is(err, sql.ErrNoRows) {
+			return nil
+		}
+		return err
+	}
+	v, convErr := strconv.Atoi(strings.TrimSpace(version))
+	if convErr != nil {
+		return nil
+	}
+	if v != SchemaVersion {
+		return domain.SchemaVersionMismatch(v, SchemaVersion)
+	}
+	return nil
 }
 
 // CheckSchema читает schema_meta.schema_version и сверяет с версией модуля

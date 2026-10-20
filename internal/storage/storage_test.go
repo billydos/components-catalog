@@ -136,6 +136,49 @@ func TestSchemaVersionMismatch(t *testing.T) {
 		t.Fatalf("после переоткрытия: %v", err)
 	}
 
+	// EnsureCreated над базой прежней версии — отказ до DDL, база
+	// не мутируется (D5: отказ без изменений, а не после частичного
+	// применения новой схемы).
+	tx, err = db2.Begin(ctx)
+	if err != nil {
+		t.Fatalf("begin: %v", err)
+	}
+	if _, err := tx.exec(ctx,
+		`UPDATE schema_meta SET value = '9' WHERE key = 'schema_version'`, nil); err != nil {
+		t.Fatalf("даунгрейд версии: %v", err)
+	}
+	if _, err := tx.exec(ctx, `DROP TABLE device_synonyms`, nil); err != nil {
+		t.Fatalf("удаление таблицы версии 10: %v", err)
+	}
+	if err := tx.Commit(); err != nil {
+		t.Fatalf("commit: %v", err)
+	}
+	if _, err := db2.EnsureCreated(ctx); err == nil {
+		t.Fatal("ожидался отказ schema_version_mismatch")
+	} else if de, ok := domain.AsError(err); !ok || de.Code != domain.CodeSchemaVersionMismatch {
+		t.Fatalf("код отказа: %v", err)
+	}
+	tx, err = db2.Begin(ctx)
+	if err != nil {
+		t.Fatalf("begin после отказа: %v", err)
+	}
+	rows, err := tx.query(ctx, `SELECT count(*) FROM sqlite_master WHERE type = 'table' AND name = 'device_synonyms'`, nil)
+	if err != nil {
+		t.Fatalf("проверка таблицы: %v", err)
+	}
+	for rows.Next() {
+		var n int
+		if err := rows.Scan(&n); err != nil {
+			t.Fatalf("чтение: %v", err)
+		}
+		if n != 0 {
+			t.Fatal("DDL применён до отказа — база прежней версии мутирована")
+		}
+	}
+	rows.Close() //nolint:errcheck — счёт прочитан
+	if err := tx.Commit(); err != nil {
+		t.Fatalf("commit: %v", err)
+	}
 }
 
 func TestEnsureCreatedSQLiteMemory(t *testing.T) {
