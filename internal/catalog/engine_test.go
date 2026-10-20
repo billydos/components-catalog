@@ -551,7 +551,7 @@ func TestAttributeValueTypes(t *testing.T) {
 		{"int без значения", catalog.AttributeValue{Attribute: "yearFrom"},
 			"attribute «yearFrom»: an integer is expected"},
 		{"enum вне списка", catalog.AttributeValue{Attribute: "functionalChar", Text: s("Г")},
-			"attribute «functionalChar»: value «Г» is not among the allowed ones (А, Б, В)"},
+			"attribute «functionalChar»: value «Г» is not among the allowed ones (А, Б, В, linear, logarithmic, antilogarithmic)"},
 		{"список", catalog.AttributeValue{Attribute: "notes", Texts: []string{"заметка одна", "заметка две"}}, ""},
 		{"список одним элементом", catalog.AttributeValue{Attribute: "notes", Texts: []string{"единственная"}}, ""},
 		{"не список", catalog.AttributeValue{Attribute: "notes", Text: s("текстом")},

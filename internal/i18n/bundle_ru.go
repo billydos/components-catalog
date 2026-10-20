@@ -295,13 +295,15 @@ var bundleRu = map[string]string{
 	"param.IswitchMax": "наибольший коммутируемый ток",
 
 	// Параметры: массогабаритные.
-	"param.massMax":    "масса (наибольшая)",
-	"param.length":     "длина",
-	"param.width":      "ширина",
-	"param.height":     "высота",
-	"param.diameter":   "диаметр",
-	"param.leadLength": "длина выводов",
-	"param.leadPitch":  "шаг выводов",
+	"param.massMax":       "масса (наибольшая)",
+	"param.length":        "длина",
+	"param.width":         "ширина",
+	"param.height":        "высота",
+	"param.diameter":      "диаметр",
+	"param.leadLength":    "длина выводов",
+	"param.leadPitch":     "шаг выводов",
+	"param.shaftLength":   "длина вала",
+	"param.shaftDiameter": "диаметр вала",
 
 	// Атрибуты (attributes).
 	"attr.description":       "описание (по справочнику)",

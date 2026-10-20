@@ -19,7 +19,7 @@ func TestSeedAppliesCleanly(t *testing.T) {
 		}
 		t.Fatal("стартовый каталог не проходит метасхему")
 	}
-	if len(snap.Parameters) != 112 || len(snap.Attributes) != 21 ||
+	if len(snap.Parameters) != 114 || len(snap.Attributes) != 21 ||
 		len(snap.Units) != 30 || len(snap.Conditions) != 20 {
 		t.Fatalf("состав каталога: параметры %d, атрибуты %d, единицы %d, условия %d",
 			len(snap.Parameters), len(snap.Attributes), len(snap.Units), len(snap.Conditions))
@@ -283,7 +283,7 @@ func TestSeedSpotChecks(t *testing.T) {
 			t.Errorf("%s: группа %q, применимость %v", code, p.Group, p.Kinds)
 		}
 	}
-	for _, code := range []string{"massMax", "length", "width", "height", "diameter", "leadLength", "leadPitch"} {
+	for _, code := range []string{"massMax", "length", "width", "height", "diameter", "leadLength", "leadPitch", "shaftDiameter", "shaftLength"} {
 		if p := check(code); p.ValidationRule != "cap_dimensions_form" || p.ValueType != catalog.ValueExact {
 			t.Errorf("%s: правило %q, тип %s", code, p.ValidationRule, string(p.ValueType))
 		}
@@ -304,7 +304,8 @@ func TestSeedSpotChecks(t *testing.T) {
 		}
 		return a
 	}
-	if a := attr("functionalChar"); a.Type != catalog.AttrEnum || !slices.Equal(a.EnumValues, []string{"А", "Б", "В"}) ||
+	if a := attr("functionalChar"); a.Type != catalog.AttrEnum ||
+		!slices.Equal(a.EnumValues, []string{"А", "Б", "В", "linear", "logarithmic", "antilogarithmic"}) ||
 		!a.AppliesTo(domain.KindResistor) || a.AppliesTo(domain.KindCapacitor) {
 		t.Errorf("functionalChar: %+v", a)
 	}
@@ -315,7 +316,7 @@ func TestSeedSpotChecks(t *testing.T) {
 		t.Errorf("sections: %+v", a)
 	}
 	if a := attr("shaftEnd"); a.Type != catalog.AttrEnum || !a.AppliesTo(domain.KindResistor) ||
-		!slices.Equal(a.EnumValues, []string{"шлиц", "лыска", "гладкий", "резьбовой"}) {
+		!slices.Equal(a.EnumValues, []string{"slotted", "flatted", "plain", "threaded"}) {
 		t.Errorf("shaftEnd: %+v", a)
 	}
 	if a := attr("polarized"); a.Type != catalog.AttrBool || a.AppliesTo(domain.KindResistor) {
@@ -337,7 +338,10 @@ func TestSeedSpotChecks(t *testing.T) {
 		t.Errorf("relayType: %+v", a)
 	}
 	if a := attr("contactForm"); a.Type != catalog.AttrEnum || !a.AppliesTo(domain.KindRelay) ||
-		!slices.Equal(a.EnumValues, []string{"1З", "1Р", "1П", "2З", "2Р", "2П", "3П", "4П"}) {
+		!slices.Equal(a.EnumValues, []string{
+			"1З", "1Р", "1П", "2З", "2Р", "2П", "3П", "4П",
+			"1A", "1B", "1C", "2A", "2B", "2C", "3C", "4C",
+		}) {
 		t.Errorf("contactForm: %+v", a)
 	}
 	for _, code := range []string{"yearFrom", "yearTo"} {

@@ -297,13 +297,15 @@ var bundleEn = map[string]string{
 	"param.IswitchMax": "maximum switching current",
 
 	// Параметры: массогабаритные.
-	"param.massMax":    "mass (maximum)",
-	"param.length":     "length",
-	"param.width":      "width",
-	"param.height":     "height",
-	"param.diameter":   "diameter",
-	"param.leadLength": "lead length",
-	"param.leadPitch":  "lead pitch",
+	"param.massMax":       "mass (maximum)",
+	"param.length":        "length",
+	"param.width":         "width",
+	"param.height":        "height",
+	"param.diameter":      "diameter",
+	"param.leadLength":    "lead length",
+	"param.leadPitch":     "lead pitch",
+	"param.shaftLength":   "shaft length",
+	"param.shaftDiameter": "shaft diameter",
 
 	// Атрибуты (attributes).
 	"attr.description":       "description (as in reference book)",

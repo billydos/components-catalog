@@ -364,12 +364,12 @@
       "variants": [                         // номер исполнения — метка; секции, вал и закон изменения — по исполнению
         {
           "label": "24",
-          "attributes": { "sections": 1, "shaftEnd": "шлиц", "functionalChar": "А" },
+          "attributes": { "sections": 1, "shaftEnd": "slotted", "functionalChar": "А" },
           "ratings": [ { "parameter": "Pnom", "value": 0.125 } ]
         },
         {
           "label": "28",
-          "attributes": { "sections": 2, "shaftEnd": "гладкий", "functionalChar": "Б" },
+          "attributes": { "sections": 2, "shaftEnd": "plain", "functionalChar": "Б" },
           "ratings": [ { "parameter": "Pnom", "value": 0.25 } ]
         }
       ]

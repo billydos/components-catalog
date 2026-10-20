@@ -531,6 +531,10 @@ func parameters() []catalog.ParameterDef {
 			ValueType: catalog.ValueExact, ValidationRule: ruleDims, SortOrder: 60, Active: true},
 		{Code: "leadPitch", Group: "dimensional", Unit: "mm",
 			ValueType: catalog.ValueExact, ValidationRule: ruleDims, SortOrder: 70, Active: true},
+		{Code: "shaftDiameter", Group: "dimensional", Unit: "mm",
+			ValueType: catalog.ValueExact, ValidationRule: ruleDims, SortOrder: 80, Active: true},
+		{Code: "shaftLength", Group: "dimensional", Unit: "mm",
+			ValueType: catalog.ValueExact, ValidationRule: ruleDims, SortOrder: 90, Active: true},
 	}
 }
 
@@ -546,7 +550,18 @@ func attributes() []catalog.AttributeDef {
 			SortOrder: 30, Active: true, Kinds: []domain.Kind{domain.KindCapacitor}},
 		{Code: "functionalChar",
 			Type: catalog.AttrEnum, SortOrder: 40, Active: true,
-			Kinds: []domain.Kind{domain.KindResistor}, EnumValues: []string{"А", "Б", "В"}},
+			Kinds: []domain.Kind{domain.KindResistor}, EnumValues: []string{
+				// Функциональная характеристика переменных резисторов
+				// (ГОСТ 10318): А линейная, Б нелинейная (близка
+				// к логарифмической), В нелинейная (близка к обратной
+				// логарифмической). Международная номенклатура — слова
+				// (по образцу ТКЕ §6.8 обе номенклатуры в одном
+				// словаре); буквы A/B/C неприменимы: внешне совпадают
+				// с кириллицей и противоречат ГОСТ (в маркировке
+				// США/Азии A — логарифмическая (audio), B — линейная).
+				"А", "Б", "В",
+				"linear", "logarithmic", "antilogarithmic",
+			}},
 		{Code: "technology", Type: catalog.AttrText, SortOrder: 50, Active: true},
 		{Code: "package", Type: catalog.AttrText, SortOrder: 60, Active: true},
 		{Code: "packageMaterial", Type: catalog.AttrText, SortOrder: 70, Active: true},
@@ -574,16 +589,22 @@ func attributes() []catalog.AttributeDef {
 		{Code: "contactForm", Type: catalog.AttrEnum, SortOrder: 190, Active: true,
 			Kinds: []domain.Kind{domain.KindRelay}, EnumValues: []string{
 				// Контактная группа по НТД: число контактов + функция
-				// (З замыкающий, Р размыкающий, П переключающий).
+				// (З замыкающий, Р размыкающий, П переключающий);
+				// международные формы IEC — те же группы латиницей
+				// (A = З, B = Р, C = П), по образцу ТКЕ §6.8 обе
+				// номенклатуры в одном словаре.
 				"1З", "1Р", "1П", "2З", "2Р", "2П", "3П", "4П",
+				"1A", "1B", "1C", "2A", "2B", "2C", "3C", "4C",
 			}},
 		{Code: "sections", Type: catalog.AttrInt, SortOrder: 200, Active: true,
 			Kinds: []domain.Kind{domain.KindResistor}},
 		{Code: "shaftEnd", Type: catalog.AttrEnum, SortOrder: 210, Active: true,
 			Kinds: []domain.Kind{domain.KindResistor}, EnumValues: []string{
 				// Вид конца вала переменного резистора (03 §10):
-				// термины НТД.
-				"шлиц", "лыска", "гладкий", "резьбовой",
+				// нейтральные коды (как relayType) для терминов НТД —
+				// slotted шлиц, flatted лыска, plain гладкий,
+				// threaded резьбовой.
+				"slotted", "flatted", "plain", "threaded",
 			}},
 	}
 }

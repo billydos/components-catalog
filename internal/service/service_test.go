@@ -682,7 +682,7 @@ func suiteVariantAttributes(t *testing.T, factory configFactory) {
 	badEnum[0].Attributes = []catalog.AttributeValue{attrText("functionalChar", "К")}
 	_, err = svc.Upsert(ctx, DeviceInput{Name: "СП3-33", Variants: &badEnum})
 	wantDomainError(t, err, domain.CodeValidationFailed,
-		"attribute «functionalChar»: value «К» is not among the allowed ones (А, Б, В)")
+		"attribute «functionalChar»: value «К» is not among the allowed ones (antilogarithmic, linear, logarithmic, А, Б, В)")
 
 	// Дубликат атрибута исполнения — ошибка формы входа.
 	dup := variants()
