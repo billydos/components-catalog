@@ -40,7 +40,7 @@ func (t ValueType) Numeric() bool {
 	return false
 }
 
-// AttrType — тип значения атрибута (docs/plan/03-data-model.md §9):
+// AttrType — тип значения атрибута (docs/plan/03-data-model.md §10):
 // text | bool | int | number | enum.
 type AttrType string
 

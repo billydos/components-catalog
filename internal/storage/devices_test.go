@@ -737,3 +737,127 @@ func TestManufacturerTargetedOrphanCleanup(t *testing.T) {
 		})
 	}
 }
+
+// intPtr — *int для литеральных годов.
+func intPtr(v int) *int { return &v }
+
+// Синонимы: замена целиком, идемпотентность повторной замены, пакетный
+// читатель, разрешение владельца по обозначению синонима (фильтр классом
+// и без), каскад при удалении записи.
+func TestReplaceSynonyms(t *testing.T) {
+	for _, dialect := range []string{"sqlite", "postgres"} {
+		t.Run(dialect, func(t *testing.T) {
+			db := openDevicesDB(t, dialect)
+			ctx := context.Background()
+
+			tx, err := db.Begin(ctx)
+			if err != nil {
+				t.Fatalf("begin: %v", err)
+			}
+			id, _, err := tx.InsertDevice(ctx, "resistor", "gost", "С5-35")
+			if err != nil {
+				t.Fatalf("вставка записи: %v", err)
+			}
+			other, _, err := tx.InsertDevice(ctx, "resistor", "gost", "С2-33Н")
+			if err != nil {
+				t.Fatalf("вставка второй записи: %v", err)
+			}
+			replace := func(rows []SynonymRow) {
+				t.Helper()
+				if err := tx.ReplaceSynonyms(ctx, id, rows); err != nil {
+					t.Fatalf("замена синонимов: %v", err)
+				}
+			}
+			replace([]SynonymRow{
+				{Designation: "ПЭВ", SortOrder: 0},
+				{Designation: "ПЭВР", Note: "обозначение до 1968", YearFrom: intPtr(1960), YearTo: intPtr(1968), SortOrder: 1},
+			})
+			if err := tx.Commit(); err != nil {
+				t.Fatalf("commit: %v", err)
+			}
+
+			loaded, err := db.BeginReadOnly(ctx)
+			if err != nil {
+				t.Fatalf("begin read only: %v", err)
+			}
+			defer loaded.Rollback() //nolint:errcheck — откат транзакции чтения
+			rows, err := loaded.LoadSynonyms(ctx, id)
+			if err != nil {
+				t.Fatalf("чтение синонимов: %v", err)
+			}
+			want := []SynonymRow{
+				{Designation: "ПЭВ", SortOrder: 0},
+				{Designation: "ПЭВР", Note: "обозначение до 1968", YearFrom: intPtr(1960), YearTo: intPtr(1968), SortOrder: 1},
+			}
+			if !reflect.DeepEqual(rows, want) {
+				t.Fatalf("синонимы: %+v, ожидались %+v", rows, want)
+			}
+
+			byIDs, err := db.LoadSynonymsByIDs(ctx, []int64{id, other})
+			if err != nil {
+				t.Fatalf("пакетное чтение: %v", err)
+			}
+			if !reflect.DeepEqual(byIDs[id], want) || len(byIDs[other]) != 0 {
+				t.Fatalf("пакетное чтение: %+v", byIDs)
+			}
+
+			owner, err := loaded.FindSynonymOwner(ctx, "resistor", "ПЭВ")
+			if err != nil {
+				t.Fatalf("владелец синонима: %v", err)
+			}
+			if owner == nil || owner.DeviceID != id || owner.Designation != "С5-35" || owner.Kind != domain.KindResistor {
+				t.Fatalf("владелец: %+v", owner)
+			}
+			anyKind, err := loaded.FindSynonymOwner(ctx, "", "ПЭВР")
+			if err != nil {
+				t.Fatalf("владелец без класса: %v", err)
+			}
+			if anyKind == nil || anyKind.DeviceID != id {
+				t.Fatalf("владелец без класса: %+v", anyKind)
+			}
+			missed, err := loaded.FindSynonymOwner(ctx, "resistor", "МЛТ")
+			if err != nil {
+				t.Fatalf("промах синонима: %v", err)
+			}
+			if missed != nil {
+				t.Fatalf("промах: %+v", missed)
+			}
+
+			// Повторная замена тем же набором идемпотентна; замена
+			// сокращённым набором убирает лишние строки.
+			tx, err = db.Begin(ctx)
+			if err != nil {
+				t.Fatalf("begin: %v", err)
+			}
+			replace(want)
+			replace([]SynonymRow{{Designation: "ПЭВ", SortOrder: 0}})
+			if err := tx.Commit(); err != nil {
+				t.Fatalf("commit: %v", err)
+			}
+			tx, err = db.Begin(ctx)
+			if err != nil {
+				t.Fatalf("begin: %v", err)
+			}
+			if _, err := tx.DeleteDeviceByKey(ctx, "resistor", "С5-35"); err != nil {
+				t.Fatalf("удаление записи: %v", err)
+			}
+			if err := tx.Commit(); err != nil {
+				t.Fatalf("commit: %v", err)
+			}
+			tx, err = db.Begin(ctx)
+			if err != nil {
+				t.Fatalf("begin: %v", err)
+			}
+			rows, err = tx.LoadSynonyms(ctx, id)
+			if err != nil {
+				t.Fatalf("чтение после удаления: %v", err)
+			}
+			if len(rows) != 0 {
+				t.Fatalf("синонимы после удаления записи: %+v", rows)
+			}
+			if err := tx.Commit(); err != nil {
+				t.Fatalf("commit: %v", err)
+			}
+		})
+	}
+}

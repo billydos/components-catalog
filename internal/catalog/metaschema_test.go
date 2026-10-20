@@ -8,7 +8,7 @@ import (
 	"github.com/billydos/components-catalog/internal/domain"
 )
 
-// Состав стартового каталога (03 §3–§9): количества строк по разделам.
+// Состав стартового каталога (03 §3–§10): количества строк по разделам.
 func TestSeedSnapshotCounts(t *testing.T) {
 	snap := seedSnapshot(t)
 	want := struct {
@@ -60,7 +60,7 @@ func TestCategoriesApply(t *testing.T) {
 	}
 }
 
-// Нарушения метасхемы (03 §11) — каждая проверка даёт дословное сообщение.
+// Нарушения метасхемы (03 §12) — каждая проверка даёт дословное сообщение.
 func TestMetaschemaViolations(t *testing.T) {
 	p := func(mutate func(*catalog.ParameterDef)) catalog.ParameterDef {
 		base, ok := seedSnapshot(t).Parameter("Eta")

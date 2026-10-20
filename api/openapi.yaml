@@ -26,7 +26,7 @@ info:
     по умолчанию и при неподдерживаемом языке — en (поддерживаются en, ru).
 
     Семантика секций тела записи (attributes, секции групп, manufacturers,
-    variants, analogs): отсутствует/null — не менять (для POST — не задано),
+    variants, analogs, synonyms): отсутствует/null — не менять (для POST — не задано),
     задана — заменить целиком, `[]`/`{}` — очистить, ошибка в любом
     значении — запись не применяется вовсе.
 servers: []
@@ -222,7 +222,7 @@ paths:
       parameters:
         - {name: kind, in: query, schema: {type: string}, description: "Класс приборов (transistor, diode, resistor, capacitor, relay)."}
         - {name: system, in: query, schema: {type: string}, description: "Система обозначений (gost, ost, pro, jedec, jis, other)."}
-        - {name: q, in: query, schema: {type: string}, description: "Подстрока обозначения (регистр не важен)."}
+        - {name: q, in: query, schema: {type: string}, description: "Подстрока обозначения либо исторического названия записи — синонима (регистр не важен)."}
         - name: id
           in: query
           description: |
@@ -467,7 +467,7 @@ paths:
       description: Отключаем конфигурацией модуля — хендлер не монтируется
         (404 при отключении).
       parameters:
-        - {name: q, in: query, required: true, schema: {type: string}, description: "Префикс обозначения."}
+        - {name: q, in: query, required: true, schema: {type: string}, description: "Префикс обозначения либо исторического названия записи — синонима."}
         - {name: kind, in: query, schema: {type: string}, description: "Класс приборов."}
         - {name: limit, in: query, schema: {type: integer, minimum: 1, maximum: 50, default: 10}}
       responses:
@@ -783,9 +783,21 @@ components:
         system: {type: string}
         designation: {type: string}
         note: {type: string}
+    CardSynonym:
+      type: object
+      required: [designation]
+      description: |
+        Историческое название записи (синоним): обозначение,
+        под которым компонент выпускался в другие годы (С5-35 = ПЭВ/ПЭВР);
+        заметка — происхождение имени, годы — период его употребления.
+      properties:
+        designation: {type: string}
+        note: {type: string}
+        year_from: {type: integer}
+        year_to: {type: integer}
     Card:
       type: object
-      required: [id, kind, kind_name, system, system_name, designation, fields, attributes, groups, variants, manufacturers, analogs, backlinks]
+      required: [id, kind, kind_name, system, system_name, designation, fields, attributes, groups, variants, manufacturers, analogs, backlinks, synonyms]
       properties:
         id: {type: integer, format: int64}
         kind: {type: string}
@@ -818,6 +830,9 @@ components:
         backlinks:
           type: array
           items: {$ref: "#/components/schemas/CardLink"}
+        synonyms:
+          type: array
+          items: {$ref: "#/components/schemas/CardSynonym"}
     Outcome:
       type: string
       enum: [Added, UpdatedExisting, Skipped]
@@ -1026,6 +1041,25 @@ components:
                     properties:
                       name: {type: string}
                       note: {type: string}
+            synonyms:
+              type: array
+              description: |
+                Исторические названия записи (D11): обозначение-синоним
+                не является записью — find и поиск (q=) разрешают его
+                в запись-владельца. Уникальны в пределах класса; создание
+                записи с обозначением, занятым синонимом другой записи, —
+                конфликт (409). Годы — целые 1949–2100, yearFrom раньше
+                yearTo.
+              items:
+                oneOf:
+                  - type: string
+                  - type: object
+                    required: [name]
+                    properties:
+                      name: {type: string}
+                      note: {type: string}
+                      yearFrom: {type: integer}
+                      yearTo: {type: integer}
     DeviceVariant:
       type: object
       properties:

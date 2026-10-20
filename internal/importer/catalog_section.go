@@ -150,6 +150,18 @@ func (r *catReader) num(v value, section, code, key string) (*float64, bool) {
 // поэтому целость и диапазон проверяются до преобразования.
 const integerMaxExact = 1 << 53
 
+// intFromNumber — целое из числового литерала наполнения: целость и
+// диапазон ±2^53 проверяются до преобразования (float→int вне диапазона
+// int — implementation-defined). Используют читатели секций catalog
+// и синонимов записей.
+func intFromNumber(numText string) (int, bool) {
+	f, err := strconv.ParseFloat(numText, 64)
+	if err != nil || f != math.Trunc(f) || f < -integerMaxExact || f > integerMaxExact {
+		return 0, false
+	}
+	return int(f), true
+}
+
 func (r *catReader) integer(v value, section, code, key string) (int, bool) {
 	f, ok := r.num(v, section, code, key)
 	if !ok || f == nil {

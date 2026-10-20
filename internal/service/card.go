@@ -59,6 +59,10 @@ func (s *DeviceService) buildCards(ctx context.Context, snap *catalog.Snapshot, 
 	if err != nil {
 		return nil, err
 	}
+	synonyms, err := tx.LoadSynonymsByIDs(ctx, ids)
+	if err != nil {
+		return nil, err
+	}
 	byID := make(map[int64]*storage.DeviceRow, len(devs))
 	for _, dev := range devs {
 		byID[dev.ID] = dev
@@ -84,7 +88,7 @@ func (s *DeviceService) buildCards(ctx context.Context, snap *catalog.Snapshot, 
 			continue // параллельное удаление — запись уже не собирается
 		}
 		cards = append(cards, assembleCard(snap, dev, fields[id], attrRows[id],
-			values[id], variants[id], manufacturers[id], outgoing[id], backlinks[id]))
+			values[id], variants[id], manufacturers[id], outgoing[id], backlinks[id], synonyms[id]))
 	}
 	for _, c := range cards {
 		attachTypeGroup(snap, c, fields[c.ID], values[c.ID], siblings, sibValues)
@@ -255,7 +259,8 @@ func cardValueEqual(a, b CardValue) bool {
 func assembleCard(snap *catalog.Snapshot, dev *storage.DeviceRow,
 	fields []domain.Field, attrRows []storage.AttrRow, values []storage.ValueRow,
 	variants []storage.VariantRow, manufacturers []string,
-	outgoing []storage.AnalogRow, backlinks []storage.BacklinkRow) *Card {
+	outgoing []storage.AnalogRow, backlinks []storage.BacklinkRow,
+	synonyms []storage.SynonymRow) *Card {
 	card := &Card{
 		ID:            dev.ID,
 		Kind:          dev.Kind,
@@ -299,6 +304,16 @@ func assembleCard(snap *catalog.Snapshot, dev *storage.DeviceRow,
 	for _, b := range backlinks {
 		card.Backlinks = append(card.Backlinks, CardLink{
 			Kind: b.Kind, System: b.System, Designation: b.Designation, Note: b.Note,
+		})
+	}
+	// Исторические названия — порядок sort_order (канонический —
+	// по обозначению).
+	slices.SortStableFunc(synonyms, func(a, b storage.SynonymRow) int {
+		return strings.Compare(a.Designation, b.Designation)
+	})
+	for _, s := range synonyms {
+		card.Synonyms = append(card.Synonyms, CardSynonym{
+			Designation: s.Designation, Note: s.Note, YearFrom: s.YearFrom, YearTo: s.YearTo,
 		})
 	}
 	return card
@@ -380,34 +395,68 @@ func condsFromStorage(conds []storage.Cond) []catalog.ConditionValue {
 	return out
 }
 
-// Find ищет запись по точному обозначению; при отсутствии совпадения у
-// полупроводников gost подсказывает равнозначную по материалу запись
-// (Г/1, К/2 — физически равнозначные символы, записи раздельны:
-// docs/plan/01-architecture.md §2.1).
+// Find ищет запись по точному обозначению; порядок разрешения — точный
+// ключ записи, затем историческое название-синоним (план 03 §9:
+// обозначение-синоним не является записью, попадание помечается
+// MatchedBySynonym), затем подсказки (равнозначная по материалу запись
+// полупроводников gost — Г/1, К/2, физически равнозначные символы,
+// записи раздельны; сосед по типу). Разбор обозначения для подсказок
+// выполняется после разрешения: точное попадание и синоним не требуют
+// разбираемой грамматики (записи other).
 func (s *DeviceService) Find(ctx context.Context, kind domain.Kind, designation string) (FindResult, error) {
-	p, err := s.app.designations.ParseForSystem(ctx, designation, "", kind)
-	if err != nil {
-		return FindResult{}, err
-	}
-	card, found, err := s.Get(ctx, p.Kind, p.Designation)
+	card, found, err := s.Get(ctx, kind, designation)
 	if err != nil {
 		return FindResult{}, err
 	}
 	if found {
 		return FindResult{Found: card}, nil
 	}
-	var res FindResult
-	res.Suggestion, err = s.suggestEquivalent(ctx, p)
+	canonical, err := domain.Canonicalize(designation)
 	if err != nil {
 		return FindResult{}, err
 	}
+	res, err := s.findBySynonym(ctx, kind, canonical)
+	if err != nil || res.Found != nil {
+		return res, err
+	}
+	p, err := s.app.designations.ParseForSystem(ctx, designation, "", kind)
+	if err != nil {
+		return FindResult{}, err
+	}
+	if res.Suggestion, err = s.suggestEquivalent(ctx, p); err != nil {
+		return FindResult{}, err
+	}
 	if res.Suggestion == nil {
-		res.TypeSuggestion, err = s.suggestTypeSibling(ctx, p)
-		if err != nil {
+		if res.TypeSuggestion, err = s.suggestTypeSibling(ctx, p); err != nil {
 			return FindResult{}, err
 		}
 	}
 	return res, nil
+}
+
+// findBySynonym ищет запись по историческому названию: владелец синонима
+// читается по каноническому обозначению (kind == "" — любой класс),
+// карточка собирается пакетным чтением.
+func (s *DeviceService) findBySynonym(ctx context.Context, kind domain.Kind, canonical string) (FindResult, error) {
+	owner, err := s.app.db.FindSynonymOwner(ctx, kind, canonical)
+	if err != nil {
+		return FindResult{}, err
+	}
+	if owner == nil {
+		return FindResult{}, nil
+	}
+	snap, err := s.app.cache.Snapshot(ctx)
+	if err != nil {
+		return FindResult{}, err
+	}
+	cards, err := s.buildCards(ctx, snap, []int64{owner.DeviceID})
+	if err != nil {
+		return FindResult{}, err
+	}
+	if len(cards) == 0 {
+		return FindResult{}, nil // параллельное удаление владельца синонима
+	}
+	return FindResult{Found: cards[0], MatchedBySynonym: canonical}, nil
 }
 
 // suggestEquivalent ищет равнозначную по материалу запись: замена первого

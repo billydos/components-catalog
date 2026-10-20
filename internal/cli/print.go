@@ -91,6 +91,14 @@ func printCard(w io.Writer, lang i18n.Language, c *service.Card, snap *catalog.S
 		}
 		sep = true
 	}
+	if len(c.Synonyms) > 0 {
+		section()
+		parts := make([]string, 0, len(c.Synonyms))
+		for _, s := range c.Synonyms {
+			parts = append(parts, synonymDisplay(lang, s))
+		}
+		fmt.Fprintln(w, i18n.Message(lang, string(domain.MsgCliSynonyms), joinParts(parts)))
+	}
 	if len(c.Attributes) > 0 {
 		section()
 		fmt.Fprintln(w, i18n.Message(lang, string(domain.MsgCliHAttrs)))
@@ -181,6 +189,27 @@ func printCard(w io.Writer, lang i18n.Language, c *service.Card, snap *catalog.S
 
 func joinParts(parts []string) string {
 	return strings.Join(parts, "; ")
+}
+
+// synonymDisplay — историческое название карточки с происхождением
+// и годами употребления имени: «ПЭВ (до 1968; обозначение до 1968 года)».
+func synonymDisplay(lang i18n.Language, s service.CardSynonym) string {
+	var extras []string
+	switch {
+	case s.YearFrom != nil && s.YearTo != nil:
+		extras = append(extras, fmt.Sprintf("%d–%d", *s.YearFrom, *s.YearTo))
+	case s.YearFrom != nil:
+		extras = append(extras, i18n.Message(lang, string(domain.MsgCliYearSince), *s.YearFrom))
+	case s.YearTo != nil:
+		extras = append(extras, i18n.Message(lang, string(domain.MsgCliYearUntil), *s.YearTo))
+	}
+	if s.Note != "" {
+		extras = append(extras, s.Note)
+	}
+	if len(extras) == 0 {
+		return s.Designation
+	}
+	return s.Designation + " (" + joinParts(extras) + ")"
 }
 
 // valueWithConditions — значение параметра с единицей и условиями

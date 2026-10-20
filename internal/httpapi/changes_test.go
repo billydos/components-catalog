@@ -24,9 +24,9 @@ func TestChanges(t *testing.T) {
 		t.Fatalf("статус: %d, тело %s", status, body)
 	}
 	resp := decode[changesResponseJSON](t, body)
-	// Сиды создали 4 записи — 4 события created (дефолтные after=0/limit=100).
-	if len(resp.Events) != 4 {
-		t.Fatalf("событий: %d, ожидалось 4: %+v", len(resp.Events), resp.Events)
+	// Сиды создали 5 записей — 5 событий created (дефолтные after=0/limit=100).
+	if len(resp.Events) != 5 {
+		t.Fatalf("событий: %d, ожидалось 5: %+v", len(resp.Events), resp.Events)
 	}
 	if resp.DataRevision == 0 {
 		t.Fatalf("data_revision: %+v", resp)

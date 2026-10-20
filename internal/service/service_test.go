@@ -171,6 +171,7 @@ func runSuite(t *testing.T, factory configFactory) {
 	t.Run("variants", func(t *testing.T) { suiteVariants(t, factory) })
 	t.Run("variant filters", func(t *testing.T) { suiteVariantFilters(t, factory) })
 	t.Run("analogs", func(t *testing.T) { suiteAnalogs(t, factory) })
+	t.Run("synonyms", func(t *testing.T) { suiteSynonyms(t, factory) })
 	t.Run("find", func(t *testing.T) { suiteFind(t, factory) })
 	t.Run("get by ids", func(t *testing.T) { suiteGetByIDs(t, factory) })
 	t.Run("search", func(t *testing.T) { suiteSearch(t, factory) })
@@ -617,6 +618,159 @@ func suiteAnalogs(t *testing.T, factory configFactory) {
 	mp39.Analogs = &[]AnalogInput{{Designation: "К10-17Б"}}
 	_, err = svc.Upsert(ctx, mp39)
 	wantDomainError(t, err, domain.CodeNotFound, "analog «К10-17Б» not found in kind transistor")
+}
+
+// suiteSynonyms — исторические названия записи (план 03 §9): применение
+// секции, карточка, find и поиск по синониму, идемпотентность, замена
+// и очистка, структурная валидация (конфликты уникальности, годы).
+func suiteSynonyms(t *testing.T, factory configFactory) {
+	ctx := context.Background()
+	app := openSuiteApp(t, factory)
+	svc := app.Services().Devices
+	mustUpsert(t, svc, DeviceInput{Name: "С5-16МВ"})
+
+	synonyms := []SynonymInput{
+		{Designation: "ПЭВР", Note: "обозначение до введения ГОСТ 3453-68", YearFrom: ptr(1960), YearTo: ptr(1968)},
+		{Designation: "пэв "}, // канонизация входа
+	}
+	mustUpsert(t, svc, DeviceInput{Name: "С5-35", Synonyms: &synonyms})
+
+	// Карточка несёт исторические названия в каноническом порядке
+	// (по обозначению), с заметкой и годами.
+	card, found, err := svc.Get(ctx, "resistor", "С5-35")
+	if err != nil || !found {
+		t.Fatalf("get: ok=%v err=%v", found, err)
+	}
+	if len(card.Synonyms) != 2 ||
+		card.Synonyms[0].Designation != "ПЭВ" ||
+		card.Synonyms[1].Designation != "ПЭВР" ||
+		card.Synonyms[1].Note != "обозначение до введения ГОСТ 3453-68" ||
+		card.Synonyms[1].YearFrom == nil || *card.Synonyms[1].YearFrom != 1960 ||
+		card.Synonyms[1].YearTo == nil || *card.Synonyms[1].YearTo != 1968 {
+		t.Fatalf("синонимы карточки: %+v", card.Synonyms)
+	}
+
+	// Повторное применение того же входа — Skipped (синонимы входят
+	// в каноническое сравнение состояний).
+	if out := mustUpsert(t, svc, DeviceInput{Name: "С5-35", Synonyms: &synonyms}); out != OutcomeSkipped {
+		t.Fatalf("повторное применение: %s, ожидался Skipped", out)
+	}
+
+	// find разрешает синоним в запись-владельца и помечает попадание;
+	// точное обозначение записи не помечается.
+	res, err := svc.Find(ctx, "", "ПЭВ")
+	if err != nil {
+		t.Fatalf("find по синониму: %v", err)
+	}
+	if res.Found == nil || res.Found.Designation != "С5-35" || res.MatchedBySynonym != "ПЭВ" {
+		t.Fatalf("find по синониму: found=%v matched=%q", res.Found, res.MatchedBySynonym)
+	}
+	res, err = svc.Find(ctx, "", "С5-35")
+	if err != nil || res.Found == nil || res.MatchedBySynonym != "" {
+		t.Fatalf("find по точному ключу: err=%v found=%v matched=%q", err, res.Found, res.MatchedBySynonym)
+	}
+
+	// Поиск по подстроке находит запись по синониму.
+	page, err := svc.Search(ctx, SearchQuery{Kind: domain.KindResistor, Query: "ПЭВ"})
+	if err != nil {
+		t.Fatalf("search: %v", err)
+	}
+	if page.Total != 1 || len(page.Items) != 1 || page.Items[0].Designation != "С5-35" {
+		t.Fatalf("search по синониму: total=%d items=%+v", page.Total, page.Items)
+	}
+
+	// Замена целиком и очистка ([]).
+	mustUpsert(t, svc, DeviceInput{Name: "С5-35", Synonyms: &[]SynonymInput{{Designation: "ПЭВ"}}})
+	card, _, _ = svc.Get(ctx, "resistor", "С5-35")
+	if len(card.Synonyms) != 1 || card.Synonyms[0].Designation != "ПЭВ" {
+		t.Fatalf("после замены: %+v", card.Synonyms)
+	}
+	empty := []SynonymInput{}
+	mustUpsert(t, svc, DeviceInput{Name: "С5-35", Synonyms: &empty})
+	card, _, _ = svc.Get(ctx, "resistor", "С5-35")
+	if len(card.Synonyms) != 0 {
+		t.Fatalf("после очистки: %+v", card.Synonyms)
+	}
+	// Секция не задана — не меняется.
+	mustUpsert(t, svc, DeviceInput{Name: "С5-35", Attributes: []catalog.AttributeValue{attrText("technology", "проволочные")}})
+	card, _, _ = svc.Get(ctx, "resistor", "С5-35")
+	if len(card.Synonyms) != 0 {
+		t.Fatalf("секция не задана, синонимы изменились: %+v", card.Synonyms)
+	}
+
+	mustUpsert(t, svc, DeviceInput{Name: "С5-35", Synonyms: &[]SynonymInput{{Designation: "ПЭВ"}}})
+
+	// Структурная валидация: синоним — обозначение существующей записи.
+	bad := DeviceInput{Name: "С5-35", Synonyms: &[]SynonymInput{{Designation: "С5-16МВ"}}}
+	_, err = svc.Upsert(ctx, bad)
+	wantDomainError(t, err, domain.CodeValidationFailed,
+		"synonym «С5-16МВ» matches the designation of an existing record in kind resistor")
+
+	// Синоним уже принадлежит другой записи.
+	mustUpsert(t, svc, DeviceInput{Name: "С5-16МВ", Synonyms: &[]SynonymInput{{Designation: "МЛТ"}}})
+	_, err = svc.Upsert(ctx, DeviceInput{Name: "С5-35", Synonyms: &[]SynonymInput{{Designation: "МЛТ"}}})
+	wantDomainError(t, err, domain.CodeValidationFailed,
+		"synonym «МЛТ» is already assigned to record «С5-16МВ»")
+
+	// Дубликат в секции и самоссылка.
+	_, err = svc.Upsert(ctx, DeviceInput{Name: "С5-35", Synonyms: &[]SynonymInput{{Designation: "ВС"}, {Designation: "вс"}}})
+	wantDomainError(t, err, domain.CodeValidationFailed, "synonym «ВС» is set more than once")
+	_, err = svc.Upsert(ctx, DeviceInput{Name: "С5-35", Synonyms: &[]SynonymInput{{Designation: "с5-35"}}})
+	wantDomainError(t, err, domain.CodeValidationFailed,
+		"synonym «С5-35» matches the designation of the record itself")
+
+	// Годы: порядок и границы (те же, что у правила year_range).
+	_, err = svc.Upsert(ctx, DeviceInput{Name: "С5-35",
+		Synonyms: &[]SynonymInput{{Designation: "ВС", YearFrom: ptr(1970), YearTo: ptr(1968)}}})
+	wantDomainError(t, err, domain.CodeValidationFailed, "synonym «ВС»: yearFrom must precede yearTo")
+	_, err = svc.Upsert(ctx, DeviceInput{Name: "С5-35", Synonyms: &[]SynonymInput{{Designation: "ВС", YearFrom: ptr(1930)}}})
+	wantDomainError(t, err, domain.CodeValidationFailed, "synonym «ВС»: years must be within 1949–2100")
+
+	// Создание записи с обозначением, занятым синонимом другой записи,
+	// отвергается — синоним не может оказаться в тени точного ключа.
+	_, err = svc.Upsert(ctx, DeviceInput{Name: "ПЭВ", System: domain.SystemOther, Kind: domain.KindResistor})
+	wantDomainError(t, err, domain.CodeAlreadyExists,
+		"designation «ПЭВ» is taken by a synonym of record «С5-35»")
+
+	// Контракт PendingDesignations для DryRun: последовательная симуляция
+	// прогона — созданные записи и заявки синонимов видны проверкам
+	// последующих записей без записи в БД.
+	claims := PendingDesignations{
+		Created: func(kind domain.Kind, designation string) bool {
+			return kind == domain.KindResistor && designation == "ВС"
+		},
+		Synonym: func(kind domain.Kind, designation string) (string, bool) {
+			if kind == domain.KindResistor && designation == "УЛМ" {
+				return "С5-35", true
+			}
+			return "", false
+		},
+	}
+	_, err = svc.DryRun(ctx, DeviceInput{Name: "С5-37В",
+		Synonyms: &[]SynonymInput{{Designation: "ВС"}, {Designation: "УЛМ"}}}, nil, claims)
+	wantDomainError(t, err, domain.CodeValidationFailed,
+		"synonym «ВС» matches the designation of an existing record in kind resistor")
+	_, err = svc.DryRun(ctx, DeviceInput{Name: "С5-37В",
+		Synonyms: &[]SynonymInput{{Designation: "УЛМ"}}}, nil, claims)
+	wantDomainError(t, err, domain.CodeValidationFailed,
+		"synonym «УЛМ» is already assigned to record «С5-35»")
+	_, err = svc.DryRun(ctx, DeviceInput{
+		Name: "УЛМ", System: domain.SystemOther, Kind: domain.KindResistor}, nil, claims)
+	wantDomainError(t, err, domain.CodeAlreadyExists,
+		"designation «УЛМ» is taken by a synonym of record «С5-35»")
+	// Своя заявка при замене допустима (повторное применение записи).
+	own := PendingDesignations{
+		Synonym: func(kind domain.Kind, designation string) (string, bool) {
+			if kind == domain.KindResistor && designation == "ПЭВ" {
+				return "С5-35", true
+			}
+			return "", false
+		},
+	}
+	if out, err := svc.DryRun(ctx, DeviceInput{Name: "С5-35",
+		Synonyms: &[]SynonymInput{{Designation: "ПЭВ"}}}, nil, own); err != nil || out != OutcomeSkipped {
+		t.Fatalf("своя заявка: %v %v", out, err)
+	}
 }
 
 // suiteFind — точное совпадение, раздельность равнозначных записей и

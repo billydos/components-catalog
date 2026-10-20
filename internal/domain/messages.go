@@ -224,6 +224,12 @@ const (
 	MsgImportAnalogNoteString         MsgID = "import_analog_note_string"
 	MsgImportAnalogUnknownField       MsgID = "import_analog_unknown_field"
 	MsgImportAnalogItem               MsgID = "import_analog_item"
+	MsgImportSynonymsArray            MsgID = "import_synonyms_array"
+	MsgImportSynonymItem              MsgID = "import_synonym_item"
+	MsgImportSynonymNameRequired      MsgID = "import_synonym_name_required"
+	MsgImportSynonymUnknownField      MsgID = "import_synonym_unknown_field"
+	MsgImportSynonymNoteString        MsgID = "import_synonym_note_string"
+	MsgImportSynonymYearInt           MsgID = "import_synonym_year_int"
 	MsgImportNdjsonLineObject         MsgID = "import_ndjson_line_object"
 	MsgImportNdjsonCatalogOrder       MsgID = "import_ndjson_catalog_order"
 	MsgImportNdjsonClassKey           MsgID = "import_ndjson_class_key"
@@ -274,12 +280,13 @@ const (
 	MsgImportValueKindBool            MsgID = "import_value_kind_bool"
 	MsgImportValueKindOther           MsgID = "import_value_kind_other"
 
-	// Итог прогона и позиционные префиксы исполнений/аналогов.
+	// Итог прогона и позиционные префиксы исполнений/аналогов/синонимов.
 	MsgImportSummary          MsgID = "import_summary"
 	MsgImportSummaryRejected  MsgID = "import_summary_rejected"
 	MsgImportSummaryCatalog   MsgID = "import_summary_catalog"
 	MsgImportWhereVariant     MsgID = "import_where_variant"
 	MsgImportWhereAnalog      MsgID = "import_where_analog"
+	MsgImportWhereSynonym     MsgID = "import_where_synonym"
 	MsgImportWhereValue       MsgID = "import_where_value"
 	MsgImportCatalogPlain     MsgID = "import_catalog_object_plain"
 	MsgImportNdjsonSubsection MsgID = "import_ndjson_subsection_array"
@@ -310,6 +317,14 @@ const (
 	MsgSvcAnalogSelf            MsgID = "svc_analog_self"
 	MsgSvcAnalogDuplicate       MsgID = "svc_analog_duplicate"
 	MsgSvcAnalogNotFound        MsgID = "svc_analog_not_found"
+	MsgSvcSynonymEmpty          MsgID = "svc_synonym_empty"
+	MsgSvcSynonymSelf           MsgID = "svc_synonym_self"
+	MsgSvcSynonymDuplicate      MsgID = "svc_synonym_duplicate"
+	MsgSvcSynonymConflictRecord MsgID = "svc_synonym_conflict_record"
+	MsgSvcSynonymConflictOther  MsgID = "svc_synonym_conflict_other"
+	MsgSvcSynonymOwnerConflict  MsgID = "svc_synonym_owner_conflict"
+	MsgSvcSynonymYearOrder      MsgID = "svc_synonym_year_order"
+	MsgSvcSynonymYearRange      MsgID = "svc_synonym_year_range"
 	MsgSvcFilterFieldMissing    MsgID = "svc_designation_filter_field_missing"
 	MsgSvcFilterOpUnknown       MsgID = "svc_filter_op_unknown"
 	MsgSvcSearchFieldUnknown    MsgID = "svc_search_field_unknown"
@@ -394,6 +409,7 @@ const (
 	MsgCliRecordNotFound    MsgID = "cli_record_not_found"
 	MsgCliFindSuggestion    MsgID = "cli_find_suggestion"
 	MsgCliFindType          MsgID = "cli_find_type"
+	MsgCliFindSynonym       MsgID = "cli_find_synonym"
 	MsgCliFindNotFound      MsgID = "cli_find_not_found"
 	MsgCliDeleteDryRun      MsgID = "cli_delete_dry_run"
 	MsgCliDeleted           MsgID = "cli_deleted"
@@ -406,6 +422,9 @@ const (
 	MsgCliManufacturers     MsgID = "cli_manufacturers"
 	MsgCliAnalogs           MsgID = "cli_analogs"
 	MsgCliBacklinks         MsgID = "cli_backlinks"
+	MsgCliSynonyms          MsgID = "cli_synonyms"
+	MsgCliYearSince         MsgID = "cli_year_since"
+	MsgCliYearUntil         MsgID = "cli_year_until"
 	MsgCliParseHead         MsgID = "cli_parse_head"
 	MsgCliFieldLine         MsgID = "cli_field_line"
 	MsgCliAtLeast           MsgID = "cli_at_least"
@@ -748,6 +767,12 @@ var msgRegistry = map[MsgID]struct{}{
 	MsgImportAnalogNoteString:         {},
 	MsgImportAnalogUnknownField:       {},
 	MsgImportAnalogItem:               {},
+	MsgImportSynonymsArray:            {},
+	MsgImportSynonymItem:              {},
+	MsgImportSynonymNameRequired:      {},
+	MsgImportSynonymUnknownField:      {},
+	MsgImportSynonymNoteString:        {},
+	MsgImportSynonymYearInt:           {},
 	MsgImportNdjsonLineObject:         {},
 	MsgImportNdjsonCatalogOrder:       {},
 	MsgImportNdjsonClassKey:           {},
@@ -802,6 +827,7 @@ var msgRegistry = map[MsgID]struct{}{
 	MsgImportSummaryCatalog:           {},
 	MsgImportWhereVariant:             {},
 	MsgImportWhereAnalog:              {},
+	MsgImportWhereSynonym:             {},
 	MsgImportWhereValue:               {},
 	MsgImportCatalogPlain:             {},
 	MsgImportNdjsonSubsection:         {},
@@ -828,6 +854,14 @@ var msgRegistry = map[MsgID]struct{}{
 	MsgSvcAnalogSelf:                  {},
 	MsgSvcAnalogDuplicate:             {},
 	MsgSvcAnalogNotFound:              {},
+	MsgSvcSynonymEmpty:                {},
+	MsgSvcSynonymSelf:                 {},
+	MsgSvcSynonymDuplicate:            {},
+	MsgSvcSynonymConflictRecord:       {},
+	MsgSvcSynonymConflictOther:        {},
+	MsgSvcSynonymOwnerConflict:        {},
+	MsgSvcSynonymYearOrder:            {},
+	MsgSvcSynonymYearRange:            {},
 	MsgSvcFilterFieldMissing:          {},
 	MsgSvcFilterOpUnknown:             {},
 	MsgSvcFieldUnknown:                {},
@@ -908,6 +942,7 @@ var msgRegistry = map[MsgID]struct{}{
 	MsgCliRecordNotFound:              {},
 	MsgCliFindSuggestion:              {},
 	MsgCliFindType:                    {},
+	MsgCliFindSynonym:                 {},
 	MsgCliFindNotFound:                {},
 	MsgCliDeleteDryRun:                {},
 	MsgCliDeleted:                     {},
@@ -920,6 +955,9 @@ var msgRegistry = map[MsgID]struct{}{
 	MsgCliManufacturers:               {},
 	MsgCliAnalogs:                     {},
 	MsgCliBacklinks:                   {},
+	MsgCliSynonyms:                    {},
+	MsgCliYearSince:                   {},
+	MsgCliYearUntil:                   {},
 	MsgCliParseHead:                   {},
 	MsgCliFieldLine:                   {},
 	MsgCliAtLeast:                     {},

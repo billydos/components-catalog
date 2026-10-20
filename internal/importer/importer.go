@@ -343,21 +343,63 @@ func (m *Importer) applyRecords(ctx context.Context, records []Record, snap *cat
 	if len(records) == 0 {
 		return
 	}
-	pending := make(map[domain.Kind]map[string]bool, 4)
+	pendingRecords := make(map[domain.Kind]map[string]bool, 4)
 	for _, rec := range records {
 		canonical, err := domain.Canonicalize(rec.Input.Name)
 		if err != nil {
 			continue // проблема записи даст её собственное применение
 		}
-		byKind, ok := pending[rec.Kind]
+		byKind, ok := pendingRecords[rec.Kind]
 		if !ok {
 			byKind = make(map[string]bool)
-			pending[rec.Kind] = byKind
+			pendingRecords[rec.Kind] = byKind
 		}
 		byKind[canonical] = true
 	}
-	pendingFn := func(kind domain.Kind, designation string) bool {
-		return pending[kind][designation]
+	recordsFn := func(kind domain.Kind, designation string) bool {
+		return pendingRecords[kind][designation]
+	}
+
+	// Последовательная симуляция применённой части прогона (dry-run):
+	// реальный импорт применяет записи по порядку файла, и конфликты
+	// уникальности синонимов видны из БД; dry-run не пишет — обозначения
+	// применённых записей (created) и заявки их синонимов (synClaims)
+	// регистрируются после успешной проверки записи (отвергнутая запись
+	// не применяется — её синонимы никому не мешают).
+	created := make(map[domain.Kind]map[string]bool)
+	synClaims := make(map[domain.Kind]map[string]string)
+	pending := service.PendingDesignations{
+		Records: recordsFn,
+		Created: func(kind domain.Kind, designation string) bool {
+			return created[kind][designation]
+		},
+		Synonym: func(kind domain.Kind, designation string) (string, bool) {
+			owner, claimed := synClaims[kind][designation]
+			return owner, claimed
+		},
+	}
+	applyClaim := func(rec Record) {
+		owner, err := domain.Canonicalize(rec.Input.Name)
+		if err != nil {
+			return // успешная проверка записи гарантирует разбор
+		}
+		if created[rec.Kind] == nil {
+			created[rec.Kind] = make(map[string]bool)
+		}
+		created[rec.Kind][owner] = true
+		if rec.Input.Synonyms == nil {
+			return
+		}
+		if synClaims[rec.Kind] == nil {
+			synClaims[rec.Kind] = make(map[string]string)
+		}
+		for _, s := range *rec.Input.Synonyms {
+			canonical, err := domain.Canonicalize(s.Designation)
+			if err != nil {
+				continue
+			}
+			synClaims[rec.Kind][canonical] = owner
+		}
 	}
 
 	queue := make([]*pendingRecord, 0, len(records))
@@ -398,11 +440,12 @@ func (m *Importer) applyRecords(ctx context.Context, records []Record, snap *cat
 
 	if dryRun {
 		for _, p := range queue {
-			outcome, err := m.app.Services().Devices.DryRun(ctx, p.rec.Input, snap, pendingFn)
+			outcome, err := m.app.Services().Devices.DryRun(ctx, p.rec.Input, snap, pending)
 			if err != nil {
 				recordIssue(p, err)
 				continue
 			}
+			applyClaim(p.rec)
 			recordOutcome(p.rec, outcome)
 		}
 		return
@@ -440,7 +483,7 @@ func (m *Importer) applyRecords(ctx context.Context, records []Record, snap *cat
 			continue
 		}
 		var advanced bool
-		queue, advanced = m.breakAnalogDeadlock(ctx, queue, pendingFn, recordIssue)
+		queue, advanced = m.breakAnalogDeadlock(ctx, queue, pending, recordIssue)
 		if !advanced {
 			break
 		}
@@ -458,12 +501,12 @@ func (m *Importer) applyRecords(ctx context.Context, records []Record, snap *cat
 // холостую запись (компенсация). Возвращает очередь (возможно, без
 // безнадёжной записи) и признак продвижения.
 func (m *Importer) breakAnalogDeadlock(ctx context.Context, queue []*pendingRecord,
-	pendingFn service.PendingDesignations, recordIssue func(*pendingRecord, error)) ([]*pendingRecord, bool) {
+	pending service.PendingDesignations, recordIssue func(*pendingRecord, error)) ([]*pendingRecord, bool) {
 	for i, p := range queue {
 		if p.created || p.rec.Input.Analogs == nil {
 			continue
 		}
-		if !allAnalogTargetsPending(p.rec, pendingFn) {
+		if !allAnalogTargetsPending(p.rec, pending) {
 			continue
 		}
 		exists, err := m.deviceExists(ctx, p.rec)
@@ -496,10 +539,10 @@ func (m *Importer) breakAnalogDeadlock(ctx context.Context, queue []*pendingReco
 
 // allAnalogTargetsPending сообщает, разрешатся ли все ссылки записи этим
 // же прогоном (цели присутствуют в файле).
-func allAnalogTargetsPending(rec Record, pendingFn service.PendingDesignations) bool {
+func allAnalogTargetsPending(rec Record, pending service.PendingDesignations) bool {
 	for _, a := range *rec.Input.Analogs {
 		canonical, err := domain.Canonicalize(a.Designation)
-		if err != nil || !pendingFn(rec.Kind, canonical) {
+		if err != nil || pending.Records == nil || !pending.Records(rec.Kind, canonical) {
 			return false
 		}
 	}

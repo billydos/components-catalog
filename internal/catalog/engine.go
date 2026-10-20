@@ -110,7 +110,7 @@ func (e *Engine) validateAttributes(kind domain.Kind, vals []AttributeValue) []P
 }
 
 // checkAttrValue — форма и семантика значения атрибута по типу
-// (docs/plan/03-data-model.md §9: текст непустой после trim, bool 0/1,
+// (docs/plan/03-data-model.md §10: текст непустой после trim, bool 0/1,
 // enum из списка, число положительно).
 func checkAttrValue(a *AttributeDef, av AttributeValue) []Problem {
 	fail := func(id domain.MsgID, args ...any) []Problem {

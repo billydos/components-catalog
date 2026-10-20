@@ -27,12 +27,12 @@ func ValueKeyReserved(key string) bool {
 }
 
 // RecordKeyReserved сообщает, служебный ли ключ записи формата наполнения:
-// name, system, fields, attributes, manufacturers, variants, analogs
-// (docs/fill-format.md §3).
+// name, system, fields, attributes, manufacturers, variants, analogs,
+// synonyms (docs/fill-format.md §3).
 func RecordKeyReserved(key string) bool {
 	switch key {
 	case "name", "system", "fields", "attributes", "manufacturers",
-		"variants", "analogs":
+		"variants", "analogs", "synonyms":
 		return true
 	}
 	return false

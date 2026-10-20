@@ -279,6 +279,66 @@ func TestReadDocumentVariantsAndAnalogs(t *testing.T) {
 	}
 }
 
+// Секция synonyms: строки и объекты {name, note, yearFrom, yearTo},
+// годы — целые числа; null-семантика и дословные тексты проблем формы.
+func TestReadDocumentSynonyms(t *testing.T) {
+	root, snap := parseDoc(t, `{
+		"resistors": [
+			{
+				"name": "С5-35",
+				"synonyms": [
+					"ПЭВ",
+					{ "name": "ПЭВР", "note": "обозначение до 1968", "yearFrom": 1960, "yearTo": 1968 }
+				]
+			},
+			{ "name": "С2-33Н", "synonyms": null },
+			{ "name": "С5-16МВ", "synonyms": {} },
+			{ "name": "С5-18", "synonyms": [ 42 ] },
+			{ "name": "С5-25", "synonyms": [ { "note": "без имени" } ] },
+			{ "name": "С5-37", "synonyms": [ { "name": "ПЭВТ", "bogus": 1 } ] },
+			{ "name": "С5-42", "synonyms": [ { "name": "ВС", "note": 7 } ] },
+			{ "name": "С5-47", "synonyms": [ { "name": "УЛМ", "yearFrom": 1964.5 } ] },
+			{ "name": "С5-53", "synonyms": [ { "name": "УЛИ", "yearFrom": 1e300 } ] }
+		]
+	}`)
+	doc, issues := ReadDocument(root, snap)
+	if len(doc.Records) != 2 || doc.Rejected != 7 {
+		t.Fatalf("записи: %d, rejected: %d: %v", len(doc.Records), doc.Rejected, issueMessages(issues))
+	}
+	syn := doc.Records[0].Input.Synonyms
+	if syn == nil || len(*syn) != 2 {
+		t.Fatalf("синонимы: %v", syn)
+	}
+	list := *syn
+	if list[0].Designation != "ПЭВ" || list[0].Note != "" ||
+		list[0].YearFrom != nil || list[0].YearTo != nil {
+		t.Fatalf("синоним-string: %+v", list[0])
+	}
+	if list[1].Designation != "ПЭВР" || list[1].Note != "обозначение до 1968" ||
+		list[1].YearFrom == nil || *list[1].YearFrom != 1960 ||
+		list[1].YearTo == nil || *list[1].YearTo != 1968 {
+		t.Fatalf("синоним-object: %+v", list[1])
+	}
+	if doc.Records[1].Input.Synonyms != nil {
+		t.Fatalf("null — секцию не менять: %v", doc.Records[1].Input.Synonyms)
+	}
+	got := issueMessages(issues)
+	want := []string{
+		"record «С5-16МВ»: \"synonyms\" must be an array (strings or objects {name, note, yearFrom, yearTo})",
+		"record «С5-18»: synonym no. 1: a string or an object with key \"name\" was expected",
+		"record «С5-25»: synonym no. 1: mandatory key \"name\" — the synonym designation",
+		"record «С5-37»: synonym no. 1: unknown field «bogus» (allowed: name, note, yearFrom, yearTo)",
+		"record «С5-42»: synonym no. 1: \"note\" must be a string",
+		"record «С5-47»: synonym no. 1: year yearFrom must be an integer",
+		"record «С5-53»: synonym no. 1: year yearFrom must be an integer",
+	}
+	for _, w := range want {
+		if !containsMessage(got, w) {
+			t.Errorf("проблема отсутствует: %q (есть: %v)", w, got)
+		}
+	}
+}
+
 func TestReadDocumentIssuesVerbatimTexts(t *testing.T) {
 	root, snap := parseDoc(t, `{
 		"widgets": [],
@@ -301,7 +361,7 @@ func TestReadDocumentIssuesVerbatimTexts(t *testing.T) {
 		"unknown root key «widgets» (allowed: catalog, transistors, diodes, resistors, capacitors, relays)",
 		"record no. 1: mandatory key \"name\" — a string with the designation",
 		"record «КТ315Б»: unknown designation system «star» (allowed: gost, ost, pro, jedec, jis, other)",
-		"record «КТ315Б»: unknown field «voltparams» (allowed: name, system, fields, attributes, manufacturers, variants, analogs and group sections: parameters, ratings, dimensions)",
+		"record «КТ315Б»: unknown field «voltparams» (allowed: name, system, fields, attributes, manufacturers, variants, analogs, synonyms and group sections: parameters, ratings, dimensions)",
 		"record «КТ315Б»: section «parameters», value no. 1: key \"min\" must be a number",
 		"record no. 5: a record must be a string (designation) or an object, got: number",
 	}

@@ -414,6 +414,10 @@ func runFind(ctx context.Context, opts *options, pos []string, stdout, stderr io
 		if err != nil {
 			return fail(stderr, opts.langOf(), err)
 		}
+		if res.MatchedBySynonym != "" {
+			fmt.Fprintf(stdout, "%s\n", i18n.Message(opts.langOf(), string(domain.MsgCliFindSynonym),
+				pos[0], res.Found.Designation))
+		}
 		printCard(stdout, opts.langOf(), res.Found, snap)
 		return 0
 	}

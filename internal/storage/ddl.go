@@ -27,7 +27,11 @@ import "strings"
 // для инкрементальной синхронизации производных
 // индексов; события пишет та же транзакция записи, что инкрементирует
 // data_revision.
-const SchemaVersion = 9
+// Версия 10 — таблица device_synonyms: исторические названия записи
+// (синонимы) с заметкой и годами употребления имени; обозначение-синоним
+// не является записью и не имеет своей карточки — find и поиск разрешают
+// его в запись-владельца (план 03 §9).
+const SchemaVersion = 10
 
 // autoIncToken — маркер авто-PK в переносимом DDL; диалект заменяет его
 // своим определением в RewriteDDL (sqlite: PRIMARY KEY AUTOINCREMENT —
@@ -223,6 +227,20 @@ var ddlStatements = []string{
     CHECK (device_id <> analog_device_id)
 )`,
 
+	// Исторические названия записей (синонимы — план 03 §9): строка
+	// принадлежит владельцу device_id, у синонима нет своей записи;
+	// note — происхождение имени, year_from/year_to — годы его
+	// употребления (элементы заказа/даты — не локализуемые строки).
+	`CREATE TABLE IF NOT EXISTS device_synonyms (
+    device_id   INTEGER NOT NULL REFERENCES devices(id) ON DELETE CASCADE,
+    designation TEXT NOT NULL,
+    note        TEXT NULL,
+    year_from   INTEGER NULL,
+    year_to     INTEGER NULL,
+    sort_order  INTEGER NOT NULL DEFAULT 0,
+    PRIMARY KEY (device_id, designation)
+)`,
+
 	// Поток изменений записей (change feed — docs/plan/02-database.md §2.3):
 	// события применённых операций над записями устройств; FK намеренно
 	// нет — события deleted переживают удаляемую строку.
@@ -256,6 +274,8 @@ var ddlStatements = []string{
 	`CREATE INDEX IF NOT EXISTS idx_dm_manufacturer ON device_manufacturers(manufacturer_id)`,
 
 	`CREATE INDEX IF NOT EXISTS idx_analogs_analog ON device_analogs(analog_device_id)`,
+
+	`CREATE INDEX IF NOT EXISTS idx_synonym_designation ON device_synonyms(designation)`,
 }
 
 // ddlFor возвращает DDL диалекта (авто-PK и типы — RewriteDDL диалекта).

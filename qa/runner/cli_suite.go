@@ -154,6 +154,36 @@ func cliSuite(ctx context.Context, r *report, ctl, root, tmp string, l leg) {
 		res.code == 1 && strings.Contains(res.output, "equivalent by material: КТ315Б"),
 		envDetails(res, 10)...)
 
+	// Синонимы: запись с историческими названиями (С5-35 = ПЭВ/ПЭВР);
+	// find и поиск разрешают синоним в запись-владельца, точный ключ
+	// не помечается.
+	synPath := filepath.Join(tmp, "synonyms.jsonc")
+	synBody := "{\n  \"resistors\": [\n    {\n      \"name\": \"С5-35\",\n" +
+		"      \"synonyms\": [\"ПЭВ\", { \"name\": \"ПЭВР\", \"note\": \"designation before 1968\", \"yearTo\": 1968 }]\n    }\n  ]\n}\n"
+	if err := os.WriteFile(synPath, []byte(synBody), 0o644); err != nil {
+		r.check("cli/synonyms-import", "import: файл синонимов записан", false, err.Error())
+		return
+	}
+	res = c.run(ctx, "import", synPath)
+	r.check("cli/synonyms-import", "import: секция synonyms применяется",
+		res.code == 0 && strings.Contains(res.output, "added: 1"),
+		envDetails(res, 10)...)
+	res = c.run(ctx, "find", "ПЭВ")
+	r.check("cli/find-synonym", "find: синоним разрешается в запись-владельца",
+		res.code == 0 && strings.Contains(res.output, "found by synonym of record С5-35") &&
+			strings.Contains(res.output, "Synonyms: ПЭВ; ПЭВР (until 1968; designation before 1968)"),
+		envDetails(res, 10)...)
+	res = c.run(ctx, "list", "--kind", "resistor", "--q", "ПЭВ")
+	r.check("cli/list-synonym", "list: подстрока синонима находит запись",
+		res.code == 0 && strings.Contains(res.output, "С5-35") &&
+			!strings.Contains(res.output, "МЛТ-0.5"),
+		envDetails(res, 10)...)
+	res = c.run(ctx, "import", synPath)
+	r.check("cli/synonyms-idempotent", "повторный импорт синонимов — без изменений",
+		res.code == 0 && strings.Contains(res.output, "unchanged: 1") &&
+			!strings.Contains(res.output, "rejected"),
+		envDetails(res, 10)...)
+
 	// parse: автодетект без базы, JEDEC и неверное обозначение
 	// («Error: », код 1).
 	res = c.run(ctx, "parse", "КТ315Б")
@@ -171,7 +201,7 @@ func cliSuite(ctx context.Context, r *report, ctl, root, tmp string, l leg) {
 		envDetails(res, 10)...)
 
 	// round-trip: экспорт ndjson по классу и yaml полностью → импорт
-	// без изменений.
+	// без изменений (сценарий синонимов добавил одну запись — total+1).
 	capsPath := filepath.Join(tmp, "caps.ndjson")
 	res = c.runOut(ctx, capsPath, "export", "--kind", "capacitor", "--format", "ndjson")
 	importRes := c.run(ctx, "import", capsPath)
@@ -184,9 +214,10 @@ func cliSuite(ctx context.Context, r *report, ctl, root, tmp string, l leg) {
 	allPath := filepath.Join(tmp, "all.yaml")
 	res = c.runOut(ctx, allPath, "export", "--format", "yaml")
 	importRes = c.run(ctx, "import", allPath)
+	withSyn := total + 1 // запись С5-35 из сценария синонимов выше
 	r.check("cli/roundtrip-yaml", "round-trip: полный экспорт yaml → импорт без изменений",
 		res.code == 0 && importRes.code == 0 &&
-			strings.Contains(importRes.output, "unchanged: "+strconv.Itoa(total)) &&
+			strings.Contains(importRes.output, "unchanged: "+strconv.Itoa(withSyn)) &&
 			!strings.Contains(importRes.output, "rejected"),
 		envDetails(importRes, 10)...)
 
@@ -209,8 +240,8 @@ func cliSuite(ctx context.Context, r *report, ctl, root, tmp string, l leg) {
 		envDetails(res, 10)...)
 	res = c.run(ctx, "count")
 	got, err = strconv.Atoi(strings.TrimSpace(res.output))
-	r.check("cli/count-after-delete", fmt.Sprintf("count: %d после удаления", total-1),
-		res.code == 0 && err == nil && got == total-1,
+	r.check("cli/count-after-delete", fmt.Sprintf("count: %d после удаления", withSyn-1),
+		res.code == 0 && err == nil && got == withSyn-1,
 		envDetails(res, 5)...)
 
 	// Битый файл импорта: «Error: », код 1.

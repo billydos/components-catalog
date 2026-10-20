@@ -913,3 +913,63 @@ func TestDsnDialectDerivation(t *testing.T) {
 		t.Fatalf("противоречие dsn/dialect: код %d, stderr %q", code, stderr)
 	}
 }
+
+// Синонимы: import секции, info с блоком исторических названий (локаль
+// по умолчанию en), find по синониму с пометкой и карточкой владельца,
+// ru-локальfind-строки.
+func TestSynonymsFlow(t *testing.T) {
+	db := testDB(t)
+	if _, _, code := run(t, "init", "--db", db); code != 0 {
+		t.Fatalf("init: код %d", code)
+	}
+	file := filepath.Join(t.TempDir(), "synonyms.jsonc")
+	body := `{
+  "resistors": [
+    {
+      "name": "С5-35",
+      "synonyms": [
+        "ПЭВ",
+        { "name": "ПЭВР", "note": "designation before 1968", "yearFrom": 1960, "yearTo": 1968 }
+      ]
+    }
+  ]
+}`
+	if err := os.WriteFile(file, []byte(body), 0o644); err != nil {
+		t.Fatalf("запись файла: %v", err)
+	}
+	stdout, stderr, code := run(t, "import", file, "--db", db)
+	if code != 0 || stderr != "" {
+		t.Fatalf("import: код %d, %q, %q", code, stdout, stderr)
+	}
+
+	stdout, stderr, code = run(t, "info", "С5-35", "--db", db)
+	if code != 0 || stderr != "" {
+		t.Fatalf("info: код %d, %q, %q", code, stdout, stderr)
+	}
+	if !strings.Contains(stdout, "Synonyms: ПЭВ; ПЭВР (1960–1968; designation before 1968)") {
+		t.Fatalf("info: блок синонимов:\n%s", stdout)
+	}
+
+	stdout, stderr, code = run(t, "find", "ПЭВ", "--db", db)
+	if code != 0 || stderr != "" {
+		t.Fatalf("find по синониму: код %d, %q, %q", code, stdout, stderr)
+	}
+	if !strings.Contains(stdout, "ПЭВ: found by synonym of record С5-35") ||
+		!strings.Contains(stdout, "С5-35 — resistor") {
+		t.Fatalf("find по синониму:\n%s", stdout)
+	}
+	// Точное обозначение записи не помечается как синоним.
+	stdout, _, _ = run(t, "find", "С5-35", "--db", db)
+	if strings.Contains(stdout, "found by synonym") {
+		t.Fatalf("find по точному ключу помечен синонимом:\n%s", stdout)
+	}
+
+	stdout, stderr, code = run(t, "find", "ПЭВ", "--lang", "ru", "--db", db)
+	if code != 0 || stderr != "" {
+		t.Fatalf("find по синониму (ru): код %d, %q, %q", code, stdout, stderr)
+	}
+	if !strings.Contains(stdout, "ПЭВ: найдено по синониму записи С5-35") ||
+		!strings.Contains(stdout, "Синонимы: ПЭВ; ПЭВР (1960–1968; designation before 1968)") {
+		t.Fatalf("find по синониму (ru):\n%s", stdout)
+	}
+}

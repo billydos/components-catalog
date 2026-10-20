@@ -104,6 +104,14 @@ func seedDevices(t *testing.T, app *service.App) {
 		Analogs:       &[]service.AnalogInput{{Designation: "BC547B"}},
 	})
 	upsert(service.DeviceInput{
+		Name: "С5-35",
+		Kind: domain.KindResistor,
+		Synonyms: &[]service.SynonymInput{
+			{Designation: "ПЭВ"},
+			{Designation: "ПЭВР", Note: "обозначение до 1968", YearTo: ptr(1968)},
+		},
+	})
+	upsert(service.DeviceInput{
 		Name:   "МЛТ-0.5",
 		System: domain.SystemOther,
 		Kind:   domain.KindResistor,
@@ -436,7 +444,7 @@ func TestStats(t *testing.T) {
 		t.Fatalf("статус: %d", status)
 	}
 	st := decode[statsJSON](t, body)
-	if st.SchemaVersion != storage.SchemaVersion || st.Total != 4 || st.Kinds["transistor"] != 2 || st.Kinds["capacitor"] != 1 {
+	if st.SchemaVersion != storage.SchemaVersion || st.Total != 5 || st.Kinds["transistor"] != 2 || st.Kinds["capacitor"] != 1 {
 		t.Fatalf("статистика: %+v", st)
 	}
 	if st.CatalogRevision == 0 || st.DataRevision == 0 {
@@ -594,7 +602,7 @@ func TestSearch(t *testing.T) {
 		want   []string
 		hasETa bool
 	}{
-		{"все", "", []string{"К50-35", "МЛТ-0.5", "BC547B", "КТ315Б"}, true},
+		{"все", "", []string{"К50-35", "МЛТ-0.5", "С5-35", "BC547B", "КТ315Б"}, true},
 		{"класс", "kind=transistor", []string{"BC547B", "КТ315Б"}, false},
 		{"system", "system=pro", []string{"BC547B"}, false},
 		{"подstring", "q=315", []string{"КТ315Б"}, false},
@@ -604,8 +612,8 @@ func TestSearch(t *testing.T) {
 		{"подкласс (код словаря)", "subclass=bjt", []string{"BC547B", "КТ315Б"}, false},
 		{"подкласс (ru название)", "subclass=%D0%B1%D0%B8%D0%BF%D0%BE%D0%BB%D1%8F%D1%80%D0%BD%D1%8B%D0%B9%20%D1%82%D1%80%D0%B0%D0%BD%D0%B7%D0%B8%D1%81%D1%82%D0%BE%D1%80", []string{"BC547B", "КТ315Б"}, false},
 		{"подкласс (en название)", "subclass=bipolar%20transistor", []string{"BC547B", "КТ315Б"}, false},
-		{"подстройка (код)", "adjustment=fixed", []string{"К50-35", "МЛТ-0.5"}, false},
-		{"подстройка (ru название)", "adjustment=%D0%BF%D0%BE%D1%81%D1%82%D0%BE%D1%8F%D0%BD%D0%BD%D1%8B%D0%B9", []string{"К50-35", "МЛТ-0.5"}, false},
+		{"подстройка (код)", "adjustment=fixed", []string{"К50-35", "МЛТ-0.5", "С5-35"}, false},
+		{"подстройка (ru название)", "adjustment=%D0%BF%D0%BE%D1%81%D1%82%D0%BE%D1%8F%D0%BD%D0%BD%D1%8B%D0%B9", []string{"К50-35", "МЛТ-0.5", "С5-35"}, false},
 		{"категория (код каталога)", "category=general_purpose", nil, false},
 		{"параметр", "par.hfe.min=150", []string{"BC547B"}, false},
 		{"точный параметр", "par.Pnom.exact=0.5", []string{"МЛТ-0.5"}, false},
@@ -614,7 +622,7 @@ func TestSearch(t *testing.T) {
 		{"сортировка", "kind=transistor&sort=-designation", []string{"КТ315Б", "BC547B"}, false},
 		{"сортировка по параметру (возрастание)", "kind=transistor&sort=hfe", []string{"КТ315Б", "BC547B"}, false},
 		{"сортировка по параметру (убывание)", "kind=transistor&sort=-hfe", []string{"BC547B", "КТ315Б"}, false},
-		{"сортировка по параметру: без значения — в конце", "sort=-Vnom", []string{"К50-35", "МЛТ-0.5", "BC547B", "КТ315Б"}, false},
+		{"сортировка по параметру: без значения — в конце", "sort=-Vnom", []string{"К50-35", "МЛТ-0.5", "С5-35", "BC547B", "КТ315Б"}, false},
 		{"пагинация", "sort=designation&limit=2&offset=2", []string{"КТ315Б", "МЛТ-0.5"}, false},
 	}
 	for _, tc := range cases {
@@ -650,7 +658,7 @@ func TestSearch(t *testing.T) {
 	// total — по фильтрам, а не по странице.
 	_, body, _ := do(t, srv, http.MethodGet, apiPrefix+"/components?limit=2", "")
 	page := decode[searchPageJSON](t, body)
-	if page.Total != 4 || len(page.Items) != 2 || page.Limit != 2 {
+	if page.Total != 5 || len(page.Items) != 2 || page.Limit != 2 {
 		t.Fatalf("пагинация: %+v", page)
 	}
 
@@ -658,8 +666,8 @@ func TestSearch(t *testing.T) {
 	// значения К50-35 агрегируются в одну строку записи.
 	_, body, _ = do(t, srv, http.MethodGet, apiPrefix+"/components?sort=-Vnom", "")
 	page = decode[searchPageJSON](t, body)
-	if page.Total != 4 || len(page.Items) != 4 {
-		t.Fatalf("сортировка по параметру: total=%d, записей %d — ожидались 4 и 4",
+	if page.Total != 5 || len(page.Items) != 5 {
+		t.Fatalf("сортировка по параметру: total=%d, записей %d — ожидались 5 и 5",
 			page.Total, len(page.Items))
 	}
 
@@ -695,8 +703,8 @@ func TestSearch(t *testing.T) {
 	for _, it := range allPage.Items {
 		byDesig[it.Designation] = it.ID
 	}
-	if len(byDesig) != 4 {
-		t.Fatalf("записей: %d, ожидалось 4", len(byDesig))
+	if len(byDesig) != 5 {
+		t.Fatalf("записей: %d, ожидалось 5", len(byDesig))
 	}
 	// Порядок передачи: КТ315Б, дырка (несуществующий id), К50-35, МЛТ-0.5.
 	q := fmt.Sprintf("id=%d&id=%d&id=%d&id=%d",
@@ -976,6 +984,29 @@ func TestCard(t *testing.T) {
 		t.Fatalf("производители/аналоги: %+v %+v", card.Manufacturers, card.Analogs)
 	}
 
+	// Исторические названия записи (синонимы): карточка несёт их с
+	// заметкой и годом; поиск по подстроке находит запись по синониму.
+	_, body, _ = do(t, srv, http.MethodGet, apiPrefix+"/components/resistor/"+esc("С5-35"), "")
+	resCard := decode[cardJSON](t, body)
+	if len(resCard.Synonyms) != 2 ||
+		resCard.Synonyms[0].Designation != "ПЭВ" ||
+		resCard.Synonyms[1].Designation != "ПЭВР" ||
+		resCard.Synonyms[1].Note != "обозначение до 1968" ||
+		resCard.Synonyms[1].YearTo == nil || *resCard.Synonyms[1].YearTo != 1968 {
+		t.Fatalf("синонимы: %+v", resCard.Synonyms)
+	}
+	status, body, _ = do(t, srv, http.MethodGet,
+		apiPrefix+"/components?kind=resistor&q="+esc("ПЭВ"), "")
+	if status != http.StatusOK {
+		t.Fatalf("поиск по синониму: статус %d, тело %s", status, body)
+	}
+	page := decode[struct {
+		Items []struct{ Designation string } `json:"items"`
+	}](t, body)
+	if len(page.Items) != 1 || page.Items[0].Designation != "С5-35" {
+		t.Fatalf("поиск по синониму: %+v", page.Items)
+	}
+
 	// Встречная ссылка у цели аналога (направленность — D8).
 	_, body, _ = do(t, srv, http.MethodGet, apiPrefix+"/components/transistor/BC547B", "")
 	back := decode[cardJSON](t, body)
@@ -1191,7 +1222,7 @@ func TestCreate(t *testing.T) {
 	status, _, eb = do(t, srv, http.MethodPost, apiPrefix+"/components",
 		`{"name":"ГТ402Г","bogus":[]}`)
 	wantError(t, status, eb, http.StatusBadRequest, "invalid_import_file",
-		"unknown field «bogus» (allowed: name, system, fields, attributes, manufacturers, variants, analogs and group sections: parameters, ratings, dimensions)")
+		"unknown field «bogus» (allowed: name, system, fields, attributes, manufacturers, variants, analogs, synonyms and group sections: parameters, ratings, dimensions)")
 
 	// Невалидное обозначение — 422 invalid_designation.
 	status, _, eb = do(t, srv, http.MethodPost, apiPrefix+"/components", `{"name":"@@@"}`)

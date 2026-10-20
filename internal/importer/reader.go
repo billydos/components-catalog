@@ -332,6 +332,22 @@ func (r *reader) record(kind domain.Kind, v value, line, no int) (service.Device
 		}
 		rec.Input.Analogs = &analogs
 	}
+
+	if synVal, ok := v.has("synonyms"); ok && synVal.kind != kindNull {
+		if synVal.kind != kindArray {
+			r.recFail(rec, domain.MsgImportSynonymsArray)
+			return service.DeviceInput{}, false
+		}
+		synonyms := make([]service.SynonymInput, 0, len(synVal.items))
+		for i, item := range synVal.items {
+			s, ok := r.synonym(rec, i, item)
+			if !ok {
+				return service.DeviceInput{}, false
+			}
+			synonyms = append(synonyms, s)
+		}
+		rec.Input.Synonyms = &synonyms
+	}
 	return rec.Input, true
 }
 
@@ -579,6 +595,69 @@ func (r *reader) analog(rec *Record, index int, v value) (service.AnalogInput, b
 	}
 	r.recFail(rec, domain.MsgImportAnalogItem, where)
 	return service.AnalogInput{}, false
+}
+
+// synonym читает историческое название записи: строка-обозначение либо
+// объект {name, note, yearFrom, yearTo}. Читатель проверяет форму
+// (годы — целые числа); канонизацию, уникальность и границы годов
+// проверяет сервисный слой.
+func (r *reader) synonym(rec *Record, index int, v value) (service.SynonymInput, bool) {
+	where := domain.MsgArg(domain.MsgImportWhereSynonym, index+1)
+	switch v.kind {
+	case kindString:
+		return service.SynonymInput{Designation: strings.TrimSpace(v.str)}, true
+	case kindObject:
+		s := service.SynonymInput{}
+		nameVal, hasName := v.has("name")
+		if !hasName || nameVal.kind != kindString {
+			r.recFail(rec, domain.MsgImportSynonymNameRequired, where)
+			return service.SynonymInput{}, false
+		}
+		s.Designation = strings.TrimSpace(nameVal.str)
+		for _, m := range v.members {
+			switch m.name {
+			case "name":
+			case "note":
+				if m.value.kind != kindString {
+					r.recFail(rec, domain.MsgImportSynonymNoteString, where)
+					return service.SynonymInput{}, false
+				}
+				s.Note = strings.TrimSpace(m.value.str)
+			case "yearFrom", "yearTo":
+				year, ok := r.synonymYear(rec, where, m)
+				if !ok {
+					return service.SynonymInput{}, false
+				}
+				if m.name == "yearFrom" {
+					s.YearFrom = &year
+					continue
+				}
+				s.YearTo = &year
+			default:
+				r.recFail(rec, domain.MsgImportSynonymUnknownField, where, m.name)
+				return service.SynonymInput{}, false
+			}
+		}
+		return s, true
+	}
+	r.recFail(rec, domain.MsgImportSynonymItem, where)
+	return service.SynonymInput{}, false
+}
+
+// synonymYear — целый год употребления имени (1949–2100 проверяет
+// сервисный слой; здесь целочисленность формы числа — с защитой от
+// переполнения float→int, intFromNumber).
+func (r *reader) synonymYear(rec *Record, where any, m member) (int, bool) {
+	if m.value.kind != kindNumber {
+		r.recFail(rec, domain.MsgImportSynonymYearInt, where, m.name)
+		return 0, false
+	}
+	year, ok := intFromNumber(m.value.num)
+	if !ok {
+		r.recFail(rec, domain.MsgImportSynonymYearInt, where, m.name)
+		return 0, false
+	}
+	return year, true
 }
 
 // ReadRecordLine читает строку-обёртку NDJSON {"<класс>": <запись>} —

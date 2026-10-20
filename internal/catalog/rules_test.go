@@ -34,7 +34,7 @@ func TestRuleRegistry(t *testing.T) {
 	}
 }
 
-// year_range: границы 1949–2100 и порядок год < год (03 §10).
+// year_range: границы 1949–2100 и порядок год < год (03 §11).
 func TestYearRangeRule(t *testing.T) {
 	e := seedEngine(t)
 	cases := []struct {

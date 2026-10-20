@@ -127,6 +127,15 @@ type linkJSON struct {
 	Note        string `json:"note,omitempty"`
 }
 
+// synonymJSON — историческое название записи (синоним): заметка —
+// происхождение имени, годы — период его употребления.
+type synonymJSON struct {
+	Designation string `json:"designation"`
+	Note        string `json:"note,omitempty"`
+	YearFrom    *int   `json:"year_from,omitempty"`
+	YearTo      *int   `json:"year_to,omitempty"`
+}
+
 // cardJSON — карточка записи (docs/plan/04-module-functionality.md §2).
 type cardJSON struct {
 	ID            int64              `json:"id"`
@@ -143,6 +152,7 @@ type cardJSON struct {
 	Manufacturers []string           `json:"manufacturers"`
 	Analogs       []linkJSON         `json:"analogs"`
 	Backlinks     []linkJSON         `json:"backlinks"`
+	Synonyms      []synonymJSON      `json:"synonyms"`
 }
 
 func cardToJSON(lang i18n.Language, c *service.Card) cardJSON {
@@ -159,6 +169,7 @@ func cardToJSON(lang i18n.Language, c *service.Card) cardJSON {
 		Manufacturers: make([]string, 0, len(c.Manufacturers)),
 		Analogs:       make([]linkJSON, 0, len(c.Analogs)),
 		Backlinks:     make([]linkJSON, 0, len(c.Backlinks)),
+		Synonyms:      make([]synonymJSON, 0, len(c.Synonyms)),
 	}
 	for _, a := range c.Attributes {
 		out.Attributes = append(out.Attributes, cardAttrJSON{
@@ -204,6 +215,11 @@ func cardToJSON(lang i18n.Language, c *service.Card) cardJSON {
 	}
 	for _, l := range c.Backlinks {
 		out.Backlinks = append(out.Backlinks, linkToJSON(l))
+	}
+	for _, s := range c.Synonyms {
+		out.Synonyms = append(out.Synonyms, synonymJSON{
+			Designation: s.Designation, Note: s.Note, YearFrom: s.YearFrom, YearTo: s.YearTo,
+		})
 	}
 	return out
 }

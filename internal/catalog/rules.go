@@ -14,7 +14,7 @@ import (
 // мал по построению (риск R7): правило добавляется только тогда, когда оно
 // не выражается данными каталога (условия/типы/enum). Привязка — данными:
 // parameters.validation_rule, attributes.validation_rule,
-// kind_validation_rules (docs/plan/03-data-model.md §10).
+// kind_validation_rules (docs/plan/03-data-model.md §11).
 type Rule interface {
 	Code() string
 }
@@ -85,6 +85,14 @@ func ruleProblem(id domain.MsgID, a ...any) Problem {
 	return Problemf(domain.CodeValidationFailed, id, a...)
 }
 
+// Границы годов выпуска — общие для правила year_range (атрибуты
+// yearFrom/yearTo) и проверки годов синонимов сервисного слоя
+// (03-data-model.md §9, §11): единая точка изменения границы.
+const (
+	YearRangeMin = 1949
+	YearRangeMax = 2100
+)
+
 // yearRangeRule — годы выпуска: yearFrom < yearTo, диапазон 1949–2100
 // (привязка — атрибуты yearFrom/yearTo).
 type yearRangeRule struct{}
@@ -103,7 +111,7 @@ func (yearRangeRule) CheckAttributes(_ *Engine, _ domain.Kind, vals []AttributeV
 		{"yearFrom", from, hasFrom},
 		{"yearTo", to, hasTo},
 	} {
-		if y.ok && (y.value < 1949 || y.value > 2100) {
+		if y.ok && (y.value < YearRangeMin || y.value > YearRangeMax) {
 			probs = append(probs, ruleProblem(domain.MsgRuleYearRange, y.code))
 		}
 	}

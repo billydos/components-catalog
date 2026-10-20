@@ -40,6 +40,17 @@ type AnalogInput struct {
 	Note        string
 }
 
+// SynonymInput — историческое название записи (синоним, план 03 §9):
+// обозначение, опционально заметка происхождения и годы употребления
+// имени. Синоним — не запись: обозначение разрешается в запись-владельца
+// (find, поиск), своей карточки у него нет.
+type SynonymInput struct {
+	Designation string
+	Note        string
+	YearFrom    *int
+	YearTo      *int
+}
+
 // DeviceInput — запись наполнения для Upsert. Семантика секций
 // (docs/plan/01-architecture.md §2.4): отсутствует (nil) — не менять; задана —
 // заменить целиком; пустой непустой-nil срез/[] — очистить; ошибка в любом
@@ -59,16 +70,20 @@ type DeviceInput struct {
 	Manufacturers *[]string
 	Variants      *[]VariantInput
 	Analogs       *[]AnalogInput
+	Synonyms      *[]SynonymInput
 }
 
-// FindResult — результат find: точное совпадение, подсказка равнозначной
-// по материалу записи (полупроводники gost: Г/1, К/2 — раздельные записи)
-// и подсказка соседом по типу (запись того же базового обозначения с
-// другой буквой классификации либо хвостовым элементом — КТ315А → КТ315Б).
+// FindResult — результат find: точное совпадение (MatchedBySynonym —
+// обозначение синонима, когда совпадение нашлось по историческому
+// названию, а не по ключу записи), подсказка равнозначной по материалу
+// записи (полупроводники gost: Г/1, К/2 — раздельные записи) и подсказка
+// соседом по типу (запись того же базового обозначения с другой буквой
+// классификации либо хвостовым элементом — КТ315А → КТ315Б).
 type FindResult struct {
-	Found          *Card
-	Suggestion     *Card
-	TypeSuggestion *Card
+	Found            *Card
+	MatchedBySynonym string
+	Suggestion       *Card
+	TypeSuggestion   *Card
 }
 
 // CardAttribute — значение атрибута в карточке (отображаемое название —
@@ -149,10 +164,20 @@ type CardLink struct {
 	Note        string
 }
 
+// CardSynonym — историческое название записи на карточке: заметка —
+// происхождение имени, годы — период его употребления (nil — не задано).
+type CardSynonym struct {
+	Designation string
+	Note        string
+	YearFrom    *int
+	YearTo      *int
+}
+
 // Card — карточка записи: обозначение, система, поля разбора, атрибуты,
 // значения параметров по группам, исполнения, группа типа (одно базовое
 // обозначение — соседние записи и различия), производители, аналоги
-// (исходящие и встречные — docs/plan/02-database.md §6).
+// (исходящие и встречные — docs/plan/02-database.md §6) и исторические
+// названия (синонимы — план 03 §9).
 type Card struct {
 	ID            int64
 	Kind          domain.Kind
@@ -166,6 +191,7 @@ type Card struct {
 	Manufacturers []string
 	Analogs       []CardLink
 	Backlinks     []CardLink
+	Synonyms      []CardSynonym
 }
 
 // FieldByName ищет поле разбора обозначения в карточке по коду.

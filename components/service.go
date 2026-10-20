@@ -24,6 +24,7 @@ type (
 	SectionInput        = service.SectionInput
 	VariantInput        = service.VariantInput
 	AnalogInput         = service.AnalogInput
+	SynonymInput        = service.SynonymInput
 	PendingDesignations = service.PendingDesignations
 )
 
@@ -46,6 +47,7 @@ type (
 	CardValue       = service.CardValue
 	CardVariant     = service.CardVariant
 	CardLink        = service.CardLink
+	CardSynonym     = service.CardSynonym
 	CardTypeGroup   = service.CardTypeGroup
 	CardTypeSibling = service.CardTypeSibling
 	CardTypeDiff    = service.CardTypeDiff

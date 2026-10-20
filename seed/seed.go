@@ -1,4 +1,4 @@
-// Package seed — стартовые сиды каталога (docs/plan/03-data-model.md §3–§10):
+// Package seed — стартовые сиды каталога (docs/plan/03-data-model.md §3–§11):
 // единицы, условия, группы параметров, именованные правила, системы
 // обозначений и применимость к классам, параметры и атрибуты пяти
 // классов с применимостью (parameter_kinds/attribute_kinds — D7).
@@ -128,7 +128,7 @@ func groups() []catalog.GroupDef {
 }
 
 // kindRules — привязка именованных правил к классам записей
-// (docs/plan/03-data-model.md §10).
+// (docs/plan/03-data-model.md §11).
 func kindRules() []catalog.KindRuleRef {
 	return []catalog.KindRuleRef{
 		{Kind: domain.KindCapacitor, Rule: catalog.RuleCapVariantMatrix},
@@ -507,7 +507,7 @@ func parameters() []catalog.ParameterDef {
 	}
 }
 
-// attributes — стартовый набор атрибутов (docs/plan/03-data-model.md §9).
+// attributes — стартовый набор атрибутов (docs/plan/03-data-model.md §10).
 // Применимость без пометки — все классы (D7).
 func attributes() []catalog.AttributeDef {
 	trDi := []domain.Kind{domain.KindTransistor, domain.KindDiode}
@@ -541,7 +541,7 @@ func attributes() []catalog.AttributeDef {
 			SortOrder: 170, Active: true},
 		{Code: "relayType", Type: catalog.AttrEnum, SortOrder: 180, Active: true,
 			Kinds: []domain.Kind{domain.KindRelay}, EnumValues: []string{
-				// Тип реле по принципу действия (03-data-model.md §9).
+				// Тип реле по принципу действия (03-data-model.md §10).
 				"electromagnetic", "polarized", "reed", "solid_state", "latching",
 			}},
 		{Code: "contactForm", Type: catalog.AttrEnum, SortOrder: 190, Active: true,

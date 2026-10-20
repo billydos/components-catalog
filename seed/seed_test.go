@@ -141,7 +141,7 @@ func TestSeedNominalRowEnum(t *testing.T) {
 	}
 }
 
-// Выборочные сверки параметров и атрибутов по 03 §6, §9.
+// Выборочные сверки параметров и атрибутов по 03 §6, §10.
 func TestSeedSpotChecks(t *testing.T) {
 	snap, probs := catalog.ApplyCatalog(nil, seed.Catalog())
 	if len(probs) != 0 {
@@ -275,7 +275,7 @@ func TestSeedSpotChecks(t *testing.T) {
 	if a := attr("structure"); !a.AppliesTo(domain.KindTransistor) || !a.AppliesTo(domain.KindDiode) || a.AppliesTo(domain.KindResistor) {
 		t.Errorf("structure: применимость %v", a.Kinds)
 	}
-	// Атрибуты реле: enum-тип реле и контактная группа (03 §9).
+	// Атрибуты реле: enum-тип реле и контактная группа (03 §10).
 	if a := attr("relayType"); a.Type != catalog.AttrEnum || !a.AppliesTo(domain.KindRelay) ||
 		a.AppliesTo(domain.KindCapacitor) ||
 		!slices.Equal(a.EnumValues, []string{"electromagnetic", "polarized", "reed", "solid_state", "latching"}) {

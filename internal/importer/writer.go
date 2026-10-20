@@ -246,6 +246,27 @@ func recordTree(c *service.Card, parsed *domain.ParsedDesignation) value {
 		}
 		members = append(members, pair("analogs", array(analogs...)))
 	}
+	if len(c.Synonyms) > 0 {
+		synonyms := make([]value, 0, len(c.Synonyms))
+		for _, s := range c.Synonyms {
+			if s.Note == "" && s.YearFrom == nil && s.YearTo == nil {
+				synonyms = append(synonyms, str(s.Designation))
+				continue
+			}
+			pairs := []member{pair("name", str(s.Designation))}
+			if s.Note != "" {
+				pairs = append(pairs, pair("note", str(s.Note)))
+			}
+			if s.YearFrom != nil {
+				pairs = append(pairs, pair("yearFrom", num(float64(*s.YearFrom))))
+			}
+			if s.YearTo != nil {
+				pairs = append(pairs, pair("yearTo", num(float64(*s.YearTo))))
+			}
+			synonyms = append(synonyms, object(pairs...))
+		}
+		members = append(members, pair("synonyms", array(synonyms...)))
+	}
 	return object(members...)
 }
 

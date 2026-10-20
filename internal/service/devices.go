@@ -25,10 +25,21 @@ type resolvedAnalog struct {
 	note        string
 }
 
-// PendingDesignations сообщает, будет ли обозначение создано этим же
-// прогоном импорта: разрешение исходящих ссылок-аналогов на записи,
-// встречающиеся в файле позже (dry-run без записи в БД).
-type PendingDesignations func(kind domain.Kind, designation string) bool
+// PendingDesignations — план прогона импорта для dry-run: обозначения
+// записей, которые прогон создаст (Records — разрешение исходящих
+// ссылок-аналогов на записи, встречающиеся в файле позже; реальный
+// импорт разрешает их многопроходно), и последовательная симуляция
+// применённой части прогона: обозначения уже проверенных записей
+// (Created) и заявки их исторических названий (Synonym). Конфликт
+// уникальности синонима dry-run обязан видеть в том же месте файла,
+// что и реальный импорт, — прогон ничего не пишет в БД. Поля
+// необязательны (nil — знания нет); Created и Synonym регистрируются
+// по порядку файла после успешной проверки записи.
+type PendingDesignations struct {
+	Records func(kind domain.Kind, designation string) bool
+	Created func(kind domain.Kind, designation string) bool
+	Synonym func(kind domain.Kind, designation string) (ownerDesignation string, claimed bool)
+}
 
 // Upsert применяет запись наполнения с семантикой секций
 // (docs/plan/02-database.md §6): разбор обозначения → слитое
@@ -39,7 +50,7 @@ type PendingDesignations func(kind domain.Kind, designation string) bool
 // data_revision. Ошибка в любом значении секции — запись не применяется
 // вовсе.
 func (s *DeviceService) Upsert(ctx context.Context, in DeviceInput) (Outcome, error) {
-	return s.applyUpsert(ctx, in, nil, nil, true, false)
+	return s.applyUpsert(ctx, in, nil, PendingDesignations{}, true, false)
 }
 
 // Create применяет запись наполнения только как создание (POST REST):
@@ -49,7 +60,7 @@ func (s *DeviceService) Upsert(ctx context.Context, in DeviceInput) (Outcome, er
 // already_exists без применения секций и без изменения базы: 409
 // перестаёт мутировать по построению.
 func (s *DeviceService) Create(ctx context.Context, in DeviceInput) (Outcome, error) {
-	return s.applyUpsert(ctx, in, nil, nil, true, true)
+	return s.applyUpsert(ctx, in, nil, PendingDesignations{}, true, true)
 }
 
 // DryRun проверяет запись наполнения без изменения базы и возвращает
@@ -201,7 +212,8 @@ func (s *DeviceService) applyUpsert(ctx context.Context, in DeviceInput,
 }
 
 // readMerged читает запись в транзакции (чтения либо записи) и строит
-// слитое состояние: поиск по ключу, текущие секции, разрешение аналогов.
+// слитое состояние: поиск по ключу, текущие секции, разрешение аналогов
+// и синонимов.
 func (s *DeviceService) readMerged(ctx context.Context, tx *storage.Tx, merger *stateMerger,
 	p domain.ParsedDesignation, in *DeviceInput, explicit []domain.Field,
 	pending PendingDesignations) (*storage.DeviceRow, *deviceState, *deviceState, []resolvedAnalog, error) {
@@ -209,9 +221,33 @@ func (s *DeviceService) readMerged(ctx context.Context, tx *storage.Tx, merger *
 	if err != nil {
 		return nil, nil, nil, nil, err
 	}
+	var deviceID int64
+	if dev != nil {
+		deviceID = dev.ID
+	} else {
+		// Обратная сторона уникальности синонима: создание записи
+		// с обозначением, занятым историческим именем другой записи
+		// (в том числе заявленным ранее записью этого же прогона —
+		// dry-run), отвергается — синоним не может молча оказаться
+		// в тени точного ключа (инвариант план 03 §9).
+		owner, err := tx.FindSynonymOwner(ctx, p.Kind, p.Designation)
+		if err != nil {
+			return nil, nil, nil, nil, err
+		}
+		if owner == nil && pending.Synonym != nil {
+			if claimOwner, claimed := pending.Synonym(p.Kind, p.Designation); claimed {
+				return nil, nil, nil, nil, domain.NewErrorf(domain.CodeAlreadyExists,
+					domain.MsgSvcSynonymOwnerConflict, p.Designation, claimOwner)
+			}
+		}
+		if owner != nil {
+			return nil, nil, nil, nil, domain.NewErrorf(domain.CodeAlreadyExists,
+				domain.MsgSvcSynonymOwnerConflict, p.Designation, owner.Designation)
+		}
+	}
 	var cur *deviceState
 	if dev != nil {
-		cur, err = merger.loadState(ctx, tx, dev.ID, p)
+		cur, err = merger.loadState(ctx, tx, deviceID, p)
 		if err != nil {
 			return nil, nil, nil, nil, err
 		}
@@ -225,11 +261,18 @@ func (s *DeviceService) readMerged(ctx context.Context, tx *storage.Tx, merger *
 			return nil, nil, nil, nil, err
 		}
 	}
+	var synonyms []stateSynonym
+	if in.Synonyms != nil {
+		synonyms, err = resolveSynonyms(ctx, tx, p.Kind, p.Designation, *in.Synonyms, pending, deviceID)
+		if err != nil {
+			return nil, nil, nil, nil, err
+		}
+	}
 	var stateAnalogs []stateAnalog
 	for _, a := range analogs {
 		stateAnalogs = append(stateAnalogs, stateAnalog{Designation: a.designation, Note: a.note})
 	}
-	merged := merger.merge(cur, in, explicit, stateAnalogs)
+	merged := merger.merge(cur, in, explicit, stateAnalogs, synonyms)
 	return dev, cur, merged, analogs, nil
 }
 
@@ -284,7 +327,8 @@ func skippedOrValidatedCommit(merger *stateMerger, snap *catalog.Snapshot, p dom
 // ставшие явными, сохраняются).
 func (s *DeviceService) writeUpsert(ctx context.Context, tx *storage.Tx, deviceID int64,
 	p domain.ParsedDesignation, in DeviceInput, cur, merged *deviceState,
-	explicit []domain.Field, analogs []resolvedAnalog, snap *catalog.Snapshot, createOnly bool) error {
+	explicit []domain.Field, analogs []resolvedAnalog,
+	snap *catalog.Snapshot, createOnly bool) error {
 	op := ChangeOpUpdated
 	if deviceID == 0 {
 		op = ChangeOpCreated
@@ -407,6 +451,18 @@ func (s *DeviceService) writeUpsert(ctx context.Context, tx *storage.Tx, deviceI
 			})
 		}
 		if err := tx.ReplaceAnalogs(ctx, deviceID, rows); err != nil {
+			return err
+		}
+	}
+	if in.Synonyms != nil {
+		rows := make([]storage.SynonymRow, 0, len(merged.synonyms))
+		for i, syn := range merged.synonyms {
+			rows = append(rows, storage.SynonymRow{
+				Designation: syn.Designation, Note: syn.Note,
+				YearFrom: syn.YearFrom, YearTo: syn.YearTo, SortOrder: i,
+			})
+		}
+		if err := tx.ReplaceSynonyms(ctx, deviceID, rows); err != nil {
 			return err
 		}
 	}
@@ -543,7 +599,7 @@ func resolveAnalogs(ctx context.Context, tx *storage.Tx, kind domain.Kind,
 			return nil, err
 		}
 		if dev == nil {
-			if pending != nil && pending(kind, canonical) {
+			if pending.Records != nil && pending.Records(kind, canonical) {
 				// Цель будет создана этим же прогоном: dry-run без записи,
 				// идентификатор не используется.
 				out = append(out, resolvedAnalog{designation: canonical, note: strings.TrimSpace(a.Note)})
@@ -558,6 +614,88 @@ func resolveAnalogs(ctx context.Context, tx *storage.Tx, kind domain.Kind,
 	// Стабильный порядок для канонического сравнения состояний.
 	sort.SliceStable(out, func(i, j int) bool { return out[i].designation < out[j].designation })
 	return out, nil
+}
+
+// resolveSynonyms канонизирует исторические названия записи (план 03 §9)
+// и проверяет уникальность обозначения-синонима в пределах класса:
+// синоним не совпадает с обозначением самой записи, с обозначением
+// другой записи и не принадлежит двум записям — ни в БД, ни среди
+// применённой части этого же прогона (pending: Created — созданные
+// записи, Synonym — заявки синонимов; deviceID — текущая
+// запись-владелец, её собственный синоним при замене допустим).
+// Годы употребления имени — те же границы, что у правила year_range
+// (1949–2100), при задании обоих — по возрастанию. Возвращает синонимы
+// в каноническом порядке (по обозначению) — он же sort_order применения.
+func resolveSynonyms(ctx context.Context, tx *storage.Tx, kind domain.Kind,
+	ownerDesignation string, list []SynonymInput, pending PendingDesignations,
+	deviceID int64) ([]stateSynonym, error) {
+	seen := make(map[string]bool, len(list))
+	out := make([]stateSynonym, 0, len(list))
+	for _, s := range list {
+		if strings.TrimSpace(s.Designation) == "" {
+			return nil, domain.NewErrorf(domain.CodeValidationFailed, domain.MsgSvcSynonymEmpty)
+		}
+		canonical, err := domain.Canonicalize(s.Designation)
+		if err != nil {
+			return nil, err
+		}
+		if canonical == ownerDesignation {
+			return nil, domain.NewErrorf(domain.CodeValidationFailed, domain.MsgSvcSynonymSelf, canonical)
+		}
+		if seen[canonical] {
+			return nil, domain.NewErrorf(domain.CodeValidationFailed, domain.MsgSvcSynonymDuplicate, canonical)
+		}
+		seen[canonical] = true
+		if err := checkSynonymYears(canonical, s.YearFrom, s.YearTo); err != nil {
+			return nil, err
+		}
+		dev, err := tx.FindDevice(ctx, kind, canonical)
+		if err != nil {
+			return nil, err
+		}
+		if dev != nil || (pending.Created != nil && pending.Created(kind, canonical)) {
+			return nil, domain.NewErrorf(domain.CodeValidationFailed,
+				domain.MsgSvcSynonymConflictRecord, canonical, string(kind))
+		}
+		owner, err := tx.FindSynonymOwner(ctx, kind, canonical)
+		if err != nil {
+			return nil, err
+		}
+		if owner != nil && owner.DeviceID != deviceID {
+			return nil, domain.NewErrorf(domain.CodeValidationFailed,
+				domain.MsgSvcSynonymConflictOther, canonical, owner.Designation)
+		}
+		if pending.Synonym != nil {
+			// Заявка ранее проверенной записи этого же прогона (dry-run):
+			// реальный импорт увидел бы строку в БД.
+			if claimOwner, claimed := pending.Synonym(kind, canonical); claimed && claimOwner != ownerDesignation {
+				return nil, domain.NewErrorf(domain.CodeValidationFailed,
+					domain.MsgSvcSynonymConflictOther, canonical, claimOwner)
+			}
+		}
+		out = append(out, stateSynonym{
+			Designation: canonical, Note: strings.TrimSpace(s.Note),
+			YearFrom: s.YearFrom, YearTo: s.YearTo,
+		})
+	}
+	sort.SliceStable(out, func(i, j int) bool { return out[i].Designation < out[j].Designation })
+	return out, nil
+}
+
+// checkSynonymYears — границы и порядок годов употребления имени
+// (границы общие с правилом year_range атрибутов — catalog.YearRange*).
+func checkSynonymYears(designation string, from, to *int) error {
+	for _, y := range []*int{from, to} {
+		if y != nil && (*y < catalog.YearRangeMin || *y > catalog.YearRangeMax) {
+			return domain.NewErrorf(domain.CodeValidationFailed,
+				domain.MsgSvcSynonymYearRange, designation)
+		}
+	}
+	if from != nil && to != nil && *from >= *to {
+		return domain.NewErrorf(domain.CodeValidationFailed,
+			domain.MsgSvcSynonymYearOrder, designation)
+	}
+	return nil
 }
 
 // Get возвращает карточку по классу и обозначению (точный ключ).

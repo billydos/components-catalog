@@ -79,6 +79,26 @@ type BacklinkRow struct {
 	Note        string
 }
 
+// SynonymRow — историческое название записи (синоним, план 03 §9): строка
+// принадлежит владельцу device_id; YearFrom/YearTo — годы употребления
+// имени (nil — не задано).
+type SynonymRow struct {
+	Designation string
+	Note        string
+	YearFrom    *int
+	YearTo      *int
+	SortOrder   int
+}
+
+// SynonymOwnerRow — владелец синонима: запись, чьим историческим
+// названием является обозначение (разрешение синонима и конфликты
+// уникальности).
+type SynonymOwnerRow struct {
+	DeviceID    int64
+	Kind        domain.Kind
+	Designation string
+}
+
 // Чтение (пул чтения вне транзакций либо соединение транзакции записи).
 
 func (d *DB) FindDevice(ctx context.Context, kind domain.Kind, designation string) (*DeviceRow, error) {
@@ -89,6 +109,44 @@ func (d *DB) FindDevice(ctx context.Context, kind domain.Kind, designation strin
 // (разрешение аналогов, find).
 func (d *DB) FindDeviceAnyKind(ctx context.Context, designation string) (*DeviceRow, error) {
 	return findDeviceAnyKind(ctx, d.reads, designation)
+}
+
+// FindSynonymOwner возвращает запись-владельца синонима по каноническому
+// обозначению синонима (kind == "" — любой класс, детерминированно первая
+// по kind_code, как FindDeviceAnyKind); nil — синонима нет. Уникальность
+// (синоним не равен обозначению записи и не принадлежит двум записям) —
+// инвариант сервисного слоя, читающий метод выбирает первую строку.
+func (d *DB) FindSynonymOwner(ctx context.Context, kind domain.Kind, designation string) (*SynonymOwnerRow, error) {
+	return findSynonymOwner(ctx, d.reads, kind, designation)
+}
+
+func (t *Tx) FindSynonymOwner(ctx context.Context, kind domain.Kind, designation string) (*SynonymOwnerRow, error) {
+	return findSynonymOwner(ctx, t.tx, kind, designation)
+}
+
+func findSynonymOwner(ctx context.Context, q queryer, kind domain.Kind, designation string) (*SynonymOwnerRow, error) {
+	where := `s.designation = @designation`
+	args := map[string]any{"designation": designation}
+	if kind != "" {
+		where += ` AND d.kind_code = @kind`
+		args["kind"] = string(kind)
+	}
+	row := queryRowContext(ctx, q, `
+SELECT s.device_id, d.kind_code, d.designation
+FROM device_synonyms s
+JOIN devices d ON d.id = s.device_id
+WHERE `+where+`
+ORDER BY d.kind_code, d.designation
+LIMIT 1`, args)
+	var r SynonymOwnerRow
+	err := row.Scan(&r.DeviceID, &r.Kind, &r.Designation)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &r, nil
 }
 
 // ListDeviceIDsByKind перечисляет id записей класса в порядке
@@ -356,6 +414,35 @@ func (t *Tx) LoadOutgoingAnalogs(ctx context.Context, deviceID int64) ([]AnalogR
 	return loadOutgoingAnalogs(ctx, t.tx, deviceID)
 }
 
+// LoadSynonyms — исторические названия записи (порядок — sort_order,
+// затем обозначение: детерминирован между диалектами).
+func (t *Tx) LoadSynonyms(ctx context.Context, deviceID int64) ([]SynonymRow, error) {
+	rows, err := queryContext(ctx, t.tx, `
+SELECT designation, note, year_from, year_to, sort_order
+FROM device_synonyms
+WHERE device_id = @id
+ORDER BY sort_order, designation`,
+		map[string]any{"id": deviceID})
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close() //nolint:errcheck — чтение завершилось
+	var out []SynonymRow
+	for rows.Next() {
+		var r SynonymRow
+		var note sql.NullString
+		var yearFrom, yearTo sql.NullInt64
+		if err := rows.Scan(&r.Designation, &note, &yearFrom, &yearTo, &r.SortOrder); err != nil {
+			return nil, err
+		}
+		r.Note = nullableStr(note)
+		r.YearFrom = nullableYear(yearFrom)
+		r.YearTo = nullableYear(yearTo)
+		out = append(out, r)
+	}
+	return out, rows.Err()
+}
+
 func loadOutgoingAnalogs(ctx context.Context, q queryer, deviceID int64) ([]AnalogRow, error) {
 	rows, err := queryContext(ctx, q, `
 SELECT a.analog_device_id, t.designation, t.system_code, a.note
@@ -385,6 +472,15 @@ ORDER BY t.designation`,
 // на чанк списка (предел maxInList аргументов оператора), группировка по
 // записям — в Go (образец — loadSearchFields); порядок строк внутри записи
 // — как у одиночных загрузчиков.
+
+// nullableYear — год из NULL-допустимой колонки: NULL — не задано.
+func nullableYear(v sql.NullInt64) *int {
+	if !v.Valid {
+		return nil
+	}
+	y := int(v.Int64)
+	return &y
+}
 
 // FindDevicesByIDs — записи по списку стабильных id (параллельно удалённые
 // в результате отсутствуют; порядок строк — по id).
@@ -790,6 +886,50 @@ ORDER BY a.analog_device_id, s.designation`, args)
 				return err
 			}
 			r.Note = nullableStr(note)
+			out[id] = append(out[id], r)
+		}
+		return rows.Err()
+	})
+	return out, err
+}
+
+// LoadSynonymsByIDs — исторические названия записей по списку (пакетное
+// чтение карточек; порядок внутри записи — как у LoadSynonyms).
+func (d *DB) LoadSynonymsByIDs(ctx context.Context, ids []int64) (map[int64][]SynonymRow, error) {
+	return loadSynonymsByIDs(ctx, d.reads, ids)
+}
+
+func (t *Tx) LoadSynonymsByIDs(ctx context.Context, ids []int64) (map[int64][]SynonymRow, error) {
+	return loadSynonymsByIDs(ctx, t.tx, ids)
+}
+
+func loadSynonymsByIDs(ctx context.Context, q queryer, ids []int64) (map[int64][]SynonymRow, error) {
+	if len(ids) == 0 {
+		return nil, nil
+	}
+	out := make(map[int64][]SynonymRow, len(ids))
+	err := eachIDChunk(ids, func(chunk []int64) error {
+		args := make(map[string]any, len(chunk))
+		rows, err := queryContext(ctx, q, `
+SELECT device_id, designation, note, year_from, year_to, sort_order
+FROM device_synonyms
+WHERE device_id IN `+inList("id", chunk, args)+`
+ORDER BY device_id, sort_order, designation`, args)
+		if err != nil {
+			return err
+		}
+		defer rows.Close()
+		for rows.Next() {
+			var id int64
+			var r SynonymRow
+			var note sql.NullString
+			var yearFrom, yearTo sql.NullInt64
+			if err := rows.Scan(&id, &r.Designation, &note, &yearFrom, &yearTo, &r.SortOrder); err != nil {
+				return err
+			}
+			r.Note = nullableStr(note)
+			r.YearFrom = nullableYear(yearFrom)
+			r.YearTo = nullableYear(yearTo)
 			out[id] = append(out[id], r)
 		}
 		return rows.Err()
@@ -1209,6 +1349,37 @@ func (t *Tx) ReplaceAnalogs(ctx context.Context, deviceID int64, targets []Analo
 INSERT INTO device_analogs(device_id, analog_device_id, note)
 VALUES (@id, @target, @note)`,
 			map[string]any{"id": deviceID, "target": a.TargetID, "note": nilIfEmpty(a.Note)}); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// ReplaceSynonyms заменяет исторические названия записи целиком (секция
+// synonyms); строки, вставленные параллельным писателем в той же записи
+// и не видимые DELETE этого вызова, сохраняются. Порядок среза —
+// sort_order.
+func (t *Tx) ReplaceSynonyms(ctx context.Context, deviceID int64, rows []SynonymRow) error {
+	if _, err := t.exec(ctx,
+		`DELETE FROM device_synonyms WHERE device_id = @id`,
+		map[string]any{"id": deviceID}); err != nil {
+		return err
+	}
+	for _, r := range rows {
+		var yearFrom, yearTo any
+		if r.YearFrom != nil {
+			yearFrom = *r.YearFrom
+		}
+		if r.YearTo != nil {
+			yearTo = *r.YearTo
+		}
+		if _, err := t.InsertIfAbsent(ctx, `
+INSERT INTO device_synonyms(device_id, designation, note, year_from, year_to, sort_order)
+VALUES (@id, @designation, @note, @year_from, @year_to, @sort)`,
+			map[string]any{
+				"id": deviceID, "designation": r.Designation, "note": nilIfEmpty(r.Note),
+				"year_from": yearFrom, "year_to": yearTo, "sort": r.SortOrder,
+			}); err != nil {
 			return err
 		}
 	}

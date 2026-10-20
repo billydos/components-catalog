@@ -53,7 +53,7 @@ const (
 	ValueEnum    = catalog.ValueEnum
 )
 
-// Типы значений атрибутов (docs/plan/03-data-model.md §9).
+// Типы значений атрибутов (docs/plan/03-data-model.md §10).
 
 type AttrType = catalog.AttrType
 

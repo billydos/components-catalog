@@ -135,6 +135,16 @@ func escapeLike(s string) string {
 }
 
 // buildSearchWhere собирает общее WHERE для поиска и подсчёта.
+// designationWithSynonymsLike — предикат сопоставления строки (LIKE
+// с escape) обозначению записи либо одному из её исторических названий
+// (синонимы — план 03 §9); arg — имя аргумента паттерна: повторное имя —
+// один параметр (positional). Общий предикат поиска и автодополнения —
+// расхождение сделало бы их неодинаково видимыми синонимы.
+func designationWithSynonymsLike(arg string) string {
+	return `(d.designation LIKE ` + arg + ` ESCAPE '\' OR EXISTS (SELECT 1 FROM device_synonyms syn
+WHERE syn.device_id = d.id AND syn.designation LIKE ` + arg + ` ESCAPE '\'))`
+}
+
 func buildSearchWhere(r SearchRequest) (*whereBuilder, string) {
 	w := newWhere()
 	if r.Kind != "" {
@@ -144,7 +154,8 @@ func buildSearchWhere(r SearchRequest) (*whereBuilder, string) {
 		w.add("d.system_code = " + w.arg("f_system", r.System))
 	}
 	if r.Query != "" {
-		w.add("d.designation LIKE " + w.arg("f_query", "%"+escapeLike(r.Query)+"%") + ` ESCAPE '\'`)
+		arg := w.arg("f_query", "%"+escapeLike(r.Query)+"%")
+		w.add(designationWithSynonymsLike(arg))
 	}
 	if len(r.IDs) > 0 {
 		parts := make([]string, len(r.IDs))
@@ -430,12 +441,13 @@ type anyField struct {
 	Num  *float64
 }
 
-// SuggestPrefix — автодополнение по префиксу обозначения (каноническому);
-// kind — необязательный фильтр классом.
+// SuggestPrefix — автодополнение по префиксу обозначения (каноническому):
+// совпадает префикс обозначения записи либо одного из её исторических
+// названий (синонимов); kind — необязательный фильтр классом.
 func (d *DB) SuggestPrefix(ctx context.Context, prefix string, kind string, limit int) ([]SearchItemRow, error) {
 	args := map[string]any{"p": escapeLike(prefix) + "%", "limit": limit}
 	q := `SELECT d.id, d.kind_code, d.system_code, d.designation FROM devices d
-WHERE d.designation LIKE @p ESCAPE '\'`
+WHERE ` + designationWithSynonymsLike("@p")
 	if kind != "" {
 		q += ` AND d.kind_code = @kind`
 		args["kind"] = kind

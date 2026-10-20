@@ -1000,6 +1000,110 @@ func runImporterSuite(t *testing.T, factory configFactory) {
 		}
 	})
 
+	// Синонимы: импорт секции, find по историческому названию,
+	// round-trip экспорта и идемпотентность повторного импорта.
+	t.Run("SynonymsRoundTrip", func(t *testing.T) {
+		app := openApp(t, factory)
+		file := filepath.Join(t.TempDir(), "synonyms.jsonc")
+		write(t, file, `{
+  "resistors": [
+    {
+      "name": "С5-35",
+      "synonyms": [
+        "ПЭВ",
+        { "name": "ПЭВР", "note": "обозначение до 1968", "yearTo": 1968 }
+      ]
+    }
+  ]
+}`)
+		rep := importFile(t, app, file, false)
+		if rep.HasIssues() || rep.Added != 1 {
+			t.Fatalf("импорт: %+v; %v", rep, issueMessages(rep.Issues))
+		}
+		res, err := app.Services().Devices.Find(context.Background(), "", "ПЭВ")
+		if err != nil || res.Found == nil ||
+			res.Found.Designation != "С5-35" || res.MatchedBySynonym != "ПЭВ" {
+			t.Fatalf("find по синониму: err=%v found=%v matched=%q", err, res.Found, res.MatchedBySynonym)
+		}
+		kind := domain.KindResistor
+		var buf bytes.Buffer
+		if err := New(app).Export(context.Background(), &buf, FormatJSONC, &kind); err != nil {
+			t.Fatalf("экспорт: %v", err)
+		}
+		exported := buf.String()
+		if !strings.Contains(exported, `"synonyms": [`) ||
+			!strings.Contains(exported, `"name": "ПЭВР"`) ||
+			!strings.Contains(exported, `"yearTo": 1968`) {
+			t.Fatalf("экспорт: секция synonyms отсутствует или неполна:\n%s", exported)
+		}
+		reimport := filepath.Join(t.TempDir(), "reexport.jsonc")
+		write(t, reimport, exported)
+		rep = importFile(t, app, reimport, false)
+		if rep.HasIssues() || rep.Added != 0 || rep.Updated != 0 {
+			t.Fatalf("повторный импорт: %+v; %v", rep, issueMessages(rep.Issues))
+		}
+	})
+
+	// Конфликты уникальности синонимов внутри одного файла видны dry-run'у
+	// (заявки ранее проверенных записей) и реальному импорту одинаково.
+	t.Run("SynonymConflictsSameFile", func(t *testing.T) {
+		app := openApp(t, factory)
+		dup := filepath.Join(t.TempDir(), "synonym-dup.jsonc")
+		write(t, dup, `{
+  "resistors": [
+    { "name": "С5-35", "synonyms": ["ПЭВ"] },
+    { "name": "С5-37", "synonyms": ["ПЭВ"] }
+  ]
+}`)
+		for _, dry := range []bool{true, false} {
+			rep := importFile(t, app, dup, dry)
+			if rep.Rejected != 1 || rep.Added != 1 || rep.Records != 2 {
+				t.Fatalf("конфликт синонима (dry=%v): %+v; %v", dry, rep, issueMessages(rep.Issues))
+			}
+			if !containsMessage(issueMessages(rep.Issues),
+				"record «С5-37»: synonym «ПЭВ» is already assigned to record «С5-35»") {
+				t.Fatalf("текст конфликта (dry=%v): %v", dry, issueMessages(rep.Issues))
+			}
+		}
+
+		// Синоним, совпадающий с обозначением записи этого же файла,
+		// и запись под чужой заявкой синонима — отказ в одной и той же
+		// записи в обоих режимах (последовательная симуляция dry-run:
+		// С5-16МВ применяется, МЛТ отвергается — как в реальном прогоне).
+		shadow := filepath.Join(t.TempDir(), "synonym-shadow.jsonc")
+		write(t, shadow, `{
+  "resistors": [
+    { "name": "С5-16МВ", "synonyms": ["МЛТ"] },
+    { "name": "МЛТ", "system": "other" }
+  ]
+}`)
+		for _, dry := range []bool{true, false} {
+			rep := importFile(t, app, shadow, dry)
+			if rep.Rejected != 1 || rep.Added != 1 {
+				t.Fatalf("затенение синонима (dry=%v): %+v; %v", dry, rep, issueMessages(rep.Issues))
+			}
+			if !containsMessage(issueMessages(rep.Issues),
+				"record «МЛТ»: designation «МЛТ» is taken by a synonym of record «С5-16МВ»") {
+				t.Fatalf("текст затенения (dry=%v): %v", dry, issueMessages(rep.Issues))
+			}
+		}
+
+		// Отвергнутая запись не заявляет синонимы: её конфликт не мешает
+		// корректной записи того же файла (годы в обратном порядке —
+		// запись С5-42В отвергнута целиком, заявка ПЭВТ не регистрируется).
+		after := filepath.Join(t.TempDir(), "synonym-after.jsonc")
+		write(t, after, `{
+  "resistors": [
+    { "name": "С5-42В", "synonyms": [ { "name": "ПЭВТ", "yearFrom": 1975, "yearTo": 1968 } ] },
+    { "name": "С5-47В", "synonyms": ["ПЭВТ"] }
+  ]
+}`)
+		rep := importFile(t, app, after, true)
+		if rep.Rejected != 1 || rep.Added != 1 {
+			t.Fatalf("порядок заявок (dry-run): %+v; %v", rep, issueMessages(rep.Issues))
+		}
+	})
+
 	// Прогресс импорта: колбэк WithProgress наблюдает построчное
 	// чтение NDJSON и итоговые исходы применения (включая dry-run);
 	// документные форматы отмечают чтение одним вызовом после разбора.

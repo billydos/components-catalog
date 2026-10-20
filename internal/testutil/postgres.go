@@ -37,6 +37,7 @@ func PostgresDSN(t *testing.T) string {
 // с DDL закреплена пин-тестом tables_test.go.
 var catalogTables = []string{
 	"device_analogs",
+	"device_synonyms",
 	"device_manufacturers",
 	"manufacturers",
 	"parameter_value_conditions",

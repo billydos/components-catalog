@@ -44,6 +44,14 @@ type stateAnalog struct {
 	Note        string
 }
 
+// stateSynonym — историческое название записи в состоянии.
+type stateSynonym struct {
+	Designation string
+	Note        string
+	YearFrom    *int
+	YearTo      *int
+}
+
 // deviceState — слитое состояние записи.
 type deviceState struct {
 	fields        []domain.Field           // явные классификационные поля (по имени поля)
@@ -52,6 +60,7 @@ type deviceState struct {
 	variants      []stateVariant           // исполнения в порядке
 	manufacturers []string                 // отсортированы
 	analogs       []stateAnalog            // отсортированы по обозначению
+	synonyms      []stateSynonym           // отсортированы по обозначению
 }
 
 // loadState читает текущее состояние записи внутри транзакции записи
@@ -78,6 +87,10 @@ func (s *stateMerger) loadState(ctx context.Context, tx *storage.Tx, deviceID in
 		return nil, err
 	}
 	analogs, err := tx.LoadOutgoingAnalogs(ctx, deviceID)
+	if err != nil {
+		return nil, err
+	}
+	synonyms, err := tx.LoadSynonyms(ctx, deviceID)
 	if err != nil {
 		return nil, err
 	}
@@ -123,6 +136,17 @@ func (s *stateMerger) loadState(ctx context.Context, tx *storage.Tx, deviceID in
 	for _, a := range analogs {
 		st.analogs = append(st.analogs, stateAnalog{Designation: a.Designation, Note: a.Note})
 	}
+	// Канонический порядок синонимов — по обозначению (сравнение
+	// состояний не зависит от порядка чтения).
+	st.synonyms = make([]stateSynonym, 0, len(synonyms))
+	for _, s := range synonyms {
+		st.synonyms = append(st.synonyms, stateSynonym{
+			Designation: s.Designation, Note: s.Note, YearFrom: s.YearFrom, YearTo: s.YearTo,
+		})
+	}
+	sort.SliceStable(st.synonyms, func(i, j int) bool {
+		return st.synonyms[i].Designation < st.synonyms[j].Designation
+	})
 	return st, nil
 }
 
@@ -171,7 +195,7 @@ type stateMerger struct {
 // explicit — провалидированный набор явных классификационных полей
 // (не nil только при заданной секции fields).
 func (s *stateMerger) merge(cur *deviceState, in *DeviceInput, explicit []domain.Field,
-	resolvedAnalogs []stateAnalog) *deviceState {
+	resolvedAnalogs []stateAnalog, resolvedSynonyms []stateSynonym) *deviceState {
 	out := &deviceState{
 		groupValues: make(map[string][]stateValue),
 	}
@@ -237,6 +261,12 @@ func (s *stateMerger) merge(cur *deviceState, in *DeviceInput, explicit []domain
 	} else {
 		out.analogs = cur.analogs
 	}
+	// Синонимы: nil — не менять, иначе замена целиком (включая очистку).
+	if in.Synonyms != nil {
+		out.synonyms = resolvedSynonyms
+	} else {
+		out.synonyms = cur.synonyms
+	}
 	return out
 }
 
@@ -254,17 +284,18 @@ func normalizeAttrs(vals []catalog.AttributeValue) []catalog.AttributeValue {
 
 // sameState сравнивает состояния канонически: порядок значений внутри
 // секций и исполнений значим (он задаёт sort_order); явные поля,
-// атрибуты, условия, производители и аналоги сравниваются как множества
-// (нормализуются сортировкой копий — равенство не зависит от порядка
-// чтения из БД). Числа сравниваются бит-точно (round-trip REAL; NaN
-// в значениях исключён валидацией).
+// атрибуты, условия, производители, аналоги и синонимы сравниваются
+// как множества (нормализуются сортировкой копий — равенство не зависит
+// от порядка чтения из БД). Числа сравниваются бит-то-точно (round-trip
+// REAL; NaN в значениях исключён валидацией).
 func sameState(a, b *deviceState) bool {
 	return fieldsEqual(a.fields, b.fields) &&
 		attrsEqual(a.attributes, b.attributes) &&
 		groupValuesEqual(a.groupValues, b.groupValues) &&
 		variantsEqual(a.variants, b.variants) &&
 		manufacturersEqual(a.manufacturers, b.manufacturers) &&
-		analogsEqual(a.analogs, b.analogs)
+		analogsEqual(a.analogs, b.analogs) &&
+		synonymsEqual(a.synonyms, b.synonyms)
 }
 
 // fieldsEqual — множества явных полей по имени.
@@ -362,6 +393,25 @@ func analogsEqual(a, b []stateAnalog) bool {
 	return slices.Equal(
 		slices.SortedFunc(slices.Values(a), byName),
 		slices.SortedFunc(slices.Values(b), byName))
+}
+
+// synonymsEqual — множества исторических названий по обозначению.
+func synonymsEqual(a, b []stateSynonym) bool {
+	byName := func(x, y stateSynonym) int { return cmp.Compare(x.Designation, y.Designation) }
+	return slices.EqualFunc(
+		slices.SortedFunc(slices.Values(a), byName),
+		slices.SortedFunc(slices.Values(b), byName),
+		func(x, y stateSynonym) bool {
+			return x.Designation == y.Designation && x.Note == y.Note &&
+				intPtrEqual(x.YearFrom, y.YearFrom) && intPtrEqual(x.YearTo, y.YearTo)
+		})
+}
+
+func intPtrEqual(a, b *int) bool {
+	if a == nil || b == nil {
+		return a == b
+	}
+	return *a == *b
 }
 
 func strPtrEqual(a, b *string) bool {
