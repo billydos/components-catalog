@@ -79,6 +79,14 @@ var bundleRu = map[string]string{
 	"unit.nm.symbol":           "нм",
 	"unit.mcd.name":            "милликандела",
 	"unit.mcd.symbol":          "мкд",
+	"unit.deg.name":            "градус",
+	"unit.deg.symbol":          "°",
+	"unit.h.name":              "час",
+	"unit.h.symbol":            "ч",
+	"unit.mN_m.name":           "миллиньютон-метр",
+	"unit.mN_m.symbol":         "мН·м",
+	"unit.yr.name":             "год",
+	"unit.yr.symbol":           "г.",
 
 	// Материалы полупроводников (domain.Materials).
 	"material.ge":    "германий",
@@ -268,9 +276,19 @@ var bundleRu = map[string]string{
 	"param.IzMax":      "наибольший ток стабилизации",
 
 	// Параметры: резисторы — limiting.
-	"param.Pnom":      "номинальная мощность рассеяния",
-	"param.Vmax":      "наибольшее рабочее напряжение",
-	"param.VPulseMax": "наибольшее импульсное напряжение",
+	"param.Pnom":                 "номинальная мощность рассеяния",
+	"param.Vmax":                 "наибольшее рабочее напряжение",
+	"param.VPulseMax":            "наибольшее импульсное напряжение",
+	"param.imbalance":            "разбаланс сопротивления секций",
+	"param.endurance":            "износоустойчивость, циклов",
+	"param.rotationAngle":        "угол поворота оси",
+	"param.switchAngle":          "углы срабатывания выключателя",
+	"param.staticFrictionTorque": "момент статического трения",
+	"param.humidity":             "относительная влажность воздуха",
+
+	// Параметры: общие предельные данные надёжности.
+	"param.operatingLife": "минимальная наработка",
+	"param.shelfLife":     "срок сохраняемости",
 
 	// Параметры: реле — limiting.
 	"param.VswitchMax": "наибольшее коммутируемое напряжение",

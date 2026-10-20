@@ -65,6 +65,7 @@ func units() []catalog.UnitDef {
 		"ohm", "mA_per_V", "pF", "ps", "ns", "us", "ms",
 		"degC", "degC_per_W", "ppm_per_degC", "pct_per_degC",
 		"g", "mm", "nm", "mcd",
+		"deg", "h", "mN_m", "yr",
 	}
 	out := make([]catalog.UnitDef, 0, len(codes))
 	for _, c := range codes {
@@ -488,6 +489,32 @@ func parameters() []catalog.ParameterDef {
 			ValueType: catalog.ValueExact, SortOrder: 280, Active: true, Kinds: rl},
 		{Code: "IswitchMax", Group: "limiting", Unit: "A",
 			ValueType: catalog.ValueExact, SortOrder: 290, Active: true, Kinds: rl},
+
+		// Резисторы — предельные данные переменных/подстроечных и
+		// многосекционных (§6.6): механика подвижной системы и климат.
+		// Применимость к переменным/многосекционным — регламент наполнения,
+		// межполевого правила нет.
+		{Code: "imbalance", Group: "limiting", Unit: "dB",
+			ValueType: catalog.ValueAtMost, SortOrder: 300, Active: true, Kinds: re},
+		{Code: "endurance", Group: "limiting",
+			ValueType: catalog.ValueAtLeast, SortOrder: 310, Active: true, Kinds: re},
+		{Code: "rotationAngle", Group: "limiting", Unit: "deg",
+			ValueType: catalog.ValueAtLeast, SortOrder: 320, Active: true, Kinds: re},
+		{Code: "switchAngle", Group: "limiting", Unit: "deg",
+			ValueType: catalog.ValueAtMost, SortOrder: 330, Active: true, Kinds: re},
+		{Code: "staticFrictionTorque", Group: "limiting", Unit: "mN_m",
+			ValueType: catalog.ValueAtMost, SortOrder: 340, Active: true, Kinds: re},
+		{Code: "humidity", Group: "limiting", Unit: "pct",
+			ValueType: catalog.ValueAtMost, SortOrder: 350, Active: true, Kinds: re,
+			ConditionSets: []catalog.ConditionSet{set(1, opt("temp"))}},
+
+		// Общие предельные данные надёжности (§6.12) — применимость пустая
+		// (все классы, D7); у конденсаторов — единственные представители
+		// секции ratings.
+		{Code: "operatingLife", Group: "limiting", Unit: "h",
+			ValueType: catalog.ValueAtLeast, SortOrder: 360, Active: true},
+		{Code: "shelfLife", Group: "limiting", Unit: "yr",
+			ValueType: catalog.ValueAtLeast, SortOrder: 370, Active: true},
 
 		// Массогабаритные данные (§6.7) — все классы.
 		{Code: "massMax", Group: "dimensional", Unit: "g",

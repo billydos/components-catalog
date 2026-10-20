@@ -81,6 +81,14 @@ var bundleEn = map[string]string{
 	"unit.nm.symbol":           "nm",
 	"unit.mcd.name":            "millicandela",
 	"unit.mcd.symbol":          "mcd",
+	"unit.deg.name":            "degree",
+	"unit.deg.symbol":          "°",
+	"unit.h.name":              "hour",
+	"unit.h.symbol":            "h",
+	"unit.mN_m.name":           "millinewton meter",
+	"unit.mN_m.symbol":         "mN·m",
+	"unit.yr.name":             "year",
+	"unit.yr.symbol":           "yr",
 
 	// Материалы полупроводников (domain.Materials).
 	"material.ge":    "germanium",
@@ -270,9 +278,19 @@ var bundleEn = map[string]string{
 	"param.IzMax":      "maximum zener current",
 
 	// Параметры: резисторы — limiting.
-	"param.Pnom":      "rated power dissipation",
-	"param.Vmax":      "maximum working voltage",
-	"param.VPulseMax": "maximum pulse voltage",
+	"param.Pnom":                 "rated power dissipation",
+	"param.Vmax":                 "maximum working voltage",
+	"param.VPulseMax":            "maximum pulse voltage",
+	"param.imbalance":            "section-to-section resistance imbalance",
+	"param.endurance":            "wear endurance, cycles",
+	"param.rotationAngle":        "shaft rotation angle",
+	"param.switchAngle":          "switch actuation angle",
+	"param.staticFrictionTorque": "static friction torque",
+	"param.humidity":             "relative air humidity",
+
+	// Параметры: общие предельные данные надёжности.
+	"param.operatingLife": "minimum operating life",
+	"param.shelfLife":     "shelf life",
 
 	// Параметры: реле — limiting.
 	"param.VswitchMax": "maximum switching voltage",

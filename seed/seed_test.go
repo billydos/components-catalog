@@ -19,8 +19,8 @@ func TestSeedAppliesCleanly(t *testing.T) {
 		}
 		t.Fatal("стартовый каталог не проходит метасхему")
 	}
-	if len(snap.Parameters) != 104 || len(snap.Attributes) != 21 ||
-		len(snap.Units) != 26 || len(snap.Conditions) != 20 {
+	if len(snap.Parameters) != 112 || len(snap.Attributes) != 21 ||
+		len(snap.Units) != 30 || len(snap.Conditions) != 20 {
 		t.Fatalf("состав каталога: параметры %d, атрибуты %d, единицы %d, условия %d",
 			len(snap.Parameters), len(snap.Attributes), len(snap.Units), len(snap.Conditions))
 	}
@@ -243,6 +243,45 @@ func TestSeedSpotChecks(t *testing.T) {
 	}
 	if p := check("Rins"); !p.AppliesTo(domain.KindRelay) || !p.AppliesTo(domain.KindCapacitor) {
 		t.Errorf("Rins: применимость %v", p.Kinds)
+	}
+	// Резисторы — предельные данные переменных/многосекционных и климат,
+	// общие данные надёжности — все классы (03 §6.6, §6.12).
+	for _, code := range []string{"imbalance", "endurance", "rotationAngle",
+		"switchAngle", "staticFrictionTorque", "humidity"} {
+		p := check(code)
+		if p.Group != "limiting" || !p.AppliesTo(domain.KindResistor) || p.AppliesTo(domain.KindTransistor) {
+			t.Errorf("%s: группа %q, применимость %v", code, p.Group, p.Kinds)
+		}
+	}
+	for code, want := range map[string]struct {
+		unit  string
+		vt    catalog.ValueType
+		conds int
+	}{
+		"imbalance":            {"dB", catalog.ValueAtMost, 0},
+		"endurance":            {"", catalog.ValueAtLeast, 0},
+		"rotationAngle":        {"deg", catalog.ValueAtLeast, 0},
+		"switchAngle":          {"deg", catalog.ValueAtMost, 0},
+		"staticFrictionTorque": {"mN_m", catalog.ValueAtMost, 0},
+		"humidity":             {"pct", catalog.ValueAtMost, 1},
+		"operatingLife":        {"h", catalog.ValueAtLeast, 0},
+		"shelfLife":            {"yr", catalog.ValueAtLeast, 0},
+	} {
+		p := check(code)
+		if p.Unit != want.unit || p.ValueType != want.vt || len(p.ConditionSets) != want.conds {
+			t.Errorf("%s: единица %q, тип %s, наборы условий %+v", code, p.Unit, string(p.ValueType), p.ConditionSets)
+		}
+	}
+	if p := check("humidity"); len(p.ConditionSets) != 1 || len(p.ConditionSets[0].Items) != 1 ||
+		p.ConditionSets[0].Items[0].Condition != "temp" ||
+		p.ConditionSets[0].Items[0].Mode != catalog.ModeOptional {
+		t.Errorf("humidity: набор условий %+v", p.ConditionSets)
+	}
+	for _, code := range []string{"operatingLife", "shelfLife"} {
+		p := check(code)
+		if p.Group != "limiting" || len(p.Kinds) != 0 {
+			t.Errorf("%s: группа %q, применимость %v", code, p.Group, p.Kinds)
+		}
 	}
 	for _, code := range []string{"massMax", "length", "width", "height", "diameter", "leadLength", "leadPitch"} {
 		if p := check(code); p.ValidationRule != "cap_dimensions_form" || p.ValueType != catalog.ValueExact {
