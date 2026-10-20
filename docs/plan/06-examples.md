@@ -17,7 +17,8 @@
       "system": "gost",
       "attributes": {
         "structure": "npn", "package": "КТ-13", "spec": "ЖК3.365.200ТУ",
-        "yearFrom": 1967, "yearTo": 1992
+        "yearFrom": 1967, "yearTo": 1992,
+        "notes": ["группа по усилению — буква Б", "выпускался в корпусе КТ-13"]
       },
       "manufacturers": ["Восход", "Терма"],
       "parameters": [

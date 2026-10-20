@@ -210,7 +210,8 @@ paths:
           поля — нормативные элементы обозначения (для записей `other`
           поле `series` задаётся секцией `fields`);
         * `attr.<код>=<значение>` — фильтр по атрибуту (текст либо число
-          по типу атрибута; логические атрибуты не фильтруются);
+          по типу атрибута; логические атрибуты не фильтруются; текстовый
+          фильтр атрибута text_list — равенство любому элементу списка);
         * `par.<код>.min=`, `par.<код>.max=`, `par.<код>.exact=` — границы
           численного параметра; `par.<код>.text=` либо `par.<код>=<текст>` —
           текст/enum.
@@ -696,6 +697,11 @@ components:
         code: {type: string}
         name: {type: string}
         text: {type: string}
+        texts:
+          type: array
+          description: Список заметок атрибута типа text_list (порядок —
+            порядок наполнения); опущен у скалярных атрибутов.
+          items: {type: string}
         num: {type: number}
         bool: {type: boolean}
     CardValue:
@@ -1024,7 +1030,9 @@ components:
               additionalProperties: {oneOf: [{type: string}, {type: number}]}
             attributes:
               type: object
-              description: "Код атрибута → значение (строка/число/логическое)."
+              description: "Код атрибута → значение (строка / массив строк
+                для атрибутов типа text_list / число / логическое;
+                null — атрибут не задаётся)."
             manufacturers:
               type: array
               items: {type: string}
@@ -1133,7 +1141,7 @@ components:
         code: {type: string}
         name: {type: string}
         group: {type: string}
-        type: {type: string, enum: [text, bool, int, number, enum]}
+        type: {type: string, enum: [text, text_list, bool, int, number, enum]}
         unit: {type: string}
         validation_rule: {type: string}
         sort_order: {type: integer}

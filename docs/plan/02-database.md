@@ -121,11 +121,11 @@ parameter_condition_set_items(parameter_code TEXT NOT NULL, set_no INTEGER NOT N
 
 attributes(code TEXT PRIMARY KEY,
            group TEXT NULL,
-           value_type TEXT NOT NULL,                           -- text | bool | int | number | enum
+           value_type TEXT NOT NULL,                           -- text | text_list | bool | int | number | enum
            unit_code TEXT NULL REFERENCES units(code),
            validation_rule TEXT NULL REFERENCES validation_rules(code),
            sort_order INTEGER NOT NULL, is_active INTEGER NOT NULL DEFAULT 1)
-    -- отображаемое название атрибута — i18n: attr.<код>
+     -- отображаемое название атрибута — i18n: attr.<код>
 
 attribute_kinds(attribute_code TEXT NOT NULL REFERENCES attributes(code) ON DELETE CASCADE,
                 kind_code TEXT NOT NULL REFERENCES kinds(code) ON DELETE CASCADE,
@@ -203,9 +203,12 @@ device_designation_fields(device_id NOT NULL REFERENCES devices(id) ON DELETE CA
 device_attribute_values(device_id NOT NULL REFERENCES devices(id) ON DELETE CASCADE,
                         attribute_code TEXT NOT NULL REFERENCES attributes(code),
                         text_value TEXT NULL, num_value REAL NULL, bool_value INTEGER NULL,
-                        PRIMARY KEY (device_id, attribute_code),
+                        sort_order INTEGER NOT NULL DEFAULT 0,
+                        PRIMARY KEY (device_id, attribute_code, sort_order),
                         CHECK (bool_value IS NULL OR bool_value IN (0, 1)))
-    -- одно значение на атрибут (замена целиком при записи секции)
+     -- скалярные типы — одно значение на атрибут (замена целиком при
+     -- записи секции); атрибуты типа text_list — список строк: по строке
+     -- на элемент, sort_order — порядок списка (первый — notes)
 
 device_variants(id PK,
                 device_id NOT NULL REFERENCES devices(id) ON DELETE CASCADE,
@@ -331,7 +334,7 @@ change_events(id PK, revision INTEGER NOT NULL,              -- data_revision П
 ## 5. Версия схемы и сидирование (без миграций)
 
 1. `EnsureCreated` выполняет полный DDL (`CREATE … IF NOT EXISTS`) и записывает `schema_version = N` (N — константа модуля, инкрементируется при любом изменении DDL либо изменении состава хранимых данных записи) и `catalog_revision = 1`, `data_revision = 1`; вставка меты — `INSERT … SELECT … WHERE NOT EXISTS` с атомарным подавлением конфликта уникальности (`ON CONFLICT DO NOTHING`) — конкурентное создание той же меты ошибки не даёт.
-2. Если база уже существует: читается `schema_version`; несовпадение — `*domain.Error{Code: schema_version_mismatch}` с текстом «база данных создана другой версией модуля (N ≠ M); пересоздайте её: удалите файл/базу и выполните import»; продолжение работы запрещено — тихая порча данных исключена. `EnsureCreated` сверяет версию **до** выполнения DDL: база прежней версии получает отказ без изменений — частичное применение новой схемы до отказа исключено. Отсутствие таблицы `schema_meta` (не инициализированная база, файл другой программы, повреждённая база) — отдельный код `database_not_initialized` с текстом «база данных не инициализирована или не является базой модуля; выполните init (CLI) или EnsureCreated». Текущая версия — **10**: таблица `device_synonyms` — исторические названия записей (синонимы — 03-data-model.md §9). Версия 9 — таблица `change_events` — поток изменений записей (change feed; события пишет та же транзакция, что инкрементирует `data_revision`). Версия 8 — производное поле `base` в `device_designation_fields` (03-data-model.md §2.6); базы прежних версий пересоздаются импортом (D5).
+2. Если база уже существует: читается `schema_version`; несовпадение — `*domain.Error{Code: schema_version_mismatch}` с текстом «база данных создана другой версией модуля (N ≠ M); пересоздайте её: удалите файл/базу и выполните import»; продолжение работы запрещено — тихая порча данных исключена. `EnsureCreated` сверяет версию **до** выполнения DDL: база прежней версии получает отказ без изменений — частичное применение новой схемы до отказа исключено. Отсутствие таблицы `schema_meta` (не инициализированная база, файл другой программы, повреждённая база) — отдельный код `database_not_initialized` с текстом «база данных не инициализирована или не является базой модуля; выполните init (CLI) или EnsureCreated». Текущая версия — **11**: колонка `sort_order` и составной PK `(device_id, attribute_code, sort_order)` таблицы `device_attribute_values` — атрибуты типа `text_list` (список заметок, первый — `notes`) хранятся списком строк. Версия 10 — таблица `device_synonyms` — исторические названия записей (синонимы — 03-data-model.md §9). Версия 9 — таблица `change_events` — поток изменений записей (change feed; события пишет та же транзакция, что инкрементирует `data_revision`). Версия 8 — производное поле `base` в `device_designation_fields` (03-data-model.md §2.6); базы прежних версий пересоздаются импортом (D5).
 3. **Сиды каталога** (`seed/`, формат — та же секция `catalog` файла наполнения: только коды и структурные поля, D9): единицы (латинские коды), условия, группы, именованные правила, системы обозначений и применимость к классам, стартовые каталоги параметров/атрибутов пяти классов (`03-data-model.md`). Применяются при `EnsureCreated` на пустую базу; содержимое каталога — данные, поэтому его эволюция не требует изменения `schema_version` (новый параметр — строка). Отображаемые названия сидов — бандлы `internal/i18n`; полнота бандлов для всех кодов сидов закреплена пин-тестами (`seed/seed_test.go`).
 4. Каталог может расширяться файлом наполнения (секция `catalog`) или экспортироваться целиком (`catalog export`); импорт каталога — **upsert по коду**: вставка новой строки либо обновление полей существующей (enum-значения, наборы условий и применимость `parameter_kinds`/`attribute_kinds` замещаются целиком); удаление строк каталога файлом не поддерживается — только деактивация (`is_active = 0`); round-trip идемпотентен (экспорт включает все строки, включая сиды; ключей имён/описаний формат не несёт — D9); валидация метасхемы при импорте (единицы/условия/enum существуют, наборы условий корректны, правила известны).
 5. Изменение `catalog_revision`/`data_revision` — атомарным инкрементом (`UPDATE … SET value = value + 1`) по одному разу в каждой транзакции, меняющей каталог/устройства (корректно при конкурентных записях; upsert с исходом `Skipped` ничего не меняет и не инкрементирует); REST отдаёт их в `ETag`. Транзакция, инкрементирующая `data_revision`, записывает и событие в `change_events` (change feed, §2.3): upsert с исходом `Added` — `created`, `UpdatedExisting` — `updated`, удаление — `deleted` (компенсационные удаления импортёра идут штатным `Delete` — событие возникает само); ревизия события — значение счётчика после инкремента, прочитанное в той же транзакции. Снимок каталога (`LoadSnapshot`) читается одной транзакцией чтения вместе с `catalog_revision` — кэш не получает пару «определения из одного состояния, ревизия из другого»: ревизия быстрой проверки используется только для решения о перезагрузке, а кэш хранит ревизию из того же чтения, что и снимок.

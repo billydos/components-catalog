@@ -289,9 +289,15 @@ func explicitFields(c *service.Card, parsed *domain.ParsedDesignation) []domain.
 	return out
 }
 
-// attrTreeValue — скаляр значения атрибута.
+// attrTreeValue — скаляр либо массив строк (text_list) значения атрибута.
 func attrTreeValue(a service.CardAttribute) value {
 	switch {
+	case a.Texts != nil:
+		items := make([]value, 0, len(a.Texts))
+		for _, s := range a.Texts {
+			items = append(items, str(s))
+		}
+		return array(items...)
 	case a.Text != nil:
 		return str(*a.Text)
 	case a.Num != nil:

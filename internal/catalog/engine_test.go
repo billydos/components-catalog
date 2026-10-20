@@ -509,6 +509,20 @@ func TestAttributeValueTypes(t *testing.T) {
 			"attribute «yearFrom»: an integer is expected"},
 		{"enum вне списка", catalog.AttributeValue{Attribute: "functionalChar", Text: s("Г")},
 			"attribute «functionalChar»: value «Г» is not among the allowed ones (А, Б, В)"},
+		{"список", catalog.AttributeValue{Attribute: "notes", Texts: []string{"заметка одна", "заметка две"}}, ""},
+		{"список одним элементом", catalog.AttributeValue{Attribute: "notes", Texts: []string{"единственная"}}, ""},
+		{"не список", catalog.AttributeValue{Attribute: "notes", Text: s("текстом")},
+			"attribute «notes»: a list of text items is expected"},
+		{"пустой список", catalog.AttributeValue{Attribute: "notes", Texts: []string{}},
+			"attribute «notes»: the list of items cannot be empty"},
+		{"пустой элемент списка", catalog.AttributeValue{Attribute: "notes", Texts: []string{"заметка", " "}},
+			"attribute «notes»: list items cannot be empty"},
+		{"повтор элемента списка", catalog.AttributeValue{Attribute: "notes", Texts: []string{"заметка", "заметка"}},
+			"attribute «notes»: duplicate list item «заметка»"},
+		{"повтор элемента списка по trim-ключу", catalog.AttributeValue{Attribute: "notes", Texts: []string{"заметка", " заметка "}},
+			"attribute «notes»: duplicate list item « заметка »"},
+		{"массив не для списка", catalog.AttributeValue{Attribute: "description", Texts: []string{"текстом"}},
+			"attribute «description»: a text value is expected"},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {

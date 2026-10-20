@@ -41,22 +41,23 @@ func (t ValueType) Numeric() bool {
 }
 
 // AttrType — тип значения атрибута (docs/plan/03-data-model.md §10):
-// text | bool | int | number | enum.
+// text | text_list | bool | int | number | enum.
 type AttrType string
 
 // Реестр типов значений атрибутов (DB-значения колонки value_type).
 const (
-	AttrText   AttrType = "text"
-	AttrBool   AttrType = "bool"
-	AttrInt    AttrType = "int"
-	AttrNumber AttrType = "number"
-	AttrEnum   AttrType = "enum"
+	AttrText     AttrType = "text"
+	AttrTextList AttrType = "text_list"
+	AttrBool     AttrType = "bool"
+	AttrInt      AttrType = "int"
+	AttrNumber   AttrType = "number"
+	AttrEnum     AttrType = "enum"
 )
 
 // Valid сообщает, входит ли тип атрибута в реестр.
 func (t AttrType) Valid() bool {
 	switch t {
-	case AttrText, AttrBool, AttrInt, AttrNumber, AttrEnum:
+	case AttrText, AttrTextList, AttrBool, AttrInt, AttrNumber, AttrEnum:
 		return true
 	}
 	return false

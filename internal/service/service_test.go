@@ -53,6 +53,11 @@ func attrNum(code string, v float64) catalog.AttributeValue {
 	return catalog.AttributeValue{Attribute: code, Num: &v}
 }
 
+// attrTexts — значение атрибута типа text_list (список заметок).
+func attrTexts(code string, items ...string) catalog.AttributeValue {
+	return catalog.AttributeValue{Attribute: code, Texts: items}
+}
+
 func cond(code string, v float64) catalog.ConditionValue {
 	return catalog.ConditionValue{Condition: code, Value: v}
 }
@@ -167,6 +172,7 @@ func seedTransistors(t *testing.T, svc *DeviceService) {
 
 func runSuite(t *testing.T, factory configFactory) {
 	t.Run("upsert sections", func(t *testing.T) { suiteUpsertSections(t, factory) })
+	t.Run("attributes text_list", func(t *testing.T) { suiteAttrTextList(t, factory) })
 	t.Run("atomic on error", func(t *testing.T) { suiteAtomicOnError(t, factory) })
 	t.Run("variants", func(t *testing.T) { suiteVariants(t, factory) })
 	t.Run("variant filters", func(t *testing.T) { suiteVariantFilters(t, factory) })
@@ -298,6 +304,63 @@ func suiteUpsertSections(t *testing.T, factory configFactory) {
 	}
 	if !slices.Equal(card.Manufacturers, []string{"Восход", "Терма"}) {
 		t.Fatalf("производители затронуты: %v", card.Manufacturers)
+	}
+}
+
+// suiteAttrTextList — атрибут типа text_list (notes): карточка возвращает
+// список заметок Texts в порядке наполнения; повторный вход с теми же
+// заметками — Skipped, другой порядок — замена (порядок значим), ошибка
+// в элементе — запись не применяется.
+func suiteAttrTextList(t *testing.T, factory configFactory) {
+	ctx := context.Background()
+	app := openSuiteApp(t, factory)
+	svc := app.Services().Devices
+
+	in := DeviceInput{
+		Name: "С2-33Н",
+		Attributes: []catalog.AttributeValue{
+			attrTexts("notes", "снижение мощности при нагреве", "серия 05"),
+		},
+	}
+	if out := mustUpsert(t, svc, in); out != OutcomeAdded {
+		t.Fatalf("исход: %s, ожидался Added", out)
+	}
+	card, ok, err := svc.Get(ctx, "resistor", "С2-33Н")
+	if err != nil || !ok {
+		t.Fatalf("get: ok=%v err=%v", ok, err)
+	}
+	if len(card.Attributes) != 1 || card.Attributes[0].Code != "notes" ||
+		!slices.Equal(card.Attributes[0].Texts, []string{"снижение мощности при нагреве", "серия 05"}) {
+		t.Fatalf("атрибуты: %+v", card.Attributes)
+	}
+
+	// Повтор того же входа — Skipped (порядок и текст заметок совпадают).
+	if out := mustUpsert(t, svc, in); out != OutcomeSkipped {
+		t.Fatalf("повтор: %s, ожидался Skipped", out)
+	}
+
+	// Другой порядок — замена: порядок списка значим.
+	if out := mustUpsert(t, svc, DeviceInput{
+		Name:       "С2-33Н",
+		Attributes: []catalog.AttributeValue{attrTexts("notes", "серия 05", "снижение мощности при нагреве")},
+	}); out != OutcomeUpdatedExisting {
+		t.Fatalf("переупорядочивание: %s, ожидался UpdatedExisting", out)
+	}
+	card, _, _ = svc.Get(ctx, "resistor", "С2-33Н")
+	if !slices.Equal(card.Attributes[0].Texts, []string{"серия 05", "снижение мощности при нагреве"}) {
+		t.Fatalf("заметки после переупорядочивания: %+v", card.Attributes[0])
+	}
+
+	// Ошибка значения (повтор элемента) — запись не применяется вовсе.
+	_, err = svc.Upsert(ctx, DeviceInput{
+		Name:       "С2-33Н",
+		Attributes: []catalog.AttributeValue{attrTexts("notes", "серия 05", "серия 05")},
+	})
+	wantDomainError(t, err, domain.CodeValidationFailed,
+		"attribute «notes»: duplicate list item «серия 05»")
+	card, _, _ = svc.Get(ctx, "resistor", "С2-33Н")
+	if len(card.Attributes[0].Texts) != 2 {
+		t.Fatalf("заметки изменились при ошибке: %+v", card.Attributes[0])
 	}
 }
 

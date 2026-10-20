@@ -861,3 +861,183 @@ func TestReplaceSynonyms(t *testing.T) {
 		})
 	}
 }
+
+// TestReplaceAttributesTextList — атрибут типа text_list хранится списком
+// строк (sort_order — порядок списка): замена целиком перезаписывает все
+// строки, группировка чтений сливает строки одного кода в один AttrRow
+// (тексты — в Texts по порядку, скаляр — первой строкой); замена
+// сокращённым набором и пустым списком убирает лишние строки. Обе СУБД.
+func TestReplaceAttributesTextList(t *testing.T) {
+	for _, dialect := range []string{"sqlite", "postgres"} {
+		t.Run(dialect, func(t *testing.T) {
+			db := openDevicesDB(t, dialect)
+			ctx := context.Background()
+
+			tx, err := db.Begin(ctx)
+			if err != nil {
+				t.Fatalf("begin: %v", err)
+			}
+			for _, q := range []string{
+				`INSERT INTO attributes(code, value_type, sort_order) VALUES ('notes', 'text_list', 0), ('spec', 'text', 1)`,
+			} {
+				if _, err := tx.exec(ctx, q, nil); err != nil {
+					t.Fatalf("сид %q: %v", q, err)
+				}
+			}
+			id, _, err := tx.InsertDevice(ctx, "resistor", "gost", "МЛТ-0.5")
+			if err != nil {
+				t.Fatalf("вставка: %v", err)
+			}
+			spec := "ОЖ0.467.093ТУ"
+			replace := func(notes []string) {
+				t.Helper()
+				if err := tx.ReplaceAttributes(ctx, id, []AttrRow{
+					{Attribute: "notes", Texts: notes},
+					{Attribute: "spec", Text: &spec},
+				}); err != nil {
+					t.Fatalf("атрибуты: %v", err)
+				}
+			}
+			replace([]string{"снижение мощности при нагреве", "серия 05"})
+			if err := tx.Commit(); err != nil {
+				t.Fatalf("commit: %v", err)
+			}
+
+			load := func() []AttrRow {
+				t.Helper()
+				rtx, err := db.BeginReadOnly(ctx)
+				if err != nil {
+					t.Fatalf("begin чтения: %v", err)
+				}
+				defer rtx.Rollback() //nolint:errcheck — чтение без побочных эффектов
+				rows, err := rtx.LoadAttributes(ctx, id)
+				if err != nil {
+					t.Fatalf("чтение: %v", err)
+				}
+				return rows
+			}
+			rows := load()
+			want := []AttrRow{
+				{Attribute: "notes", Text: &[]string{"снижение мощности при нагреве"}[0],
+					Texts: []string{"снижение мощности при нагреве", "серия 05"}},
+				{Attribute: "spec", Text: &spec, Texts: []string{spec}},
+			}
+			if !reflect.DeepEqual(rows, want) {
+				t.Fatalf("атрибуты: %+v, ожидались %+v", rows, want)
+			}
+
+			// Пакетное чтение проекции поиска группирует так же.
+			batched, err := db.LoadAttributesByIDsCodes(ctx, []int64{id}, []string{"notes", "spec"})
+			if err != nil {
+				t.Fatalf("пакетное чтение: %v", err)
+			}
+			if !reflect.DeepEqual(batched[id], want) {
+				t.Fatalf("пакетное чтение: %+v, ожидались %+v", batched[id], want)
+			}
+
+			// Замена сокращённым списком убирает лишние строки, пустой
+			// список (не nil — скалярная ветка) не оставляет строк кода.
+			tx, err = db.Begin(ctx)
+			if err != nil {
+				t.Fatalf("begin: %v", err)
+			}
+			replace([]string{"одна заметка"})
+			if err := tx.Commit(); err != nil {
+				t.Fatalf("commit: %v", err)
+			}
+			rows = load()
+			if len(rows) != 2 || !slices.Equal(rows[0].Texts, []string{"одна заметка"}) {
+				t.Fatalf("после сокращения: %+v", rows)
+			}
+			tx, err = db.Begin(ctx)
+			if err != nil {
+				t.Fatalf("begin: %v", err)
+			}
+			replace([]string{})
+			if err := tx.Commit(); err != nil {
+				t.Fatalf("commit: %v", err)
+			}
+			rows = load()
+			if len(rows) != 1 || rows[0].Attribute != "spec" {
+				t.Fatalf("после очистки: %+v, ожидался только spec", rows)
+			}
+		})
+	}
+}
+
+// TestConcurrentAttrTextListWriters — параллельные замены секции attributes
+// с многострочным text_list: одинаковые списки писателей подавляются
+// атомарно (INSERT … ON CONFLICT DO NOTHING по составному PK со
+// sort_order), ошибок уникальности нет, итог — один список. SQLite —
+// писатель один (прогон тривиально сходится), PostgreSQL — реальная
+// конкуренция соединений пула.
+func TestConcurrentAttrTextListWriters(t *testing.T) {
+	for _, dialect := range []string{"sqlite", "postgres"} {
+		t.Run(dialect, func(t *testing.T) {
+			db := openDevicesDB(t, dialect)
+			ctx := context.Background()
+
+			tx, err := db.Begin(ctx)
+			if err != nil {
+				t.Fatalf("begin: %v", err)
+			}
+			if _, err := tx.exec(ctx,
+				`INSERT INTO attributes(code, value_type, sort_order) VALUES ('notes', 'text_list', 0)`, nil); err != nil {
+				t.Fatalf("сид: %v", err)
+			}
+			id, _, err := tx.InsertDevice(ctx, "resistor", "gost", "МЛТ-0.5")
+			if err != nil {
+				t.Fatalf("вставка: %v", err)
+			}
+			if err := tx.Commit(); err != nil {
+				t.Fatalf("commit: %v", err)
+			}
+
+			const writers = 8
+			errs := make([]error, writers)
+			start := make(chan struct{})
+			var wg sync.WaitGroup
+			for i := range writers {
+				wg.Add(1)
+				go func() {
+					defer wg.Done()
+					<-start
+					wtx, err := db.Begin(ctx)
+					if err != nil {
+						errs[i] = err
+						return
+					}
+					defer wtx.Rollback() //nolint:errcheck — откат нефиксированной транзакции
+					if err := wtx.ReplaceAttributes(ctx, id, []AttrRow{
+						{Attribute: "notes", Texts: []string{"заметка один", "заметка два", "заметка три"}},
+					}); err != nil {
+						errs[i] = err
+						return
+					}
+					errs[i] = wtx.Commit()
+				}()
+			}
+			close(start)
+			wg.Wait()
+
+			for i, err := range errs {
+				if err != nil {
+					t.Fatalf("писатель %d: %v", i, err)
+				}
+			}
+			rtx, err := db.BeginReadOnly(ctx)
+			if err != nil {
+				t.Fatalf("begin чтения: %v", err)
+			}
+			defer rtx.Rollback() //nolint:errcheck — чтение без побочных эффектов
+			rows, err := rtx.LoadAttributes(ctx, id)
+			if err != nil {
+				t.Fatalf("чтение: %v", err)
+			}
+			if len(rows) != 1 || !slices.Equal(rows[0].Texts,
+				[]string{"заметка один", "заметка два", "заметка три"}) {
+				t.Fatalf("итог гонки: %+v", rows)
+			}
+		})
+	}
+}

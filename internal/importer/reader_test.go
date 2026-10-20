@@ -168,6 +168,86 @@ func TestReadDocumentSectionSemantics(t *testing.T) {
 	}
 }
 
+// Атрибут-массив — значение text_list: массив строк читается списком
+// Texts (trim каждого элемента); не-строковый элемент и прочие формы
+// массива — ошибки с дословными текстами.
+func TestReadDocumentAttrTextList(t *testing.T) {
+	root, snap := parseDoc(t, `{
+		"resistors": [
+			{
+				"name": "С2-33Н",
+				"attributes": {
+					"notes": ["  снижение мощности при нагреве ", "серия 05"],
+					"technology": "металлодиэлектрические"
+				}
+			}
+		]
+	}`)
+	doc, issues := ReadDocument(root, snap)
+	if len(issues) != 0 {
+		t.Fatalf("проблемы не ожидались: %v", issueMessages(issues))
+	}
+	attrs := doc.Records[0].Input.Attributes
+	want := []catalog.AttributeValue{
+		{Attribute: "notes", Texts: []string{"снижение мощности при нагреве", "серия 05"}},
+		{Attribute: "technology", Text: strPtr("металлодиэлектрические")},
+	}
+	if len(attrs) != len(want) {
+		t.Fatalf("атрибуты: %+v", attrs)
+	}
+	for i, av := range attrs {
+		if av.Attribute != want[i].Attribute || !strPtrEq(av.Text, want[i].Text) ||
+			!stringsEq(av.Texts, want[i].Texts) || av.Num != nil || av.Bool != nil {
+			t.Fatalf("атрибут %d: %+v, ожидался %+v", i, av, want[i])
+		}
+	}
+}
+
+func TestReadDocumentAttrTextListErrors(t *testing.T) {
+	cases := []struct {
+		name string
+		body string
+		want string
+	}{
+		{"не-строковый элемент", `{"notes": ["заметка", 5]}`,
+			"record «С2-33Н»: attribute «notes»: array items must be strings"},
+		{"массив объектов", `{"notes": [{"text": "заметка"}]}`,
+			"record «С2-33Н»: attribute «notes»: array items must be strings"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			root, snap := parseDoc(t, `{
+				"resistors": [ { "name": "С2-33Н", "attributes": `+tc.body+` } ]
+			}`)
+			_, issues := ReadDocument(root, snap)
+			if len(issues) == 0 || issues[0].String() != tc.want {
+				t.Fatalf("ожидалась проблема %q, получено: %v", tc.want, issueMessages(issues))
+			}
+		})
+	}
+}
+
+func strPtrEq(a, b *string) bool {
+	if a == nil || b == nil {
+		return a == b
+	}
+	return *a == *b
+}
+
+func strPtr(s string) *string { return &s }
+
+func stringsEq(a, b []string) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i := range a {
+		if a[i] != b[i] {
+			return false
+		}
+	}
+	return true
+}
+
 func TestReadDocumentValueConditions(t *testing.T) {
 	root, snap := parseDoc(t, `{
 		"transistors": [

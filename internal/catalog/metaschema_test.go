@@ -183,6 +183,8 @@ func TestMetaschemaAttributeViolations(t *testing.T) {
 	if !ok {
 		t.Fatal("description отсутствует")
 	}
+	textListWithUnit := withAttrType(yearFrom(t), catalog.AttrTextList)
+	textListWithUnit.Unit = "degC"
 	cases := []struct {
 		name string
 		in   catalog.Input
@@ -197,6 +199,9 @@ func TestMetaschemaAttributeViolations(t *testing.T) {
 		{"enum атрибута без значений", catalog.Input{Attributes: []catalog.AttributeDef{
 			withAttrType(base, catalog.AttrEnum),
 		}}, "catalog: attribute «description»: type enum requires a non-empty list of values"},
+		{"единица у text_list", catalog.Input{Attributes: []catalog.AttributeDef{
+			textListWithUnit,
+		}}, "catalog: attribute «yearFrom» of type text_list must not have a unit"},
 		{"правило параметров у атрибута", catalog.Input{Attributes: []catalog.AttributeDef{
 			withAttrRule(base, "temp_pair"),
 		}}, "catalog: attribute «description»: rule «temp_pair» does not apply to attributes"},

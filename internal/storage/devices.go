@@ -53,10 +53,15 @@ type VariantRow struct {
 	SortOrder int
 }
 
-// AttrRow — значение атрибута записи (ровно одно из Text/Num/Bool задано).
+// AttrRow — значение атрибута записи: скалярные типы — ровно одно из
+// Text/Num/Bool (первая строка группы кода), тексты всех строк группы —
+// в Texts в порядке sort_order (тип text_list: список заметок; скаляр —
+// ноль либо один элемент). Какой поле читать — решает потребитель по типу
+// атрибута каталога; хранилище группировку строк не семантизирует.
 type AttrRow struct {
 	Attribute string
 	Text      *string
+	Texts     []string
 	Num       *float64
 	Bool      *bool
 }
@@ -253,7 +258,7 @@ func (t *Tx) LoadAttributes(ctx context.Context, deviceID int64) ([]AttrRow, err
 func loadAttributes(ctx context.Context, q queryer, deviceID int64) ([]AttrRow, error) {
 	rows, err := queryContext(ctx, q, `
 SELECT attribute_code, text_value, num_value, bool_value FROM device_attribute_values
-WHERE device_id = @id ORDER BY attribute_code`,
+WHERE device_id = @id ORDER BY attribute_code, sort_order`,
 		map[string]any{"id": deviceID})
 	if err != nil {
 		return nil, err
@@ -268,21 +273,39 @@ WHERE device_id = @id ORDER BY attribute_code`,
 		if err := rows.Scan(&r.Attribute, &text, &num, &b); err != nil {
 			return nil, err
 		}
-		if text.Valid {
-			s := text.String
-			r.Text = &s
-		}
-		if num.Valid {
-			f := num.Float64
-			r.Num = &f
-		}
-		if b.Valid {
-			v := b.Int64 != 0
-			r.Bool = &v
-		}
-		out = append(out, r)
+		out = appendAttrRow(out, r.Attribute, text, num, b)
 	}
 	return out, rows.Err()
+}
+
+// appendAttrRow добавляет строку device_attribute_values в накопитель
+// сгруппированных по коду значений: строки одного кода сливаются в один
+// AttrRow (тексты — в Texts по порядку), скалярные поля — из первой
+// строки группы. Строки обязаны приходить упорядоченными по коду
+// (и sort_order внутри).
+func appendAttrRow(out []AttrRow, code string, text sql.NullString, num sql.NullFloat64, b sql.NullInt64) []AttrRow {
+	if n := len(out); n > 0 && out[n-1].Attribute == code {
+		if text.Valid {
+			out[n-1].Texts = append(out[n-1].Texts, text.String)
+		}
+		return out
+	}
+	var r AttrRow
+	r.Attribute = code
+	if text.Valid {
+		s := text.String
+		r.Text = &s
+		r.Texts = []string{s}
+	}
+	if num.Valid {
+		f := num.Float64
+		r.Num = &f
+	}
+	if b.Valid {
+		v := b.Int64 != 0
+		r.Bool = &v
+	}
+	return append(out, r)
 }
 
 // loadValues — все значения параметров устройства (тип в целом и исполнения)
@@ -603,33 +626,21 @@ func loadAttributesByIDs(ctx context.Context, q queryer, ids []int64, codes []st
 		rows, err := queryContext(ctx, q, `
 SELECT device_id, attribute_code, text_value, num_value, bool_value
 FROM device_attribute_values
-`+where+` ORDER BY device_id, attribute_code`, args)
+`+where+` ORDER BY device_id, attribute_code, sort_order`, args)
 		if err != nil {
 			return err
 		}
 		defer rows.Close()
 		for rows.Next() {
 			var id int64
-			var r AttrRow
+			var code string
 			var text sql.NullString
 			var num sql.NullFloat64
 			var b sql.NullInt64
-			if err := rows.Scan(&id, &r.Attribute, &text, &num, &b); err != nil {
+			if err := rows.Scan(&id, &code, &text, &num, &b); err != nil {
 				return err
 			}
-			if text.Valid {
-				s := text.String
-				r.Text = &s
-			}
-			if num.Valid {
-				f := num.Float64
-				r.Num = &f
-			}
-			if b.Valid {
-				v := b.Int64 != 0
-				r.Bool = &v
-			}
-			out[id] = append(out[id], r)
+			out[id] = appendAttrRow(out[id], code, text, num, b)
 		}
 		return rows.Err()
 	})
@@ -1079,8 +1090,14 @@ func (t *Tx) DeleteDesignationFields(ctx context.Context, deviceID int64, names 
 }
 
 // ReplaceAttributes заменяет значения атрибутов целиком (секция attributes);
-// значения, вставленные параллельным писателем в той же записи и не видимые
-// DELETE этого вызова, сохраняются.
+// подавление конфликтов уникальности — по строке (составной PK со
+// sort_order): значения, вставленные параллельным писателем в той же записи
+// и не видные DELETE этого вызова, сохраняются; для text_list подавление
+// также построчно — списки двух невидимых друг другу писателей могут
+// перемешаться (сервис перечитывает слитое состояние в своей транзакции
+// записи и этим сценарием не владеет). Texts — список строк типа text_list:
+// по строке на элемент, sort_order — порядок списка (пустой список — строк
+// нет); скалярные типы — одна строка с sort_order 0.
 func (t *Tx) ReplaceAttributes(ctx context.Context, deviceID int64, rows []AttrRow) error {
 	if _, err := t.exec(ctx,
 		`DELETE FROM device_attribute_values WHERE device_id = @id`,
@@ -1088,6 +1105,17 @@ func (t *Tx) ReplaceAttributes(ctx context.Context, deviceID int64, rows []AttrR
 		return err
 	}
 	for _, r := range rows {
+		if r.Texts != nil {
+			for i, s := range r.Texts {
+				if _, err := t.InsertIfAbsent(ctx, `
+INSERT INTO device_attribute_values(device_id, attribute_code, text_value, sort_order)
+VALUES (@id, @code, @text, @pos)`,
+					map[string]any{"id": deviceID, "code": r.Attribute, "text": s, "pos": i}); err != nil {
+					return err
+				}
+			}
+			continue
+		}
 		var text, num, b any
 		if r.Text != nil {
 			text = *r.Text

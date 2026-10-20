@@ -428,7 +428,7 @@ func validateMetaschema(out *Snapshot) []Problem {
 		if !a.Type.Valid() {
 			probs = append(probs, metaProblem(domain.MsgMetaAttrValueType, a.Code, string(a.Type)))
 		} else {
-			if (a.Type == AttrText || a.Type == AttrEnum) && a.Unit != "" {
+			if (a.Type == AttrText || a.Type == AttrTextList || a.Type == AttrEnum) && a.Unit != "" {
 				probs = append(probs, metaProblem(domain.MsgMetaAttrUnitForbidden, a.Code, string(a.Type)))
 			}
 			if a.Type == AttrEnum && len(a.EnumValues) == 0 {

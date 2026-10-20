@@ -42,13 +42,15 @@ func fieldsToJSON(fields []domain.Field) []fieldJSON {
 	return out
 }
 
-// cardAttrJSON — значение атрибута карточки.
+// cardAttrJSON — значение атрибута карточки (texts — список заметок
+// атрибута типа text_list).
 type cardAttrJSON struct {
-	Code string   `json:"code"`
-	Name string   `json:"name"`
-	Text *string  `json:"text,omitempty"`
-	Num  *float64 `json:"num,omitempty"`
-	Bool *bool    `json:"bool,omitempty"`
+	Code  string   `json:"code"`
+	Name  string   `json:"name"`
+	Text  *string  `json:"text,omitempty"`
+	Texts []string `json:"texts,omitempty"`
+	Num   *float64 `json:"num,omitempty"`
+	Bool  *bool    `json:"bool,omitempty"`
 }
 
 // conditionJSON — условие измерения значения.
@@ -174,7 +176,7 @@ func cardToJSON(lang i18n.Language, c *service.Card) cardJSON {
 	for _, a := range c.Attributes {
 		out.Attributes = append(out.Attributes, cardAttrJSON{
 			Code: a.Code, Name: i18n.AttributeName(lang, a.Code),
-			Text: a.Text, Num: a.Num, Bool: a.Bool,
+			Text: a.Text, Texts: a.Texts, Num: a.Num, Bool: a.Bool,
 		})
 	}
 	out.Groups = groupsToJSON(lang, c.Groups)

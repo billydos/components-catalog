@@ -58,11 +58,12 @@ const (
 type AttrType = catalog.AttrType
 
 const (
-	AttrText   = catalog.AttrText
-	AttrBool   = catalog.AttrBool
-	AttrInt    = catalog.AttrInt
-	AttrNumber = catalog.AttrNumber
-	AttrEnum   = catalog.AttrEnum
+	AttrText     = catalog.AttrText
+	AttrTextList = catalog.AttrTextList
+	AttrBool     = catalog.AttrBool
+	AttrInt      = catalog.AttrInt
+	AttrNumber   = catalog.AttrNumber
+	AttrEnum     = catalog.AttrEnum
 )
 
 // Роли условий в наборе условий параметра.

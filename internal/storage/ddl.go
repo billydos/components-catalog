@@ -31,7 +31,11 @@ import "strings"
 // (синонимы) с заметкой и годами употребления имени; обозначение-синоним
 // не является записью и не имеет своей карточки — find и поиск разрешают
 // его в запись-владельца (план 03 §9).
-const SchemaVersion = 10
+// Версия 11 — колонка sort_order и составной PK (device_id,
+// attribute_code, sort_order) таблицы device_attribute_values: атрибуты
+// типа text_list хранятся списком строк (первый — notes); базы прежних
+// версий пересоздаются импортом (D5).
+const SchemaVersion = 11
 
 // autoIncToken — маркер авто-PK в переносимом DDL; диалект заменяет его
 // своим определением в RewriteDDL (sqlite: PRIMARY KEY AUTOINCREMENT —
@@ -178,7 +182,8 @@ var ddlStatements = []string{
     text_value     TEXT NULL,
     num_value      REAL NULL,
     bool_value     INTEGER NULL,
-    PRIMARY KEY (device_id, attribute_code),
+    sort_order     INTEGER NOT NULL DEFAULT 0,
+    PRIMARY KEY (device_id, attribute_code, sort_order),
     CHECK (bool_value IS NULL OR bool_value IN (0, 1))
 )`,
 

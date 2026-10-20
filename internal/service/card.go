@@ -279,9 +279,13 @@ func assembleCard(snap *catalog.Snapshot, dev *storage.DeviceRow,
 		if !ok {
 			continue
 		}
-		card.Attributes = append(card.Attributes, CardAttribute{
-			Code: def.Code, Text: row.Text, Num: row.Num, Bool: row.Bool,
-		})
+		ca := CardAttribute{Code: def.Code, Num: row.Num, Bool: row.Bool}
+		if def.Type == catalog.AttrTextList {
+			ca.Texts = row.Texts
+		} else {
+			ca.Text = row.Text
+		}
+		card.Attributes = append(card.Attributes, ca)
 	}
 
 	// Значения типа в целом и исполнений — по группам каталога

@@ -275,6 +275,10 @@ func TestSeedSpotChecks(t *testing.T) {
 	if a := attr("structure"); !a.AppliesTo(domain.KindTransistor) || !a.AppliesTo(domain.KindDiode) || a.AppliesTo(domain.KindResistor) {
 		t.Errorf("structure: применимость %v", a.Kinds)
 	}
+	// Заметки наполняющего — список строк (03 §10).
+	if a := attr("notes"); a.Type != catalog.AttrTextList || len(a.Kinds) != 0 {
+		t.Errorf("notes: %+v", a)
+	}
 	// Атрибуты реле: enum-тип реле и контактная группа (03 §10).
 	if a := attr("relayType"); a.Type != catalog.AttrEnum || !a.AppliesTo(domain.KindRelay) ||
 		a.AppliesTo(domain.KindCapacitor) ||

@@ -111,7 +111,8 @@ func (e *Engine) validateAttributes(kind domain.Kind, vals []AttributeValue) []P
 
 // checkAttrValue — форма и семантика значения атрибута по типу
 // (docs/plan/03-data-model.md §10: текст непустой после trim, bool 0/1,
-// enum из списка, число положительно).
+// enum из списка, число положительно; список text_list — непустой,
+// элементы непустые и без повторов).
 func checkAttrValue(a *AttributeDef, av AttributeValue) []Problem {
 	fail := func(id domain.MsgID, args ...any) []Problem {
 		return []Problem{Problemf(domain.CodeValidationFailed, id, args...)}
@@ -123,6 +124,25 @@ func checkAttrValue(a *AttributeDef, av AttributeValue) []Problem {
 		}
 		if strings.TrimSpace(*av.Text) == "" {
 			return fail(domain.MsgEngineAttrTextEmpty, a.Code)
+		}
+	case AttrTextList:
+		if av.Texts == nil {
+			return fail(domain.MsgEngineAttrTextsExpected, a.Code)
+		}
+		if len(av.Texts) == 0 {
+			return fail(domain.MsgEngineAttrTextsEmpty, a.Code)
+		}
+		seen := make(map[string]bool, len(av.Texts))
+		for _, t := range av.Texts {
+			trimmed := strings.TrimSpace(t)
+			if trimmed == "" {
+				return fail(domain.MsgEngineAttrTextsElementEmpty, a.Code)
+			}
+			// Повторы — по trim-ключу: «x» и « x » — одна заметка.
+			if seen[trimmed] {
+				return fail(domain.MsgEngineAttrTextsDuplicate, a.Code, t)
+			}
+			seen[trimmed] = true
 		}
 	case AttrEnum:
 		if av.Text == nil {

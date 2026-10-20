@@ -445,6 +445,33 @@ func TestCatalogCommands(t *testing.T) {
 	}
 }
 
+// TestNotesTextListCard — заметки (notes, text_list): импорт массива,
+// карточка info выводит заметки одной строкой через «; », повторный
+// импорт — идемпотентность.
+func TestNotesTextListCard(t *testing.T) {
+	db := testDB(t)
+	run(t, "init", "--db", db)
+	file := filepath.Join(t.TempDir(), "notes.jsonc")
+	body := "{\n\t\"resistors\": [\n\t\t{ \"name\": \"С2-33Н\", \"attributes\": " +
+		"{ \"notes\": [\"снижение мощности при нагреве\", \"серия 05\"] } }\n\t]\n}\n"
+	if err := os.WriteFile(file, []byte(body), 0o600); err != nil {
+		t.Fatalf("запись файла: %v", err)
+	}
+	stdout, stderr, code := run(t, "import", file, "--db", db)
+	if code != 0 || stderr != "" || !strings.Contains(stdout, "added: 1") {
+		t.Fatalf("import: код %d, %q, %q", code, stdout, stderr)
+	}
+	stdout, stderr, code = run(t, "info", "С2-33Н", "--lang", "ru", "--db", db)
+	if code != 0 || stderr != "" ||
+		!strings.Contains(stdout, "примечания: снижение мощности при нагреве; серия 05") {
+		t.Fatalf("info (ru): код %d, %q, %q", code, stdout, stderr)
+	}
+	stdout, _, code = run(t, "import", file, "--db", db)
+	if code != 0 || !strings.Contains(stdout, "unchanged: 1") {
+		t.Fatalf("повторный import: код %d, %q", code, stdout)
+	}
+}
+
 func TestAddRequiresKindForOther(t *testing.T) {
 	db := testDB(t)
 	run(t, "init", "--db", db)

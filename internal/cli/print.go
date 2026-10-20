@@ -107,6 +107,10 @@ func printCard(w io.Writer, lang i18n.Language, c *service.Card, snap *catalog.S
 			switch {
 			case a.Text != nil:
 				value = *a.Text
+			case a.Texts != nil:
+				// Список заметок — одной строкой через «; »: карточка —
+				// чтение, элемент за элементом — файл наполнения.
+				value = strings.Join(a.Texts, "; ")
 			case a.Num != nil:
 				value = i18n.FormatNumber(lang, *a.Num)
 			case a.Bool != nil:

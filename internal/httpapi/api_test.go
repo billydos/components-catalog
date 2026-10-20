@@ -1239,6 +1239,73 @@ func TestCreate(t *testing.T) {
 	}
 }
 
+// TestNotesTextList — атрибут notes (text_list): создание массивом,
+// карточка возвращает texts, фильтр — равенство элементу, колонка
+// значений — заметки одной строкой, скаляр вместо массива — 422.
+func TestNotesTextList(t *testing.T) {
+	_, srv := newTestAPI(t, Config{})
+	status, body, _ := do(t, srv, http.MethodPost, apiPrefix+"/components",
+		`{"name":"С2-33Н","attributes":{"notes":["снижение мощности при нагреве","серия 05"]}}`)
+	if status != http.StatusCreated {
+		t.Fatalf("статус: %d, тело %s", status, body)
+	}
+	resp := decode[upsertResponseJSON](t, body)
+	if len(resp.Card.Attributes) != 1 {
+		t.Fatalf("атрибуты создания: %+v", resp.Card.Attributes)
+	}
+	notes := resp.Card.Attributes[0]
+	if notes.Code != "notes" || notes.Text != nil ||
+		!slices.Equal(notes.Texts, []string{"снижение мощности при нагреве", "серия 05"}) {
+		t.Fatalf("заметки создания: %+v", notes)
+	}
+
+	// Карточка GET — то же значение.
+	status, body, _ = do(t, srv, http.MethodGet, apiPrefix+"/components/resistor/"+esc("С2-33Н"), "")
+	if status != http.StatusOK {
+		t.Fatalf("get: %d, тело %s", status, body)
+	}
+	card := decode[cardJSON](t, body)
+	if len(card.Attributes) != 1 || !slices.Equal(card.Attributes[0].Texts, notes.Texts) {
+		t.Fatalf("заметки карточки: %+v", card.Attributes)
+	}
+
+	// Фильтр по атрибуту — текстовое равенство элементу списка.
+	status, body, _ = do(t, srv, http.MethodGet,
+		apiPrefix+"/components?kind=resistor&attr.notes="+esc("серия 05"), "")
+	if status != http.StatusOK {
+		t.Fatalf("поиск: %d, тело %s", status, body)
+	}
+	page := decode[searchPageJSON](t, body)
+	if page.Total != 1 || len(page.Items) != 1 || page.Items[0].Designation != "С2-33Н" {
+		t.Fatalf("фильтр заметки: %+v", page)
+	}
+
+	// Колонка значений attr.notes — заметки одной строкой через «; »
+	// (в выдаче и сид-записи без заметок — колонка только у С2-33Н).
+	status, body, _ = do(t, srv, http.MethodGet,
+		apiPrefix+"/components?kind=resistor&values=attr.notes", "")
+	if status != http.StatusOK {
+		t.Fatalf("колонка: %d, тело %s", status, body)
+	}
+	page = decode[searchPageJSON](t, body)
+	var column *cardValueJSON
+	for i := range page.Items {
+		if page.Items[i].Designation == "С2-33Н" && len(page.Items[i].Values) > 0 {
+			column = &page.Items[i].Values[0]
+		}
+	}
+	if column == nil || column.Text == nil ||
+		*column.Text != "снижение мощности при нагреве; серия 05" {
+		t.Fatalf("колонка заметки: %+v", column)
+	}
+
+	// Скаляр вместо массива — 422 (форма значения по типу каталога).
+	status, _, eb := do(t, srv, http.MethodPost, apiPrefix+"/components",
+		`{"name":"С2-34Н","attributes":{"notes":"текстом"}}`)
+	wantError(t, status, eb, http.StatusUnprocessableEntity, "validation_failed",
+		"attribute «notes»: a list of text items is expected")
+}
+
 func TestPut(t *testing.T) {
 	_, srv := newTestAPI(t, Config{})
 	// Замена секции производителей целиком.

@@ -264,6 +264,18 @@ func restSuite(ctx context.Context, r *report, srv, tmp string, l leg) {
 	r.check("rest/put-sections", "PUT /components: семантика секций — 200, секция применена",
 		status == http.StatusOK && strings.Contains(body, "TO-18"),
 		detail(status, body)...)
+	// text_list (notes): заметки массивом — карточка возвращает texts,
+	// фильтр attr.notes — равенство элементу, колонка values — строкой.
+	status, body, _ = cl.do(ctx, http.MethodPut, "/components/transistor/2N9013",
+		`{"name":"2N9013","attributes":{"notes":["заметка один","заметка два"]}}`, nil)
+	r.check("rest/put-textlist", "PUT /components: text_list (notes) — 200, массив texts",
+		status == http.StatusOK && strings.Contains(body, `"texts":["заметка один","заметка два"]`),
+		detail(status, body)...)
+	status, body, _ = cl.do(ctx, http.MethodGet,
+		"/components?kind=transistor&attr.notes="+url.QueryEscape("заметка два")+"&values=attr.notes", "", nil)
+	r.check("rest/textlist-filter-values", "GET /components: фильтр attr.notes по элементу, колонка — строкой",
+		status == http.StatusOK && strings.Contains(body, "заметка один; заметка два"),
+		detail(status, body)...)
 	status, body, _ = cl.do(ctx, http.MethodPut, "/components/transistor/2N9013",
 		`{"name":"2N9014"}`, nil)
 	r.check("rest/put-mismatch", "PUT /components: несовпадение обозначения — 422 designation_mismatch",

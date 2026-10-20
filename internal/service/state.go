@@ -105,9 +105,15 @@ func (s *stateMerger) loadState(ctx context.Context, tx *storage.Tx, deviceID in
 		fields:        explicitFieldsOf(storedFields, p.Fields),
 	}
 	for _, a := range attrs {
-		st.attributes = append(st.attributes, catalog.AttributeValue{
-			Attribute: a.Attribute, Text: a.Text, Num: a.Num, Bool: a.Bool,
-		})
+		// Форма значения — по типу атрибута каталога: text_list — список
+		// строк группы, прочие — скаляр первой строки.
+		av := catalog.AttributeValue{Attribute: a.Attribute, Num: a.Num, Bool: a.Bool}
+		if def, ok := s.snap.Attribute(a.Attribute); ok && def.Type == catalog.AttrTextList {
+			av.Texts = a.Texts
+		} else {
+			av.Text = a.Text
+		}
+		st.attributes = append(st.attributes, av)
 	}
 	st.variants = make([]stateVariant, 0, len(variants))
 	byVariant := make(map[int64]int, len(variants))
@@ -318,6 +324,7 @@ func attrsEqual(a, b []catalog.AttributeValue) bool {
 func attrEqual(a, b catalog.AttributeValue) bool {
 	return a.Attribute == b.Attribute &&
 		strPtrEqual(a.Text, b.Text) &&
+		slices.Equal(a.Texts, b.Texts) &&
 		numPtrEqual(a.Num, b.Num) &&
 		boolPtrEqual(a.Bool, b.Bool)
 }

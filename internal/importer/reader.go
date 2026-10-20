@@ -395,7 +395,8 @@ func (r *reader) classificationFields(rec *Record, v value) ([]domain.Field, boo
 	return out, true
 }
 
-// attributes читает секцию attributes: объект «код атрибута → значение».
+// attributes читает секцию attributes: объект «код атрибута → значение»
+// (массив строк — значение атрибута типа text_list).
 func (r *reader) attributes(rec *Record, v value) ([]catalog.AttributeValue, bool) {
 	if v.kind != kindObject {
 		r.recFail(rec, domain.MsgImportAttributesObject)
@@ -409,6 +410,21 @@ func (r *reader) attributes(rec *Record, v value) ([]catalog.AttributeValue, boo
 		case kindString:
 			s := strings.TrimSpace(m.value.str)
 			attrs = append(attrs, catalog.AttributeValue{Attribute: m.name, Text: &s})
+		case kindArray:
+			texts := make([]string, 0, len(m.value.items))
+			bad := false
+			for _, item := range m.value.items {
+				if item.kind != kindString {
+					r.recFail(rec, domain.MsgImportAttrElementString, m.name)
+					bad = true
+					break
+				}
+				texts = append(texts, strings.TrimSpace(item.str))
+			}
+			if bad {
+				return nil, false
+			}
+			attrs = append(attrs, catalog.AttributeValue{Attribute: m.name, Texts: texts})
 		case kindNumber:
 			f, err := strconv.ParseFloat(m.value.num, 64)
 			if err != nil {

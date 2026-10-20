@@ -104,6 +104,10 @@ const (
 	MsgEngineAttrNotApplicable        MsgID = "engine_attr_not_applicable"
 	MsgEngineAttrTextExpected         MsgID = "engine_attr_text_expected"
 	MsgEngineAttrTextEmpty            MsgID = "engine_attr_text_empty"
+	MsgEngineAttrTextsExpected        MsgID = "engine_attr_texts_expected"
+	MsgEngineAttrTextsEmpty           MsgID = "engine_attr_texts_empty"
+	MsgEngineAttrTextsElementEmpty    MsgID = "engine_attr_texts_element_empty"
+	MsgEngineAttrTextsDuplicate       MsgID = "engine_attr_texts_duplicate"
 	MsgEngineAttrEnumExpected         MsgID = "engine_attr_enum_expected"
 	MsgEngineAttrEnumInvalid          MsgID = "engine_attr_enum_invalid"
 	MsgEngineAttrBoolExpected         MsgID = "engine_attr_bool_expected"
@@ -210,6 +214,7 @@ const (
 	MsgImportAttributesObject         MsgID = "import_attributes_object"
 	MsgImportAttrNumber               MsgID = "import_attr_number"
 	MsgImportAttrBadValue             MsgID = "import_attr_bad_value"
+	MsgImportAttrElementString        MsgID = "import_attr_element_string"
 	MsgImportWhereSection             MsgID = "import_where_section"
 	MsgImportValueObject              MsgID = "import_value_object"
 	MsgImportValueParameterString     MsgID = "import_value_parameter_string"
@@ -649,6 +654,10 @@ var msgRegistry = map[MsgID]struct{}{
 	MsgEngineAttrNotApplicable:        {},
 	MsgEngineAttrTextExpected:         {},
 	MsgEngineAttrTextEmpty:            {},
+	MsgEngineAttrTextsExpected:        {},
+	MsgEngineAttrTextsEmpty:           {},
+	MsgEngineAttrTextsElementEmpty:    {},
+	MsgEngineAttrTextsDuplicate:       {},
 	MsgEngineAttrEnumExpected:         {},
 	MsgEngineAttrEnumInvalid:          {},
 	MsgEngineAttrBoolExpected:         {},
@@ -753,6 +762,7 @@ var msgRegistry = map[MsgID]struct{}{
 	MsgImportAttributesObject:         {},
 	MsgImportAttrNumber:               {},
 	MsgImportAttrBadValue:             {},
+	MsgImportAttrElementString:        {},
 	MsgImportWhereSection:             {},
 	MsgImportValueObject:              {},
 	MsgImportValueParameterString:     {},

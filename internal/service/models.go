@@ -91,8 +91,11 @@ type FindResult struct {
 type CardAttribute struct {
 	Code string
 	Text *string
-	Num  *float64
-	Bool *bool
+	// Texts — список заметок атрибута типа text_list (порядок — порядок
+	// списка наполнения); nil у скалярных атрибутов.
+	Texts []string
+	Num   *float64
+	Bool  *bool
 }
 
 // CardValue — значение параметра с условиями в карточке (отображаемые

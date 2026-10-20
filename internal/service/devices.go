@@ -394,7 +394,8 @@ func (s *DeviceService) writeUpsert(ctx context.Context, tx *storage.Tx, deviceI
 		rows := make([]storage.AttrRow, 0, len(merged.attributes))
 		for _, a := range merged.attributes {
 			rows = append(rows, storage.AttrRow{
-				Attribute: a.Attribute, Text: a.Text, Num: a.Num, Bool: a.Bool,
+				Attribute: a.Attribute, Text: a.Text, Texts: a.Texts,
+				Num: a.Num, Bool: a.Bool,
 			})
 		}
 		if err := tx.ReplaceAttributes(ctx, deviceID, rows); err != nil {

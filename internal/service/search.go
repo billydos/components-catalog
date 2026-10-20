@@ -259,8 +259,9 @@ func cardValueOf(def *catalog.ParameterDef, vr storage.ValueRow) CardValue {
 }
 
 // attrSearchValue — значение атрибута записи для колонки: text/enum —
-// текст, int/number — точное число, name/unit — из определения (логические
-// отвергаются валидацией запроса); у записи не более одной строки.
+// текст, text_list — заметки одной строкой через «; », int/number — точное
+// число, name/unit — из определения (логические отвергаются валидацией
+// запроса).
 func attrSearchValue(col ValueColumn, snap *catalog.Snapshot, attrs []storage.AttrRow) (SearchValue, bool) {
 	def, ok := snap.Attribute(col.Code)
 	if !ok {
@@ -270,9 +271,14 @@ func attrSearchValue(col ValueColumn, snap *catalog.Snapshot, attrs []storage.At
 		if a.Attribute != col.Code {
 			continue
 		}
-		return SearchValue{Column: col, Value: CardValue{
-			Parameter: col.Code, Unit: def.Unit, Text: a.Text, Exact: a.Num,
-		}}, true
+		v := CardValue{Parameter: col.Code, Unit: def.Unit, Exact: a.Num}
+		if def.Type == catalog.AttrTextList {
+			joined := strings.Join(a.Texts, "; ")
+			v.Text = &joined
+		} else {
+			v.Text = a.Text
+		}
+		return SearchValue{Column: col, Value: v}, true
 	}
 	return SearchValue{}, false
 }
@@ -377,7 +383,7 @@ func buildSearchRequest(snap *catalog.Snapshot, q SearchQuery) (storage.SearchRe
 			return req, err
 		}
 		switch def.Type {
-		case catalog.AttrText, catalog.AttrEnum:
+		case catalog.AttrText, catalog.AttrTextList, catalog.AttrEnum:
 			if a.HasNum {
 				return req, domain.NewErrorf(domain.CodeValidationFailed, domain.MsgSvcFilterAttrText, a.Attribute)
 			}

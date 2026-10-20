@@ -875,6 +875,57 @@ func runImporterSuite(t *testing.T, factory configFactory) {
 		}
 	})
 
+	t.Run("NotesTextListRoundTrip", func(t *testing.T) {
+		// Заметки (notes, text_list): массив строк в наполнении каждого
+		// формата реестра, экспорт пишет массивом, повторный импорт —
+		// Skipped по всем записям.
+		sources := map[Format]string{
+			FormatJSONC: `{
+			"resistors": [
+				{ "name": "С2-33Н", "attributes": {
+					"notes": ["снижение мощности при нагреве", "серия 05"] } }
+			]
+		}`,
+			FormatYAML: "resistors:\n" +
+				"  - name: С2-33Н\n" +
+				"    attributes:\n" +
+				"      notes:\n" +
+				"        - снижение мощности при нагреве\n" +
+				"        - серия 05\n",
+			FormatNDJSON: `{"resistors": { "name": "С2-33Н", "attributes": {` +
+				` "notes": ["снижение мощности при нагреве", "серия 05"] } }}` + "\n",
+		}
+		for _, format := range []Format{FormatJSONC, FormatYAML, FormatNDJSON} {
+			app := openApp(t, factory)
+			file := filepath.Join(t.TempDir(), "notes."+string(format))
+			write(t, file, sources[format])
+			rep := importFile(t, app, file, false)
+			if rep.HasIssues() || rep.Added != 1 {
+				t.Fatalf("импорт %s: %+v; %v", format, rep, issueMessages(rep.Issues))
+			}
+			var buf bytes.Buffer
+			if err := New(app).Export(context.Background(), &buf, format, nil); err != nil {
+				t.Fatalf("экспорт %s: %v", format, err)
+			}
+			exported := buf.String()
+			if format == FormatJSONC {
+				// Массив заметок — построчный формат экспорта: проверка
+				// структурной метки и элементов (склейка одной строкой — потеря).
+				if !strings.Contains(exported, `"notes": [`) ||
+					!strings.Contains(exported, `"снижение мощности при нагреве"`) ||
+					!strings.Contains(exported, `"серия 05"`) {
+					t.Fatalf("экспорт не содержит заметки массивом: %s", exported)
+				}
+			}
+			file2 := filepath.Join(t.TempDir(), "notes-export."+string(format))
+			write(t, file2, exported)
+			rep = importFile(t, app, file2, false)
+			if rep.HasIssues() || rep.Skipped != rep.Records || rep.Records != 1 {
+				t.Fatalf("повторный импорт %s: %+v; %v", format, rep, issueMessages(rep.Issues))
+			}
+		}
+	})
+
 	t.Run("CatalogExportRoundTrip", func(t *testing.T) {
 		app := openApp(t, factory)
 		for _, format := range []Format{FormatJSONC, FormatYAML, FormatNDJSON} {

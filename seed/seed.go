@@ -532,7 +532,7 @@ func attributes() []catalog.AttributeDef {
 		{Code: "radiationHardened", Type: catalog.AttrBool,
 			SortOrder: 120, Active: true},
 		{Code: "spec", Type: catalog.AttrText, SortOrder: 130, Active: true},
-		{Code: "notes", Type: catalog.AttrText, SortOrder: 140, Active: true},
+		{Code: "notes", Type: catalog.AttrTextList, SortOrder: 140, Active: true},
 		{Code: "yearFrom", Type: catalog.AttrInt,
 			ValidationRule: catalog.RuleYearRange, SortOrder: 150, Active: true},
 		{Code: "yearTo", Type: catalog.AttrInt,

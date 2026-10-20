@@ -38,11 +38,13 @@ type Device struct {
 	Variants   []Variant
 }
 
-// AttributeValue — значение атрибута: ровно одно из Text/Num/Bool задано
-// по типу атрибута каталога.
+// AttributeValue — значение атрибута: ровно одно из Text/Texts/Num/Bool
+// задано по типу атрибута каталога (Texts — список заметок для text_list,
+// порядок элементов значим: задаёт sort_order строк хранилища).
 type AttributeValue struct {
 	Attribute string
 	Text      *string
+	Texts     []string
 	Num       *float64
 	Bool      *bool
 }
