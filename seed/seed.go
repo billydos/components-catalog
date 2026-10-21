@@ -204,6 +204,7 @@ func parameters() []catalog.ParameterDef {
 			ConditionSets: []catalog.ConditionSet{
 				set(1, req("Ic"), opt("temp")),
 				set(2, req("Ie"), opt("temp")),
+				set(3, req("Ib"), opt("temp")),
 			}},
 		{Code: "VceSat", Group: "electrical", Unit: "V",
 			ValueType: catalog.ValueAtMost, SortOrder: 50, Active: true, Kinds: tr,
