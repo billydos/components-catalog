@@ -2258,6 +2258,31 @@ func suiteCatalogImport(t *testing.T, factory configFactory) {
 		t.Fatalf("поле category: %+v", f)
 	}
 
+	// Краткая строка расширения без sort_order: порядок действующей строки
+	// сохраняется и в БД — запись получает доопределённый вход (FillSortOrders).
+	// Ненулевой сид-порядок — пред-постулат: при нуле проверка вакуантна.
+	hfeSeed, ok := snap.Parameter("hfe")
+	if !ok || hfeSeed.SortOrder == 0 {
+		t.Fatal("сид hfe без sort_order — проверка сохранения стала бы вакуантной")
+	}
+	wantOrder := hfeSeed.SortOrder
+	err = cat.Import(ctx, catalog.Input{
+		Parameters: []catalog.ParameterDef{{
+			Code: "hfe", Group: "electrical", ValueType: catalog.ValueRange,
+			Active: true, Kinds: []domain.Kind{domain.KindTransistor},
+		}},
+	})
+	if err != nil {
+		t.Fatalf("импорт каталога: %v", err)
+	}
+	snap, err = cat.Snapshot(ctx)
+	if err != nil {
+		t.Fatalf("снимок: %v", err)
+	}
+	if p, ok := snap.Parameter("hfe"); !ok || p.SortOrder != wantOrder {
+		t.Fatalf("sort_order hfe после краткого расширения: %+v, ожидался %d", p, wantOrder)
+	}
+
 	// Неверный каталог — проблемы метасхемы, применение целиком отменено.
 	err = cat.Import(ctx, catalog.Input{
 		Rules: []catalog.RuleDef{{Code: "nosuch_rule"}},

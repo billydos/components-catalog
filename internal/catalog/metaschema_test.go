@@ -302,6 +302,74 @@ func TestApplyCatalogUpsert(t *testing.T) {
 		}
 	})
 
+	t.Run("незаданный sort_order параметра сохраняется", func(t *testing.T) {
+		row, ok := snap.Parameter("hfe")
+		if !ok || row.SortOrder == 0 {
+			t.Fatal("сид hfe без sort_order — проверка стала бы вакуантной")
+		}
+		updated := *row
+		updated.SortOrder = 0
+		out, probs := catalog.ApplyCatalog(snap, catalog.Input{Parameters: []catalog.ParameterDef{updated}})
+		if len(probs) != 0 {
+			t.Fatalf(" got: %v", messages(probs))
+		}
+		got, _ := out.Parameter("hfe")
+		if got.SortOrder != row.SortOrder {
+			t.Fatalf("sort_order hfe: %d, ожидался сохранённый %d", got.SortOrder, row.SortOrder)
+		}
+	})
+
+	t.Run("незаданный sort_order атрибута сохраняется", func(t *testing.T) {
+		row, ok := snap.Attribute("notes")
+		if !ok || row.SortOrder == 0 {
+			t.Fatal("сид notes без sort_order — проверка стала бы вакуантной")
+		}
+		updated := *row
+		updated.SortOrder = 0
+		out, probs := catalog.ApplyCatalog(snap, catalog.Input{Attributes: []catalog.AttributeDef{updated}})
+		if len(probs) != 0 {
+			t.Fatalf(" got: %v", messages(probs))
+		}
+		got, _ := out.Attribute("notes")
+		if got.SortOrder != row.SortOrder {
+			t.Fatalf("sort_order notes: %d, ожидался сохранённый %d", got.SortOrder, row.SortOrder)
+		}
+	})
+
+	t.Run("незаданный sort_order группы сохраняется", func(t *testing.T) {
+		cur, ok := snap.Group("electrical")
+		if !ok || cur.SortOrder == 0 {
+			t.Fatal("сид группы electrical без sort_order — проверка стала бы вакуантной")
+		}
+		out, probs := catalog.ApplyCatalog(snap, catalog.Input{Groups: []catalog.GroupDef{
+			{Code: "electrical", SectionName: cur.SectionName},
+		}})
+		if len(probs) != 0 {
+			t.Fatalf(" got: %v", messages(probs))
+		}
+		got, _ := out.Group("electrical")
+		if got.SortOrder != cur.SortOrder {
+			t.Fatalf("sort_order electrical: %d, ожидался сохранённый %d", got.SortOrder, cur.SortOrder)
+		}
+	})
+
+	t.Run("явный sort_order применяется", func(t *testing.T) {
+		row, ok := snap.Parameter("hfe")
+		if !ok {
+			t.Fatal("сид hfe потерян — переопределять нечего")
+		}
+		updated := *row
+		updated.SortOrder = 999
+		out, probs := catalog.ApplyCatalog(snap, catalog.Input{Parameters: []catalog.ParameterDef{updated}})
+		if len(probs) != 0 {
+			t.Fatalf(" got: %v", messages(probs))
+		}
+		got, _ := out.Parameter("hfe")
+		if got.SortOrder != 999 {
+			t.Fatalf("sort_order hfe: %d, ожидался явный 999", got.SortOrder)
+		}
+	})
+
 	t.Run("применимость систем — только добавление", func(t *testing.T) {
 		out, probs := catalog.ApplyCatalog(snap, catalog.Input{SystemKinds: []catalog.SystemKindRef{
 			{System: domain.SystemGost, Kind: domain.KindDiode},

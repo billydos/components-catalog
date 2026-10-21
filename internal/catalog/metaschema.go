@@ -8,18 +8,20 @@ import (
 // метасхему результата (план работ 2.4). Применение — upsert по коду
 // (docs/plan/02-database.md §5.4): вставка новой строки либо обновление полей
 // существующей; enum-значения, наборы условий и применимость к классам
-// замещаются целиком; удаление строк каталога входом не поддерживается —
-// только деактивация (is_active = 0). При пустом списке Problem результат
-// пригоден к записи; непустой — вход отвергается целиком (частичное
-// применение запрещено): проблемы самопроверки входа исключают и перенос
-// строк в снимок, и проверку метасхемы — вердикт (непустой список проблем)
-// от этого не меняется. base = nil означает пустой каталог (сидирование).
+// замещаются целиком; незаданные (нулевые) sort_order существующих строк
+// сохраняются из снимка (FillSortOrders); удаление строк каталога входом не
+// поддерживается — только деактивация (is_active = 0). При пустом списке
+// Problem результат пригоден к записи; непустой — вход отвергается целиком
+// (частичное применение запрещено): проблемы самопроверки входа исключают и
+// перенос строк в снимок, и проверку метасхемы — вердикт (непустой список
+// проблем) от этого не меняется. base = nil означает пустой каталог (сидирование).
 func ApplyCatalog(base *Snapshot, in Input) (*Snapshot, []Problem) {
 	out := base.Clone()
 	probs := validateInputSelf(in)
 	if len(probs) > 0 {
 		return out, probs
 	}
+	in = FillSortOrders(base, in)
 	applyInput(out, in)
 	return out, append(probs, validateMetaschema(out)...)
 }
@@ -137,6 +139,50 @@ func indexRows[K comparable, V any](rows []V, key func(V) K) map[K]int {
 		}
 	}
 	return idx
+}
+
+// FillSortOrders возвращает вход, в котором незаданные (нулевые) sort_order
+// строк с кодом, уже существующим в снимке base (parameter_groups,
+// parameters, attributes), заполнены значениями снимка. Экспорт опускает
+// нулевой sort_order, поэтому 0 во входе — «не задан», а не «первая
+// позиция»: краткая строка расширения не сбивает порядок действующих строк
+// каталога. Явно заданные значения и новые строки не затрагиваются; вход не
+// мутируется — копируются только изменённые срезы.
+func FillSortOrders(base *Snapshot, in Input) Input {
+	if len(in.Groups) > 0 {
+		groups := append([]GroupDef(nil), in.Groups...)
+		for i := range groups {
+			if groups[i].SortOrder == 0 {
+				if cur, ok := base.Group(groups[i].Code); ok {
+					groups[i].SortOrder = cur.SortOrder
+				}
+			}
+		}
+		in.Groups = groups
+	}
+	if len(in.Parameters) > 0 {
+		parameters := append([]ParameterDef(nil), in.Parameters...)
+		for i := range parameters {
+			if parameters[i].SortOrder == 0 {
+				if cur, ok := base.Parameter(parameters[i].Code); ok {
+					parameters[i].SortOrder = cur.SortOrder
+				}
+			}
+		}
+		in.Parameters = parameters
+	}
+	if len(in.Attributes) > 0 {
+		attributes := append([]AttributeDef(nil), in.Attributes...)
+		for i := range attributes {
+			if attributes[i].SortOrder == 0 {
+				if cur, ok := base.Attribute(attributes[i].Code); ok {
+					attributes[i].SortOrder = cur.SortOrder
+				}
+			}
+		}
+		in.Attributes = attributes
+	}
+	return in
 }
 
 // applyInput — перенос строк входа в снимок (upsert по коду; при дубликатах

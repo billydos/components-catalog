@@ -26,7 +26,8 @@ func (s *CatalogService) Snapshot(ctx context.Context) (*catalog.Snapshot, error
 // Import применяет каталог upsert'ом по коду после валидации метасхемы
 // (ApplyCatalog: вставка новой строки либо обновление полей; enum-значения,
 // наборы условий и применимость параметров/атрибутов к классам замещаются
-// целиком по строке; привязки систем и правил к классам — только
+// целиком по строке; незаданные (нулевые) sort_order существующих строк
+// сохраняются из снимка; привязки систем и правил к классам — только
 // добавление; непустой список проблем — отказ целиком). Изменение каталога
 // инкрементирует catalog_revision атомарно в той же транзакции.
 func (s *CatalogService) Import(ctx context.Context, in catalog.Input) error {
@@ -34,6 +35,9 @@ func (s *CatalogService) Import(ctx context.Context, in catalog.Input) error {
 	if err != nil {
 		return err
 	}
+	// Записываются те же строки, что валидировались: незаданные sort_order
+	// доопределяются из снимка до ApplyCatalog.
+	in = catalog.FillSortOrders(cur, in)
 	if _, problems := catalog.ApplyCatalog(cur, in); len(problems) > 0 {
 		return problems[0].Err()
 	}
