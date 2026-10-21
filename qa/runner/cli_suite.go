@@ -195,6 +195,15 @@ func cliSuite(ctx context.Context, r *report, ctl, root, tmp string, l leg) {
 	r.check("cli/parse-jedec", "parse: JEDEC",
 		res.code == 0 && strings.Contains(res.output, "jedec"),
 		envDetails(res, 10)...)
+	// Вариант конструкции М после буквы группы — отдельное поле
+	// (группа остаётся Б, тип — КТ3102).
+	res = c.run(ctx, "parse", "КТ3102БМ")
+	r.check("cli/parse-gost-construction", "parse: вариант конструкции М",
+		res.code == 0 && strings.Contains(res.output, "gost") &&
+			strings.Contains(res.output, "letters: Б") &&
+			strings.Contains(res.output, "construction variant: М") &&
+			strings.Contains(res.output, "КТ3102"),
+		envDetails(res, 10)...)
 	res = c.run(ctx, "parse", "2222")
 	r.check("cli/parse-invalid", "parse: неверное обозначение — «Error: », код 1",
 		res.code == 1 && strings.Contains(res.output, "Error: "),

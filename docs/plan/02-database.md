@@ -169,7 +169,8 @@ device_designation_fields(device_id NOT NULL REFERENCES devices(id) ON DELETE CA
                                                              -- gost-полупроводники:
                                                              --   material, subclass, assembly,
                                                              --   feature, dev_number, letters,
-                                                             --   modification, chip
+                                                             --   construction, modification,
+                                                             --   chip
                                                              -- pro: material, subclass,
                                                              --   dev_number, letters
                                                              -- jedec: junctions, dev_number,

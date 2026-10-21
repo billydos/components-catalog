@@ -220,7 +220,8 @@ func TestParsedDesignationFields(t *testing.T) {
 func TestDesignationFieldRegistry(t *testing.T) {
 	for code, numeric := range map[string]bool{
 		"material": false, "subclass": false, "letters": false,
-		"prefix": false, "family": false, "series": false,
+		"construction": false,
+		"prefix":       false, "family": false, "series": false,
 		"adjustment": false, "category": false,
 		domain.FieldBase: false,
 		"assembly":       true, "feature": true, "dev_number": true,
@@ -267,12 +268,12 @@ func TestDesignationFieldRegistry(t *testing.T) {
 // разборов; классификационные поля применимы по классам.
 func TestParserFieldSets(t *testing.T) {
 	parserOwned := map[string]map[string]bool{
-		"КТ315Б":  {"material": true, "subclass": true, "assembly": true, "category": false, "adjustment": false, domain.FieldBase: true},
-		"С2-33Н":  {"adjustment": true, "category": false, "material": false, domain.FieldBase: true},
-		"К10-17Б": {"adjustment": true, "category": false, "material": false, domain.FieldBase: true},
-		"BC547B":  {"material": true, "subclass": true, "category": false, "adjustment": false, "assembly": false, domain.FieldBase: true},
-		"2N2222A": {"junctions": true, "material": false, "subclass": false, "assembly": false, "category": false, domain.FieldBase: true},
-		"2SA1015": {"subclass": true, "material": false, "adjustment": false, "category": false, domain.FieldBase: true},
+		"КТ315Б":  {"material": true, "subclass": true, "assembly": true, "letters": true, "construction": true, "category": false, "adjustment": false, domain.FieldBase: true},
+		"С2-33Н":  {"adjustment": true, "category": false, "material": false, "construction": false, domain.FieldBase: true},
+		"К10-17Б": {"adjustment": true, "category": false, "material": false, "construction": false, domain.FieldBase: true},
+		"BC547B":  {"material": true, "subclass": true, "category": false, "adjustment": false, "assembly": false, "construction": false, domain.FieldBase: true},
+		"2N2222A": {"junctions": true, "material": false, "subclass": false, "assembly": false, "category": false, "construction": false, domain.FieldBase: true},
+		"2SA1015": {"subclass": true, "material": false, "adjustment": false, "category": false, "construction": false, domain.FieldBase: true},
 	}
 	for d, fields := range parserOwned {
 		p, err := domain.ParseDesignation(d)

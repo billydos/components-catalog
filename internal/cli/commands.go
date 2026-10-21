@@ -330,7 +330,7 @@ func runList(ctx context.Context, opts *options, pos []string, stdout, stderr io
 	} else {
 		query.Limit, query.Offset = opts.limit, opts.offset
 	}
-	for _, name := range []string{"material", "subclass", "adjustment", "category", "series", "letters", "base"} {
+	for _, name := range []string{"material", "subclass", "adjustment", "category", "series", "letters", "construction", "base"} {
 		if v, ok := opts.texts[name]; ok {
 			// Словарные фильтры: вход канонизируется к коду словаря
 			// (код либо отображаемое название локали — D9; category —

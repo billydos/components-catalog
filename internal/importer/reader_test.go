@@ -52,11 +52,12 @@ func TestReadDocumentClassificationFields(t *testing.T) {
 			{ "name": "MJE360", "system": "other", "fields": [] },
 			{ "name": "MJE370", "system": "other", "fields": { "power": 5 } },
 			{ "name": "MJE380", "system": "other", "fields": { "material": 5 } },
-			{ "name": "MJE390", "system": "other", "fields": { "assembly": "нет" } }
+			{ "name": "MJE390", "system": "other", "fields": { "assembly": "нет" } },
+			{ "name": "КТ3102БМ", "fields": { "construction": "М" } }
 		]
 	}`)
 	doc, issues := ReadDocument(root, snap)
-	if len(doc.Records) != 2 || doc.Rejected != 4 {
+	if len(doc.Records) != 2 || doc.Rejected != 5 {
 		t.Fatalf("записи: %d, rejected: %d: %v", len(doc.Records), doc.Rejected, issueMessages(issues))
 	}
 	f := doc.Records[0].Input.Fields
@@ -84,6 +85,9 @@ func TestReadDocumentClassificationFields(t *testing.T) {
 		"record «MJE370»: unknown classification field «power» (allowed: material, subclass, adjustment, category, assembly)",
 		"record «MJE380»: value of classification field «material» must be a string with a dictionary code",
 		"record «MJE390»: value of classification field assembly must be a number 0 or 1",
+		// Грамматические поля парсера (construction — как и modification/
+		// chip) секцией fields не задаются: отказ с перечнем допустимых.
+		"record «КТ3102БМ»: unknown classification field «construction» (allowed: material, subclass, adjustment, category, assembly)",
 	}
 	for _, w := range want {
 		if !containsMessage(got, w) {

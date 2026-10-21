@@ -65,6 +65,22 @@ func TestParseGostSemiconductorValid(t *testing.T) {
 		{"КЦ405А", KindDiode, "material=si; subclass=rectifier; assembly=0; dev_number=405; letters=А; base=КЦ405"},
 		// Подобранная группа Р после буквы группы — часть ключа, поля не меняет.
 		{"КТ805АР", KindTransistor, "material=si; subclass=bjt; assembly=0; dev_number=805; letters=А; base=КТ805"},
+		// Вариант конструкции М — после буквы группы, отдельным полем
+		// (группа по параметрам остаётся первой буквой). Комбинации с
+		// хвостом: порядок фиксирован (М до сборки С и цифр).
+		{"КТ3102БМ", KindTransistor, "material=si; subclass=bjt; assembly=0; feature=3; dev_number=102; letters=Б; construction=М; base=КТ3102"},
+		{"КТ819ГМ", KindTransistor, "material=si; subclass=bjt; assembly=0; dev_number=819; letters=Г; construction=М; base=КТ819"},
+		{"КТ3102БМ9", KindTransistor, "material=si; subclass=bjt; assembly=0; feature=3; dev_number=102; letters=Б; construction=М; chip=9; base=КТ3102"},
+		{"КТ3102БМ-1", KindTransistor, "material=si; subclass=bjt; assembly=0; feature=3; dev_number=102; letters=Б; construction=М; base=КТ3102"},
+		{"КТ3102БМ/ИФ", KindTransistor, "material=si; subclass=bjt; assembly=0; feature=3; dev_number=102; letters=Б; construction=М; base=КТ3102"},
+		{"КТ315БМС", KindTransistor, "material=si; subclass=bjt; assembly=1; dev_number=315; letters=Б; construction=М; base=КТ315"},
+		// Диодная нога gost — поле construction доступно и ей.
+		{"2Д627АМС", KindDiode, "material=si; subclass=rectifier; assembly=1; feature=6; dev_number=27; letters=А; construction=М; base=2Д627"},
+		// Одиночная М — допустимая буква группы, вариантом конструкции
+		// не становится; М после неё — вариант конструкции (грамматика
+		// детерминирована и для вырожденного ключа).
+		{"КТ315М", KindTransistor, "material=si; subclass=bjt; assembly=0; dev_number=315; letters=М; base=КТ315"},
+		{"КТ315ММ", KindTransistor, "material=si; subclass=bjt; assembly=0; dev_number=315; letters=М; construction=М; base=КТ315"},
 	}
 	for _, tc := range cases {
 		p, err := parseGostSemiconductor(newScanner(tc.input), "")
@@ -106,6 +122,9 @@ func TestParseGostSemiconductorMessages(t *testing.T) {
 		{"КЯ123", "designation «КЯ123»: position 2: expected: subclass letter (Т, П, Д, С, В, А, И, Г, Л, Ф, Ц, Н, У, Е, Р, Ж, Э, Х, М, УП, or О with a function letter), got «Я»"},
 		{"КОХ123", "designation «КОХ123»: position 3: expected: optoelectronic device function letter (И, Ф, Д, Т, Р, У, К, Л, М, П), got «Х»"},
 		{"КТ315З", "designation «КТ315З»: position 6: expected end of designation, got «З»"},
+		// Вторая буква после буквы группы допустима только М (вариант
+		// конструкции) — прочие отвергаются.
+		{"КТ315БВ", "designation «КТ315БВ»: position 7: expected end of designation, got «В»"},
 		{"КТ315Б-7", "designation «КТ315Б-7»: position 8: expected: chip (leadless) variant digit 1–6, got «7»"},
 		{"КТ315Б/9", "designation «КТ315Б/9»: position 8: expected: manufacturer code (letters), got «9»"},
 	}

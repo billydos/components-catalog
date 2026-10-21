@@ -357,6 +357,7 @@ var bundleEn = map[string]string{
 	"field.group":        "group",
 	"field.dev_number":   "development number",
 	"field.letters":      "letters",
+	"field.construction": "construction variant",
 	"field.modification": "modification",
 	"field.chip":         "chip variant",
 	"field.prefix":       "prefix",

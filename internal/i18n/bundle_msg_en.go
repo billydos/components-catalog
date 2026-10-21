@@ -471,6 +471,8 @@ var messageFormatsEn = map[string]string{
 	"cli_usage_opt_number_desc":         "development number",
 	"cli_usage_opt_letters":             "--letters <text>",
 	"cli_usage_opt_letters_desc":        "letter suffix of the designation",
+	"cli_usage_opt_construction":        "--construction <text>",
+	"cli_usage_opt_construction_desc":   "construction variant letter of the designation (M after the group letter)",
 	"cli_usage_opt_base":                "--base <designation>",
 	"cli_usage_opt_base_desc":           "type (base designation) of the record: designation without the classification letter and tail elements",
 	"cli_usage_opt_q":                   "--q <text>",

@@ -470,6 +470,8 @@ var messageFormatsRu = map[string]string{
 	"cli_usage_opt_number_desc":         "номер разработки",
 	"cli_usage_opt_letters":             "--letters <текст>",
 	"cli_usage_opt_letters_desc":        "буквенный суффикс обозначения",
+	"cli_usage_opt_construction":        "--construction <текст>",
+	"cli_usage_opt_construction_desc":   "буква варианта конструкции обозначения (М после буквы группы)",
 	"cli_usage_opt_base":                "--base <обозначение>",
 	"cli_usage_opt_base_desc":           "тип (базовое обозначение) записи: обозначение без буквы классификации и хвостовых элементов",
 	"cli_usage_opt_q":                   "--q <текст>",

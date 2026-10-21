@@ -90,7 +90,8 @@ const FieldBase = "base"
 var (
 	textDesignationFields = map[string]bool{
 		"material": true, "subclass": true, "letters": true,
-		"prefix": true, "family": true, "series": true,
+		"construction": true,
+		"prefix":       true, "family": true, "series": true,
 		"adjustment": true, "category": true,
 		FieldBase: true,
 	}
@@ -165,8 +166,8 @@ func ClassificationFieldAppliesTo(field string, kind Kind) bool {
 // (закреплён тестом).
 var parserFieldSets = map[System]map[Kind][]string{
 	SystemGost: {
-		KindTransistor: {"material", "subclass", "assembly", "feature", "dev_number", "letters", "modification", "chip", FieldBase},
-		KindDiode:      {"material", "subclass", "assembly", "feature", "dev_number", "letters", "modification", "chip", FieldBase},
+		KindTransistor: {"material", "subclass", "assembly", "feature", "dev_number", "letters", "construction", "modification", "chip", FieldBase},
+		KindDiode:      {"material", "subclass", "assembly", "feature", "dev_number", "letters", "construction", "modification", "chip", FieldBase},
 		KindResistor:   {"family", "group", "adjustment", "dev_number", "letters", FieldBase},
 		KindCapacitor:  {"prefix", "group", "adjustment", "dev_number", "letters", FieldBase},
 	},

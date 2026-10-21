@@ -355,6 +355,7 @@ var bundleRu = map[string]string{
 	"field.group":        "группа",
 	"field.dev_number":   "номер разработки",
 	"field.letters":      "буквы",
+	"field.construction": "вариант конструкции",
 	"field.modification": "модификатор",
 	"field.chip":         "вариант кристалла",
 	"field.prefix":       "префикс",

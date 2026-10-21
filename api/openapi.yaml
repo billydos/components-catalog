@@ -194,11 +194,11 @@ paths:
         Помимо перечисленных параметров допустимы:
 
         * фильтры полей обозначения — код поля как имя параметра:
-          текстовые `material`, `subclass`, `letters`, `prefix`, `family`,
-          `series`, `adjustment`, `category`, `base` (тип — базовое
-          обозначение записи, значение канонизируется как обозначение);
-          числовые `junctions`, `group`, `dev_number`, `assembly`,
-          `feature`, `modification`, `chip` (равенство);
+          текстовые `material`, `subclass`, `letters`, `construction`,
+          `prefix`, `family`, `series`, `adjustment`, `category`, `base`
+          (тип — базовое обозначение записи, значение канонизируется как
+          обозначение); числовые `junctions`, `group`, `dev_number`,
+          `assembly`, `feature`, `modification`, `chip` (равенство);
           значения словарных полей `material` (`si`, `ge`, `ga`, `in`,
           `sic`, `other`, `gaas`), `subclass` (`bjt`, `zener`, …),
           `adjustment` (`fixed`, `variable`, `preset`) и `category` (коды

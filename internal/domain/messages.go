@@ -533,32 +533,34 @@ const (
 
 	// Фильтры list (спецификации и описания опций карточек и общей
 	// справки).
-	MsgCliUsageOptMaterial       MsgID = "cli_usage_opt_material"
-	MsgCliUsageOptMaterialDesc   MsgID = "cli_usage_opt_material_desc"
-	MsgCliUsageOptSubclass       MsgID = "cli_usage_opt_subclass"
-	MsgCliUsageOptSubclassDesc   MsgID = "cli_usage_opt_subclass_desc"
-	MsgCliUsageOptAdjustment     MsgID = "cli_usage_opt_adjustment"
-	MsgCliUsageOptAdjustmentDesc MsgID = "cli_usage_opt_adjustment_desc"
-	MsgCliUsageOptCategory       MsgID = "cli_usage_opt_category"
-	MsgCliUsageOptCategoryDesc   MsgID = "cli_usage_opt_category_desc"
-	MsgCliUsageOptJunctions      MsgID = "cli_usage_opt_junctions"
-	MsgCliUsageOptJunctionsDesc  MsgID = "cli_usage_opt_junctions_desc"
-	MsgCliUsageOptGroup          MsgID = "cli_usage_opt_group"
-	MsgCliUsageOptGroupDesc      MsgID = "cli_usage_opt_group_desc"
-	MsgCliUsageOptSeries         MsgID = "cli_usage_opt_series"
-	MsgCliUsageOptSeriesDesc     MsgID = "cli_usage_opt_series_desc"
-	MsgCliUsageOptNumber         MsgID = "cli_usage_opt_number"
-	MsgCliUsageOptNumberDesc     MsgID = "cli_usage_opt_number_desc"
-	MsgCliUsageOptLetters        MsgID = "cli_usage_opt_letters"
-	MsgCliUsageOptLettersDesc    MsgID = "cli_usage_opt_letters_desc"
-	MsgCliUsageOptBase           MsgID = "cli_usage_opt_base"
-	MsgCliUsageOptBaseDesc       MsgID = "cli_usage_opt_base_desc"
-	MsgCliUsageOptQ              MsgID = "cli_usage_opt_q"
-	MsgCliUsageOptQDesc          MsgID = "cli_usage_opt_q_desc"
-	MsgCliUsageOptLimit          MsgID = "cli_usage_opt_limit"
-	MsgCliUsageOptLimitDesc      MsgID = "cli_usage_opt_limit_desc"
-	MsgCliUsageOptOffset         MsgID = "cli_usage_opt_offset"
-	MsgCliUsageOptOffsetDesc     MsgID = "cli_usage_opt_offset_desc"
+	MsgCliUsageOptMaterial         MsgID = "cli_usage_opt_material"
+	MsgCliUsageOptMaterialDesc     MsgID = "cli_usage_opt_material_desc"
+	MsgCliUsageOptSubclass         MsgID = "cli_usage_opt_subclass"
+	MsgCliUsageOptSubclassDesc     MsgID = "cli_usage_opt_subclass_desc"
+	MsgCliUsageOptAdjustment       MsgID = "cli_usage_opt_adjustment"
+	MsgCliUsageOptAdjustmentDesc   MsgID = "cli_usage_opt_adjustment_desc"
+	MsgCliUsageOptCategory         MsgID = "cli_usage_opt_category"
+	MsgCliUsageOptCategoryDesc     MsgID = "cli_usage_opt_category_desc"
+	MsgCliUsageOptJunctions        MsgID = "cli_usage_opt_junctions"
+	MsgCliUsageOptJunctionsDesc    MsgID = "cli_usage_opt_junctions_desc"
+	MsgCliUsageOptGroup            MsgID = "cli_usage_opt_group"
+	MsgCliUsageOptGroupDesc        MsgID = "cli_usage_opt_group_desc"
+	MsgCliUsageOptSeries           MsgID = "cli_usage_opt_series"
+	MsgCliUsageOptSeriesDesc       MsgID = "cli_usage_opt_series_desc"
+	MsgCliUsageOptNumber           MsgID = "cli_usage_opt_number"
+	MsgCliUsageOptNumberDesc       MsgID = "cli_usage_opt_number_desc"
+	MsgCliUsageOptLetters          MsgID = "cli_usage_opt_letters"
+	MsgCliUsageOptLettersDesc      MsgID = "cli_usage_opt_letters_desc"
+	MsgCliUsageOptConstruction     MsgID = "cli_usage_opt_construction"
+	MsgCliUsageOptConstructionDesc MsgID = "cli_usage_opt_construction_desc"
+	MsgCliUsageOptBase             MsgID = "cli_usage_opt_base"
+	MsgCliUsageOptBaseDesc         MsgID = "cli_usage_opt_base_desc"
+	MsgCliUsageOptQ                MsgID = "cli_usage_opt_q"
+	MsgCliUsageOptQDesc            MsgID = "cli_usage_opt_q_desc"
+	MsgCliUsageOptLimit            MsgID = "cli_usage_opt_limit"
+	MsgCliUsageOptLimitDesc        MsgID = "cli_usage_opt_limit_desc"
+	MsgCliUsageOptOffset           MsgID = "cli_usage_opt_offset"
+	MsgCliUsageOptOffsetDesc       MsgID = "cli_usage_opt_offset_desc"
 
 	// Примеры и примечание об позиции опций общей справки.
 	MsgCliUsageExamples MsgID = "cli_usage_examples"
@@ -1074,6 +1076,8 @@ var msgRegistry = map[MsgID]struct{}{
 	MsgCliUsageOptNumberDesc:          {},
 	MsgCliUsageOptLetters:             {},
 	MsgCliUsageOptLettersDesc:         {},
+	MsgCliUsageOptConstruction:        {},
+	MsgCliUsageOptConstructionDesc:    {},
 	MsgCliUsageOptBase:                {},
 	MsgCliUsageOptBaseDesc:            {},
 	MsgCliUsageOptQ:                   {},
