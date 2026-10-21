@@ -99,11 +99,12 @@ paths:
       summary: Количество записей, версия схемы, ревизии; при kind — агрегаты параметров класса
       description: |
         Без kind — агрегаты модуля: количества записей по классам, версия
-        схемы, ревизии.         С kind — фасетные агрегаты значений параметров
+        схемы, ревизии. С kind — фасетные агрегаты значений параметров
         класса: min/max численных параметров для
         слайдеров параметрических фильтров (границы — по семантике
         фильтров поиска: value_min/value_max и value_exact; at_least
-        задаёт только min, at_most — только max) и частоты текстовых/
+        задаёт только min, at_most — только max, limits — min и/или
+        max по заданным границам) и частоты текстовых/
         enum значений — число записей класса со значением (значение
         в данных типа и нескольких исполнениях одной записи считается
         один раз). В агрегаты входят данные типа в целом и исполнений —
@@ -257,7 +258,7 @@ paths:
             conditions — только у параметров. Правило выбора значения
             при нескольких строках у записи (данные типа + исполнения):
             численные — агрегат границ MIN/MAX (одиночная строка
-            сохраняет форму exact/at_least/at_most), текстовые/enum —
+            сохраняет форму exact/at_least/at_most/limits), текстовые/enum —
             данные типа поверх исполнений. Логические атрибуты —
             400 validation_failed; неизвестный код — 400
             unknown_parameter/unknown_attribute, неприменимый к классу
@@ -1129,7 +1130,7 @@ components:
         group: {type: string}
         name: {type: string}
         unit: {type: string}
-        value_type: {type: string, enum: [exact, at_least, at_most, range, text, enum]}
+        value_type: {type: string, enum: [exact, at_least, at_most, range, limits, text, enum]}
         ceiling: {type: number}
         allow_negative: {type: boolean}
         validation_rule: {type: string}

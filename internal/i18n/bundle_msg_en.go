@@ -170,6 +170,7 @@ var messageFormatsEn = map[string]string{
 	"value_key_positive":              "parameter «%[1]s»: value of key %[2]s must be positive",
 	"value_key_required":              "parameter «%[1]s»: value type %[2]s requires key %[3]s",
 	"value_keys_pair_required":        "parameter «%[1]s»: value type range requires keys min and max",
+	"value_bound_required":            "parameter «%[1]s»: value type limits requires at least one of keys min and max",
 	"value_min_max":                   "parameter «%[1]s»: min exceeds max",
 
 	// Сообщения формата наполнения (internal/importer).

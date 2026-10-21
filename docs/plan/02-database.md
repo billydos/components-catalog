@@ -78,7 +78,7 @@ parameters(code TEXT PRIMARY KEY,
            group_code TEXT NOT NULL REFERENCES parameter_groups(code),
            unit_code TEXT NULL REFERENCES units(code),
            value_type TEXT NOT NULL                          -- exact | at_least | at_most |
-                                                              -- range | text | enum
+                                                              -- range | limits | text | enum
            value_ceiling REAL NULL,                          -- потолок значения (например, %)
            allow_negative INTEGER NOT NULL DEFAULT 0,        -- 1 — значению разрешено быть
                                                               -- неположительным (температурные

@@ -9,7 +9,8 @@ import (
 
 // ValueType — тип значения параметра каталога (docs/plan/03-data-model.md §6):
 // exact (точное), at_least (не менее, с необязательной верхней границей),
-// at_most (не более), range (диапазон), text, enum.
+// at_most (не более), range (диапазон), limits (одностороннее ограничение
+// любого направления либо диапазон: не менее / не более / min..max), text, enum.
 type ValueType string
 
 // Реестр типов значений параметров (DB-значения колонки value_type).
@@ -18,6 +19,7 @@ const (
 	ValueAtLeast ValueType = "at_least"
 	ValueAtMost  ValueType = "at_most"
 	ValueRange   ValueType = "range"
+	ValueLimits  ValueType = "limits"
 	ValueText    ValueType = "text"
 	ValueEnum    ValueType = "enum"
 )
@@ -25,7 +27,7 @@ const (
 // Valid сообщает, входит ли тип значения в реестр.
 func (t ValueType) Valid() bool {
 	switch t {
-	case ValueExact, ValueAtLeast, ValueAtMost, ValueRange, ValueText, ValueEnum:
+	case ValueExact, ValueAtLeast, ValueAtMost, ValueRange, ValueLimits, ValueText, ValueEnum:
 		return true
 	}
 	return false
@@ -34,7 +36,7 @@ func (t ValueType) Valid() bool {
 // Numeric сообщает, численный ли тип (для проверок единиц и enum-значений).
 func (t ValueType) Numeric() bool {
 	switch t {
-	case ValueExact, ValueAtLeast, ValueAtMost, ValueRange:
+	case ValueExact, ValueAtLeast, ValueAtMost, ValueRange, ValueLimits:
 		return true
 	}
 	return false

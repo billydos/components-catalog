@@ -49,6 +49,7 @@ const (
 	ValueAtLeast = catalog.ValueAtLeast
 	ValueAtMost  = catalog.ValueAtMost
 	ValueRange   = catalog.ValueRange
+	ValueLimits  = catalog.ValueLimits
 	ValueText    = catalog.ValueText
 	ValueEnum    = catalog.ValueEnum
 )

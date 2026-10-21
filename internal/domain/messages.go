@@ -124,6 +124,7 @@ const (
 	MsgValueKeyRequired               MsgID = "value_key_required"
 	MsgValueKeyForbidden              MsgID = "value_key_forbidden"
 	MsgValueKeysPairRequired          MsgID = "value_keys_pair_required"
+	MsgValueBoundRequired             MsgID = "value_bound_required"
 	MsgValueEnumInvalid               MsgID = "value_enum_invalid"
 	MsgValueKeyPositive               MsgID = "value_key_positive"
 	MsgValueKeyCeiling                MsgID = "value_key_ceiling"
@@ -680,6 +681,7 @@ var msgRegistry = map[MsgID]struct{}{
 	MsgValueKeyRequired:               {},
 	MsgValueKeyForbidden:              {},
 	MsgValueKeysPairRequired:          {},
+	MsgValueBoundRequired:             {},
 	MsgValueEnumInvalid:               {},
 	MsgValueKeyPositive:               {},
 	MsgValueKeyCeiling:                {},

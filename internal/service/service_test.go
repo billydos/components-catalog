@@ -2268,7 +2268,7 @@ func suiteCatalogImport(t *testing.T, factory configFactory) {
 	wantOrder := hfeSeed.SortOrder
 	err = cat.Import(ctx, catalog.Input{
 		Parameters: []catalog.ParameterDef{{
-			Code: "hfe", Group: "electrical", ValueType: catalog.ValueRange,
+			Code: "hfe", Group: "electrical", ValueType: catalog.ValueLimits,
 			Active: true, Kinds: []domain.Kind{domain.KindTransistor},
 		}},
 	})

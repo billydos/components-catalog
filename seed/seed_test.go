@@ -266,6 +266,8 @@ func TestSeedSpotChecks(t *testing.T) {
 		"humidity":             {"pct", catalog.ValueAtMost, 1},
 		"operatingLife":        {"h", catalog.ValueAtLeast, 0},
 		"shelfLife":            {"yr", catalog.ValueAtLeast, 0},
+		"hfe":                  {"", catalog.ValueLimits, 6},
+		"h11":                  {"ohm", catalog.ValueLimits, 3},
 	} {
 		p := check(code)
 		if p.Unit != want.unit || p.ValueType != want.vt || len(p.ConditionSets) != want.conds {

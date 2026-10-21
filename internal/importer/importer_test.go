@@ -111,7 +111,7 @@ func runImporterSuite(t *testing.T, factory configFactory) {
 		file := filepath.Join(t.TempDir(), "negative.jsonc")
 		write(t, file, `{
 			"transistors": [
-				{ "name": "МП39", "system": "other", "parameters": [ { "parameter": "hfe", "max": 50, "Vce": 5, "Ic": 5 } ] },
+				{ "name": "МП39", "system": "other", "parameters": [ { "parameter": "hfe", "Vce": 5, "Ic": 5 } ] },
 				"ГТ109Г",
 				{ "name": "2N9999ZZ", "system": "jedec" },
 				{ "name": "МП39", "system": "other", "ratings": [ { "parameter": "VceoMax", "value": 0 } ] }
@@ -122,7 +122,7 @@ func runImporterSuite(t *testing.T, factory configFactory) {
 			t.Fatalf("проблем: %d, ожидалось 2: %v", len(rep.Issues), issueMessages(rep.Issues))
 		}
 		want := []string{
-			"record «МП39»: parameter «hfe»: value type range requires keys min and max",
+			"record «МП39»: parameter «hfe»: value type limits requires at least one of keys min and max",
 			"record «МП39»: parameter «VceoMax»: value of key value must be positive",
 		}
 		got := issueMessages(rep.Issues)

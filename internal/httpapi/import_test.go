@@ -95,9 +95,11 @@ func TestImportReport(t *testing.T) {
 
 	// Проблемная запись — 200 с отчётом: корректная запись применена,
 	// ошибочная — нет; проблема несёт код, позицию и текст (en — каноник).
+	// hfe без границ при полном наборе условий — изолированная ошибка
+	// формы значения (limits), без наложения на условия измерения.
 	status, body, _ = do(t, srv, http.MethodPost, apiPrefix+"/import",
 		"{\"transistors\": {\"name\": \"ГТ109Г\"}}\n"+
-			"{\"transistors\": {\"name\": \"МП39\", \"system\": \"other\", \"parameters\": [{\"parameter\": \"hfe\", \"max\": 50}]}}\n")
+			"{\"transistors\": {\"name\": \"МП39\", \"system\": \"other\", \"parameters\": [{\"parameter\": \"hfe\", \"Vce\": 5, \"Ic\": 5}]}}\n")
 	if status != http.StatusOK {
 		t.Fatalf("статус: %d, тело %s", status, body)
 	}
@@ -109,7 +111,7 @@ func TestImportReport(t *testing.T) {
 	if iss.Record != "МП39" || iss.Line != 2 || iss.Code != "validation_failed" {
 		t.Fatalf("проблема: %+v", iss)
 	}
-	if !strings.Contains(iss.Message, "hfe") {
+	if !strings.Contains(iss.Message, "value type limits requires at least one of keys min and max") {
 		t.Fatalf("текст проблемы: %q", iss.Message)
 	}
 

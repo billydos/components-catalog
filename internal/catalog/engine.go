@@ -236,6 +236,7 @@ func (e *Engine) validateValues(kind domain.Kind, vals []ParameterValue) []Probl
 // checkValueShape — форма значения по value_type параметра
 // (docs/plan/03-data-model.md §6): exact → value; at_least → min
 // (необязательная верхняя граница max); at_most → max; range → min и max;
+// limits → min либо max (хотя бы одна граница, обе — диапазон);
 // text/enum → text. Позитивность (если не allow_negative) и потолок
 // проверяются для каждой числовой части.
 func checkValueShape(p *ParameterDef, v *ParameterValue) []Problem {
@@ -307,6 +308,21 @@ func checkValueShape(p *ParameterDef, v *ParameterValue) []Problem {
 		}
 		if v.Text != nil {
 			add(domain.MsgValueKeyForbidden, p.Code, "range", "text")
+		}
+		numKey("min", v.Min)
+		numKey("max", v.Max)
+		if v.Min != nil && v.Max != nil && *v.Min > *v.Max {
+			add(domain.MsgValueMinMax, p.Code)
+		}
+	case ValueLimits:
+		if v.Min == nil && v.Max == nil {
+			add(domain.MsgValueBoundRequired, p.Code)
+		}
+		if v.Exact != nil {
+			add(domain.MsgValueKeyForbidden, p.Code, "limits", "value")
+		}
+		if v.Text != nil {
+			add(domain.MsgValueKeyForbidden, p.Code, "limits", "text")
 		}
 		numKey("min", v.Min)
 		numKey("max", v.Max)

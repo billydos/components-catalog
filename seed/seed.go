@@ -179,7 +179,7 @@ func parameters() []catalog.ParameterDef {
 		// условий — схемы Uкэ+Iк, Uкб+Iэ, Uкэ+Iэ, Uкб+Iк, константа
 		// Uкэ=0, температурные строки — опц. temp, модуль |h21э| — опц. freq.
 		{Code: "hfe", Group: "electrical",
-			ValueType: catalog.ValueRange, SortOrder: 10, Active: true, Kinds: tr,
+			ValueType: catalog.ValueLimits, SortOrder: 10, Active: true, Kinds: tr,
 			ConditionSets: []catalog.ConditionSet{
 				set(1, req("Vce"), req("Ic"), opt("freq"), opt("temp")),
 				set(2, req("Vcb"), req("Ie"), opt("freq"), opt("temp")),
@@ -238,7 +238,7 @@ func parameters() []catalog.ParameterDef {
 			ValueType: catalog.ValueAtMost, SortOrder: 110, Active: true, Kinds: tr,
 			ConditionSets: []catalog.ConditionSet{set(1, req("Vce"), req("Rbe"))}},
 		{Code: "h11", Group: "electrical", Unit: "ohm",
-			ValueType: catalog.ValueRange, SortOrder: 120, Active: true, Kinds: tr,
+			ValueType: catalog.ValueLimits, SortOrder: 120, Active: true, Kinds: tr,
 			ConditionSets: []catalog.ConditionSet{
 				set(1, req("Vce"), req("Ic")),
 				set(2, req("Vcb"), req("Ie")),

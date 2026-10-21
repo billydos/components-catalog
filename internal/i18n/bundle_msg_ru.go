@@ -169,6 +169,7 @@ var messageFormatsRu = map[string]string{
 	"value_key_positive":              "параметр «%[1]s»: значение ключа %[2]s должно быть положительным",
 	"value_key_required":              "параметр «%[1]s»: тип значения %[2]s — обязателен ключ %[3]s",
 	"value_keys_pair_required":        "параметр «%[1]s»: тип значения range — обязательны ключи min и max",
+	"value_bound_required":            "параметр «%[1]s»: тип значения limits — обязателен хотя бы один из ключей min и max",
 	"value_min_max":                   "параметр «%[1]s»: min превышает max",
 
 	// Сообщения формата наполнения (internal/importer).
