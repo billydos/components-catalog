@@ -292,8 +292,11 @@ func TestConditionSets(t *testing.T) {
 		}
 	})
 	t.Run("смешение наборов", func(t *testing.T) {
+		// Vce+Ie — легитимный набор hfe (схема Uкэ+Iэ); вне наборов —
+		// сочетание напряжения схемы ОБ с током базы (без коллизии
+		// с фиксированным Vce=0 наборов 5–6).
 		d := valP("hfe",
-			catalog.ConditionValue{Condition: "Vce", Value: 10}, catalog.ConditionValue{Condition: "Ie", Value: 1})
+			catalog.ConditionValue{Condition: "Vcb", Value: 10}, catalog.ConditionValue{Condition: "Ib", Value: 1})
 		d.Values[0].Min, d.Values[0].Max = f(50), f(350)
 		hasProblem(t, e.ValidateDevice(d),
 			"parameter «hfe»: the combination of conditions does not match any condition set of the parameter")

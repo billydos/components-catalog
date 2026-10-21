@@ -19,8 +19,8 @@ func TestSeedAppliesCleanly(t *testing.T) {
 		}
 		t.Fatal("стартовый каталог не проходит метасхему")
 	}
-	if len(snap.Parameters) != 114 || len(snap.Attributes) != 21 ||
-		len(snap.Units) != 30 || len(snap.Conditions) != 20 {
+	if len(snap.Parameters) != 122 || len(snap.Attributes) != 21 ||
+		len(snap.Units) != 31 || len(snap.Conditions) != 20 {
 		t.Fatalf("состав каталога: параметры %d, атрибуты %d, единицы %d, условия %d",
 			len(snap.Parameters), len(snap.Attributes), len(snap.Units), len(snap.Conditions))
 	}
