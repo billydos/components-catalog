@@ -196,6 +196,14 @@ func TestImportHardErrors(t *testing.T) {
 		})
 	}
 
+	// Ошибки параметров запроса приоритетнее отсутствующего Content-Type
+	// (порядок разбора хендлера: параметры, затем заголовок) —
+	// комбинированный опечаточный запрос получает детерминированную
+	// ошибку параметра.
+	status, _, eb = doImport(t, srv, "bogus=1", "", "{}\n")
+	wantError(t, status, eb, http.StatusBadRequest, "validation_failed",
+		"unknown query parameter «bogus»")
+
 	// Метод не поддерживается путём: 405 + Allow: POST.
 	resp := rawRequest(t, srv, http.MethodGet, apiPrefix+"/import", nil, nil)
 	defer resp.Body.Close() //nolint:errcheck — тестовый ответ
@@ -301,6 +309,8 @@ func TestImportContentTypes(t *testing.T) {
 		{"jsonc с комментариями", "application/json",
 			"// наполнение\n{\n  \"transistors\": [\n    {\"name\": \"ГТ115Г\"}\n  ]\n}\n"},
 		{"yaml", "application/yaml", "transistors:\n  - name: BC548A\n"},
+		{"json с параметрами медиатипа", "application/json; charset=utf-8",
+			"{\"transistors\": [{\"name\": \"BC548B\"}]}"},
 		{"charset игнорируется", "application/x-ndjson; charset=utf-8",
 			"{\"transistors\": {\"name\": \"ГТ109Г\"}}\n"},
 	}
@@ -318,7 +328,7 @@ func TestImportContentTypes(t *testing.T) {
 	}
 
 	// Заголовок отсутствует — умолчания нет: 400 (en — канонический).
-	status, _, eb := doImport(t, srv, "", "", "{}\n")
+	status, body, eb := doImport(t, srv, "", "", "{}\n")
 	wantError(t, status, eb, http.StatusBadRequest, "validation_failed",
 		"Content-Type header is required: application/x-ndjson, application/json or application/yaml")
 
@@ -331,6 +341,24 @@ func TestImportContentTypes(t *testing.T) {
 	status, _, eb = doImport(t, srv, "", "application/", "x")
 	wantError(t, status, eb, http.StatusBadRequest, "validation_failed",
 		"unsupported Content-Type «application/»: application/x-ndjson, application/json or application/yaml is expected")
+
+	// Пустое тело повторяет поведение файлов соответствующего формата:
+	// jsonc без корня — жёсткая ошибка синтаксиса (400), yaml-документ
+	// null — корневая проблема прогона (200 + issue); пустой NDJSON
+	// закреплён в TestImportReport (пустой отчёт).
+	status, _, eb = doImport(t, srv, "", "application/json", "")
+	wantError(t, status, eb, http.StatusBadRequest, "invalid_import_file",
+		"the file is not valid JSONC: hujson: line 1, column 1: parsing value: unexpected EOF")
+	status, body, _ = doImport(t, srv, "", "application/yaml", "")
+	if status != http.StatusOK {
+		t.Fatalf("пустой yaml: статус %d, тело %s", status, body)
+	}
+	emptyYAML := decode[importReportJSON](t, body)
+	if emptyYAML.Records != 0 || len(emptyYAML.Issues) != 1 ||
+		emptyYAML.Issues[0].Code != "invalid_import_file" ||
+		emptyYAML.Issues[0].Message != `the root element must be an object with kind keys and/or "catalog"` {
+		t.Fatalf("пустой yaml: %+v", emptyYAML)
+	}
 }
 
 // Документные форматы — тот же конвейер: Issues-модель с позицией
