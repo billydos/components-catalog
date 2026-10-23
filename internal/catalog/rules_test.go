@@ -409,14 +409,98 @@ func TestCapacitorVariants(t *testing.T) {
 			t.Fatalf(" got: %v", messages(probs))
 		}
 	})
-	t.Run("повтор Vnom", func(t *testing.T) {
+	t.Run("повтор ячейки матрицы", func(t *testing.T) {
 		d := base
 		d.Variants = append(slices.Clone(d.Variants), catalog.Variant{Label: "160 В ", Values: []catalog.ParameterValue{
 			{Parameter: "Vnom", Section: "parameters", Exact: f(160)},
-			{Parameter: "Cnom", Section: "parameters", Min: f(1), Max: f(2)},
+			{Parameter: "Cnom", Section: "parameters", Min: f(1000000), Max: f(10000000)},
 		}})
 		probs := e.ValidateDevice(&d)
-		if len(probs) != 1 || probs[0].Message != "variant «160 В »: Vnom repeats (already set by variant «160 В»)" {
+		if len(probs) != 1 ||
+			probs[0].Message != "variant «160 В »: duplicate matrix cell — Vnom/Cnom already set by variant «160 В» (same caseVariant)" {
+			t.Fatalf(" got: %v", messages(probs))
+		}
+	})
+	t.Run("повтор Vnom с другим Cnom допустим", func(t *testing.T) {
+		// Полная таблица корпусов электролитических: несколько
+		// исполнений на одно напряжение — поддиапазонами Cnom.
+		d := base
+		d.Variants = append(slices.Clone(d.Variants), catalog.Variant{Label: "160 В (малые корпуса)", Values: []catalog.ParameterValue{
+			{Parameter: "Vnom", Section: "parameters", Exact: f(160)},
+			{Parameter: "Cnom", Section: "parameters", Min: f(1), Max: f(2)},
+		}})
+		if probs := e.ValidateDevice(&d); len(probs) != 0 {
+			t.Fatalf(" got: %v", messages(probs))
+		}
+	})
+	t.Run("матрица ячеек К73-17", func(t *testing.T) {
+		// Массогабаритная таблица плёночного типа: вариант — ячейка
+		// (Vnom × Cnom, точечный номинал min = max), прямоугольная
+		// форма с шагом и диаметром выводов, конструктивное
+		// исполнение — атрибут caseVariant.
+		cell := func(label, caseVariant string, cnom, h, w, l, pitch, dia, mass float64) catalog.Variant {
+			return catalog.Variant{Label: label,
+				Attributes: []catalog.AttributeValue{{Attribute: "caseVariant", Text: s(caseVariant)}},
+				Values: []catalog.ParameterValue{
+					{Parameter: "Vnom", Section: "parameters", Exact: f(63)},
+					{Parameter: "Cnom", Section: "parameters", Min: f(cnom), Max: f(cnom)},
+					{Parameter: "height", Section: "dimensions", Exact: f(h)},
+					{Parameter: "width", Section: "dimensions", Exact: f(w)},
+					{Parameter: "length", Section: "dimensions", Exact: f(l)},
+					{Parameter: "leadPitch", Section: "dimensions", Exact: f(pitch)},
+					{Parameter: "leadDiameter", Section: "dimensions", Exact: f(dia)},
+					{Parameter: "massMax", Section: "dimensions", Exact: f(mass)},
+				}}
+		}
+		d := catalog.Device{
+			Kind: domain.KindCapacitor, System: domain.SystemGost, Designation: "К73-17",
+			Values: []catalog.ParameterValue{
+				{Parameter: "Cnom", Section: "parameters", Min: f(1000), Max: f(4700000)},
+				{Parameter: "Tolerance", Section: "parameters", Max: f(20)},
+			},
+			Variants: []catalog.Variant{
+				cell("63 В / 0.22 мкФ", "1", 220000, 10, 6, 12, 10, 0.6, 1.4),
+				cell("63 В / 0.33 мкФ", "1", 330000, 13, 6.3, 12, 10, 0.6, 2.5),
+			},
+		}
+		if probs := e.ValidateDevice(&d); len(probs) != 0 {
+			t.Fatalf(" got: %v", messages(probs))
+		}
+		// Та же ячейка в другом конструктивном исполнении («1а» —
+		// отдельная таблица той же записи) — не дубликат.
+		d.Variants = append(d.Variants, cell("исп. 1а: 63 В / 0.22 мкФ", "1а", 220000, 11, 6.5, 13, 10, 0.6, 1.6))
+		if probs := e.ValidateDevice(&d); len(probs) != 0 {
+			t.Fatalf(" got: %v", messages(probs))
+		}
+		// Повтор ячейки в том же конструктивном исполнении — дубликат.
+		d.Variants = append(d.Variants, cell("63 В / 0.22 мкФ (повтор)", "1", 220000, 10, 6, 12, 10, 0.6, 1.4))
+		probs := e.ValidateDevice(&d)
+		if len(probs) != 1 ||
+			probs[0].Message != "variant «63 В / 0.22 мкФ (повтор)»: duplicate matrix cell — Vnom/Cnom already set by variant «63 В / 0.22 мкФ» (same caseVariant)" {
+			t.Fatalf(" got: %v", messages(probs))
+		}
+	})
+	t.Run("caseVariant уровня записи в ключ не входит", func(t *testing.T) {
+		// Значение атрибута на записи — признак типа в целом; ключ
+		// ячейки читает только уровень исполнения (03 §7): записное
+		// значение не маскирует повтор ячейки.
+		d := catalog.Device{
+			Kind: domain.KindCapacitor, System: domain.SystemGost, Designation: "К73-17",
+			Attributes: []catalog.AttributeValue{{Attribute: "caseVariant", Text: s("1")}},
+			Variants: []catalog.Variant{
+				{Label: "a", Values: []catalog.ParameterValue{
+					{Parameter: "Vnom", Section: "parameters", Exact: f(63)},
+					{Parameter: "Cnom", Section: "parameters", Min: f(220000), Max: f(220000)},
+				}},
+				{Label: "b", Values: []catalog.ParameterValue{
+					{Parameter: "Vnom", Section: "parameters", Exact: f(63)},
+					{Parameter: "Cnom", Section: "parameters", Min: f(220000), Max: f(220000)},
+				}},
+			},
+		}
+		probs := e.ValidateDevice(&d)
+		if len(probs) != 1 ||
+			probs[0].Message != "variant «b»: duplicate matrix cell — Vnom/Cnom already set by variant «a» (same caseVariant)" {
 			t.Fatalf(" got: %v", messages(probs))
 		}
 	})

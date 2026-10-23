@@ -19,7 +19,7 @@ func TestSeedAppliesCleanly(t *testing.T) {
 		}
 		t.Fatal("стартовый каталог не проходит метасхему")
 	}
-	if len(snap.Parameters) != 122 || len(snap.Attributes) != 21 ||
+	if len(snap.Parameters) != 123 || len(snap.Attributes) != 22 ||
 		len(snap.Units) != 31 || len(snap.Conditions) != 20 {
 		t.Fatalf("состав каталога: параметры %d, атрибуты %d, единицы %d, условия %d",
 			len(snap.Parameters), len(snap.Attributes), len(snap.Units), len(snap.Conditions))
@@ -285,7 +285,7 @@ func TestSeedSpotChecks(t *testing.T) {
 			t.Errorf("%s: группа %q, применимость %v", code, p.Group, p.Kinds)
 		}
 	}
-	for _, code := range []string{"massMax", "length", "width", "height", "diameter", "leadLength", "leadPitch", "shaftDiameter", "shaftLength"} {
+	for _, code := range []string{"massMax", "length", "width", "height", "diameter", "leadLength", "leadPitch", "leadDiameter", "shaftDiameter", "shaftLength"} {
 		if p := check(code); p.ValidationRule != "cap_dimensions_form" || p.ValueType != catalog.ValueExact {
 			t.Errorf("%s: правило %q, тип %s", code, p.ValidationRule, string(p.ValueType))
 		}
@@ -320,6 +320,14 @@ func TestSeedSpotChecks(t *testing.T) {
 	if a := attr("shaftEnd"); a.Type != catalog.AttrEnum || !a.AppliesTo(domain.KindResistor) ||
 		!slices.Equal(a.EnumValues, []string{"slotted", "flatted", "plain", "threaded"}) {
 		t.Errorf("shaftEnd: %+v", a)
+	}
+	// Вариант конструктивного исполнения (03 §7/§10): конденсаторы
+	// и резисторы, уровни записи/исполнения — компонент ключа
+	// уникальности ячейки матрицы cap_variant_matrix.
+	if a := attr("caseVariant"); a.Type != catalog.AttrText ||
+		!a.AppliesTo(domain.KindCapacitor) || !a.AppliesTo(domain.KindResistor) ||
+		a.AppliesTo(domain.KindRelay) {
+		t.Errorf("caseVariant: %+v", a)
 	}
 	if a := attr("polarized"); a.Type != catalog.AttrBool || a.AppliesTo(domain.KindResistor) {
 		t.Errorf("polarized: %+v", a)

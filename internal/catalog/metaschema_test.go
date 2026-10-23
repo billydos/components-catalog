@@ -13,7 +13,7 @@ func TestSeedSnapshotCounts(t *testing.T) {
 	snap := seedSnapshot(t)
 	want := struct {
 		units, categories, conditions, groups, params, attrs, rules int
-	}{31, 11, 20, 3, 122, 21, 6}
+	}{31, 11, 20, 3, 123, 22, 6}
 	if got := len(snap.Units); got != want.units {
 		t.Errorf("единиц: %d, ожидалось %d", got, want.units)
 	}

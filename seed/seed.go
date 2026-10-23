@@ -622,10 +622,12 @@ func parameters() []catalog.ParameterDef {
 			ValueType: catalog.ValueExact, ValidationRule: ruleDims, SortOrder: 60, Active: true},
 		{Code: "leadPitch", Group: "dimensional", Unit: "mm",
 			ValueType: catalog.ValueExact, ValidationRule: ruleDims, SortOrder: 70, Active: true},
-		{Code: "shaftDiameter", Group: "dimensional", Unit: "mm",
+		{Code: "leadDiameter", Group: "dimensional", Unit: "mm",
 			ValueType: catalog.ValueExact, ValidationRule: ruleDims, SortOrder: 80, Active: true},
-		{Code: "shaftLength", Group: "dimensional", Unit: "mm",
+		{Code: "shaftDiameter", Group: "dimensional", Unit: "mm",
 			ValueType: catalog.ValueExact, ValidationRule: ruleDims, SortOrder: 90, Active: true},
+		{Code: "shaftLength", Group: "dimensional", Unit: "mm",
+			ValueType: catalog.ValueExact, ValidationRule: ruleDims, SortOrder: 100, Active: true},
 	}
 }
 
@@ -697,5 +699,11 @@ func attributes() []catalog.AttributeDef {
 				// threaded резьбовой.
 				"slotted", "flatted", "plain", "threaded",
 			}},
+		{Code: "caseVariant", Type: catalog.AttrText, SortOrder: 220, Active: true,
+			// Вариант конструктивного исполнения по ТУ («1», «1а» у
+			// К73-17; 03 §7/§10): различает матрицы исполнений одного
+			// типа — уровни записи/исполнения; входит в ключ
+			// уникальности ячейки cap_variant_matrix.
+			Kinds: []domain.Kind{domain.KindCapacitor, domain.KindResistor}},
 	}
 }

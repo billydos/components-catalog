@@ -185,19 +185,34 @@ func (capDimensionsFormRule) CheckValues(_ *Engine, _ domain.Kind, vals []Parame
 	return nil
 }
 
-// capVariantMatrixRule — вариант электролитического конденсатора обязан
-// иметь Vnom и Cnom; при наличии габаритов — согласованный набор формы
-// корпуса; уникальность Vnom и метки в пределах записи (привязка — класс
-// capacitor, kind_validation_rules).
+// capVariantMatrixRule — вариант конденсатора обязан иметь Vnom и Cnom;
+// при наличии габаритов — согласованный набор формы корпуса; уникальны
+// метка и ячейка матрицы (caseVariant, Vnom, Cnom) в пределах записи
+// (привязка — класс capacitor, kind_validation_rules). Матрица «ёмкость ×
+// напряжение → габариты/масса»: у электролитических (К50-35) вариант —
+// напряжение с диапазоном ряда Cnom на него, у плёночных (К73-17) — ячейка
+// (Vnom × Cnom) со своим набором габаритов, вплоть до точечного номинала
+// (min = max); повтор Vnom допустим — ячейки различаются ёмкостью либо
+// конструктивным исполнением caseVariant (таблицы «исполнение 1»/«1а»
+// одной записи, 03-data-model.md §7).
 type capVariantMatrixRule struct{}
 
 func (capVariantMatrixRule) Code() string { return "cap_variant_matrix" }
 
 func (capVariantMatrixRule) AllowsVariants() bool { return true }
 
+// capVariantCell — ячейка матрицы исполнений: конструктивное исполнение
+// caseVariant (пустая строка — не задано) + точный Vnom + границы Cnom.
+type capVariantCell struct {
+	caseVariant string
+	vnom        float64
+	cnomMin     float64
+	cnomMax     float64
+}
+
 func (capVariantMatrixRule) CheckDevice(e *Engine, d *Device) []Problem {
 	var probs []Problem
-	seenVnom := make(map[float64]string, len(d.Variants))
+	seenCell := make(map[capVariantCell]string, len(d.Variants))
 	seenLabel := make(map[string]bool, len(d.Variants))
 	for i := range d.Variants {
 		v := &d.Variants[i]
@@ -209,11 +224,21 @@ func (capVariantMatrixRule) CheckDevice(e *Engine, d *Device) []Problem {
 			probs = append(probs, ruleProblem(domain.MsgRuleVariantCnomMissing, name))
 		}
 		probs = append(probs, capDimensionsFormRule{}.CheckValues(e, d.Kind, v.Values)...)
+		// Дубликат ячейки ищется только по полному ключу: варианты с
+		// неполными Vnom/Cnom уже отмечены проверками значений выше.
 		if vnom, ok := paramExact(v.Values, "Vnom"); ok {
-			if prev, dup := seenVnom[vnom]; dup {
-				probs = append(probs, ruleProblem(domain.MsgRuleVariantVnomDup, name, prev))
-			} else {
-				seenVnom[vnom] = name
+			if cnom, ok := paramAny(v.Values, "Cnom"); ok && cnom.Min != nil && cnom.Max != nil {
+				cell := capVariantCell{
+					caseVariant: attrText(v.Attributes, "caseVariant"),
+					vnom:        vnom,
+					cnomMin:     *cnom.Min,
+					cnomMax:     *cnom.Max,
+				}
+				if prev, dup := seenCell[cell]; dup {
+					probs = append(probs, ruleProblem(domain.MsgRuleVariantCellDup, name, prev))
+				} else {
+					seenCell[cell] = name
+				}
 			}
 		}
 		if v.Label != "" {
@@ -315,6 +340,17 @@ func attrNum(vals []AttributeValue, code string) (float64, bool) {
 		}
 	}
 	return 0, false
+}
+
+// attrText ищет первое текстовое значение атрибута (пустая строка —
+// не задано).
+func attrText(vals []AttributeValue, code string) string {
+	for _, av := range vals {
+		if av.Attribute == code && av.Text != nil {
+			return *av.Text
+		}
+	}
+	return ""
 }
 
 // paramAny ищет первое значение параметра по коду.

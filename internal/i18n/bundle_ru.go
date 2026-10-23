@@ -312,6 +312,7 @@ var bundleRu = map[string]string{
 	"param.diameter":      "диаметр",
 	"param.leadLength":    "длина выводов",
 	"param.leadPitch":     "шаг выводов",
+	"param.leadDiameter":  "диаметр выводов",
 	"param.shaftLength":   "длина вала",
 	"param.shaftDiameter": "диаметр вала",
 
@@ -337,12 +338,13 @@ var bundleRu = map[string]string{
 	"attr.contactForm":       "контактная группа (зам./разм./переключ.)",
 	"attr.sections":          "число секций",
 	"attr.shaftEnd":          "вид конца вала",
+	"attr.caseVariant":       "вариант исполнения (конструктивного, по ТУ)",
 
 	// Именованные правила (validation_rules).
 	"rule.year_range":             "годы выпуска: yearFrom < yearTo; диапазон 1949–2100",
 	"rule.temp_pair":              "согласованность температурной пары: TempMin < TempMax и opTempMin < opTempMax (если заданы оба)",
 	"rule.cap_dimensions_form":    "согласованность формы корпуса: прямоугольная (length+width+height) либо цилиндрическая — осевая (diameter+leadLength) или радиальная (diameter+height), смешение — ошибка",
-	"rule.cap_variant_matrix":     "вариант электролитического конденсатора: обязательны Vnom и Cnom, габариты — согласованным набором формы корпуса, уникальность Vnom и метки",
+	"rule.cap_variant_matrix":     "вариант конденсатора: обязательны Vnom и Cnom, габариты — согласованным набором формы корпуса; уникальны метка и ячейка матрицы (caseVariant, Vnom, Cnom) в пределах записи",
 	"rule.relay_variant_coil":     "вариант реле (паспорт): обязательны Rcoil и обмоточный номинал (VcoilNom, для токовых обмоток — Ipickup), уникальность метки",
 	"rule.resistor_variant_power": "вариант резистора: обязателен Pnom, уникальность Pnom и метки",
 

@@ -314,6 +314,7 @@ var bundleEn = map[string]string{
 	"param.diameter":      "diameter",
 	"param.leadLength":    "lead length",
 	"param.leadPitch":     "lead pitch",
+	"param.leadDiameter":  "lead diameter",
 	"param.shaftLength":   "shaft length",
 	"param.shaftDiameter": "shaft diameter",
 
@@ -339,12 +340,13 @@ var bundleEn = map[string]string{
 	"attr.contactForm":       "contact form (make/break/changeover)",
 	"attr.sections":          "sections (gang count)",
 	"attr.shaftEnd":          "shaft end type",
+	"attr.caseVariant":       "case variant (construction, as per specification)",
 
 	// Именованные правила (validation_rules).
 	"rule.year_range":             "production years: yearFrom < yearTo; range 1949–2100",
 	"rule.temp_pair":              "temperature pair consistency: TempMin < TempMax and opTempMin < opTempMax (when both are set)",
 	"rule.cap_dimensions_form":    "case form consistency: rectangular (length+width+height) or cylindrical — axial (diameter+leadLength) or radial (diameter+height); mixing is an error",
-	"rule.cap_variant_matrix":     "electrolytic capacitor variant: Vnom and Cnom are mandatory, dimensions follow a consistent case form, Vnom and label uniqueness",
+	"rule.cap_variant_matrix":     "capacitor variant: Vnom and Cnom are mandatory, dimensions follow a consistent case form; label and matrix cell (caseVariant, Vnom, Cnom) are unique within the record",
 	"rule.relay_variant_coil":     "relay variant (passport): Rcoil and a coil nominal (VcoilNom, or Ipickup for current windings) are mandatory, label uniqueness",
 	"rule.resistor_variant_power": "resistor variant: Pnom is mandatory, Pnom and label uniqueness",
 
