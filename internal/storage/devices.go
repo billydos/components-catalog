@@ -1,11 +1,12 @@
 package storage
 
 import (
+	"cmp"
 	"context"
 	"database/sql"
 	"errors"
 	"fmt"
-	"sort"
+	"slices"
 	"strings"
 
 	"github.com/billydos/components-catalog/internal/domain"
@@ -589,7 +590,7 @@ WHERE id IN `+inList("id", chunk, args)+` ORDER BY id`, args)
 	if err != nil {
 		return nil, err
 	}
-	sort.Slice(out, func(i, j int) bool { return out[i].ID < out[j].ID })
+	slices.SortFunc(out, func(a, b *DeviceRow) int { return cmp.Compare(a.ID, b.ID) })
 	return out, nil
 }
 

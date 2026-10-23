@@ -163,7 +163,7 @@ func driverVersions() [][2]string {
 // прикидки).
 func trimSpaceLines(output string) []string {
 	var out []string
-	for _, l := range strings.Split(output, "\n") {
+	for l := range strings.Lines(output) {
 		if l = strings.TrimSpace(l); l != "" {
 			out = append(out, l)
 		}

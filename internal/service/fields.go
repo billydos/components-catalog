@@ -1,9 +1,9 @@
 package service
 
 import (
+	"cmp"
 	"math"
 	"slices"
-	"sort"
 	"strings"
 
 	"github.com/billydos/components-catalog/internal/catalog"
@@ -98,7 +98,7 @@ func validateExplicitFields(p domain.ParsedDesignation, fields []domain.Field,
 		}
 		out = append(out, f)
 	}
-	sort.SliceStable(out, func(i, j int) bool { return out[i].Name < out[j].Name })
+	slices.SortStableFunc(out, func(a, b domain.Field) int { return cmp.Compare(a.Name, b.Name) })
 	return out, nil
 }
 

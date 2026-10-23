@@ -1,9 +1,9 @@
 package service
 
 import (
+	"cmp"
 	"context"
 	"slices"
-	"sort"
 	"strconv"
 	"strings"
 
@@ -640,7 +640,7 @@ func resolveAnalogs(ctx context.Context, tx *storage.Tx, kind domain.Kind,
 		})
 	}
 	// Стабильный порядок для канонического сравнения состояний.
-	sort.SliceStable(out, func(i, j int) bool { return out[i].designation < out[j].designation })
+	slices.SortStableFunc(out, func(a, b resolvedAnalog) int { return cmp.Compare(a.designation, b.designation) })
 	return out, nil
 }
 
@@ -706,7 +706,7 @@ func resolveSynonyms(ctx context.Context, tx *storage.Tx, kind domain.Kind,
 			YearFrom: s.YearFrom, YearTo: s.YearTo,
 		})
 	}
-	sort.SliceStable(out, func(i, j int) bool { return out[i].Designation < out[j].Designation })
+	slices.SortStableFunc(out, func(a, b stateSynonym) int { return cmp.Compare(a.Designation, b.Designation) })
 	return out, nil
 }
 

@@ -10,7 +10,6 @@ import (
 	"net/http"
 	"net/url"
 	"slices"
-	"sort"
 	"strings"
 	"time"
 
@@ -287,7 +286,7 @@ func (a *API) allowedMethods(segments []string) []string {
 			out = append(out, rt.method)
 		}
 	}
-	sort.Strings(out)
+	slices.Sort(out)
 	return out
 }
 

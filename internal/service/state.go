@@ -5,7 +5,6 @@ import (
 	"context"
 	"maps"
 	"slices"
-	"sort"
 
 	"github.com/billydos/components-catalog/internal/catalog"
 	"github.com/billydos/components-catalog/internal/domain"
@@ -173,8 +172,8 @@ func (s *stateMerger) loadState(ctx context.Context, tx *storage.Tx, deviceID in
 			Designation: s.Designation, Note: s.Note, YearFrom: s.YearFrom, YearTo: s.YearTo,
 		})
 	}
-	sort.SliceStable(st.synonyms, func(i, j int) bool {
-		return st.synonyms[i].Designation < st.synonyms[j].Designation
+	slices.SortStableFunc(st.synonyms, func(a, b stateSynonym) int {
+		return cmp.Compare(a.Designation, b.Designation)
 	})
 	return st, nil
 }
@@ -218,7 +217,7 @@ func sortedConds(conds []storage.Cond) []catalog.ConditionValue {
 	for _, c := range conds {
 		out = append(out, catalog.ConditionValue{Condition: c.Code, Value: c.Value})
 	}
-	sort.SliceStable(out, func(i, j int) bool { return out[i].Condition < out[j].Condition })
+	slices.SortStableFunc(out, func(a, b catalog.ConditionValue) int { return cmp.Compare(a.Condition, b.Condition) })
 	return out
 }
 
@@ -288,7 +287,7 @@ func (s *stateMerger) merge(cur *deviceState, in *DeviceInput, explicit []domain
 	// Производители: nil — не менять, иначе замена списка.
 	if in.Manufacturers != nil {
 		names := append([]string(nil), *in.Manufacturers...)
-		sort.Strings(names)
+		slices.Sort(names)
 		out.manufacturers = names
 	} else {
 		out.manufacturers = cur.manufacturers
@@ -310,13 +309,13 @@ func (s *stateMerger) merge(cur *deviceState, in *DeviceInput, explicit []domain
 
 func sortedCondsInput(conds []catalog.ConditionValue) []catalog.ConditionValue {
 	out := append([]catalog.ConditionValue(nil), conds...)
-	sort.SliceStable(out, func(i, j int) bool { return out[i].Condition < out[j].Condition })
+	slices.SortStableFunc(out, func(a, b catalog.ConditionValue) int { return cmp.Compare(a.Condition, b.Condition) })
 	return out
 }
 
 func normalizeAttrs(vals []catalog.AttributeValue) []catalog.AttributeValue {
 	out := append([]catalog.AttributeValue(nil), vals...)
-	sort.SliceStable(out, func(i, j int) bool { return out[i].Attribute < out[j].Attribute })
+	slices.SortStableFunc(out, func(a, b catalog.AttributeValue) int { return cmp.Compare(a.Attribute, b.Attribute) })
 	return out
 }
 

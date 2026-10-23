@@ -1,10 +1,9 @@
 package service
 
 import (
+	"cmp"
 	"context"
 	"slices"
-	"sort"
-	"strings"
 
 	"github.com/billydos/components-catalog/internal/catalog"
 	"github.com/billydos/components-catalog/internal/domain"
@@ -212,8 +211,8 @@ func attachTypeGroup(snap *catalog.Snapshot, c *Card,
 	}
 	// Порядок соседей — по обозначению в Go: коллация СУБД (sqlite BINARY,
 	// postgres — базы) не влияет на ответ между диалектами.
-	slices.SortStableFunc(sib, func(a, b CardTypeSibling) int { return strings.Compare(a.Designation, b.Designation) })
-	sort.SliceStable(members, func(i, j int) bool { return members[i].designation < members[j].designation })
+	slices.SortStableFunc(sib, func(a, b CardTypeSibling) int { return cmp.Compare(a.Designation, b.Designation) })
+	slices.SortStableFunc(members, func(a, b typeMember) int { return cmp.Compare(a.designation, b.designation) })
 	c.TypeGroup = &CardTypeGroup{Base: base, Siblings: sib}
 	for _, p := range snap.Parameters {
 		first, hasFirst := members[0].values[p.Code]
@@ -254,7 +253,7 @@ func cardValueEqual(a, b CardValue) bool {
 	ac := append([]catalog.ConditionValue(nil), a.Conditions...)
 	bc := append([]catalog.ConditionValue(nil), b.Conditions...)
 	byCode := func(s []catalog.ConditionValue) {
-		sort.SliceStable(s, func(i, j int) bool { return s[i].Condition < s[j].Condition })
+		slices.SortStableFunc(s, func(x, y catalog.ConditionValue) int { return cmp.Compare(x.Condition, y.Condition) })
 	}
 	byCode(ac)
 	byCode(bc)
@@ -310,7 +309,7 @@ func assembleCard(snap *catalog.Snapshot, dev *storage.DeviceRow,
 	// Исторические названия — порядок sort_order (канонический —
 	// по обозначению).
 	slices.SortStableFunc(synonyms, func(a, b storage.SynonymRow) int {
-		return strings.Compare(a.Designation, b.Designation)
+		return cmp.Compare(a.Designation, b.Designation)
 	})
 	for _, s := range synonyms {
 		card.Synonyms = append(card.Synonyms, CardSynonym{

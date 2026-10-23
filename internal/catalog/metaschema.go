@@ -1,6 +1,8 @@
 package catalog
 
 import (
+	"slices"
+
 	"github.com/billydos/components-catalog/internal/domain"
 )
 
@@ -389,7 +391,7 @@ func validateMetaschema(out *Snapshot) []Problem {
 			probs = append(probs, metaProblem(domain.MsgMetaKindRuleUnknown, string(r.Kind), r.Rule))
 			continue
 		}
-		if _, ok := indexOfRuleRow(out.Rules, r.Rule); !ok {
+		if !slices.ContainsFunc(out.Rules, func(row RuleDef) bool { return row.Code == r.Rule }) {
 			probs = append(probs, metaProblem(domain.MsgMetaKindRuleRowMissing, string(r.Kind), r.Rule))
 		}
 		if _, is := reg.(DeviceRule); !is {
@@ -435,7 +437,7 @@ func validateMetaschema(out *Snapshot) []Problem {
 			}
 		}
 		if p.ValidationRule != "" {
-			if _, ok := indexOfRuleRow(out.Rules, p.ValidationRule); !ok {
+			if !slices.ContainsFunc(out.Rules, func(row RuleDef) bool { return row.Code == p.ValidationRule }) {
 				probs = append(probs, metaProblem(domain.MsgMetaParamRuleRowMissing, p.Code, p.ValidationRule))
 			}
 			if reg, ok := RuleByCode(p.ValidationRule); ok {
@@ -493,7 +495,7 @@ func validateMetaschema(out *Snapshot) []Problem {
 			}
 		}
 		if a.ValidationRule != "" {
-			if _, ok := indexOfRuleRow(out.Rules, a.ValidationRule); !ok {
+			if !slices.ContainsFunc(out.Rules, func(row RuleDef) bool { return row.Code == a.ValidationRule }) {
 				probs = append(probs, metaProblem(domain.MsgMetaAttrRuleRowMissing, a.Code, a.ValidationRule))
 			}
 			if reg, ok := RuleByCode(a.ValidationRule); ok {
@@ -504,15 +506,4 @@ func validateMetaschema(out *Snapshot) []Problem {
 		}
 	}
 	return probs
-}
-
-// indexOfRuleRow сообщает, есть ли строка правила в данных каталога
-// (validation_rules — FK привязок параметров/атрибутов/классов).
-func indexOfRuleRow(rows []RuleDef, code string) (int, bool) {
-	for i := range rows {
-		if rows[i].Code == code {
-			return i, true
-		}
-	}
-	return -1, false
 }
