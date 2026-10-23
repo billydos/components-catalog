@@ -366,6 +366,29 @@ func restSuite(ctx context.Context, r *report, srv, tmp string, l leg) {
 			strings.Contains(body, "unknown query parameter"),
 		detail(status, body)...)
 
+	// Документные форматы импорта: jsonc (комментарии) и yaml — документ
+	// целиком по Content-Type; ГТ115Г не писалась (dry-run выше), КТ361Б
+	// уже импортирована. Отсутствие заголовка — 400 (умолчания нет).
+	jsonc := "// наполнение\n{\"transistors\": [{\"name\": \"ГТ115Г\", \"attributes\": {\"structure\": \"pnp\"}}]}\n"
+	status, body, _ = cl.do(ctx, http.MethodPost, "/import", jsonc,
+		map[string]string{"Content-Type": "application/json"})
+	r.check("rest/import-jsonc", "POST /import: jsonc-документ (application/json) — синхронный отчёт",
+		status == http.StatusOK && strings.Contains(body, `"records":1`) &&
+			strings.Contains(body, `"added":1`) && strings.Contains(body, `"issues":[]`),
+		detail(status, body)...)
+	status, body, _ = cl.do(ctx, http.MethodPost, "/import",
+		"transistors:\n  - name: КТ361Б\n",
+		map[string]string{"Content-Type": "application/yaml"})
+	r.check("rest/import-yaml", "POST /import: yaml-документ (application/yaml) — синхронный отчёт",
+		status == http.StatusOK && strings.Contains(body, `"records":1`) &&
+			strings.Contains(body, `"skipped":1`),
+		detail(status, body)...)
+	status, body, _ = cl.do(ctx, http.MethodPost, "/import", "", nil)
+	r.check("rest/import-no-content-type", "POST /import без Content-Type — 400 validation_failed",
+		status == http.StatusBadRequest && strings.Contains(body, "validation_failed") &&
+			strings.Contains(body, "Content-Type"),
+		detail(status, body)...)
+
 	// suggest по префиксу и неизвестный маршрут.
 	status, body, _ = cl.do(ctx, http.MethodGet,
 		"/suggest?"+url.Values{"q": {"КТ3"}, "kind": {"transistor"}}.Encode(), "", nil)
