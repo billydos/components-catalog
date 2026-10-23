@@ -49,13 +49,20 @@ func (m *Importer) Import(ctx context.Context, r io.Reader, name string, dryRun 
 	if err != nil {
 		return Report{}, err
 	}
-	o := newImportOptions(opts)
-	switch format {
-	case FormatNDJSON:
-		return m.importNDJSON(ctx, r, name, dryRun, false, o)
-	default:
-		return m.importDocument(ctx, r, name, format, dryRun, false, o)
+	return m.importNamed(ctx, r, name, format, dryRun, false, opts...)
+}
+
+// ImportFormat импортирует файл наполнения заданного формата — имя файла
+// не участвует (REST: формат согласован заголовком Content-Type;
+// встраивание: формат выбран явно). Условное имя отчёта —
+// «import.<формат>». Контракт исходов и проблем — как у Import.
+func (m *Importer) ImportFormat(ctx context.Context, r io.Reader, format Format,
+	dryRun bool, opts ...ImportOption) (Report, error) {
+	if !format.Known() {
+		return Report{}, domain.NewErrorf(domain.CodeInvalidImportFile,
+			domain.MsgImportFormatUnknown, string(format))
 	}
+	return m.importNamed(ctx, r, "import."+string(format), format, dryRun, false, opts...)
 }
 
 // ImportCatalogFile применяет только секцию catalog файла наполнения
@@ -68,12 +75,19 @@ func (m *Importer) ImportCatalogFile(ctx context.Context, r io.Reader, name stri
 	if err != nil {
 		return Report{}, err
 	}
+	return m.importNamed(ctx, r, name, format, dryRun, true, opts...)
+}
+
+// importNamed — диспетчер форматов: имя — для отчёта (CLI печатает имя
+// файла), catalogOnly — режим catalog import.
+func (m *Importer) importNamed(ctx context.Context, r io.Reader, name string, format Format,
+	dryRun, catalogOnly bool, opts ...ImportOption) (Report, error) {
 	o := newImportOptions(opts)
 	switch format {
 	case FormatNDJSON:
-		return m.importNDJSON(ctx, r, name, dryRun, true, o)
+		return m.importNDJSON(ctx, r, name, dryRun, catalogOnly, o)
 	default:
-		return m.importDocument(ctx, r, name, format, dryRun, true, o)
+		return m.importDocument(ctx, r, name, format, dryRun, catalogOnly, o)
 	}
 }
 

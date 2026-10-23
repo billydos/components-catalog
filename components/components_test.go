@@ -229,9 +229,10 @@ func runFacadeContract(t *testing.T, factory facadeConfig) {
 		http.StatusNotFound, `"code":"not_found"`)
 
 	// Потоковый импорт NDJSON через REST-обработчик фасада:
-	// синхронный отчёт после EOF.
+	// синхронный отчёт после EOF (формат тела — заголовок Content-Type).
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/import",
 		strings.NewReader("{\"transistors\": {\"name\": \"КТ3102А\"}}\n"))
+	req.Header.Set("Content-Type", "application/x-ndjson")
 	rec := httptest.NewRecorder()
 	h.ServeHTTP(rec, req)
 	if rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), `"added":1`) {

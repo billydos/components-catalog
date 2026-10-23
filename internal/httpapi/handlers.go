@@ -1,13 +1,16 @@
 package httpapi
 
 import (
+	"bytes"
 	"errors"
 	"io"
 	"maps"
+	"mime"
 	"net/http"
 	"net/url"
 	"slices"
 	"strconv"
+	"strings"
 
 	"github.com/billydos/components-catalog/internal/domain"
 	"github.com/billydos/components-catalog/internal/i18n"
@@ -317,13 +320,15 @@ func (a *API) handleChanges(w *responseWriter, r *http.Request, _ map[string]str
 	writeJSON(w, http.StatusOK, changesToJSON(page))
 }
 
-// handleImport — POST /api/v1/import: потоковый импорт файла наполнения
-// NDJSON. Тело читается построчно без загрузки
-// целиком и без потолка тела запроса — память ограничена потолком строки
-// сканера (16 МиБ); ответ — синхронный отчёт после EOF (Issues-модель:
-// корректные записи применяются, ошибочные — нет, отчёт — 200 даже
-// с проблемами). Параметр dry_run=true|false — контрольный прогон без
-// записи в БД (тот же конвейер проверок, отчёт помечен dry_run; как и в
+// handleImport — POST /api/v1/import: импорт файла наполнения. Формат
+// тела — обязательный заголовок Content-Type (application/x-ndjson,
+// application/json — jsonc, application/yaml): NDJSON читается построчно
+// без загрузки целиком и без потолка тела запроса — память ограничена
+// потолком строки сканера (16 МиБ); документные форматы читаются целиком
+// с потолком тела maxImportBodyBytes. Ответ — синхронный отчёт после EOF
+// (Issues-модель: корректные записи применяются, ошибочные — нет, отчёт —
+// 200 даже с проблемами). Параметр dry_run=true|false — контрольный прогон
+// без записи в БД (тот же конвейер проверок, отчёт помечен dry_run; как и в
 // Go API и CLI). Прочие ключи запроса — 400 (опечатки не молчат); повтор
 // dry_run — 400. Жёсткая ошибка — только синтаксис формата и чтения
 // потока (400 invalid_import_file). Прогресс по REST не отдаётся —
@@ -364,7 +369,32 @@ func (a *API) handleImport(w *responseWriter, r *http.Request, _ map[string]stri
 			return
 		}
 	}
-	rep, err := importer.New(a.app).Import(r.Context(), r.Body, importBodyName, dryRun)
+	format, err := importContentType(r.Header.Get("Content-Type"))
+	if err != nil {
+		a.writeDomainErr(w, r, err, true)
+		return
+	}
+	// Документные форматы разбираются из памяти: тело читается здесь
+	// (потолок — maxImportBodyBytes), чтобы ошибки чтения и потолка
+	// остались транспортными (400), а не инфраструктурными (500) на пути
+	// из импортёра. NDJSON уходит в импортёр потоком — без потолка тела.
+	var body io.Reader = r.Body
+	if format != importer.FormatNDJSON {
+		data, rerr := io.ReadAll(http.MaxBytesReader(w.ResponseWriter, r.Body, maxImportBodyBytes))
+		if rerr != nil {
+			var tooLarge *http.MaxBytesError
+			if errors.As(rerr, &tooLarge) {
+				a.writeError(w, r, http.StatusBadRequest, domain.CodeInvalidImportFile,
+					domain.MsgApiImportBodyTooLarge, maxImportBodyBytes>>20)
+				return
+			}
+			a.writeError(w, r, http.StatusBadRequest, domain.CodeInvalidImportFile,
+				domain.MsgApiBodyRead)
+			return
+		}
+		body = bytes.NewReader(data)
+	}
+	rep, err := importer.New(a.app).ImportFormat(r.Context(), body, format, dryRun)
 	if err != nil {
 		a.writeDomainErr(w, r, err, false)
 		return
@@ -381,9 +411,30 @@ func (a *API) handleImport(w *responseWriter, r *http.Request, _ map[string]stri
 	writeJSON(w, http.StatusOK, importReportToJSON(requestLang(r), &rep))
 }
 
-// importBodyName — условное имя тела запроса POST /import: формат —
-// NDJSON по расширению, в ответ имя не входит (файла нет — тело).
-const importBodyName = "import.ndjson"
+// importContentType — формат тела POST /import по заголовку Content-Type
+// (план 04 §2): заголовок обязателен, умолчания нет; параметры медиатипа
+// (charset) допускаются и игнорируются. Отсутствующий и неподдерживаемый
+// тип — 400 validation_failed.
+func importContentType(header string) (importer.Format, error) {
+	if strings.TrimSpace(header) == "" {
+		return "", domain.NewErrorf(domain.CodeValidationFailed, domain.MsgApiImportCTMissing)
+	}
+	mediaType, _, err := mime.ParseMediaType(header)
+	if err != nil {
+		return "", domain.NewErrorf(domain.CodeValidationFailed,
+			domain.MsgApiImportCTUnknown, strings.TrimSpace(header))
+	}
+	switch mediaType {
+	case "application/x-ndjson":
+		return importer.FormatNDJSON, nil
+	case "application/json":
+		return importer.FormatJSONC, nil
+	case "application/yaml":
+		return importer.FormatYAML, nil
+	}
+	return "", domain.NewErrorf(domain.CodeValidationFailed,
+		domain.MsgApiImportCTUnknown, mediaType)
+}
 
 // handleCreate — POST /api/v1/components: создание; тело — запись
 // наполнения (name/system + секции), класс — автодетект по обозначению

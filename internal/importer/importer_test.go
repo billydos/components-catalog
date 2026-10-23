@@ -47,6 +47,37 @@ func TestIntegrationSQLiteMemory(t *testing.T) { runImporterSuite(t, memoryConfi
 func TestIntegrationSQLiteFile(t *testing.T)   { runImporterSuite(t, fileConfig) }
 func TestIntegrationPostgres(t *testing.T)     { runImporterSuite(t, postgresConfig) }
 
+// ImportFormat — импорт с явным форматом (имени файла нет: REST
+// согласовывает формат заголовком Content-Type): тот же конвейер, что
+// у Import по расширению; неизвестный формат — жёсткая ошибка.
+func TestImportFormatExplicit(t *testing.T) {
+	app := openApp(t, memoryConfig)
+	imp := New(app)
+	data := "{\"transistors\": [{\"name\": \"КТ361Б\", \"attributes\": {\"structure\": \"pnp\"}}]}"
+	rep, err := imp.ImportFormat(context.Background(), strings.NewReader(data), FormatJSONC, false)
+	if err != nil {
+		t.Fatalf("ImportFormat: %v", err)
+	}
+	if rep.Format != FormatJSONC || rep.Name != "import.jsonc" ||
+		rep.Records != 1 || rep.Added != 1 || rep.HasIssues() {
+		t.Fatalf("отчёт: %+v", rep)
+	}
+	// Повтор — Skipped: идемпотентность того же конвейера.
+	rep, err = imp.ImportFormat(context.Background(), strings.NewReader(data), FormatJSONC, false)
+	if err != nil {
+		t.Fatalf("повторный ImportFormat: %v", err)
+	}
+	if rep.Skipped != 1 || rep.Added != 0 {
+		t.Fatalf("повторный отчёт: %+v", rep)
+	}
+	// Неизвестный формат — жёсткая ошибка прогона.
+	_, err = imp.ImportFormat(context.Background(), strings.NewReader(data), Format("bogus"), false)
+	de, ok := domain.AsError(err)
+	if !ok || de.Code != domain.CodeInvalidImportFile {
+		t.Fatalf("ошибка неизвестного формата: %v", err)
+	}
+}
+
 func openApp(t *testing.T, factory configFactory) *service.App {
 	t.Helper()
 	app, err := service.Open(context.Background(), factory(t))

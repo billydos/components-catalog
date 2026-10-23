@@ -366,6 +366,9 @@ const (
 	MsgApiPanic               MsgID = "api_panic"
 	MsgApiBodyTooLarge        MsgID = "api_body_too_large"
 	MsgApiBodyRead            MsgID = "api_body_read"
+	MsgApiImportBodyTooLarge  MsgID = "api_import_body_too_large"
+	MsgApiImportCTMissing     MsgID = "api_import_content_type_missing"
+	MsgApiImportCTUnknown     MsgID = "api_import_content_type_unknown"
 	MsgApiCardNotFound        MsgID = "api_card_not_found"
 	MsgApiIdNotFound          MsgID = "api_id_not_found"
 	MsgApiAlreadyExists       MsgID = "api_already_exists"
@@ -913,6 +916,9 @@ var msgRegistry = map[MsgID]struct{}{
 	MsgApiPanic:                       {},
 	MsgApiBodyTooLarge:                {},
 	MsgApiBodyRead:                    {},
+	MsgApiImportBodyTooLarge:          {},
+	MsgApiImportCTMissing:             {},
+	MsgApiImportCTUnknown:             {},
 	MsgApiCardNotFound:                {},
 	MsgApiIdNotFound:                  {},
 	MsgApiAlreadyExists:               {},
