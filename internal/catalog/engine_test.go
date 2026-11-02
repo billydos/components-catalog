@@ -345,7 +345,7 @@ func TestConditionSets(t *testing.T) {
 		}
 	})
 	t.Run("fixed_value задано равным", func(t *testing.T) {
-		d := valP("Esr", catalog.ConditionValue{Condition: "freq", Value: 0.1})
+		d := valP("Esr", catalog.ConditionValue{Condition: "freq", Value: 100000})
 		d.Kind = domain.KindCapacitor
 		if probs := e.ValidateDevice(d); len(probs) != 0 {
 			t.Fatalf(" got: %v", messages(probs))
@@ -355,7 +355,7 @@ func TestConditionSets(t *testing.T) {
 		d := valP("Esr", catalog.ConditionValue{Condition: "freq", Value: 1})
 		d.Kind = domain.KindCapacitor
 		probs := e.ValidateDevice(d)
-		if len(probs) != 1 || probs[0].Message != "parameter «Esr»: condition «freq» is fixed to value 0.1" {
+		if len(probs) != 1 || probs[0].Message != "parameter «Esr»: condition «freq» is fixed to value 100000" {
 			t.Fatalf(" got: %v", messages(probs))
 		}
 	})

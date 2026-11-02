@@ -354,7 +354,7 @@
         { "parameter": "Vnom", "value": 16 },
         { "parameter": "Ileak", "max": 7.5, "Vnom": 16 },             // DCL при номинальном напряжении
         { "parameter": "DF", "max": 6 },
-        { "parameter": "Esr", "max": 1 },                           // 100 кГц = 0,1 МГц
+        { "parameter": "Esr", "max": 1 },                           // 100 кГц
         { "parameter": "opTempMin", "value": -55 },
         { "parameter": "opTempMax", "value": 125 }
       ],

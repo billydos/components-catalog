@@ -3,7 +3,7 @@
   // обозначения, параметры с условиями, предельные, атрибуты,
   // производители, аналоги). Источники по каждой записи — код [S…] —
   // и полные таблицы: docs/plan/08-data-verification.md §1. Единицы —
-  // канонические (мВт, мА, МГц); для pnp условия — модули напряжений/токов.
+  // канонические (мВт, мА, Гц); для pnp условия — модули напряжений/токов.
   "transistors": [
     // gost (ГОСТ 10862-64): материал и подкласс кодируются обозначением.
     {
@@ -128,7 +128,7 @@
       "parameters": [
         { "parameter": "hfe", "min": 110, "max": 250, "Vcb": 5, "Ie": 1 },
         { "parameter": "Icbo", "max": 5, "Vcb": 5, "temp": 25 },
-        { "parameter": "fT", "min": 1, "Vcb": 5, "Ie": 1 }
+        { "parameter": "fT", "min": 1000000, "Vcb": 5, "Ie": 1 }
       ],
       "ratings": [
         { "parameter": "VceoMax", "value": 6 },
@@ -230,7 +230,7 @@
       "manufacturers": ["ST", "Motorola", "Texas Instruments"],
       "parameters": [
         { "parameter": "hfe", "min": 100, "max": 300, "Vce": 10, "Ic": 10 },
-        { "parameter": "fT", "min": 300, "Vce": 20, "Ic": 20 },
+        { "parameter": "fT", "min": 300000000, "Vce": 20, "Ic": 20 },
         { "parameter": "Icbo", "max": 0.01, "Vcb": 60 }
       ],
       "ratings": [
@@ -255,7 +255,7 @@
       "manufacturers": ["ST", "onsemi", "Motorola", "RCA"],
       "parameters": [
         { "parameter": "hfe", "min": 20, "max": 70, "Vce": 4, "Ic": 4000 },
-        { "parameter": "fT", "min": 2.5, "Vce": 10, "Ic": 500 },
+        { "parameter": "fT", "min": 2500000, "Vce": 10, "Ic": 500 },
         { "parameter": "Iceo", "max": 700, "Vce": 30 }
       ],
       "ratings": [
@@ -280,7 +280,7 @@
       "manufacturers": ["onsemi", "Motorola", "MCC"],
       "parameters": [
         { "parameter": "hfe", "min": 100, "max": 300, "Vce": 1, "Ic": 10 },
-        { "parameter": "fT", "min": 300, "Vce": 20, "Ic": 10 }
+        { "parameter": "fT", "min": 300000000, "Vce": 20, "Ic": 10 }
       ],
       "ratings": [
         { "parameter": "VceoMax", "value": 40 },
@@ -305,7 +305,7 @@
       "manufacturers": ["Toshiba"],
       "parameters": [
         { "parameter": "hfe", "min": 70, "max": 400, "Vce": 6, "Ic": 2 },
-        { "parameter": "fT", "min": 80, "Vce": 10, "Ic": 1 },
+        { "parameter": "fT", "min": 80000000, "Vce": 10, "Ic": 1 },
         { "parameter": "Icbo", "max": 0.1, "Vcb": 50 }
       ],
       "ratings": [
@@ -329,7 +329,7 @@
       "manufacturers": ["Toshiba"],
       "parameters": [
         { "parameter": "hfe", "min": 70, "max": 700, "Vce": 6, "Ic": 2 },
-        { "parameter": "fT", "min": 80, "Vce": 10, "Ic": 1 },
+        { "parameter": "fT", "min": 80000000, "Vce": 10, "Ic": 1 },
         { "parameter": "Icbo", "max": 0.1, "Vcb": 60 }
       ],
       "ratings": [
@@ -420,7 +420,7 @@
       "parameters": [
         { "parameter": "hfe", "min": 20, "max": 60, "Vce": 5, "Ic": 200 },
         { "parameter": "Icbo", "max": 300, "Vcb": 60, "temp": 20 },
-        { "parameter": "fT", "min": 0.15, "Vcb": 10, "Ie": 100 }
+        { "parameter": "fT", "min": 150000, "Vcb": 10, "Ie": 100 }
       ],
       "ratings": [
         { "parameter": "VceoMax", "value": 60 },
@@ -469,7 +469,7 @@
       },
       "manufacturers": ["onsemi", "Philips"],
       "parameters": [
-        { "parameter": "fT", "min": 50, "Vce": 20, "Ic": 10 },
+        { "parameter": "fT", "min": 50000000, "Vce": 20, "Ic": 10 },
         { "parameter": "Icbo", "max": 0.1, "Vcb": 200 }
       ],
       "ratings": [

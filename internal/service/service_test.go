@@ -148,7 +148,7 @@ func seedTransistors(t *testing.T, svc *DeviceService) {
 		Sections: []SectionInput{
 			section("parameters",
 				pvRange("hfe", 200, 450, cond("Vce", 5), cond("Ic", 2)),
-				pvAtLeast("fT", 300, cond("Vce", 5), cond("Ic", 2))),
+				pvAtLeast("fT", 300000000, cond("Vce", 5), cond("Ic", 2))),
 			section("ratings", pvExact("VceoMax", 45), pvExact("IcMax", 100)),
 		},
 	})
@@ -1662,7 +1662,7 @@ func suiteSearchValues(t *testing.T, factory configFactory) {
 		t.Fatalf("VceoMax КТ315Б (точное значение): %+v", kt[2].Value)
 	}
 	bc := valuesOf(page, "BC547B")
-	if len(bc) != 3 || bc[1].Value.Min == nil || *bc[1].Value.Min != 300 ||
+	if len(bc) != 3 || bc[1].Value.Min == nil || *bc[1].Value.Min != 300000000 ||
 		bc[1].Value.Max != nil || len(bc[1].Value.Conditions) != 2 {
 		t.Fatalf("fT BC547B (at_least с условиями): %+v", bc)
 	}
@@ -2124,9 +2124,9 @@ func suiteParameterStats(t *testing.T, factory configFactory) {
 	if min, max, _, _ := bound("VceoMax"); min != 15 || max != 45 {
 		t.Fatalf("VceoMax: %v..%v, ожидалось 15..45", min, max)
 	}
-	// at_least (fT ≥ 300) — только нижняя граница; at_most (Icbo ≤ 0.5) —
+	// at_least (fT ≥ 300 МГц) — только нижняя граница; at_most (Icbo ≤ 0.5) —
 	// только верхняя; слайдер по ним не отсекает записи фильтра.
-	if min, _, hasMin, hasMax := bound("fT"); !hasMin || min != 300 || hasMax {
+	if min, _, hasMin, hasMax := bound("fT"); !hasMin || min != 300000000 || hasMax {
 		t.Fatalf("fT: min=%v (%v), hasMax=%v", min, hasMin, hasMax)
 	}
 	if _, max, hasMin, hasMax := bound("Icbo"); !hasMax || max != 0.5 || hasMin {
@@ -2191,7 +2191,7 @@ func suiteParameterStats(t *testing.T, factory configFactory) {
 	// по нему для этого класса — 400, слайдер был бы неработоспособен.
 	err = app.Services().Catalog.Import(ctx, catalog.Input{
 		Parameters: []catalog.ParameterDef{{
-			Code: "fT", Group: "electrical", Unit: "MHz",
+			Code: "fT", Group: "electrical", Unit: "Hz",
 			ValueType: catalog.ValueAtLeast, SortOrder: 30, Active: true,
 			Kinds: []domain.Kind{domain.KindDiode},
 		}},

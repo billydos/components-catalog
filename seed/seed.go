@@ -61,7 +61,7 @@ func Catalog() catalog.Input {
 func units() []catalog.UnitDef {
 	codes := []string{
 		"V", "mV", "mA", "uA", "nA", "A",
-		"MHz", "dB", "pct", "W", "mW",
+		"Hz", "dB", "pct", "W", "mW",
 		"ohm", "mA_per_V", "uS", "pF", "ps", "ns", "us", "ms",
 		"degC", "degC_per_W", "ppm_per_degC", "pct_per_degC",
 		"g", "mm", "nm", "mcd",
@@ -112,7 +112,7 @@ func conditions() []catalog.ConditionDef {
 		{Code: "Rg", Unit: "ohm"},
 		{Code: "Rbe", Unit: "ohm"},
 		{Code: "Rload", Unit: "ohm"},
-		{Code: "freq", Unit: "MHz"},
+		{Code: "freq", Unit: "Hz"},
 		{Code: "pulse_duration", Unit: "us"},
 		{Code: "temp", Unit: "degC", AllowNegative: true},
 	}
@@ -191,7 +191,7 @@ func parameters() []catalog.ParameterDef {
 		{Code: "hfb", Group: "electrical",
 			ValueType: catalog.ValueAtLeast, SortOrder: 20, Active: true, Kinds: tr,
 			ConditionSets: []catalog.ConditionSet{set(1, req("Vcb"), req("Ie"))}},
-		{Code: "fT", Group: "electrical", Unit: "MHz",
+		{Code: "fT", Group: "electrical", Unit: "Hz",
 			ValueType: catalog.ValueAtLeast, SortOrder: 30, Active: true, Kinds: tr,
 			ConditionSets: []catalog.ConditionSet{
 				set(1, req("Vce"), req("Ic")),
@@ -386,7 +386,7 @@ func parameters() []catalog.ParameterDef {
 			ConditionSets: []catalog.ConditionSet{set(1, req("Vnom"), opt("temp"))}},
 		{Code: "Esr", Group: "electrical", Unit: "ohm",
 			ValueType: catalog.ValueAtMost, SortOrder: 450, Active: true, Kinds: []domain.Kind{domain.KindCapacitor},
-			ConditionSets: []catalog.ConditionSet{set(1, fixed("freq", 0.1))}},
+			ConditionSets: []catalog.ConditionSet{set(1, fixed("freq", 100000))}},
 		{Code: "Iripple", Group: "electrical", Unit: "mA",
 			ValueType: catalog.ValueAtMost, SortOrder: 460, Active: true, Kinds: []domain.Kind{domain.KindCapacitor},
 			ConditionSets: []catalog.ConditionSet{set(1, req("freq"), opt("temp"))}},

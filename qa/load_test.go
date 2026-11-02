@@ -357,7 +357,7 @@ func writeLoadDataset(path string, scale int) error {
 		number := 1000 + i%numberSpan
 		suffix := letters[i/numberSpan]
 		hfeMin := 20 + i%180
-		fTmin := 5 + i%500
+		fTmin := (5 + i%500) * 1000000
 		vceo := 15 + i%300
 		pcMax := 50 + i%800
 		mass := 0.2 + float64(i%50)/100

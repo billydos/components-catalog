@@ -175,7 +175,7 @@ func TestSeedSpotChecks(t *testing.T) {
 	}
 	esr := check("Esr")
 	if len(esr.ConditionSets) != 1 || len(esr.ConditionSets[0].Items) != 1 ||
-		esr.ConditionSets[0].Items[0].FixedValue == nil || *esr.ConditionSets[0].Items[0].FixedValue != 0.1 {
+		esr.ConditionSets[0].Items[0].FixedValue == nil || *esr.ConditionSets[0].Items[0].FixedValue != 100000 {
 		t.Errorf("Esr: набор условий %+v", esr.ConditionSets)
 	}
 	pulse := check("IcPulseMax")

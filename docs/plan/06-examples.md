@@ -55,7 +55,7 @@
       "attributes": { "structure": "npn", "package": "TO-92" },
       "parameters": [
         { "parameter": "hfe", "min": 200, "max": 450, "Vce": 5, "Ic": 2 },
-        { "parameter": "fT", "min": 300, "Vce": 5, "Ic": 2 }
+        { "parameter": "fT", "min": 300000000, "Vce": 5, "Ic": 2 }
       ],
       "ratings": [
         { "parameter": "VceoMax", "value": 45 },

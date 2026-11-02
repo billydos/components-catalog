@@ -43,7 +43,7 @@ designation_system_kinds(system_code TEXT NOT NULL
 
 units(code TEXT PRIMARY KEY)
     -- канонические единицы; коды — латиница (locale-neutral): V, mV, mA, uA, nA,
-    -- A, MHz, dB, pct, W, mW, ohm, mA_per_V, pF, ps, ns, us, ms, degC, degC_per_W,
+    -- A, Hz, dB, pct, W, mW, ohm, mA_per_V, pF, ps, ns, us, ms, degC, degC_per_W,
     -- ppm_per_degC, pct_per_degC, g, mm, nm, mcd, deg, h, mN_m, yr
     -- (см. 03-data-model.md §3);
     -- название и символ — i18n: unit.<код>.name / unit.<код>.symbol
@@ -59,7 +59,7 @@ conditions(code TEXT PRIMARY KEY,
            unit_code TEXT NULL REFERENCES units(code),
            allow_negative INTEGER NOT NULL DEFAULT 0)
     -- условия измерения/контекста значения: Vce «напряжение коллектор-эмиттер, V»,
-    -- freq «частота, MHz», pulse_duration «длительность импульса, us» …
+    -- freq «частота, Hz», pulse_duration «длительность импульса, us» …
     -- unit_code NULL — безразмерное условие; allow_negative = 1 (temp) — значению
     -- условия разрешено быть неположительным, по умолчанию условия положительны;
     -- ключ условия в файле наполнения — код (отдельной колонки нет);
@@ -108,7 +108,7 @@ parameter_condition_set_items(parameter_code TEXT NOT NULL, set_no INTEGER NOT N
                               condition_code TEXT NOT NULL REFERENCES conditions(code),
                               mode TEXT NOT NULL,             -- required | optional
                               fixed_value REAL NULL,          -- условие-константа (Esr:
-                                                              -- freq = 0.1 МГц): при заданном
+                                                               -- freq = 100 кГц): при заданном
                                                               -- значении mode = required,
                                                               -- значение в файле можно опустить
                                                               -- либо задать равным fixed_value
