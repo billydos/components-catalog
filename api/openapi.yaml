@@ -26,9 +26,12 @@ info:
     по умолчанию и при неподдерживаемом языке — en (поддерживаются en, ru).
 
     Семантика секций тела записи (attributes, секции групп, manufacturers,
-    variants, analogs, synonyms): отсутствует/null — не менять (для POST — не задано),
-    задана — заменить целиком, `[]`/`{}` — очистить, ошибка в любом
-    значении — запись не применяется вовсе.
+    variants, analogs, synonyms, sources): отсутствует/null — не менять
+    (для POST — не задано), задана — заменить целиком, `[]`/`{}` — очистить,
+    ошибка в любом значении — запись не применяется вовсе. Ссылки sources
+    адресуют коды глобального реестра источников файла наполнения
+    (план 03 §13); определения реестра задаёт корневая секция sources
+    импорта, не тело записи.
 servers: []
 tags:
   - name: catalog
@@ -823,9 +826,41 @@ components:
         note: {type: string}
         year_from: {type: integer}
         year_to: {type: integer}
+    CardSource:
+      description: Источник данных записи (план 03 §13) — книга,
+        справочник, даташит, стандарт, ТУ, статья либо веб-страница;
+        библиографические тексты — не локализуемые данные, type_name —
+        отображаемое название типа по локали (sourcetype.<код>).
+      type: object
+      required: [code, title, type, type_name, authors, editors, urls]
+      properties:
+        code: {type: string}
+        title: {type: string}
+        type: {type: string}
+        type_name: {type: string}
+        authors:
+          description: Авторы, порядок значим.
+          type: array
+          items: {type: string}
+        editors:
+          description: Редакторы/составители, порядок значим.
+          type: array
+          items: {type: string}
+        year: {type: integer}
+        publisher: {type: string}
+        edition: {type: string}
+        isbn: {type: string}
+        urls:
+          description: Ссылки на документацию (оригинал, зеркала,
+            архивные копии; первый элемент предпочитаемый).
+          type: array
+          items: {type: string}
+        note:
+          description: Место в источнике («таблица 5.3», «с. 214»).
+          type: string
     Card:
       type: object
-      required: [id, kind, kind_name, system, system_name, designation, fields, attributes, groups, variants, manufacturers, analogs, backlinks, synonyms]
+      required: [id, kind, kind_name, system, system_name, designation, fields, attributes, groups, variants, manufacturers, analogs, backlinks, synonyms, sources]
       properties:
         id: {type: integer, format: int64}
         kind: {type: string}
@@ -861,6 +896,12 @@ components:
         synonyms:
           type: array
           items: {$ref: "#/components/schemas/CardSynonym"}
+        sources:
+          description: Источники данных записи (план 03 §13) — полное
+            библиографическое определение и заметка места в источнике;
+            порядок канонический, по коду.
+          type: array
+          items: {$ref: "#/components/schemas/CardSource"}
     Outcome:
       type: string
       enum: [Added, UpdatedExisting, Skipped]
@@ -1090,6 +1131,23 @@ components:
                       note: {type: string}
                       yearFrom: {type: integer}
                       yearTo: {type: integer}
+            sources:
+              type: array
+              description: |
+                Ссылки на источники данных записи (план 03 §13, D13):
+                строки-коды реестра либо объекты с кодом и заметкой
+                места в источнике. Семантика секции — общая (заменяются
+                целиком); код обязан существовать в реестре (определения
+                задаёт корневая секция sources файла импорта), иначе —
+                422 unknown_source.
+              items:
+                oneOf:
+                  - type: string
+                  - type: object
+                    required: [code]
+                    properties:
+                      code: {type: string}
+                      note: {type: string}
     DeviceVariant:
       type: object
       properties:

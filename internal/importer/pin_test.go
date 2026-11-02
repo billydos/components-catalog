@@ -43,7 +43,8 @@ func TestPinGroupSections(t *testing.T) {
 
 // forEachRecord обходит записи документа наполнения в любом формате
 // реестра: jsonc/yaml — секции классов с arrayами записей, ndjson —
-// string-обёртка на запись (writer.go). Секция catalog пропускается.
+// string-обёртка на запись (writer.go). Секции catalog и sources
+// пропускаются.
 func forEachRecord(t *testing.T, label string, data []byte, format Format, fn func(kind string, rec value)) {
 	t.Helper()
 	if format == FormatNDJSON {
@@ -61,7 +62,7 @@ func forEachRecord(t *testing.T, label string, data []byte, format Format, fn fu
 				t.Fatalf("%s: line %d: %v", label, number, err)
 			}
 			for _, m := range v.members {
-				if m.name == "catalog" {
+				if m.name == "catalog" || m.name == "sources" {
 					continue
 				}
 				fn(m.name, m.value)
@@ -73,7 +74,7 @@ func forEachRecord(t *testing.T, label string, data []byte, format Format, fn fu
 		t.Fatalf("%s: %v", label, err)
 	}
 	for _, m := range root.members {
-		if m.name == "catalog" {
+		if m.name == "catalog" || m.name == "sources" {
 			continue
 		}
 		for _, rec := range m.value.items {
@@ -97,6 +98,7 @@ func TestPinDataKeysFromCatalog(t *testing.T) {
 	serviceKeys := map[string]bool{
 		"name": true, "system": true, "fields": true, "attributes": true,
 		"manufacturers": true, "variants": true, "analogs": true,
+		"synonyms": true, "sources": true,
 	}
 	files, err := filepath.Glob(filepath.Join("..", "..", "data", "*"))
 	if err != nil || len(files) == 0 {
@@ -185,7 +187,7 @@ func TestPinExportShapeFromCatalog(t *testing.T) {
 	serviceKeys := map[string]bool{
 		"name": true, "system": true, "fields": true, "attributes": true,
 		"manufacturers": true, "variants": true, "analogs": true,
-		"label": true,
+		"synonyms": true, "sources": true, "label": true,
 	}
 
 	for _, format := range []Format{FormatJSONC, FormatYAML, FormatNDJSON} {

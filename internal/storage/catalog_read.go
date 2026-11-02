@@ -44,6 +44,9 @@ func (d *DB) LoadSnapshot(ctx context.Context) (*catalog.Snapshot, error) {
 	if snap.Categories, err = loadCategories(ctx, tx); err != nil {
 		return nil, err
 	}
+	if snap.SourceTypes, err = loadSourceTypes(ctx, tx); err != nil {
+		return nil, err
+	}
 	if snap.Conditions, err = loadConditions(ctx, tx); err != nil {
 		return nil, err
 	}
@@ -162,6 +165,23 @@ func loadCategories(ctx context.Context, q queryer) ([]catalog.CategoryDef, erro
 	var out []catalog.CategoryDef
 	for rows.Next() {
 		var r catalog.CategoryDef
+		if err := rows.Scan(&r.Code); err != nil {
+			return nil, err
+		}
+		out = append(out, r)
+	}
+	return out, rows.Err()
+}
+
+func loadSourceTypes(ctx context.Context, q queryer) ([]catalog.SourceTypeDef, error) {
+	rows, err := q.QueryContext(ctx, `SELECT code FROM source_types ORDER BY code`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []catalog.SourceTypeDef
+	for rows.Next() {
+		var r catalog.SourceTypeDef
 		if err := rows.Scan(&r.Code); err != nil {
 			return nil, err
 		}

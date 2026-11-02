@@ -19,8 +19,9 @@ import (
 // catalogSubsections — подразделы секции catalog (порядок экспорта).
 var catalogSubsections = []string{
 	"kinds", "designation_systems", "designation_system_kinds",
-	"units", "categories", "conditions", "parameter_groups", "parameters",
-	"attributes", "validation_rules", "kind_validation_rules",
+	"units", "categories", "source_types", "conditions",
+	"parameter_groups", "parameters", "attributes",
+	"validation_rules", "kind_validation_rules",
 }
 
 // ReadCatalogSection читает дерево секции catalog в каталог. Значение
@@ -47,6 +48,8 @@ func ReadCatalogSection(v value) (catalog.Input, []Issue) {
 			r.readUnits(m.value)
 		case "categories":
 			r.readCategories(m.value)
+		case "source_types":
+			r.readSourceTypes(m.value)
 		case "conditions":
 			r.readConditions(m.value)
 		case "parameter_groups":
@@ -282,6 +285,20 @@ func (r *catReader) readCategories(v value) {
 			continue
 		}
 		r.in.Categories = append(r.in.Categories, catalog.CategoryDef{Code: code})
+	}
+}
+
+func (r *catReader) readSourceTypes(v value) {
+	rows, ok := r.rows("source_types", v)
+	if !ok {
+		return
+	}
+	for _, row := range rows {
+		code, _ := r.str(row, "source_types", "", "code", false)
+		if !r.checkKeys("source_types", row, code, "code") {
+			continue
+		}
+		r.in.SourceTypes = append(r.in.SourceTypes, catalog.SourceTypeDef{Code: code})
 	}
 }
 

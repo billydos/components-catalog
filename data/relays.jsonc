@@ -10,6 +10,26 @@
   // (токовые паспорта); повтор VcoilNom допустим — паспорт различается
   // сопротивлением/контактами. Записи без паспортов — обмотка не выверена,
   // Rcoil диапазоном на уровне типа.
+  // Источники данных записей (D13): перенос атрибута datasheetUrl —
+  // указатели на документацию несут urls источников типа datasheet.
+  "sources": [
+    { "code": "ds_g2r_2", "type": "datasheet", "title": "Datasheet: G2R-2 (media.digikey.com)", "urls": ["https://media.digikey.com/pdf/Data%20Sheets/Omron%20PDFs/G2R.pdf"] },
+    { "code": "ds_g5v_1", "type": "datasheet", "title": "Datasheet: G5V-1 (omronfs.omron.com)", "urls": ["https://omronfs.omron.com/en_US/ecb/products/pdf/en-g5v_1.pdf"] },
+    { "code": "ds_kdr_1", "type": "datasheet", "title": "Datasheet: КДР-1 (texnogaz.ru)", "urls": ["https://texnogaz.ru/kodovye-rele-kdr"] },
+    { "code": "ds_mku_48_s", "type": "datasheet", "title": "Datasheet: МКУ-48-С (rudatasheet.ru)", "urls": ["https://rudatasheet.ru/relay/mku48-s/"] },
+    { "code": "ds_res_15", "type": "datasheet", "title": "Datasheet: РЭС-15 (rudatasheet.ru)", "urls": ["https://rudatasheet.ru/relay/res15/"] },
+    { "code": "ds_res_22", "type": "datasheet", "title": "Datasheet: РЭС-22 (rudatasheet.ru)", "urls": ["https://rudatasheet.ru/relay/res22/"] },
+    { "code": "ds_res_34", "type": "datasheet", "title": "Datasheet: РЭС-34 (electra-hvac.ru)", "urls": ["http://electra-hvac.ru/rele-res-34.html"] },
+    { "code": "ds_res_47", "type": "datasheet", "title": "Datasheet: РЭС-47 (rudatasheet.ru)", "urls": ["https://rudatasheet.ru/relay/res47/"] },
+    { "code": "ds_res_49", "type": "datasheet", "title": "Datasheet: РЭС-49 (rudatasheet.ru)", "urls": ["https://rudatasheet.ru/relay/res49/"] },
+    { "code": "ds_res_55", "type": "datasheet", "title": "Datasheet: РЭС-55 (www.rezonance.ru)", "urls": ["http://www.rezonance.ru/news/tehinfo/206.htm"] },
+    { "code": "ds_res_60", "type": "datasheet", "title": "Datasheet: РЭС-60 (rudatasheet.ru)", "urls": ["https://rudatasheet.ru/relay/res60/"] },
+    { "code": "ds_res_9", "type": "datasheet", "title": "Datasheet: РЭС-9 (rudatasheet.ru)", "urls": ["https://rudatasheet.ru/relay/res9/"] },
+    { "code": "ds_rkm_1", "type": "datasheet", "title": "Datasheet: РКМ-1 (rudatasheet.ru)", "urls": ["https://rudatasheet.ru/relay/rkm1/"] },
+    { "code": "ds_rps_32", "type": "datasheet", "title": "Datasheet: РПС-32 (rudatasheet.ru)", "urls": ["https://rudatasheet.ru/relay/rps32/"] },
+    { "code": "ds_rps_43", "type": "datasheet", "title": "Datasheet: РПС-43 (rudatasheet.ru)", "urls": ["https://rudatasheet.ru/relay/rps43/"] },
+    { "code": "ds_rps_52", "type": "datasheet", "title": "Datasheet: РПС-52 (rudatasheet.ru)", "urls": ["https://rudatasheet.ru/relay/rps49_56/"] }
+  ],
   "relays": [
     // СССР: семейства РЭС/РПС/РКМ/МКУ/КДР — «код + номер разработки» [S19];
     // крепление/климат в ключ не входят.
@@ -19,9 +39,9 @@
       "fields": { "series": "РЭС", "dev_number": 9 },
       "attributes": {
         "relayType": "electromagnetic", "contactForm": "2П",
-        "description": "завальцованное негерметичное", "spec": ["РС0.452.045ТУ"],
-        "datasheetUrl": ["https://rudatasheet.ru/relay/res9/"]
+        "description": "завальцованное негерметичное", "spec": ["РС0.452.045ТУ"]
       },
+      "sources": ["ds_res_9"],
       "parameters": [                              // общее для паспортов
         { "parameter": "Rins", "min": 200000000 },
         { "parameter": "Vtest", "min": 500 },
@@ -155,9 +175,9 @@
       "fields": { "series": "РЭС", "dev_number": 15 },
       "attributes": {
         "relayType": "electromagnetic", "contactForm": "1П",
-        "description": "пылебрызгозащищённое", "spec": ["РС0.325.037ТУ"],
-        "datasheetUrl": ["https://rudatasheet.ru/relay/res15/"]
+        "description": "пылебрызгозащищённое", "spec": ["РС0.325.037ТУ"]
       },
+      "sources": ["ds_res_15"],
       "parameters": [
         { "parameter": "Rcontact", "max": 1.0 },
         { "parameter": "Rins", "min": 200000000 },
@@ -204,9 +224,9 @@
       "fields": { "series": "РЭС", "dev_number": 22 },
       "attributes": {
         "relayType": "electromagnetic", "contactForm": "4П",
-        "description": "зачехлённое негерметичное", "spec": ["РФ4.523.023ТУ"],
-        "datasheetUrl": ["https://rudatasheet.ru/relay/res22/"]
+        "description": "зачехлённое негерметичное", "spec": ["РФ4.523.023ТУ"]
       },
+      "sources": ["ds_res_22"],
       "parameters": [
         { "parameter": "Rins", "min": 100000000 },
         { "parameter": "Vtest", "min": 500 },
@@ -266,9 +286,9 @@
       "fields": { "series": "РЭС", "dev_number": 34 },
       "attributes": {
         "relayType": "electromagnetic", "contactForm": "1П",
-        "description": "зачехлённое, металлический корпус", "spec": ["РС0.459.001ТУ"],
-        "datasheetUrl": ["http://electra-hvac.ru/rele-res-34.html"]
+        "description": "зачехлённое, металлический корпус", "spec": ["РС0.459.001ТУ"]
       },
+      "sources": ["ds_res_34"],
       "parameters": [
         { "parameter": "Rins", "min": 200000000 },
         { "parameter": "Vtest", "min": 500 }
@@ -319,9 +339,9 @@
       "fields": { "series": "РЭС", "dev_number": 47 },
       "attributes": {
         "relayType": "electromagnetic", "contactForm": "1П",
-        "description": "миниатюрное негерметичное", "spec": ["АЕЖР.682364.001ТУ"],
-        "datasheetUrl": ["https://rudatasheet.ru/relay/res47/"]
+        "description": "миниатюрное негерметичное", "spec": ["АЕЖР.682364.001ТУ"]
       },
+      "sources": ["ds_res_47"],
       "parameters": [
         { "parameter": "Rcontact", "max": 1.0 },
         { "parameter": "Rins", "min": 100000000 },
@@ -354,9 +374,9 @@
       "fields": { "series": "РЭС", "dev_number": 49 },
       "attributes": {
         "relayType": "electromagnetic", "contactForm": "1П",
-        "description": "миниатюрное открытое",
-        "datasheetUrl": ["https://rudatasheet.ru/relay/res49/"]
+        "description": "миниатюрное открытое"
       },
+      "sources": ["ds_res_49"],
       "parameters": [
         { "parameter": "Rcoil", "min": 100, "max": 3200 },       // обмотки 100…3200 Ом на 3,2–24 В
         { "parameter": "Rcontact", "max": 1.0 },
@@ -377,9 +397,9 @@
       "attributes": {
         "relayType": "electromagnetic",
         "description": "миниатюрное негерметичное пылебрызгозащищённое",
-        "spec": ["РС0.456.011ТУ"],
-        "datasheetUrl": ["http://www.rezonance.ru/news/tehinfo/206.htm"]
+        "spec": ["РС0.456.011ТУ"]
       },
+      "sources": ["ds_res_55"],
       "parameters": [
         { "parameter": "Rins", "min": 500000000 },
         { "parameter": "Vtest", "min": 500 }
@@ -452,9 +472,9 @@
       "fields": { "series": "РЭС", "dev_number": 60 },
       "attributes": {
         "relayType": "electromagnetic", "contactForm": "1П",
-        "description": "малогабаритное герметичное",
-        "datasheetUrl": ["https://rudatasheet.ru/relay/res60/"]
+        "description": "малогабаритное герметичное"
       },
+      "sources": ["ds_res_60"],
       "parameters": [
         { "parameter": "Rcoil", "min": 1500, "max": 4300 },
         { "parameter": "Rcontact", "max": 1.0 },
@@ -474,9 +494,9 @@
       "fields": { "series": "РПС", "dev_number": 32 },
       "attributes": {
         "relayType": "polarized", "contactForm": "1П",
-        "description": "поляризованное двухпозиционное, зачехлённое",
-        "datasheetUrl": ["https://rudatasheet.ru/relay/rps32/"]
+        "description": "поляризованное двухпозиционное, зачехлённое"
       },
+      "sources": ["ds_rps_32"],
       "parameters": [
         { "parameter": "Rcoil", "min": 1100, "max": 6000 },      // обмотки РС4.520.050-00…-03
         { "parameter": "Ipickup", "max": 7.2 },
@@ -496,9 +516,9 @@
       "fields": { "series": "РПС", "dev_number": 43 },
       "attributes": {
         "relayType": "polarized", "contactForm": "2П",
-        "description": "поляризованное двухпозиционное",
-        "datasheetUrl": ["https://rudatasheet.ru/relay/rps43/"]
+        "description": "поляризованное двухпозиционное"
       },
+      "sources": ["ds_rps_43"],
       "parameters": [
         { "parameter": "Rcoil", "min": 400, "max": 8000 },       // обмотки РС4.520.065-00…-05
         { "parameter": "Ipickup", "max": 10 },
@@ -518,9 +538,9 @@
       "fields": { "series": "РПС", "dev_number": 52 },
       "attributes": {
         "relayType": "reed", "contactForm": "4П",
-        "description": "герконовое поляризованное двустабильное (импульсное)",
-        "datasheetUrl": ["https://rudatasheet.ru/relay/rps49_56/"]
+        "description": "герконовое поляризованное двустабильное (импульсное)"
       },
+      "sources": ["ds_rps_52"],
       "parameters": [
         { "parameter": "Rcontact", "max": 1.5 },
         { "parameter": "enduranceMech", "min": 10000000 }        // 10⁷ циклов
@@ -539,9 +559,9 @@
       "attributes": {
         "relayType": "electromagnetic",
         "description": "многокатушечное кодовое телефонное реле АТС (1–6П по исполнению)",
-        "spec": ["КЩ0.450.000ТУ"],
-        "datasheetUrl": ["https://rudatasheet.ru/relay/rkm1/"]
+        "spec": ["КЩ0.450.000ТУ"]
       },
+      "sources": ["ds_rkm_1"],
       "parameters": [
         { "parameter": "Rcontact", "max": 1.0 },                 // в эксплуатации (при поставке 0,25–0,3)
         { "parameter": "Rins", "min": 500000000 },
@@ -560,9 +580,9 @@
       "attributes": {
         "relayType": "electromagnetic",
         "description": "многоконтактное унифицированное (1–6П по исполнению), обмотки 12–380 В",
-        "spec": ["РА0.450.002ТУ"],
-        "datasheetUrl": ["https://rudatasheet.ru/relay/mku48-s/"]
+        "spec": ["РА0.450.002ТУ"]
       },
+      "sources": ["ds_mku_48_s"],
       "parameters": [
         { "parameter": "Rcontact", "max": 1.5 },                 // после хранения (при поставке 0,1)
         { "parameter": "Rins", "min": 200000000 },
@@ -581,9 +601,9 @@
       "attributes": {
         "relayType": "electromagnetic",
         "description": "кодовое диспетчерское реле ж/д автоматики и телемеханики",
-        "spec": ["ТУ 32 ЦШ 475-95"],
-        "datasheetUrl": ["https://texnogaz.ru/kodovye-rele-kdr"]
+        "spec": ["ТУ 32 ЦШ 475-95"]
       },
+      "sources": ["ds_kdr_1"],
       "parameters": [
         { "parameter": "Rins", "min": 500000000 },
         { "parameter": "Vtest", "min": 1000 }
@@ -608,9 +628,9 @@
       "fields": { "series": "G5V", "dev_number": 1 },
       "attributes": {
         "relayType": "electromagnetic", "contactForm": "1П",
-        "description": "сигнальное, герметичное", "package": "12,5×7,5×10 мм",
-        "datasheetUrl": ["https://omronfs.omron.com/en_US/ecb/products/pdf/en-g5v_1.pdf"]
+        "description": "сигнальное, герметичное", "package": "12,5×7,5×10 мм"
       },
+      "sources": ["ds_g5v_1"],
       "parameters": [
         { "parameter": "Pcoil", "max": 0.15 },
         { "parameter": "Rcontact", "max": 0.1 },
@@ -660,9 +680,9 @@
       "fields": { "series": "G2R", "dev_number": 2 },
       "attributes": {
         "relayType": "electromagnetic", "contactForm": "2П",
-        "description": "общего назначения, вставное (в розетку)",
-        "datasheetUrl": ["https://media.digikey.com/pdf/Data%20Sheets/Omron%20PDFs/G2R.pdf"]
+        "description": "общего назначения, вставное (в розетку)"
       },
+      "sources": ["ds_g2r_2"],
       "parameters": [
         { "parameter": "Pcoil", "max": 0.53 },
         { "parameter": "Rcontact", "max": 0.05 },

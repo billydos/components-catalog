@@ -55,6 +55,7 @@ type App struct {
 	devices      *DeviceService
 	designations *DesignationService
 	catalogSvc   *CatalogService
+	sources      *SourceService
 }
 
 // Services — доступ к сервисам приложения.
@@ -62,6 +63,7 @@ type Services struct {
 	Devices      *DeviceService
 	Designations *DesignationService
 	Catalog      *CatalogService
+	Sources      *SourceService
 }
 
 // Open открывает приложение по конфигурации: открывает хранилище,
@@ -90,6 +92,7 @@ func Open(ctx context.Context, cfg Config) (*App, error) {
 	app.devices = &DeviceService{app: app}
 	app.designations = &DesignationService{app: app}
 	app.catalogSvc = &CatalogService{app: app}
+	app.sources = &SourceService{app: app}
 	if cfg.EnsureCreated {
 		if err := app.seedIfEmpty(ctx); err != nil {
 			db.Close()
@@ -104,7 +107,8 @@ func (a *App) Close() error { return a.db.Close() }
 
 // Services возвращает набор сервисов приложения.
 func (a *App) Services() Services {
-	return Services{Devices: a.devices, Designations: a.designations, Catalog: a.catalogSvc}
+	return Services{Devices: a.devices, Designations: a.designations,
+		Catalog: a.catalogSvc, Sources: a.sources}
 }
 
 // Snapshot возвращает актуальный снимок каталога (кэш с проверкой

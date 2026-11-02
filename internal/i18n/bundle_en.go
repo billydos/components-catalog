@@ -142,6 +142,17 @@ var bundleEn = map[string]string{
 	"category.precision":       "precision",
 	"category.composite":       "composite (Darlington)",
 
+	// Типы источников данных записи (словарь source_types — данные
+	// каталога, план 03 §13; расширения без записи в бандле отображаются
+	// кодом — D9).
+	"sourcetype.book":      "book",
+	"sourcetype.handbook":  "reference book (handbook)",
+	"sourcetype.journal":   "journal article",
+	"sourcetype.standard":  "standard (GOST/OST/IEC)",
+	"sourcetype.spec":      "specification document (TU)",
+	"sourcetype.datasheet": "manufacturer datasheet",
+	"sourcetype.web":       "web page / database",
+
 	// Условия (conditions).
 	"condition.Vce":            "collector-emitter voltage",
 	"condition.Vcb":            "collector-base voltage",
@@ -352,7 +363,6 @@ var bundleEn = map[string]string{
 	"attr.notes":             "notes",
 	"attr.yearFrom":          "first production year",
 	"attr.yearTo":            "last production year",
-	"attr.datasheetUrl":      "datasheet URL",
 	"attr.relayType":         "relay type",
 	"attr.contactForm":       "contact form (make/break/changeover)",
 	"attr.sections":          "sections (gang count)",

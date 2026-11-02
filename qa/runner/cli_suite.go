@@ -184,6 +184,37 @@ func cliSuite(ctx context.Context, r *report, ctl, root, tmp string, l leg) {
 			!strings.Contains(res.output, "rejected"),
 		envDetails(res, 10)...)
 
+	// Источники данных записи (D13): корневая секция sources определяет
+	// реестр, секция записи ссылается кодами; info выводит строку
+	// источников, повторный импорт идемпотентен.
+	srcPath := filepath.Join(tmp, "sources.jsonc")
+	srcBody := "{\n  \"sources\": [\n" +
+		"    { \"code\": \"ba8082\", \"type\": \"handbook\", \"title\": \"Полупроводниковые приборы\",\n" +
+		"      \"authors\": [\"А. В. Баюков\"], \"year\": 1982 }\n" +
+		"  ],\n" +
+		"  \"transistors\": [\n    {\n      \"name\": \"КТ315Б\",\n" +
+		"      \"sources\": [{ \"code\": \"ba8082\", \"note\": \"table 3.14\" }]\n    }\n  ]\n}\n"
+	if err := os.WriteFile(srcPath, []byte(srcBody), 0o644); err != nil {
+		r.check("cli/sources-import", "import: файл источников записан", false, err.Error())
+		return
+	}
+	res = c.run(ctx, "import", srcPath)
+	r.check("cli/sources-import", "import: секция sources применяется",
+		res.code == 0 && strings.Contains(res.output, "updated: 1") &&
+			strings.Contains(res.output, "sources updated"),
+		envDetails(res, 10)...)
+	res = c.run(ctx, "info", "КТ315Б")
+	r.check("cli/info-sources", "info: строка источников записи",
+		res.code == 0 &&
+			strings.Contains(res.output,
+				"Sources: reference book (handbook): Полупроводниковые приборы (1982) — ba8082 [table 3.14]"),
+		envDetails(res, 10)...)
+	res = c.run(ctx, "import", srcPath)
+	r.check("cli/sources-idempotent", "повторный импорт источников — без изменений",
+		res.code == 0 && strings.Contains(res.output, "unchanged: 1") &&
+			!strings.Contains(res.output, "sources updated"),
+		envDetails(res, 10)...)
+
 	// parse: автодетект без базы, JEDEC и неверное обозначение
 	// («Error: », код 1).
 	res = c.run(ctx, "parse", "КТ315Б")

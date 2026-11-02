@@ -32,13 +32,17 @@ type resolvedAnalog struct {
 // применённой части прогона: обозначения уже проверенных записей
 // (Created) и заявки их исторических названий (Synonym). Конфликт
 // уникальности синонима dry-run обязан видеть в том же месте файла,
-// что и реальный импорт, — прогон ничего не пишет в БД. Поля
-// необязательны (nil — знания нет); Created и Synonym регистрируются
-// по порядку файла после успешной проверки записи.
+// что и реальный импорт, — прогон ничего не пишет в БД. Sources — коды
+// источников, определённых корневой секцией sources этого же файла
+// (dry-run не применяет реестр — ссылки записей на них валидны без
+// строки в базе). Поля необязательны (nil — знания нет); Created
+// и Synonym регистрируются по порядку файла после успешной проверки
+// записи.
 type PendingDesignations struct {
 	Records func(kind domain.Kind, designation string) bool
 	Created func(kind domain.Kind, designation string) bool
 	Synonym func(kind domain.Kind, designation string) (ownerDesignation string, claimed bool)
+	Sources func(code string) bool
 }
 
 // Upsert применяет запись наполнения с семантикой секций
@@ -125,10 +129,10 @@ func (s *DeviceService) applyUpsert(ctx context.Context, in DeviceInput,
 
 	// Фаза чтения — транзакция пула чтения: проверки без DML не занимают
 	// выделенное соединение записи (SQLite) и не блокируют писателей.
-	dev, cur, merged, analogs, err := func() (*storage.DeviceRow, *deviceState, *deviceState, []resolvedAnalog, error) {
+	dev, cur, merged, analogs, sourceRefs, err := func() (*storage.DeviceRow, *deviceState, *deviceState, []resolvedAnalog, []storage.DeviceSourceRef, error) {
 		rtx, err := s.app.db.BeginReadOnly(ctx)
 		if err != nil {
-			return nil, nil, nil, nil, err
+			return nil, nil, nil, nil, nil, err
 		}
 		defer rtx.Rollback() //nolint:errcheck — откат транзакции чтения
 		return s.readMerged(ctx, rtx, merger, p, &in, explicit, pending)
@@ -172,7 +176,7 @@ func (s *DeviceService) applyUpsert(ctx context.Context, in DeviceInput,
 		if err != nil {
 			return "", err
 		}
-		dev, cur, merged, analogs, err = s.readMerged(ctx, tx, merger, p, &in, explicit, pending)
+		dev, cur, merged, analogs, sourceRefs, err = s.readMerged(ctx, tx, merger, p, &in, explicit, pending)
 		if err != nil {
 			tx.Rollback() //nolint:errcheck — откат нефиксированной транзакции
 			return "", err
@@ -205,21 +209,22 @@ func (s *DeviceService) applyUpsert(ctx context.Context, in DeviceInput,
 			return outcome, err
 		}
 		if dev == nil {
-			return OutcomeAdded, s.writeUpsert(ctx, tx, 0, p, in, cur, merged, explicit, analogs, snap, createOnly)
+			return OutcomeAdded, s.writeUpsert(ctx, tx, 0, p, in, cur, merged, explicit, analogs, sourceRefs, snap, createOnly)
 		}
-		return OutcomeUpdatedExisting, s.writeUpsert(ctx, tx, dev.ID, p, in, cur, merged, explicit, analogs, snap, false)
+		return OutcomeUpdatedExisting, s.writeUpsert(ctx, tx, dev.ID, p, in, cur, merged, explicit, analogs, sourceRefs, snap, false)
 	}
 }
 
 // readMerged читает запись в транзакции (чтения либо записи) и строит
-// слитое состояние: поиск по ключу, текущие секции, разрешение аналогов
-// и синонимов.
+// слитое состояние: поиск по ключу, текущие секции, разрешение аналогов,
+// синонимов и источников.
 func (s *DeviceService) readMerged(ctx context.Context, tx *storage.Tx, merger *stateMerger,
 	p domain.ParsedDesignation, in *DeviceInput, explicit []domain.Field,
-	pending PendingDesignations) (*storage.DeviceRow, *deviceState, *deviceState, []resolvedAnalog, error) {
+	pending PendingDesignations) (*storage.DeviceRow, *deviceState, *deviceState,
+	[]resolvedAnalog, []storage.DeviceSourceRef, error) {
 	dev, err := tx.FindDevice(ctx, p.Kind, p.Designation)
 	if err != nil {
-		return nil, nil, nil, nil, err
+		return nil, nil, nil, nil, nil, err
 	}
 	var deviceID int64
 	if dev != nil {
@@ -232,16 +237,16 @@ func (s *DeviceService) readMerged(ctx context.Context, tx *storage.Tx, merger *
 		// в тени точного ключа (инвариант план 03 §9).
 		owner, err := tx.FindSynonymOwner(ctx, p.Kind, p.Designation)
 		if err != nil {
-			return nil, nil, nil, nil, err
+			return nil, nil, nil, nil, nil, err
 		}
 		if owner == nil && pending.Synonym != nil {
 			if claimOwner, claimed := pending.Synonym(p.Kind, p.Designation); claimed {
-				return nil, nil, nil, nil, domain.NewErrorf(domain.CodeAlreadyExists,
+				return nil, nil, nil, nil, nil, domain.NewErrorf(domain.CodeAlreadyExists,
 					domain.MsgSvcSynonymOwnerConflict, p.Designation, claimOwner)
 			}
 		}
 		if owner != nil {
-			return nil, nil, nil, nil, domain.NewErrorf(domain.CodeAlreadyExists,
+			return nil, nil, nil, nil, nil, domain.NewErrorf(domain.CodeAlreadyExists,
 				domain.MsgSvcSynonymOwnerConflict, p.Designation, owner.Designation)
 		}
 	}
@@ -249,7 +254,7 @@ func (s *DeviceService) readMerged(ctx context.Context, tx *storage.Tx, merger *
 	if dev != nil {
 		cur, err = merger.loadState(ctx, tx, deviceID, p)
 		if err != nil {
-			return nil, nil, nil, nil, err
+			return nil, nil, nil, nil, nil, err
 		}
 	} else {
 		cur = &deviceState{groupValues: make(map[string][]stateValue)}
@@ -258,22 +263,31 @@ func (s *DeviceService) readMerged(ctx context.Context, tx *storage.Tx, merger *
 	if in.Analogs != nil {
 		analogs, err = resolveAnalogs(ctx, tx, p.Kind, p.Designation, *in.Analogs, pending)
 		if err != nil {
-			return nil, nil, nil, nil, err
+			return nil, nil, nil, nil, nil, err
 		}
 	}
 	var synonyms []stateSynonym
 	if in.Synonyms != nil {
 		synonyms, err = resolveSynonyms(ctx, tx, p.Kind, p.Designation, *in.Synonyms, pending, deviceID)
 		if err != nil {
-			return nil, nil, nil, nil, err
+			return nil, nil, nil, nil, nil, err
 		}
+	}
+	var sourceRefs []storage.DeviceSourceRef
+	var stateSources []stateSource
+	if in.Sources != nil {
+		sourceRefs, err = resolveDeviceSources(ctx, tx, *in.Sources, pending.Sources)
+		if err != nil {
+			return nil, nil, nil, nil, nil, err
+		}
+		stateSources = stateSourcesOf(*in.Sources)
 	}
 	var stateAnalogs []stateAnalog
 	for _, a := range analogs {
 		stateAnalogs = append(stateAnalogs, stateAnalog{Designation: a.designation, Note: a.note})
 	}
-	merged := merger.merge(cur, in, explicit, stateAnalogs, synonyms)
-	return dev, cur, merged, analogs, nil
+	merged := merger.merge(cur, in, explicit, stateAnalogs, synonyms, stateSources)
+	return dev, cur, merged, analogs, sourceRefs, nil
 }
 
 // skippedOrValidated — каноническое сравнение и валидация слитого
@@ -327,7 +341,7 @@ func skippedOrValidatedCommit(merger *stateMerger, snap *catalog.Snapshot, p dom
 // ставшие явными, сохраняются).
 func (s *DeviceService) writeUpsert(ctx context.Context, tx *storage.Tx, deviceID int64,
 	p domain.ParsedDesignation, in DeviceInput, cur, merged *deviceState,
-	explicit []domain.Field, analogs []resolvedAnalog,
+	explicit []domain.Field, analogs []resolvedAnalog, sourceRefs []storage.DeviceSourceRef,
 	snap *catalog.Snapshot, createOnly bool) error {
 	op := ChangeOpUpdated
 	if deviceID == 0 {
@@ -460,6 +474,11 @@ func (s *DeviceService) writeUpsert(ctx context.Context, tx *storage.Tx, deviceI
 			})
 		}
 		if err := tx.ReplaceSynonyms(ctx, deviceID, rows); err != nil {
+			return err
+		}
+	}
+	if in.Sources != nil {
+		if err := tx.ReplaceDeviceSources(ctx, deviceID, sourceRefs); err != nil {
 			return err
 		}
 	}

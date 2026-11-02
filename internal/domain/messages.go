@@ -240,8 +240,22 @@ const (
 	MsgImportSynonymUnknownField      MsgID = "import_synonym_unknown_field"
 	MsgImportSynonymNoteString        MsgID = "import_synonym_note_string"
 	MsgImportSynonymYearInt           MsgID = "import_synonym_year_int"
+	MsgImportSourcesArray             MsgID = "import_sources_array"
+	MsgImportSourcesObject            MsgID = "import_sources_object"
+	MsgImportSourcesUnknownField      MsgID = "import_sources_unknown_field"
+	MsgImportSourcesFieldRequired     MsgID = "import_sources_field_required"
+	MsgImportSourcesFieldString       MsgID = "import_sources_field_string"
+	MsgImportSourcesFieldInteger      MsgID = "import_sources_field_integer"
+	MsgImportSourcesFieldStrings      MsgID = "import_sources_field_strings"
+	MsgImportSourcesItemString        MsgID = "import_sources_item_string"
+	MsgImportRecordSourcesArray       MsgID = "import_record_sources_array"
+	MsgImportRecordSourceItem         MsgID = "import_record_source_item"
+	MsgImportRecordSourceCodeRequired MsgID = "import_record_source_code_required"
+	MsgImportRecordSourceUnknownField MsgID = "import_record_source_unknown_field"
+	MsgImportRecordSourceNoteString   MsgID = "import_record_source_note_string"
 	MsgImportNdjsonLineObject         MsgID = "import_ndjson_line_object"
 	MsgImportNdjsonCatalogOrder       MsgID = "import_ndjson_catalog_order"
+	MsgImportNdjsonSourcesOrder       MsgID = "import_ndjson_sources_order"
 	MsgImportNdjsonClassKey           MsgID = "import_ndjson_class_key"
 	MsgImportNdjsonWrapperSingle      MsgID = "import_ndjson_wrapper_single"
 	MsgImportCatalogObject            MsgID = "import_catalog_object"
@@ -277,6 +291,7 @@ const (
 	MsgImportNdjsonLineError          MsgID = "import_ndjson_line_error"
 	MsgImportSyntaxError              MsgID = "import_syntax_error"
 	MsgImportCatalogRecordsMixed      MsgID = "import_catalog_records_mixed"
+	MsgImportCatalogSourcesMixed      MsgID = "import_catalog_sources_mixed"
 	MsgImportDuplicateKey             MsgID = "import_duplicate_key"
 	MsgImportUnexpectedToken          MsgID = "import_unexpected_token"
 	MsgImportIssueRecordLine          MsgID = "import_issue_record_line"
@@ -294,9 +309,11 @@ const (
 	MsgImportSummary          MsgID = "import_summary"
 	MsgImportSummaryRejected  MsgID = "import_summary_rejected"
 	MsgImportSummaryCatalog   MsgID = "import_summary_catalog"
+	MsgImportSummarySources   MsgID = "import_summary_sources"
 	MsgImportWhereVariant     MsgID = "import_where_variant"
 	MsgImportWhereAnalog      MsgID = "import_where_analog"
 	MsgImportWhereSynonym     MsgID = "import_where_synonym"
+	MsgImportWhereSource      MsgID = "import_where_source"
 	MsgImportWhereValue       MsgID = "import_where_value"
 	MsgImportCatalogPlain     MsgID = "import_catalog_object_plain"
 	MsgImportNdjsonSubsection MsgID = "import_ndjson_subsection_array"
@@ -335,6 +352,18 @@ const (
 	MsgSvcSynonymOwnerConflict  MsgID = "svc_synonym_owner_conflict"
 	MsgSvcSynonymYearOrder      MsgID = "svc_synonym_year_order"
 	MsgSvcSynonymYearRange      MsgID = "svc_synonym_year_range"
+	MsgSvcSourceCodeMissing     MsgID = "svc_source_code_missing"
+	MsgSvcSourceCodeCharset     MsgID = "svc_source_code_charset"
+	MsgSvcSourceTitleMissing    MsgID = "svc_source_title_missing"
+	MsgSvcSourceTypeMissing     MsgID = "svc_source_type_missing"
+	MsgSvcSourceTypeUnknown     MsgID = "svc_source_type_unknown"
+	MsgSvcSourceYearRange       MsgID = "svc_source_year_range"
+	MsgSvcSourceListElementBad  MsgID = "svc_source_list_element_bad"
+	MsgSvcSourceListDuplicate   MsgID = "svc_source_list_duplicate"
+	MsgSvcSourceDuplicateCode   MsgID = "svc_source_duplicate_code"
+	MsgSvcDeviceSourceEmpty     MsgID = "svc_device_source_empty"
+	MsgSvcDeviceSourceDuplicate MsgID = "svc_device_source_duplicate"
+	MsgSvcDeviceSourceNotFound  MsgID = "svc_device_source_not_found"
 	MsgSvcFilterFieldMissing    MsgID = "svc_designation_filter_field_missing"
 	MsgSvcFilterOpUnknown       MsgID = "svc_filter_op_unknown"
 	MsgSvcSearchFieldUnknown    MsgID = "svc_search_field_unknown"
@@ -436,6 +465,7 @@ const (
 	MsgCliAnalogs           MsgID = "cli_analogs"
 	MsgCliBacklinks         MsgID = "cli_backlinks"
 	MsgCliSynonyms          MsgID = "cli_synonyms"
+	MsgCliSources           MsgID = "cli_sources"
 	MsgCliYearSince         MsgID = "cli_year_since"
 	MsgCliYearUntil         MsgID = "cli_year_until"
 	MsgCliParseHead         MsgID = "cli_parse_head"
@@ -798,8 +828,22 @@ var msgRegistry = map[MsgID]struct{}{
 	MsgImportSynonymUnknownField:      {},
 	MsgImportSynonymNoteString:        {},
 	MsgImportSynonymYearInt:           {},
+	MsgImportSourcesArray:             {},
+	MsgImportSourcesObject:            {},
+	MsgImportSourcesUnknownField:      {},
+	MsgImportSourcesFieldRequired:     {},
+	MsgImportSourcesFieldString:       {},
+	MsgImportSourcesFieldInteger:      {},
+	MsgImportSourcesFieldStrings:      {},
+	MsgImportSourcesItemString:        {},
+	MsgImportRecordSourcesArray:       {},
+	MsgImportRecordSourceItem:         {},
+	MsgImportRecordSourceCodeRequired: {},
+	MsgImportRecordSourceUnknownField: {},
+	MsgImportRecordSourceNoteString:   {},
 	MsgImportNdjsonLineObject:         {},
 	MsgImportNdjsonCatalogOrder:       {},
+	MsgImportNdjsonSourcesOrder:       {},
 	MsgImportNdjsonClassKey:           {},
 	MsgImportNdjsonWrapperSingle:      {},
 	MsgImportCatalogObject:            {},
@@ -835,6 +879,7 @@ var msgRegistry = map[MsgID]struct{}{
 	MsgImportNdjsonLineError:          {},
 	MsgImportSyntaxError:              {},
 	MsgImportCatalogRecordsMixed:      {},
+	MsgImportCatalogSourcesMixed:      {},
 	MsgImportDuplicateKey:             {},
 	MsgImportUnexpectedToken:          {},
 	MsgImportIssueRecordLine:          {},
@@ -850,9 +895,11 @@ var msgRegistry = map[MsgID]struct{}{
 	MsgImportSummary:                  {},
 	MsgImportSummaryRejected:          {},
 	MsgImportSummaryCatalog:           {},
+	MsgImportSummarySources:           {},
 	MsgImportWhereVariant:             {},
 	MsgImportWhereAnalog:              {},
 	MsgImportWhereSynonym:             {},
+	MsgImportWhereSource:              {},
 	MsgImportWhereValue:               {},
 	MsgImportCatalogPlain:             {},
 	MsgImportNdjsonSubsection:         {},
@@ -887,6 +934,18 @@ var msgRegistry = map[MsgID]struct{}{
 	MsgSvcSynonymOwnerConflict:        {},
 	MsgSvcSynonymYearOrder:            {},
 	MsgSvcSynonymYearRange:            {},
+	MsgSvcSourceCodeMissing:           {},
+	MsgSvcSourceCodeCharset:           {},
+	MsgSvcSourceTitleMissing:          {},
+	MsgSvcSourceTypeMissing:           {},
+	MsgSvcSourceTypeUnknown:           {},
+	MsgSvcSourceYearRange:             {},
+	MsgSvcSourceListElementBad:        {},
+	MsgSvcSourceListDuplicate:         {},
+	MsgSvcSourceDuplicateCode:         {},
+	MsgSvcDeviceSourceEmpty:           {},
+	MsgSvcDeviceSourceDuplicate:       {},
+	MsgSvcDeviceSourceNotFound:        {},
 	MsgSvcFilterFieldMissing:          {},
 	MsgSvcFilterOpUnknown:             {},
 	MsgSvcFieldUnknown:                {},
@@ -984,6 +1043,7 @@ var msgRegistry = map[MsgID]struct{}{
 	MsgCliAnalogs:                     {},
 	MsgCliBacklinks:                   {},
 	MsgCliSynonyms:                    {},
+	MsgCliSources:                     {},
 	MsgCliYearSince:                   {},
 	MsgCliYearUntil:                   {},
 	MsgCliParseHead:                   {},

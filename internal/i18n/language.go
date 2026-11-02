@@ -263,6 +263,13 @@ func CategoryName(l Language, code string) string {
 	return resolve(l, "category."+code, code)
 }
 
+// SourceTypeName возвращает отображаемое название типа источника данных
+// записи по коду каталожного словаря source_types; расширения каталога
+// данными без записи в бандле отображаются кодом (D9).
+func SourceTypeName(l Language, code string) string {
+	return resolve(l, "sourcetype."+code, code)
+}
+
 // CategoryCode канонизирует вход значения категории по кодам словаря
 // каталога (данные, не бандлы): точный код либо отображаемое название
 // любой локали бандлов → код. Для фильтров поиска на краю (CLI --category,

@@ -34,6 +34,7 @@ func TestKnownCodes(t *testing.T) {
 		"unknown_attribute",
 		"unknown_condition",
 		"unknown_parameter",
+		"unknown_source",
 		"validation_failed",
 	}
 	got := domain.KnownCodes()

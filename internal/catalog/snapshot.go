@@ -116,6 +116,15 @@ type CategoryDef struct {
 	Code string
 }
 
+// SourceTypeDef — строка таблицы source_types: код словаря типов
+// источников данных записи (план 03 §13): book, handbook, journal,
+// standard, spec, datasheet, web. Словарь — данные каталога (расширяется
+// секцией catalog); отображаемое название — бандлы internal/i18n:
+// sourcetype.<код>, расширения без записи в бандле отображаются кодом (D9).
+type SourceTypeDef struct {
+	Code string
+}
+
 // ConditionDef — строка таблицы conditions: условие измерения/контекста
 // значения. Unit "" — безразмерное условие; AllowNegative разрешает
 // неположительные значения (temp), по умолчанию условия положительны.
@@ -225,6 +234,7 @@ type Snapshot struct {
 	SystemKinds []SystemKindRef
 	Units       []UnitDef
 	Categories  []CategoryDef
+	SourceTypes []SourceTypeDef
 	Conditions  []ConditionDef
 	Groups      []GroupDef
 	Parameters  []ParameterDef
@@ -246,6 +256,7 @@ type snapshotIndex struct {
 	systems       map[domain.System]int
 	units         map[string]int
 	categories    map[string]int
+	sourceTypes   map[string]int
 	conditions    map[string]int
 	groups        map[string]int
 	groupSections map[string]int
@@ -264,6 +275,7 @@ func (s *Snapshot) index() *snapshotIndex {
 			systems:       make(map[domain.System]int, len(s.Systems)),
 			units:         make(map[string]int, len(s.Units)),
 			categories:    make(map[string]int, len(s.Categories)),
+			sourceTypes:   make(map[string]int, len(s.SourceTypes)),
 			conditions:    make(map[string]int, len(s.Conditions)),
 			groups:        make(map[string]int, len(s.Groups)),
 			groupSections: make(map[string]int, len(s.Groups)),
@@ -283,6 +295,9 @@ func (s *Snapshot) index() *snapshotIndex {
 		}
 		for i := range s.Categories {
 			idx.categories[s.Categories[i].Code] = i
+		}
+		for i := range s.SourceTypes {
+			idx.sourceTypes[s.SourceTypes[i].Code] = i
 		}
 		for i := range s.Conditions {
 			idx.conditions[s.Conditions[i].Code] = i
@@ -381,6 +396,31 @@ func (s *Snapshot) CategoryCodes() []string {
 	return out
 }
 
+// SourceType ищет код словаря типов источников (source_types).
+func (s *Snapshot) SourceType(code string) (SourceTypeDef, bool) {
+	if s == nil {
+		return SourceTypeDef{}, false
+	}
+	i, ok := s.index().sourceTypes[code]
+	if !ok {
+		return SourceTypeDef{}, false
+	}
+	return s.SourceTypes[i], true
+}
+
+// SourceTypeCodes перечисляет коды словаря типов источников в порядке
+// строк снимка (аргумент перечня допустимых в сообщениях об ошибках).
+func (s *Snapshot) SourceTypeCodes() []string {
+	if s == nil {
+		return nil
+	}
+	out := make([]string, 0, len(s.SourceTypes))
+	for _, t := range s.SourceTypes {
+		out = append(out, t.Code)
+	}
+	return out
+}
+
 // Condition ищет условие по коду.
 func (s *Snapshot) Condition(code string) (ConditionDef, bool) {
 	if s == nil {
@@ -462,6 +502,7 @@ func (s *Snapshot) Clone() *Snapshot {
 		SystemKinds: slices.Clone(s.SystemKinds),
 		Units:       slices.Clone(s.Units),
 		Categories:  slices.Clone(s.Categories),
+		SourceTypes: slices.Clone(s.SourceTypes),
 		Conditions:  slices.Clone(s.Conditions),
 		Groups:      slices.Clone(s.Groups),
 		Parameters:  slices.Clone(s.Parameters),

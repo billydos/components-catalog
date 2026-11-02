@@ -39,7 +39,12 @@ import "strings"
 // исполнений записей (план 03 §7/§10 — атрибуты двухуровневые: запись
 // и исполнение); замена набора исполнений пересоздаёт строки каскадом
 // FK device_variants; базы прежних версий пересоздаются импортом (D5).
-const SchemaVersion = 12
+// Версия 13 — источники данных записи (план 03 §13, D13): словарь
+// source_types (каталог), реестр sources с лицами (авторы/редакторы)
+// и ссылками device_sources; атрибут datasheetUrl упразднён — ссылки
+// на документацию несут источники типа datasheet; базы прежних версий
+// пересоздаются импортом (D5).
+const SchemaVersion = 13
 
 // autoIncToken — маркер авто-PK в переносимом DDL; диалект заменяет его
 // своим определением в RewriteDDL (sqlite: PRIMARY KEY AUTOINCREMENT —
@@ -75,6 +80,12 @@ var ddlStatements = []string{
 )`,
 
 	`CREATE TABLE IF NOT EXISTS categories (
+    code TEXT PRIMARY KEY
+)`,
+
+	// Словарь типов источников данных записи (план 03 §13): данные
+	// каталога, отображаемые названия — бандлы sourcetype.<код> (D9).
+	`CREATE TABLE IF NOT EXISTS source_types (
     code TEXT PRIMARY KEY
 )`,
 
@@ -236,6 +247,42 @@ var ddlStatements = []string{
     name TEXT NOT NULL UNIQUE
 )`,
 
+	// Реестр источников данных записи (план 03 §13, D13): библиографическое
+	// описание — данные записи (как manufacturers/notes — не локализуемые
+	// строки, не каталожные отображаемые); code — стабильный ключ формата
+	// наполнения, назначаемый редактором.
+	`CREATE TABLE IF NOT EXISTS sources (
+    id        INTEGER ` + autoIncToken + `,
+    code      TEXT NOT NULL UNIQUE,
+    title     TEXT NOT NULL,
+    type_code TEXT NOT NULL REFERENCES source_types(code),
+    year      INTEGER NULL,
+    publisher TEXT NULL,
+    edition   TEXT NULL,
+    isbn      TEXT NULL
+)`,
+
+	// Лица источника (план 03 §13): авторы и редакторы — упорядоченные
+	// списки строк, по строке на элемент (образец text_list); role —
+	// author | editor (семантика — сервисный слой, CHECK не каталожный).
+	`CREATE TABLE IF NOT EXISTS source_persons (
+    source_id INTEGER NOT NULL REFERENCES sources(id) ON DELETE CASCADE,
+    pos       INTEGER NOT NULL,
+    role      TEXT NOT NULL,
+    name      TEXT NOT NULL,
+    PRIMARY KEY (source_id, pos)
+)`,
+
+	// Ссылки на документацию источника (план 03 §13): упорядоченный
+	// список (оригинал, зеркала, архивные копии — порядок значим,
+	// первый элемент предпочитаемый).
+	`CREATE TABLE IF NOT EXISTS source_urls (
+    source_id INTEGER NOT NULL REFERENCES sources(id) ON DELETE CASCADE,
+    pos       INTEGER NOT NULL,
+    url       TEXT NOT NULL,
+    PRIMARY KEY (source_id, pos)
+)`,
+
 	`CREATE TABLE IF NOT EXISTS device_manufacturers (
     device_id       INTEGER NOT NULL REFERENCES devices(id) ON DELETE CASCADE,
     manufacturer_id INTEGER NOT NULL REFERENCES manufacturers(id) ON DELETE CASCADE,
@@ -262,6 +309,17 @@ var ddlStatements = []string{
     year_to     INTEGER NULL,
     sort_order  INTEGER NOT NULL DEFAULT 0,
     PRIMARY KEY (device_id, designation)
+)`,
+
+	// Ссылки записей на источники данных (план 03 §13): note — место
+	// в источнике («таблица 5.3», «с. 214»); замена секции — целиком,
+	// чистка сирот sources — по образцу производителей.
+	`CREATE TABLE IF NOT EXISTS device_sources (
+    device_id  INTEGER NOT NULL REFERENCES devices(id) ON DELETE CASCADE,
+    source_id  INTEGER NOT NULL REFERENCES sources(id) ON DELETE CASCADE,
+    note       TEXT NULL,
+    sort_order INTEGER NOT NULL DEFAULT 0,
+    PRIMARY KEY (device_id, source_id)
 )`,
 
 	// Поток изменений записей (change feed — docs/plan/02-database.md §2.3):
@@ -302,6 +360,8 @@ var ddlStatements = []string{
 	`CREATE INDEX IF NOT EXISTS idx_analogs_analog ON device_analogs(analog_device_id)`,
 
 	`CREATE INDEX IF NOT EXISTS idx_synonym_designation ON device_synonyms(designation)`,
+
+	`CREATE INDEX IF NOT EXISTS idx_device_sources_source ON device_sources(source_id)`,
 }
 
 // ddlFor возвращает DDL диалекта (авто-PK и типы — RewriteDDL диалекта).

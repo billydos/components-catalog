@@ -8,17 +8,20 @@ import (
 	"github.com/billydos/components-catalog/internal/domain"
 )
 
-// Состав стартового каталога (03 §3–§10): количества строк по разделам.
+// Состав стартового каталога (03 §3–§10, §13): количества строк по разделам.
 func TestSeedSnapshotCounts(t *testing.T) {
 	snap := seedSnapshot(t)
 	want := struct {
-		units, categories, conditions, groups, params, attrs, rules int
-	}{32, 11, 20, 3, 136, 22, 6}
+		units, categories, sourceTypes, conditions, groups, params, attrs, rules int
+	}{32, 11, 7, 20, 3, 136, 21, 6}
 	if got := len(snap.Units); got != want.units {
 		t.Errorf("единиц: %d, ожидалось %d", got, want.units)
 	}
 	if got := len(snap.Categories); got != want.categories {
 		t.Errorf("категорий: %d, ожидалось %d", got, want.categories)
+	}
+	if got := len(snap.SourceTypes); got != want.sourceTypes {
+		t.Errorf("типов источников: %d, ожидалось %d", got, want.sourceTypes)
 	}
 	if got := len(snap.Conditions); got != want.conditions {
 		t.Errorf("условий: %d, ожидалось %d", got, want.conditions)

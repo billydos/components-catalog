@@ -73,6 +73,10 @@ func (s *DeviceService) buildCards(ctx context.Context, snap *catalog.Snapshot, 
 	if err != nil {
 		return nil, err
 	}
+	sources, err := tx.LoadDeviceSourcesByIDs(ctx, ids)
+	if err != nil {
+		return nil, err
+	}
 	byID := make(map[int64]*storage.DeviceRow, len(devs))
 	for _, dev := range devs {
 		byID[dev.ID] = dev
@@ -98,7 +102,8 @@ func (s *DeviceService) buildCards(ctx context.Context, snap *catalog.Snapshot, 
 			continue // параллельное удаление — запись уже не собирается
 		}
 		cards = append(cards, assembleCard(snap, dev, fields[id], attrRows[id],
-			values[id], variants[id], variantAttrs, manufacturers[id], outgoing[id], backlinks[id], synonyms[id]))
+			values[id], variants[id], variantAttrs, manufacturers[id], outgoing[id],
+			backlinks[id], synonyms[id], sources[id]))
 	}
 	for _, c := range cards {
 		attachTypeGroup(snap, c, fields[c.ID], values[c.ID], siblings, sibValues)
@@ -271,7 +276,7 @@ func assembleCard(snap *catalog.Snapshot, dev *storage.DeviceRow,
 	variants []storage.VariantRow, variantAttrs map[int64][]storage.AttrRow,
 	manufacturers []string,
 	outgoing []storage.AnalogRow, backlinks []storage.BacklinkRow,
-	synonyms []storage.SynonymRow) *Card {
+	synonyms []storage.SynonymRow, sources []storage.DeviceSourceRow) *Card {
 	card := &Card{
 		ID:            dev.ID,
 		Kind:          dev.Kind,
@@ -314,6 +319,16 @@ func assembleCard(snap *catalog.Snapshot, dev *storage.DeviceRow,
 	for _, s := range synonyms {
 		card.Synonyms = append(card.Synonyms, CardSynonym{
 			Designation: s.Designation, Note: s.Note, YearFrom: s.YearFrom, YearTo: s.YearTo,
+		})
+	}
+	// Источники данных записи — полный определения с заметкой места;
+	// порядок — канонический, по коду (LoadDeviceSourcesByIDs).
+	for _, src := range sources {
+		card.Sources = append(card.Sources, CardSource{
+			Code: src.Code, Title: src.Title, Type: src.Type,
+			Authors: src.Authors, Editors: src.Editors, Year: src.Year,
+			Publisher: src.Publisher, Edition: src.Edition, ISBN: src.ISBN,
+			URLs: src.URLs, Note: src.Note,
 		})
 	}
 	return card

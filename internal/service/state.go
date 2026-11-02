@@ -53,6 +53,13 @@ type stateSynonym struct {
 	YearTo      *int
 }
 
+// stateSource — ссылка записи на источник в состоянии (код реестра
+// и заметка места в источнике; сортировка по коду).
+type stateSource struct {
+	Code string
+	Note string
+}
+
 // deviceState — слитое состояние записи.
 type deviceState struct {
 	fields        []domain.Field           // явные классификационные поля (по имени поля)
@@ -62,6 +69,7 @@ type deviceState struct {
 	manufacturers []string                 // отсортированы
 	analogs       []stateAnalog            // отсортированы по обозначению
 	synonyms      []stateSynonym           // отсортированы по обозначению
+	sources       []stateSource            // отсортированы по коду источника
 }
 
 // loadState читает текущее состояние записи внутри транзакции записи
@@ -92,6 +100,10 @@ func (s *stateMerger) loadState(ctx context.Context, tx *storage.Tx, deviceID in
 		return nil, err
 	}
 	synonyms, err := tx.LoadSynonyms(ctx, deviceID)
+	if err != nil {
+		return nil, err
+	}
+	sourceLinks, err := tx.LoadDeviceSources(ctx, deviceID)
 	if err != nil {
 		return nil, err
 	}
@@ -175,6 +187,12 @@ func (s *stateMerger) loadState(ctx context.Context, tx *storage.Tx, deviceID in
 	slices.SortStableFunc(st.synonyms, func(a, b stateSynonym) int {
 		return cmp.Compare(a.Designation, b.Designation)
 	})
+	// Канонический порядок источников — по коду (LoadDeviceSources читает
+	// уже отсортированным; копия — единообразно с прочими секциями).
+	st.sources = make([]stateSource, 0, len(sourceLinks))
+	for _, l := range sourceLinks {
+		st.sources = append(st.sources, stateSource{Code: l.Code, Note: l.Note})
+	}
 	return st, nil
 }
 
@@ -232,7 +250,7 @@ type stateMerger struct {
 // explicit — провалидированный набор явных классификационных полей
 // (не nil только при заданной секции fields).
 func (s *stateMerger) merge(cur *deviceState, in *DeviceInput, explicit []domain.Field,
-	resolvedAnalogs []stateAnalog, resolvedSynonyms []stateSynonym) *deviceState {
+	resolvedAnalogs []stateAnalog, resolvedSynonyms []stateSynonym, resolvedSources []stateSource) *deviceState {
 	out := &deviceState{
 		groupValues: make(map[string][]stateValue),
 	}
@@ -304,6 +322,14 @@ func (s *stateMerger) merge(cur *deviceState, in *DeviceInput, explicit []domain
 	} else {
 		out.synonyms = cur.synonyms
 	}
+	// Источники: nil — не менять, иначе замена ссылок целиком (включая
+	// очистку — сироты реестра вычищаются применением, состояние видит
+	// только ссылки).
+	if in.Sources != nil {
+		out.sources = resolvedSources
+	} else {
+		out.sources = cur.sources
+	}
 	return out
 }
 
@@ -321,10 +347,10 @@ func normalizeAttrs(vals []catalog.AttributeValue) []catalog.AttributeValue {
 
 // sameState сравнивает состояния канонически: порядок значений внутри
 // секций и исполнений значим (он задаёт sort_order); явные поля,
-// атрибуты, условия, производители, аналоги и синонимы сравниваются
-// как множества (нормализуются сортировкой копий — равенство не зависит
-// от порядка чтения из БД). Числа сравниваются бит-то-точно (round-trip
-// REAL; NaN в значениях исключён валидацией).
+// атрибуты, условия, производители, аналоги, синонимы и источники
+// сравниваются как множества (нормализуются сортировкой копий —
+// равенство не зависит от порядка чтения из БД). Числа сравниваются
+// бит-то-точно (round-trip REAL; NaN в значениях исключён валидацией).
 func sameState(a, b *deviceState) bool {
 	return fieldsEqual(a.fields, b.fields) &&
 		attrsEqual(a.attributes, b.attributes) &&
@@ -332,7 +358,8 @@ func sameState(a, b *deviceState) bool {
 		variantsEqual(a.variants, b.variants) &&
 		manufacturersEqual(a.manufacturers, b.manufacturers) &&
 		analogsEqual(a.analogs, b.analogs) &&
-		synonymsEqual(a.synonyms, b.synonyms)
+		synonymsEqual(a.synonyms, b.synonyms) &&
+		sourcesEqual(a.sources, b.sources)
 }
 
 // fieldsEqual — множества явных полей по имени.
@@ -445,6 +472,15 @@ func synonymsEqual(a, b []stateSynonym) bool {
 			return x.Designation == y.Designation && x.Note == y.Note &&
 				intPtrEqual(x.YearFrom, y.YearFrom) && intPtrEqual(x.YearTo, y.YearTo)
 		})
+}
+
+// sourcesEqual — множества ссылок на источники по коду.
+func sourcesEqual(a, b []stateSource) bool {
+	byCode := func(x, y stateSource) int { return cmp.Compare(x.Code, y.Code) }
+	return slices.EqualFunc(
+		slices.SortedFunc(slices.Values(a), byCode),
+		slices.SortedFunc(slices.Values(b), byCode),
+		func(x, y stateSource) bool { return x.Code == y.Code && x.Note == y.Note })
 }
 
 func intPtrEqual(a, b *int) bool {

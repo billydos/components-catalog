@@ -1501,9 +1501,14 @@ VALUES (@id, @designation, @note, @year_from, @year_to, @sort)`,
 }
 
 // DeleteDevice удаляет запись (каскад FK по всем дочерним таблицам,
-// включая обе стороны device_analogs) и чистит сирот производителей.
+// включая обе стороны device_analogs) и чистит сирот производителей
+// и источников.
 func (t *Tx) DeleteDevice(ctx context.Context, deviceID int64) error {
 	orphans, err := t.manufacturersOf(ctx, deviceID)
+	if err != nil {
+		return err
+	}
+	srcOrphans, err := t.sourcesOf(ctx, deviceID)
 	if err != nil {
 		return err
 	}
@@ -1512,7 +1517,10 @@ func (t *Tx) DeleteDevice(ctx context.Context, deviceID int64) error {
 		map[string]any{"id": deviceID}); err != nil {
 		return err
 	}
-	return t.deleteOrphanManufacturers(ctx, orphans)
+	if err := t.deleteOrphanManufacturers(ctx, orphans); err != nil {
+		return err
+	}
+	return t.deleteOrphanSources(ctx, srcOrphans)
 }
 
 // DeleteDeviceByKey удаляет запись по ключу (kind_code, designation)
@@ -1547,9 +1555,14 @@ func (t *Tx) deleteDeviceWhere(ctx context.Context, cond string, args map[string
 	if dev == nil {
 		return nil, nil
 	}
-	// Кандидаты адресной чистки сирот — производители удаляемой записи,
-	// собираются до удаления (каскад FK уберёт их связи вместе с записью).
+	// Кандидаты адресной чистки сирот — производители и источники
+	// удаляемой записи, собираются до удаления (каскад FK уберёт их связи
+	// вместе с записью).
 	orphans, err := t.manufacturersOf(ctx, dev.ID)
+	if err != nil {
+		return nil, err
+	}
+	srcOrphans, err := t.sourcesOf(ctx, dev.ID)
 	if err != nil {
 		return nil, err
 	}
@@ -1566,7 +1579,10 @@ func (t *Tx) deleteDeviceWhere(ctx context.Context, cond string, args map[string
 		// Конкурентное удаление той же строки между чтением и удалением.
 		return nil, nil
 	}
-	return dev, t.deleteOrphanManufacturers(ctx, orphans)
+	if err := t.deleteOrphanManufacturers(ctx, orphans); err != nil {
+		return nil, err
+	}
+	return dev, t.deleteOrphanSources(ctx, srcOrphans)
 }
 
 // findDeviceWhere читает запись по условию удаления (одно соединение

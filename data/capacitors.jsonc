@@ -6,6 +6,16 @@
   // уникален в пределах записи), Cnom — диапазон ряда на это напряжение,
   // габариты — наибольший корпус напряжения с полным набором D×H+шаг по [S2];
   // полная таблица корпусов (несколько корпусов на напряжение) — отчёт 08.
+  // Источники данных записей (D13): перенос атрибута datasheetUrl —
+  // указатели на документацию несут urls источников типа datasheet.
+  "sources": [
+    { "code": "ds_grm188r71h104ka93d", "type": "datasheet", "title": "Datasheet: GRM188R71H104KA93D (www.digikey.com)", "urls": ["https://www.digikey.com/en/products/detail/murata-electronics/GRM188R71H104KA93D/587143"] },
+    { "code": "ds_k42_19", "type": "datasheet", "title": "Datasheet: К42-19 (eandc.ru)", "urls": ["https://eandc.ru/pdf/kondensator/k42-19.pdf"] },
+    { "code": "ds_kso_2", "type": "datasheet", "title": "Datasheet: КСО-2 (rudatasheet.ru)", "urls": ["https://rudatasheet.ru/capacitors/kso-2/"] },
+    { "code": "ds_mbgch_1", "type": "datasheet", "title": "Datasheet: МБГЧ-1 (asenergi.ru)", "urls": ["https://asenergi.ru/catalog/kondensatory-puskovye/mbgch.html"] },
+    { "code": "ds_mbm", "type": "datasheet", "title": "Datasheet: МБМ (eandc.ru)", "urls": ["https://eandc.ru/pdf/kondensator/mbm.pdf"] },
+    { "code": "ds_t491c476k016at", "type": "datasheet", "title": "Datasheet: T491C476K016AT (content.kemet.com)", "urls": ["https://content.kemet.com/datasheets/KEM_T2005_T491.pdf"] }
+  ],
   "capacitors": [
     // gost (единая система, действующая кодификация — ГОСТ Р 57440-2017)
     {
@@ -167,9 +177,7 @@
     {
       "name": "К42-19",                      // металлобумажные уплотнённые частотные
       "system": "gost",
-      "attributes": {
-        "datasheetUrl": ["https://eandc.ru/pdf/kondensator/k42-19.pdf"]
-      },
+      "sources": ["ds_k42_19"],
       "parameters": [
         { "parameter": "Tolerance", "min": -20, "max": 20 },                // ±10/±20 %
         { "parameter": "DF", "max": 1 },
@@ -201,7 +209,7 @@
       "name": "КСО-2",                       // слюдяные опрессованные
       "system": "other",
       "fields": { "adjustment": "fixed", "series": "КСО", "dev_number": 2 },
-      "attributes": { "datasheetUrl": ["https://rudatasheet.ru/capacitors/kso-2/"] },
+      "sources": ["ds_kso_2"],
       "parameters": [
         { "parameter": "Cnom", "min": 100, "max": 2400 },
         { "parameter": "Tolerance", "min": -20, "max": 20 },                // классы 0…III: ±2…±20 %
@@ -215,7 +223,7 @@
       "name": "МБМ",                         // металлобумажные малогабаритные
       "system": "other",
       "fields": { "adjustment": "fixed", "series": "МБМ" },
-      "attributes": { "datasheetUrl": ["https://eandc.ru/pdf/kondensator/mbm.pdf"] },
+      "sources": ["ds_mbm"],
       "parameters": [
         { "parameter": "Tolerance", "min": -20, "max": 20 },
         { "parameter": "DF", "max": 1.5 },
@@ -277,7 +285,7 @@
       "name": "МБГЧ-1",                      // металлобумажные герметизированные частотные
       "system": "other",
       "fields": { "adjustment": "fixed", "series": "МБГЧ", "dev_number": 1 },
-      "attributes": { "datasheetUrl": ["https://asenergi.ru/catalog/kondensatory-puskovye/mbgch.html"] },
+      "sources": ["ds_mbgch_1"],
       "parameters": [
         { "parameter": "Tolerance", "min": -20, "max": 20 },
         { "parameter": "DF", "max": 2.5 },
@@ -326,9 +334,9 @@
       "system": "other",
       "fields": { "adjustment": "fixed" },
       "attributes": {
-        "technology": "керамика X7R", "package": "0603 (1608)",
-        "datasheetUrl": ["https://www.digikey.com/en/products/detail/murata-electronics/GRM188R71H104KA93D/587143"]
+        "technology": "керамика X7R", "package": "0603 (1608)"
       },
+      "sources": ["ds_grm188r71h104ka93d"],
       "manufacturers": ["Murata"],
       "parameters": [
         { "parameter": "Cnom", "min": 100000, "max": 100000 },  // 0,1 мкФ — единичный номинал кода
@@ -344,9 +352,9 @@
       "system": "other",
       "fields": { "adjustment": "fixed" },
       "attributes": {
-        "polarized": true, "technology": "танталовые", "package": "C (6032-28)",
-        "datasheetUrl": ["https://content.kemet.com/datasheets/KEM_T2005_T491.pdf"]
+        "polarized": true, "technology": "танталовые", "package": "C (6032-28)"
       },
+      "sources": ["ds_t491c476k016at"],
       "manufacturers": ["KEMET"],
       "parameters": [
         { "parameter": "Cnom", "min": 47000000, "max": 47000000 },  // 47 мкФ — единичный номинал кода

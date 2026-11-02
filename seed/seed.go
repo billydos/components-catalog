@@ -45,6 +45,7 @@ func Catalog() catalog.Input {
 		SystemKinds: systemKinds,
 		Units:       units(),
 		Categories:  categories(),
+		SourceTypes: sourceTypes(),
 		Conditions:  conditions(),
 		Groups:      groups(),
 		Parameters:  parameters(),
@@ -87,6 +88,21 @@ func categories() []catalog.CategoryDef {
 	out := make([]catalog.CategoryDef, 0, len(codes))
 	for _, c := range codes {
 		out = append(out, catalog.CategoryDef{Code: c})
+	}
+	return out
+}
+
+// sourceTypes — стартовый словарь типов источников данных записи
+// (план 03 §13, D13). Коды — латиница (D9); названия — бандлы
+// internal/i18n (sourcetype.<код>), расширения каталога данными без
+// записи в бандле отображаются кодом.
+func sourceTypes() []catalog.SourceTypeDef {
+	codes := []string{
+		"book", "handbook", "journal", "standard", "spec", "datasheet", "web",
+	}
+	out := make([]catalog.SourceTypeDef, 0, len(codes))
+	for _, c := range codes {
+		out = append(out, catalog.SourceTypeDef{Code: c})
 	}
 	return out
 }
@@ -702,8 +718,8 @@ func attributes() []catalog.AttributeDef {
 			ValidationRule: catalog.RuleYearRange, SortOrder: 150, Active: true},
 		{Code: "yearTo", Type: catalog.AttrInt,
 			ValidationRule: catalog.RuleYearRange, SortOrder: 160, Active: true},
-		{Code: "datasheetUrl", Type: catalog.AttrTextList,
-			SortOrder: 170, Active: true},
+		// datasheetUrl упразднён (D13, схема v13): указатели на
+		// документацию несут источники типа datasheet (urls).
 		{Code: "relayType", Type: catalog.AttrEnum, SortOrder: 180, Active: true,
 			Kinds: []domain.Kind{domain.KindRelay}, EnumValues: []string{
 				// Тип реле по принципу действия (03-data-model.md §10).

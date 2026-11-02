@@ -38,6 +38,11 @@ func PostgresDSN(t *testing.T) string {
 var catalogTables = []string{
 	"device_analogs",
 	"device_synonyms",
+	"device_sources",
+	"source_urls",
+	"source_persons",
+	"sources",
+	"source_types",
 	"device_manufacturers",
 	"manufacturers",
 	"parameter_value_conditions",

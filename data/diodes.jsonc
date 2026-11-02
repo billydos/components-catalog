@@ -2,15 +2,44 @@
   // Диоды: выверенное наполнение этапа 6 (план работ 6.3); источники по
   // каждой записи — код [S…] — и конфликты: docs/plan/08-data-verification.md §2.
   // Единицы — канонические (мкА, мА, нс, мкд).
+  // Источники данных записей (D13): перенос атрибута datasheetUrl —
+  // указатели на документацию несут urls источников типа datasheet.
+  "sources": [
+    { "code": "ds_1n4007", "type": "datasheet", "title": "Datasheet: 1N4007 (diotec.com)", "urls": ["https://diotec.com/en/product/1N4007.html"] },
+    { "code": "ds_1n4148", "type": "datasheet", "title": "Datasheet: 1N4148 (en.wikipedia.org)", "urls": ["https://en.wikipedia.org/wiki/1N4148"] },
+    { "code": "ds_1n5408", "type": "datasheet", "title": "Datasheet: 1N5408 (diotec.com)", "urls": ["https://diotec.com/en/product/1N5408.html"] },
+    { "code": "ds_1sr154_400", "type": "datasheet", "title": "Datasheet: 1SR154-400 (www.rohm.com)", "urls": ["https://www.rohm.com/products/diodes/rectifier-diodes/standard/1sr154-400-product"] },
+    { "code": "ds_1ss352", "type": "datasheet", "title": "Datasheet: 1SS352 (datasheet4u.com)", "urls": ["https://datasheet4u.com/datasheets/Toshiba-Semiconductor/1SS352/96169"] },
+    { "code": "ds_aa119", "type": "datasheet", "title": "Datasheet: AA119 (www.fabian.com.mt)", "urls": ["https://www.fabian.com.mt/en/featured/webshop/9216/germanium-diode-35ma-30v-aa119.htm"] },
+    { "code": "ds_al307b", "type": "datasheet", "title": "Datasheet: АЛ307Б (kazus.ru)", "urls": ["https://kazus.ru/post/3200032-al307"] },
+    { "code": "ds_als324b1", "type": "datasheet", "title": "Datasheet: АЛС324Б1 (www.chipdip.ru)", "urls": ["https://www.chipdip.ru/product/als324b1-indikator-semisegmentnyy-34368"] },
+    { "code": "ds_als333b1", "type": "datasheet", "title": "Datasheet: АЛС333Б1 (static.chipdip.ru)", "urls": ["https://static.chipdip.ru/lib/063/DOC000063875.pdf"] },
+    { "code": "ds_bat54s", "type": "datasheet", "title": "Datasheet: BAT54S (diotec.com)", "urls": ["https://diotec.com/en/product/BAT54S.html"] },
+    { "code": "ds_bav99", "type": "datasheet", "title": "Datasheet: BAV99 (diotec.com)", "urls": ["https://diotec.com/en/product/BAV99.html"] },
+    { "code": "ds_by133", "type": "datasheet", "title": "Datasheet: BY133 (diotec.com)", "urls": ["https://diotec.com/en/product/BY133.html"] },
+    { "code": "ds_bzx85c5v1", "type": "datasheet", "title": "Datasheet: BZX85C5V1 (www.soselectronic.com)", "urls": ["https://www.soselectronic.com/en/products/vishay-semiconductors/bzx-85-c-5v1-bzx85c5v1-tap-14206"] },
+    { "code": "ds_d226", "type": "datasheet", "title": "Datasheet: Д226 (kazus.ru)", "urls": ["https://kazus.ru/post/2686188-d226"] },
+    { "code": "ds_d2b", "type": "datasheet", "title": "Datasheet: Д2Б (www.radiolibrary.ru)", "urls": ["https://www.radiolibrary.ru/reference/diod/d2b.html"] },
+    { "code": "ds_d814a", "type": "datasheet", "title": "Datasheet: Д814А (www.club155.ru)", "urls": ["http://www.club155.ru/datasheet/D814A"] },
+    { "code": "ds_hdsp_311e", "type": "datasheet", "title": "Datasheet: HDSP-311E (docs.broadcom.com)", "urls": ["https://docs.broadcom.com/doc/AV02-3585EN"] },
+    { "code": "ds_kbp206g", "type": "datasheet", "title": "Datasheet: KBP206G (diotec.com)", "urls": ["https://diotec.com/en/product/KBP206G.html"] },
+    { "code": "ds_kd522a", "type": "datasheet", "title": "Datasheet: КД522А (kazus.ru)", "urls": ["https://kazus.ru/post/2686850-kd522a"] },
+    { "code": "ds_kds111v", "type": "datasheet", "title": "Datasheet: КДС111В (eandc.ru)", "urls": ["https://eandc.ru/catalog/detail.php?ID=8815"] },
+    { "code": "ds_ks168a", "type": "datasheet", "title": "Datasheet: КС168А (www.club155.ru)", "urls": ["http://www.club155.ru/datasheet/KS168A"] },
+    { "code": "ds_kts402a", "type": "datasheet", "title": "Datasheet: КЦ402А (www.chipdip.ru)", "urls": ["https://www.chipdip.ru/product/kts402a-diodnyy-most-odnofaznyy-1a-600v-sztp-29169"] },
+    { "code": "ds_kts407a", "type": "datasheet", "title": "Datasheet: КЦ407А (static.chipdip.ru)", "urls": ["https://static.chipdip.ru/lib/909/DOC018909433.pdf"] },
+    { "code": "ds_sa08_11ewa", "type": "datasheet", "title": "Datasheet: SA08-11EWA (www.kingbrightusa.com)", "urls": ["https://www.kingbrightusa.com/images/catalog/SPEC/SA08-11EWA.pdf"] },
+    { "code": "ds_uf4007", "type": "datasheet", "title": "Datasheet: UF4007 (diotec.com)", "urls": ["https://diotec.com/en/product/UF4007.html"] }
+  ],
   "diodes": [
     // gost (ГОСТ 10862-64): подкласс кодируется обозначением.
     {
       "name": "КДС111В",                     // сборка из двух выпрямительных диодов, общий катод
       "system": "gost",
       "attributes": {
-        "description": "выпрямительная сборка", "spec": ["3.362.145ТУ"],
-        "datasheetUrl": ["https://eandc.ru/catalog/detail.php?ID=8815"]
+        "description": "выпрямительная сборка", "spec": ["3.362.145ТУ"]
       },
+      "sources": ["ds_kds111v"],
       "parameters": [
         { "parameter": "Vf", "max": 1.2, "If": 100 },
         { "parameter": "Ir", "max": 3, "Vr": 300 }
@@ -26,9 +55,9 @@
       "name": "КС168А",                      // стабилитрон 6,8 В: напряжение — в двух последних цифрах номера
       "system": "gost",
       "attributes": {
-        "description": "стабилитрон", "package": "КД-4-1", "spec": ["СМ3.362.812ТУ"],
-        "datasheetUrl": ["http://www.club155.ru/datasheet/KS168A"]
+        "description": "стабилитрон", "package": "КД-4-1", "spec": ["СМ3.362.812ТУ"]
       },
+      "sources": ["ds_ks168a"],
       "parameters": [
         { "parameter": "Vz", "min": 6.12, "max": 7.48, "Iz": 10 },
         { "parameter": "Rdiff", "max": 28, "Iz": 10 },
@@ -46,9 +75,9 @@
       "name": "АЛ307Б",                      // светодиод красный; Iv нормирован снизу (≥0,9 мкд) — диапазон в модель не ложится
       "system": "gost",
       "attributes": {
-        "description": "светодиод", "spec": ["аА0.336.076ТУ"],
-        "datasheetUrl": ["https://kazus.ru/post/3200032-al307"]
+        "description": "светодиод", "spec": ["аА0.336.076ТУ"]
       },
+      "sources": ["ds_al307b"],
       "parameters": [
         { "parameter": "Vf", "max": 2, "If": 10 },
         { "parameter": "Lambda", "min": 666, "max": 666 }        // λmax
@@ -64,9 +93,9 @@
       "name": "КД522А",                      // импульсный; trr и Cд без условий нормировки — не сохраняются
       "system": "gost",
       "attributes": {
-        "description": "импульсный",
-        "datasheetUrl": ["https://kazus.ru/post/2686850-kd522a"]
+        "description": "импульсный"
       },
+      "sources": ["ds_kd522a"],
       "parameters": [
         { "parameter": "Vf", "max": 1.1, "If": 100 },
         { "parameter": "Ir", "max": 2, "Vr": 30 }
@@ -84,9 +113,9 @@
       "system": "gost",
       "attributes": {
         "description": "одноразрядный семисегментный индикатор, высота знака 7,5 мм",
-        "package": "КИ504",
-        "datasheetUrl": ["https://www.chipdip.ru/product/als324b1-indikator-semisegmentnyy-34368"]
+        "package": "КИ504"
       },
+      "sources": ["ds_als324b1"],
       "parameters": [
         { "parameter": "Iv", "min": 0.15, "max": 0.45, "If": 20 },
         { "parameter": "Lambda", "min": 655, "max": 670 }
@@ -105,9 +134,9 @@
       "system": "gost",
       "attributes": {
         "description": "одноразрядный семисегментный индикатор, высота знака 12 мм",
-        "package": "КИ504",
-        "datasheetUrl": ["https://static.chipdip.ru/lib/063/DOC000063875.pdf"]
+        "package": "КИ504"
       },
+      "sources": ["ds_als333b1"],
       "parameters": [
         { "parameter": "Lambda", "min": 650, "max": 670 }
         // Iv нормирован только снизу (≥0,2 мкд @ 20 мА); Uпр 2 В и Iпр.имп 200 мА — без различимых условий — не сохраняются
@@ -123,9 +152,9 @@
       "system": "gost",
       "attributes": {
         "description": "мостовая выпрямительная сборка (однофазный мост)",
-        "package": "КЦ402",
-        "datasheetUrl": ["https://www.chipdip.ru/product/kts402a-diodnyy-most-odnofaznyy-1a-600v-sztp-29169"]
+        "package": "КЦ402"
       },
+      "sources": ["ds_kts402a"],
       "manufacturers": ["СЗТП"],
       "parameters": [
         { "parameter": "Vf", "max": 4, "If": 1000 }
@@ -143,9 +172,9 @@
       "system": "gost",
       "attributes": {
         "description": "мостовая выпрямительная сборка (однофазный мост)",
-        "package": "КЦ407",
-        "datasheetUrl": ["https://static.chipdip.ru/lib/909/DOC018909433.pdf"]
+        "package": "КЦ407"
       },
+      "sources": ["ds_kts407a"],
       "manufacturers": ["ПО Днепр"],
       "parameters": [
         { "parameter": "Vf", "max": 2.5, "If": 200 }
@@ -164,9 +193,9 @@
       "name": "AA119",                       // A германий; класс без буквы — старая регистрация
       "system": "pro",
       "attributes": {
-        "description": "универсальный (германиевый)", "package": "DO-7",
-        "datasheetUrl": ["https://www.fabian.com.mt/en/featured/webshop/9216/germanium-diode-35ma-30v-aa119.htm"]
+        "description": "универсальный (германиевый)", "package": "DO-7"
       },
+      "sources": ["ds_aa119"],
       "manufacturers": ["Telefunken"],
       "parameters": [ { "parameter": "Vf", "max": 2.2, "If": 10 } ],
       "ratings": [
@@ -178,9 +207,9 @@
       "name": "BY133",                       // Y мощный выпрямитель; VRRM 1300 В
       "system": "pro",
       "attributes": {
-        "description": "выпрямительный",
-        "datasheetUrl": ["https://diotec.com/en/product/BY133.html"]
+        "description": "выпрямительный"
       },
+      "sources": ["ds_by133"],
       "manufacturers": ["Diotec", "Philips", "Tesla"],
       "parameters": [
         { "parameter": "Vf", "max": 1.3, "If": 1000 },
@@ -198,9 +227,9 @@
       "name": "BZX85C5V1",                   // стабилитрон 5,1 В ±5 %; тест-ток в доступных источниках не приведён — Vz/Rdiff не сохраняются
       "system": "pro",
       "attributes": {
-        "description": "стабилитрон",
-        "datasheetUrl": ["https://www.soselectronic.com/en/products/vishay-semiconductors/bzx-85-c-5v1-bzx85c5v1-tap-14206"]
+        "description": "стабилитрон"
       },
+      "sources": ["ds_bzx85c5v1"],
       "manufacturers": ["Vishay", "onsemi", "Fairchild"],
       "ratings": [
         { "parameter": "Pmax", "value": 1300 },
@@ -213,9 +242,9 @@
       "fields": { "assembly": 1 },
       "attributes": {
         "description": "сборка: два малосигнальных диода с последовательным включением",
-        "package": "SOT-23",
-        "datasheetUrl": ["https://diotec.com/en/product/BAV99.html"]
+        "package": "SOT-23"
       },
+      "sources": ["ds_bav99"],
       "manufacturers": ["Diotec", "Nexperia"],
       "parameters": [
         { "parameter": "Vf", "max": 0.855, "If": 10 },
@@ -237,9 +266,9 @@
       "fields": { "assembly": 1 },
       "attributes": {
         "description": "сборка: два диода Шоттки с последовательным включением",
-        "package": "SOT-23",
-        "datasheetUrl": ["https://diotec.com/en/product/BAT54S.html"]
+        "package": "SOT-23"
       },
+      "sources": ["ds_bat54s"],
       "manufacturers": ["Diotec", "Nexperia"],
       "parameters": [
         { "parameter": "Vf", "max": 0.32, "If": 1 },
@@ -262,9 +291,9 @@
       "system": "jedec",
       "fields": { "material": "si", "subclass": "signal", "category": "pulse" },
       "attributes": {
-        "description": "импульсный",
-        "datasheetUrl": ["https://en.wikipedia.org/wiki/1N4148"]
+        "description": "импульсный"
       },
+      "sources": ["ds_1n4148"],
       "manufacturers": ["Fairchild", "Vishay"],
       "parameters": [
         { "parameter": "Vf", "max": 1, "If": 10 },
@@ -282,9 +311,9 @@
       "system": "jedec",
       "fields": { "material": "si", "subclass": "rectifier" },
       "attributes": {
-        "description": "выпрямительный",
-        "datasheetUrl": ["https://diotec.com/en/product/1N4007.html"]
+        "description": "выпрямительный"
       },
+      "sources": ["ds_1n4007"],
       "manufacturers": ["Diotec", "Fairchild"],
       "parameters": [
         { "parameter": "Vf", "max": 1.1, "If": 1000 },
@@ -304,9 +333,9 @@
       "system": "jedec",
       "fields": { "material": "si", "subclass": "rectifier" },
       "attributes": {
-        "description": "выпрямительный",
-        "datasheetUrl": ["https://diotec.com/en/product/1N5408.html"]
+        "description": "выпрямительный"
       },
+      "sources": ["ds_1n5408"],
       "manufacturers": ["Diotec"],
       "parameters": [
         { "parameter": "Vf", "max": 1.2, "If": 3000 },
@@ -325,9 +354,9 @@
       "name": "1SS352",                      // параметры с неполными условиями нормировки не сохраняются
       "system": "jis",
       "attributes": {
-        "description": "имульсный", "package": "SOD-323",
-        "datasheetUrl": ["https://datasheet4u.com/datasheets/Toshiba-Semiconductor/1SS352/96169"]
+        "description": "имульсный", "package": "SOD-323"
       },
+      "sources": ["ds_1ss352"],
       "manufacturers": ["Toshiba"],
       "ratings": [
         { "parameter": "VrMax", "value": 80 },
@@ -340,9 +369,9 @@
       "name": "1SR154-400",                  // ROHM классифицирует как стандартный (не быстрый) выпрямитель
       "system": "jis",
       "attributes": {
-        "description": "выпрямительный",
-        "datasheetUrl": ["https://www.rohm.com/products/diodes/rectifier-diodes/standard/1sr154-400-product"]
+        "description": "выпрямительный"
       },
+      "sources": ["ds_1sr154_400"],
       "manufacturers": ["ROHM"],
       "parameters": [
         { "parameter": "Vf", "max": 1.1, "If": 1000 },
@@ -362,9 +391,9 @@
       "system": "other",
       "fields": { "material": "si", "subclass": "rectifier", "series": "Д", "dev_number": 226 },
       "attributes": {
-        "description": "выпрямительный",
-        "datasheetUrl": ["https://kazus.ru/post/2686188-d226"]
+        "description": "выпрямительный"
       },
+      "sources": ["ds_d226"],
       "parameters": [
         { "parameter": "Vf", "max": 1, "If": 300 },
         { "parameter": "Ir", "max": 50, "Vr": 400 }
@@ -382,9 +411,9 @@
       "system": "other",
       "fields": { "material": "si", "subclass": "zener", "series": "Д", "dev_number": 814, "letters": "А" },
       "attributes": {
-        "description": "стабилитрон",
-        "datasheetUrl": ["http://www.club155.ru/datasheet/D814A"]
+        "description": "стабилитрон"
       },
+      "sources": ["ds_d814a"],
       "parameters": [
         { "parameter": "Vz", "min": 7, "max": 8.5, "Iz": 5 },
         { "parameter": "Rdiff", "max": 6, "Iz": 5 },
@@ -402,9 +431,9 @@
       "system": "other",
       "fields": { "material": "ge", "subclass": "rectifier", "series": "Д", "dev_number": 2, "letters": "Б" },
       "attributes": {
-        "description": "универсальный (германиевый точечный)",
-        "datasheetUrl": ["https://www.radiolibrary.ru/reference/diod/d2b.html"]
+        "description": "универсальный (германиевый точечный)"
       },
+      "sources": ["ds_d2b"],
       "parameters": [
         { "parameter": "Vf", "max": 1, "If": 5 },
         { "parameter": "Ir", "max": 100, "Vr": 10 },
@@ -423,9 +452,9 @@
       "system": "other",
       "fields": { "material": "si", "subclass": "rectifier", "category": "fast" },
       "attributes": {
-        "description": "выпрямительный ультрабыстрый",
-        "datasheetUrl": ["https://diotec.com/en/product/UF4007.html"]
+        "description": "выпрямительный ультрабыстрый"
       },
+      "sources": ["ds_uf4007"],
       "manufacturers": ["Diotec", "Vishay", "onsemi"],
       "parameters": [
         { "parameter": "Vf", "max": 1.7, "If": 1000 },
@@ -445,9 +474,9 @@
       "fields": { "material": "si", "subclass": "rectifier", "assembly": 1 },
       "attributes": {
         "description": "мостовая выпрямительная сборка (однофазный мост)",
-        "package": "KBP",
-        "datasheetUrl": ["https://diotec.com/en/product/KBP206G.html"]
+        "package": "KBP"
       },
+      "sources": ["ds_kbp206g"],
       "manufacturers": ["Diotec"],
       "parameters": [
         { "parameter": "Vf", "max": 1.1, "If": 2000 },   // на диод (Diotec)
@@ -465,9 +494,9 @@
       "system": "other",
       "fields": { "subclass": "led", "assembly": 1 },
       "attributes": {
-        "description": "одноразрядный семисегментный индикатор, высота знака 10,16 мм, общий анод",
-        "datasheetUrl": ["https://docs.broadcom.com/doc/AV02-3585EN"]
+        "description": "одноразрядный семисегментный индикатор, высота знака 10,16 мм, общий анод"
       },
+      "sources": ["ds_hdsp_311e"],
       "manufacturers": ["Broadcom"],
       "parameters": [
         { "parameter": "Vf", "max": 2.5, "If": 20 }      // на сегмент
@@ -486,9 +515,9 @@
       "system": "other",
       "fields": { "subclass": "led", "assembly": 1 },
       "attributes": {
-        "description": "одноразрядный семисегментный индикатор, высота знака 20,32 мм, общий анод",
-        "datasheetUrl": ["https://www.kingbrightusa.com/images/catalog/SPEC/SA08-11EWA.pdf"]
+        "description": "одноразрядный семисегментный индикатор, высота знака 20,32 мм, общий анод"
       },
+      "sources": ["ds_sa08_11ewa"],
       "manufacturers": ["Kingbright"],
       "parameters": [
         { "parameter": "Vf", "max": 2.3, "If": 10 },     // на сегмент

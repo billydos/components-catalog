@@ -1236,7 +1236,7 @@ func TestCreate(t *testing.T) {
 	status, _, eb = do(t, srv, http.MethodPost, apiPrefix+"/components",
 		`{"name":"ГТ402Г","bogus":[]}`)
 	wantError(t, status, eb, http.StatusBadRequest, "invalid_import_file",
-		"unknown field «bogus» (allowed: name, system, fields, attributes, manufacturers, variants, analogs, synonyms and group sections: parameters, ratings, dimensions)")
+		"unknown field «bogus» (allowed: name, system, fields, attributes, manufacturers, variants, analogs, synonyms, sources and group sections: parameters, ratings, dimensions)")
 
 	// Невалидное обозначение — 422 invalid_designation.
 	status, _, eb = do(t, srv, http.MethodPost, apiPrefix+"/components", `{"name":"@@@"}`)
@@ -1727,4 +1727,80 @@ func TestSearchInvalidQueryStringRejected(t *testing.T) {
 	if !strings.Contains(string(body), "api_query_invalid") && !strings.Contains(string(body), "query") {
 		t.Fatalf("тело: %s", body)
 	}
+}
+
+// Источники данных записи (план 03 §13): карточка несёт полное
+// определение источника с заметкой места; type_name локализуется
+// (Accept-Language), ссылка записи без реестровой строки — 422.
+func TestCardSources(t *testing.T) {
+	app, srv := newTestAPI(t, Config{})
+	ctx := context.Background()
+
+	snap, err := app.Snapshot(ctx)
+	if err != nil {
+		t.Fatalf("снимок: %v", err)
+	}
+	applied, err := app.Services().Sources.Apply(ctx, []service.SourceInput{
+		{
+			Code: "ba8082", Type: "handbook", Title: "Полупроводниковые приборы",
+			Authors: []string{"А. В. Баюков", "Л. Л. Гуткин"},
+			Year:    ptr(1982), Publisher: "Энергоиздат", Edition: "2-е",
+		},
+	}, snap)
+	if err != nil || !applied {
+		t.Fatalf("применение реестра: applied=%v err=%v", applied, err)
+	}
+	if _, err := app.Services().Devices.Upsert(ctx, service.DeviceInput{
+		Name:    "КТ315Б",
+		Sources: &[]service.SourceRefInput{{Code: "ba8082", Note: "таблица 3.14, с. 214"}},
+	}); err != nil {
+		t.Fatalf("upsert: %v", err)
+	}
+
+	status, body, _ := do(t, srv, http.MethodGet,
+		apiPrefix+"/components/transistor/"+esc("КТ315Б"), "")
+	if status != http.StatusOK {
+		t.Fatalf("статус: %d, тело %s", status, body)
+	}
+	card := decode[cardJSON](t, body)
+	if len(card.Sources) != 1 {
+		t.Fatalf("источники: %+v", card.Sources)
+	}
+	src := card.Sources[0]
+	if src.Code != "ba8082" || src.Title != "Полупроводниковые приборы" ||
+		src.Type != "handbook" || src.TypeName != "reference book (handbook)" ||
+		len(src.Authors) != 2 || src.Year == nil || *src.Year != 1982 ||
+		src.Publisher != "Энергоиздат" || src.Edition != "2-е" ||
+		src.Note != "таблица 3.14, с. 214" {
+		t.Fatalf("источник: %+v", src)
+	}
+	// Незаданные списки сериализуются пустыми массивами, не null
+	// (контракт CardSource: authors/editors/urls обязательны).
+	if src.Editors == nil || src.URLs == nil {
+		t.Fatalf("списки-не-массивы: editors=%v urls=%v", src.Editors, src.URLs)
+	}
+
+	// Локализация названия типа (D9).
+	req, _ := http.NewRequest(http.MethodGet,
+		srv.URL+apiPrefix+"/components/transistor/"+esc("КТ315Б"), nil)
+	req.Header.Set("Accept-Language", "ru")
+	resp, err := srv.Client().Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	data, _ := io.ReadAll(resp.Body)
+	resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("статус: %d", resp.StatusCode)
+	}
+	ruCard := decode[cardJSON](t, string(data))
+	if len(ruCard.Sources) != 1 || ruCard.Sources[0].TypeName != "справочник" {
+		t.Fatalf("тип по-русски: %+v", ruCard.Sources)
+	}
+
+	// Ссылка на неизвестный код — 422 unknown_source, запись не меняется.
+	status, _, eb := do(t, srv, http.MethodPut, apiPrefix+"/components/transistor/"+esc("КТ315Б"),
+		`{"name": "КТ315Б", "sources": ["nowhere"]}`)
+	wantError(t, status, eb, http.StatusUnprocessableEntity, "unknown_source",
+		"source «nowhere» not found (define it in the root sources section)")
 }

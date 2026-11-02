@@ -140,6 +140,17 @@ var bundleRu = map[string]string{
 	"category.precision":       "прецизионный",
 	"category.composite":       "составной (Дарлингтон)",
 
+	// Типы источников данных записи (словарь source_types — данные
+	// каталога, план 03 §13; расширения без записи в бандле отображаются
+	// кодом — D9).
+	"sourcetype.book":      "книга",
+	"sourcetype.handbook":  "справочник",
+	"sourcetype.journal":   "статья в журнале",
+	"sourcetype.standard":  "стандарт (ГОСТ/ОСТ/МЭК)",
+	"sourcetype.spec":      "технические условия",
+	"sourcetype.datasheet": "даташит производителя",
+	"sourcetype.web":       "веб-страница / база данных",
+
 	// Условия (conditions).
 	"condition.Vce":            "напряжение коллектор-эмиттер",
 	"condition.Vcb":            "напряжение коллектор-база",
@@ -350,7 +361,6 @@ var bundleRu = map[string]string{
 	"attr.notes":             "примечания",
 	"attr.yearFrom":          "год начала выпуска",
 	"attr.yearTo":            "год окончания выпуска",
-	"attr.datasheetUrl":      "ссылка на документацию (datasheet)",
 	"attr.relayType":         "тип реле",
 	"attr.contactForm":       "контактная группа (зам./разм./переключ.)",
 	"attr.sections":          "число секций",

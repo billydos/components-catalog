@@ -44,6 +44,7 @@ func validateInputSelf(in Input) []Problem {
 		func(r SystemKindRef) string { return string(r.System) + "+" + string(r.Kind) })...)
 	probs = append(probs, checkCodes("units", in.Units, func(r UnitDef) string { return r.Code })...)
 	probs = append(probs, checkCodes("categories", in.Categories, func(r CategoryDef) string { return r.Code })...)
+	probs = append(probs, checkCodes("source_types", in.SourceTypes, func(r SourceTypeDef) string { return r.Code })...)
 	probs = append(probs, checkCodes("conditions", in.Conditions, func(r ConditionDef) string { return r.Code })...)
 	probs = append(probs, checkCodes("parameter_groups", in.Groups, func(r GroupDef) string { return r.Code })...)
 	probs = append(probs, checkCodes("parameters", in.Parameters, func(r ParameterDef) string { return r.Code })...)
@@ -200,6 +201,7 @@ func applyInput(out *Snapshot, in Input) {
 	})
 	units := indexRows(out.Units, func(r UnitDef) string { return r.Code })
 	categories := indexRows(out.Categories, func(r CategoryDef) string { return r.Code })
+	sourceTypes := indexRows(out.SourceTypes, func(r SourceTypeDef) string { return r.Code })
 	conditions := indexRows(out.Conditions, func(r ConditionDef) string { return r.Code })
 	groups := indexRows(out.Groups, func(r GroupDef) string { return r.Code })
 	parameters := indexRows(out.Parameters, func(r ParameterDef) string { return r.Code })
@@ -244,6 +246,13 @@ func applyInput(out *Snapshot, in Input) {
 			out.Categories[i] = r
 		} else {
 			out.Categories = append(out.Categories, r)
+		}
+	}
+	for _, r := range in.SourceTypes {
+		if i, ok := sourceTypes[r.Code]; ok {
+			out.SourceTypes[i] = r
+		} else {
+			out.SourceTypes = append(out.SourceTypes, r)
 		}
 	}
 	for _, r := range in.Conditions {
@@ -332,6 +341,12 @@ func validateMetaschema(out *Snapshot) []Problem {
 		r := &out.Categories[i]
 		if r.Code == "" {
 			probs = append(probs, metaProblem(domain.MsgMetaSectionNoCode, "categories"))
+		}
+	}
+	for i := range out.SourceTypes {
+		r := &out.SourceTypes[i]
+		if r.Code == "" {
+			probs = append(probs, metaProblem(domain.MsgMetaSectionNoCode, "source_types"))
 		}
 	}
 	for i := range out.Conditions {

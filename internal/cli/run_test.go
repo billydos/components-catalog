@@ -229,7 +229,8 @@ func TestFullCycle(t *testing.T) {
 	if code != 0 || stderr != "" {
 		t.Fatalf("import: код %d, stderr %q", code, stderr)
 	}
-	want := dataFile(t, "transistors.jsonc") + ": records: 23, added: 23, updated: 0, unchanged: 0\n"
+	want := dataFile(t, "transistors.jsonc") +
+		": records: 23, added: 23, updated: 0, unchanged: 0, sources updated\n"
 	if stdout != want {
 		t.Fatalf("итог импорта:\n got:  %q\n want: %q", stdout, want)
 	}

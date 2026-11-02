@@ -628,10 +628,15 @@
 
 ## 5. Реле
 
-Единственная система класса — `other` (§2.1): ключ `system` обязателен, класс задаёт секция корня, семейство и номер разработки — секцией `fields`. Значения выверены по транскрипции ТУ и даташиту производителя (источники — `08-data-verification.md` §5).
+Единственная система класса — `other` (§2.1): ключ `system` обязателен, класс задаёт секция корня, семейство и номер разработки — секцией `fields`. Значения выверены по транскрипции ТУ и даташиту производителя (источники — `08-data-verification.md` §5). Источники данных записи (03 §13, D13): определения — корневая секция `sources` (upsert по коду до записей), ссылки записей — кодами; `urls` источника типа `datasheet` заменяют упразднённый атрибут `datasheetUrl`.
 
 ```jsonc
 {
+  "sources": [
+    { "code": "ds_g5v1", "type": "datasheet",
+      "title": "Datasheet: G5V-1 (omronfs.omron.com)",
+      "urls": ["https://omronfs.omron.com/en_US/ecb/products/pdf/en-g5v_1.pdf"] }
+  ],
   "relays": [
     // other: советское семейство РЭС; исполнения — паспорта обмоток
     // (метка — децимальный код паспорта): у токовых паспортов
@@ -686,8 +691,9 @@
       "system": "other",
       "fields": { "series": "G5V", "dev_number": 1 },
       "attributes": { "relayType": "electromagnetic", "contactForm": "1П",
-                      "description": "сигнальное герметичное", "package": "12,5×7,5×10 мм",
-                      "datasheetUrl": ["https://omronfs.omron.com/en_US/ecb/products/pdf/en-g5v_1.pdf"] },
+                      "description": "сигнальное герметичное", "package": "12,5×7,5×10 мм" },
+      "sources": ["ds_g5v1"],       // источник данных записи (03 §13):
+                                    //   определение — корневая секция sources
       "parameters": [
         { "parameter": "Pcoil", "max": 0.15 },
         { "parameter": "Rcontact", "max": 0.1 },

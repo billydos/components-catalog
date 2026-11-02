@@ -30,6 +30,7 @@ type Report struct {
 	Skipped        int
 	Rejected       int // записи, не применённые из-за проблем
 	CatalogApplied bool
+	SourcesApplied bool // реестр источников изменён корневой секцией sources
 	Issues         []Issue
 }
 
@@ -119,24 +120,40 @@ func (m *Importer) importDocument(ctx context.Context, r io.Reader, name string,
 		}
 	}
 	plan := m.planCatalog(catTree, snap, &rep)
+	var srcTree value
+	if root.kind == kindObject {
+		if srcVal, ok := root.has("sources"); ok {
+			srcTree = srcVal
+		}
+	}
 	doc, issues := ReadDocument(root, plan.read)
 	rep.Issues = append(rep.Issues, issues...)
 	rep.Records = len(doc.Records) + doc.Rejected
 	rep.Rejected = doc.Rejected
 	o.recordsLoaded(rep.Records)
+	// Гейты catalogOnly — до применения чего-либо: записи и секция
+	// sources (по присутствию ключа, а не по числу валидных defs —
+	// битая форма секции тоже занимает файл данных, не каталог).
 	if catalogOnly && rep.Records > 0 {
 		return rep, domain.NewErrorf(domain.CodeInvalidImportFile, domain.MsgImportCatalogRecordsMixed)
+	}
+	srcPlan := m.planSources(srcTree, plan.read, &rep)
+	if catalogOnly && srcTree.kind != kindNull {
+		return rep, domain.NewErrorf(domain.CodeInvalidImportFile, domain.MsgImportCatalogSourcesMixed)
 	}
 	readSnap, err := m.commitCatalog(ctx, plan, dryRun, &rep)
 	if err != nil {
 		return rep, err
 	}
-	m.applyRecords(ctx, doc.Records, readSnap, dryRun, &rep, o)
+	if err := m.commitSources(ctx, srcPlan, readSnap, dryRun, &rep); err != nil {
+		return rep, err
+	}
+	m.applyRecords(ctx, doc.Records, readSnap, dryRun, &rep, o, srcPlan.codes)
 	return rep, nil
 }
 
-// importNDJSON — построчное чтение: строки catalog сливаются и
-// планируются до первой записи (блок catalog предшествует записям).
+// importNDJSON — построчное чтение: строки catalog и sources сливаются
+// и планируются до первой записи (оба блока предшествуют записям).
 // Записи буферизуются и применяются после цикла — файл применяется по
 // принципу «всё-или-ничего» на синтаксисе (жёсткая ошибка прерывает
 // прогон до применения буфера). catalogOnly — режим catalog import:
@@ -149,9 +166,10 @@ func (m *Importer) importDocument(ctx context.Context, r io.Reader, name string,
 // первой записи отвергается сама по себе: её содержимое отбрасывается
 // с проблемой строки, а чистый каталог до неё применяется — план по
 // нему уже роздан чтению записей, отмена разнесла бы валидацию и
-// запись. Строка-обёртка с классовым ключом считается записью
-// (отвергнутой): гейт смешанного файла catalog import видит её и
-// отвергает файл до применения каталога.
+// запись. Строка sources после первой записи отвергается так же.
+// Строка-обёртка с классовым ключом считается записью (отвергнутой):
+// гейт смешанного файла catalog import видит её и отвергает файл до
+// применения каталога.
 func (m *Importer) importNDJSON(ctx context.Context, r io.Reader, name string,
 	dryRun, catalogOnly bool, o *importOptions) (Report, error) {
 	snap, err := m.app.Snapshot(ctx)
@@ -165,6 +183,9 @@ func (m *Importer) importNDJSON(ctx context.Context, r io.Reader, name string,
 	catalogFlushed := false
 	catTainted := false // проблема строки catalog: каталог не применяется
 	var plan catalogPlan
+	var srcItems []value
+	sourcesSeen := false // после первой записи строки sources — ошибка порядка
+	sourcesTainted := false
 	var records []Record
 	flushCatalog := func() {
 		if catalogFlushed {
@@ -236,7 +257,31 @@ func (m *Importer) importNDJSON(ctx context.Context, r io.Reader, name string,
 			catTree = merged
 			continue
 		}
+		if srcVal, isSrc := v.has("sources"); isSrc {
+			if sourcesSeen {
+				rep.Issues = append(rep.Issues, issuef(number, domain.MsgImportNdjsonSourcesOrder))
+				continue
+			}
+			if len(v.members) != 1 {
+				// sources и соседний ключ в одной строке-обёртке:
+				// строка считается отвергнутой записью, определения
+				// источника не применяются.
+				rep.Issues = append(rep.Issues, issuef(number, domain.MsgImportNdjsonWrapperSingle))
+				rep.Records++
+				rep.Rejected++
+				o.recordRead(number, rep.Records)
+				sourcesTainted = true
+				continue
+			}
+			// null-строка («sources»: null) — секция не задана, как
+			// отсутствующая: присутствием не считается.
+			if srcVal.kind != kindNull {
+				srcItems = append(srcItems, srcVal)
+			}
+			continue
+		}
 		flushCatalog()
+		sourcesSeen = true
 		rec, ok, issues := ReadRecordLine(plan.read, v, number)
 		rep.Issues = append(rep.Issues, issues...)
 		rep.Records++
@@ -248,15 +293,50 @@ func (m *Importer) importNDJSON(ctx context.Context, r io.Reader, name string,
 		}
 	}
 	flushCatalog()
+	// Гейты catalogOnly — до применения каталога (и записей): обе
+	// проверки по присутствию, битые формы секций тоже занимают файл
+	// данных. Валидация sources — по гипотетическому снимку plan.read
+	// (секция catalog этого же файла могла ввести source_types);
+	// commitSources применит по свежему снимку БД.
+	sourcesPresent := len(srcItems) > 0 || sourcesTainted
 	if catalogOnly && rep.Records > 0 {
 		return rep, domain.NewErrorf(domain.CodeInvalidImportFile, domain.MsgImportCatalogRecordsMixed)
+	}
+	srcPlan := m.planSources(mergeSourceItems(srcItems, sourcesTainted), plan.read, &rep)
+	if catalogOnly && sourcesPresent {
+		return rep, domain.NewErrorf(domain.CodeInvalidImportFile, domain.MsgImportCatalogSourcesMixed)
 	}
 	readSnap, err := m.commitCatalog(ctx, plan, dryRun, &rep)
 	if err != nil {
 		return rep, err
 	}
-	m.applyRecords(ctx, records, readSnap, dryRun, &rep, o)
+	if err := m.commitSources(ctx, srcPlan, readSnap, dryRun, &rep); err != nil {
+		return rep, err
+	}
+	m.applyRecords(ctx, records, readSnap, dryRun, &rep, o, srcPlan.codes)
 	return rep, nil
+}
+
+// mergeSourceItems собирает дерево корневой секции sources из строк
+// NDJSON: массивы определений конкатенируются (слияние структур не
+// нужно — это один плоский список); испорченный блок (tainted) —
+// пустое дерево, определения не применяются.
+func mergeSourceItems(items []value, tainted bool) value {
+	if tainted {
+		return value{}
+	}
+	var out value
+	for _, v := range items {
+		if v.kind == kindNull {
+			continue
+		}
+		if out.kind == kindNull {
+			out = v
+			continue
+		}
+		out.items = append(out.items, v.items...)
+	}
+	return out
 }
 
 // mergeCatalogTrees объединяет деревья секции catalog (слияние строк
@@ -338,6 +418,63 @@ func (m *Importer) commitCatalog(ctx context.Context, plan catalogPlan,
 	return m.app.Snapshot(ctx)
 }
 
+// sourcesPlan — прочитанная корневая секция sources: валидированные
+// определения (применяются до записей, upsert по коду) и их коды
+// (разрешение ссылок записей в dry-run). Гейт — проблемы читателя
+// (форма) и валидации отключают применение целиком: ссылки записей
+// на новые коды получат собственные проблемы unknown_source.
+type sourcesPlan struct {
+	defs  []service.SourceInput
+	codes map[string]bool
+	apply bool
+}
+
+// planSources читает корневую секцию sources и валидирует определения
+// по снимку (read — гипотетический снимок чтения записей: типы
+// источников может вводить секция catalog этого же файла) без записи
+// в БД.
+func (m *Importer) planSources(tree value, read *catalog.Snapshot, rep *Report) sourcesPlan {
+	if tree.kind == kindNull {
+		return sourcesPlan{}
+	}
+	defs, issues := ReadSourcesSection(tree)
+	rep.Issues = append(rep.Issues, issues...)
+	if len(issues) > 0 {
+		return sourcesPlan{defs: defs}
+	}
+	if err := m.app.Services().Sources.ValidateSourceDefs(defs, read); err != nil {
+		iss := issuef(0, domain.MsgInternalError, err.Error())
+		if de, ok := domain.AsError(err); ok {
+			iss = issuef(0, de.MsgID, de.Args...)
+			iss.Code = de.Code
+		}
+		rep.Issues = append(rep.Issues, iss)
+		return sourcesPlan{defs: defs}
+	}
+	codes := make(map[string]bool, len(defs))
+	for _, d := range defs {
+		codes[d.Code] = true
+	}
+	return sourcesPlan{defs: defs, codes: codes, apply: true}
+}
+
+// commitSources применяет план источников до записей (ссылки записей
+// разрешаются по реестру): в dry-run — без записи; иначе — upsert
+// по коду, отчёт отмечает фактическое изменение реестра (повторный
+// импорт того же файла ревизию не двигает — идемпотентность).
+func (m *Importer) commitSources(ctx context.Context, plan sourcesPlan, read *catalog.Snapshot,
+	dryRun bool, rep *Report) error {
+	if !plan.apply || dryRun {
+		return nil
+	}
+	changed, err := m.app.Services().Sources.Apply(ctx, plan.defs, read)
+	if err != nil {
+		return err
+	}
+	rep.SourcesApplied = changed
+	return nil
+}
+
 // pendingRecord — запись в многопроходной очереди применения: последняя
 // ошибка (разрешение аналога) и признак холостого создания без секции
 // аналогов (взаимные ссылки).
@@ -351,9 +488,12 @@ type pendingRecord struct {
 // ссылок-аналогов (прямые ссылки на позднейшие записи файла), исходы
 // считаются по записям. В dry-run записи проверяются без записи в БД;
 // ссылки на создаваемые этим же прогоном обозначения допускаются.
-// Итоговый исход каждой записи отмечается прогрессом (o.appliedOutcome).
+// sourceCodes — коды источников корневой секции этого же файла
+// (разрешение ссылок dry-run; реальный импорт применяет реестр до
+// записей). Итоговый исход каждой записи отмечается прогрессом
+// (o.appliedOutcome).
 func (m *Importer) applyRecords(ctx context.Context, records []Record, snap *catalog.Snapshot,
-	dryRun bool, rep *Report, o *importOptions) {
+	dryRun bool, rep *Report, o *importOptions, sourceCodes map[string]bool) {
 	if len(records) == 0 {
 		return
 	}
@@ -390,6 +530,9 @@ func (m *Importer) applyRecords(ctx context.Context, records []Record, snap *cat
 		Synonym: func(kind domain.Kind, designation string) (string, bool) {
 			owner, claimed := synClaims[kind][designation]
 			return owner, claimed
+		},
+		Sources: func(code string) bool {
+			return sourceCodes[code]
 		},
 	}
 	applyClaim := func(rec Record) {

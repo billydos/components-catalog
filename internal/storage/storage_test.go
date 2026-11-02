@@ -91,8 +91,8 @@ func TestSchemaVersionMismatch(t *testing.T) {
 	// Пин фактической версии: документация плана (02-database.md §5)
 	// называет текущую версию — рассинхрон константы заметен тестом,
 	// а не молчаливым пропуском consumers (тесты читают константу).
-	if SchemaVersion != 12 {
-		t.Fatalf("SchemaVersion = %d, ожидалась 12 (docs/plan/02-database.md §5)", SchemaVersion)
+	if SchemaVersion != 13 {
+		t.Fatalf("SchemaVersion = %d, ожидалась 13 (docs/plan/02-database.md §5)", SchemaVersion)
 	}
 	path, db := openSQLiteFile(t)
 	ctx := context.Background()

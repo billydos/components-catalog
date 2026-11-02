@@ -557,6 +557,9 @@ func printReport(stdout, stderr io.Writer, lang i18n.Language, rep *importer.Rep
 	if rep.CatalogApplied {
 		summary += i18n.Message(lang, string(domain.MsgImportSummaryCatalog))
 	}
+	if rep.SourcesApplied {
+		summary += i18n.Message(lang, string(domain.MsgImportSummarySources))
+	}
 	fmt.Fprintf(stdout, "%s%s: %s\n", head, rep.Name, summary)
 	for _, issue := range rep.Issues {
 		fmt.Fprintf(stderr, "%s\n", i18n.Message(lang, string(domain.MsgCliIssueLine), issueString(lang, issue)))

@@ -137,22 +137,23 @@ func runVerifiedSuite(t *testing.T, factory configFactory) {
 
 	t.Run("TraceabilityPin", func(t *testing.T) {
 		// Прослеживаемость: каждая запись несёт ТУ либо ссылку на
-		// даташит/лист спецификации (источники — отчёт 08).
+		// источник данных (даташит/лист спецификации — план 03 §13,
+		// D13; ранее — атрибут datasheetUrl).
 		for _, name := range verifiedFiles {
 			_, byKind := readVerifiedDocument(t, app, name)
 			for kind, inputs := range byKind {
 				for _, in := range inputs {
-					var spec, url bool
+					var spec, hasSource bool
 					for _, a := range in.Attributes {
-						switch a.Attribute {
-						case "spec":
+						if a.Attribute == "spec" {
 							spec = len(a.Texts) > 0
-						case "datasheetUrl":
-							url = len(a.Texts) > 0
 						}
 					}
-					if !spec && !url {
-						t.Errorf("data/%s: %s «%s»: нет ни ТУ, ни datasheetUrl", name, kind, in.Name)
+					if in.Sources != nil {
+						hasSource = len(*in.Sources) > 0
+					}
+					if !spec && !hasSource {
+						t.Errorf("data/%s: %s «%s»: нет ни ТУ, ни источников", name, kind, in.Name)
 					}
 				}
 			}

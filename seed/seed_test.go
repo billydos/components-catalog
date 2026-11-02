@@ -19,10 +19,14 @@ func TestSeedAppliesCleanly(t *testing.T) {
 		}
 		t.Fatal("стартовый каталог не проходит метасхему")
 	}
-	if len(snap.Parameters) != 136 || len(snap.Attributes) != 22 ||
+	if len(snap.Parameters) != 136 || len(snap.Attributes) != 21 ||
 		len(snap.Units) != 32 || len(snap.Conditions) != 20 {
 		t.Fatalf("состав каталога: параметры %d, атрибуты %d, единицы %d, условия %d",
 			len(snap.Parameters), len(snap.Attributes), len(snap.Units), len(snap.Conditions))
+	}
+	// Словарь типов источников (D13): семь стартовых кодов.
+	if len(snap.SourceTypes) != 7 {
+		t.Fatalf("типы источников: %d, ожидалось 7", len(snap.SourceTypes))
 	}
 }
 
@@ -350,11 +354,15 @@ func TestSeedSpotChecks(t *testing.T) {
 	if a := attr("structure"); !a.AppliesTo(domain.KindTransistor) || !a.AppliesTo(domain.KindDiode) || a.AppliesTo(domain.KindResistor) {
 		t.Errorf("structure: применимость %v", a.Kinds)
 	}
-	// Текстовые атрибуты-списки: заметки, ТУ и ссылки на документацию (03 §10).
-	for _, code := range []string{"notes", "spec", "datasheetUrl"} {
+	// Текстовые атрибуты-списки: заметки и ТУ (03 §10); datasheetUrl
+	// упразднён (D13) — указатели на документацию несут источники.
+	for _, code := range []string{"notes", "spec"} {
 		if a := attr(code); a.Type != catalog.AttrTextList || len(a.Kinds) != 0 {
 			t.Errorf("%s: %+v", code, a)
 		}
+	}
+	if a, ok := snap.Attribute("datasheetUrl"); ok {
+		t.Errorf("datasheetUrl упразднён (D13), в сид: %+v", a)
 	}
 	// Атрибуты реле: enum-тип реле и контактная группа (03 §10).
 	if a := attr("relayType"); a.Type != catalog.AttrEnum || !a.AppliesTo(domain.KindRelay) ||
@@ -404,6 +412,9 @@ func expectedBundleKeys(t *testing.T) map[string]bool {
 	}
 	for _, c := range snap.Categories {
 		want["category."+c.Code] = true
+	}
+	for _, st := range snap.SourceTypes {
+		want["sourcetype."+st.Code] = true
 	}
 	for _, c := range snap.Conditions {
 		want["condition."+c.Code] = true

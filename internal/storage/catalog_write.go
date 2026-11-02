@@ -61,6 +61,15 @@ func (t *Tx) WriteCatalog(ctx context.Context, in catalog.Input) error {
 			return err
 		}
 	}
+	if len(in.SourceTypes) > 0 {
+		rows := make([][]any, len(in.SourceTypes))
+		for i, r := range in.SourceTypes {
+			rows[i] = []any{r.Code}
+		}
+		if err := t.insertMulti(ctx, "source_types", "code", rows); err != nil {
+			return err
+		}
+	}
 	for _, r := range in.Conditions {
 		if err := t.upsert(ctx,
 			`UPDATE conditions SET unit_code = @unit, allow_negative = @neg

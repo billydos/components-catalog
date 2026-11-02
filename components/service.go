@@ -11,6 +11,7 @@ type (
 	DeviceService      = service.DeviceService
 	DesignationService = service.DesignationService
 	CatalogService     = service.CatalogService
+	SourceService      = service.SourceService
 )
 
 // Параметры пулов соединений (Config.Pool).
@@ -25,6 +26,8 @@ type (
 	VariantInput        = service.VariantInput
 	AnalogInput         = service.AnalogInput
 	SynonymInput        = service.SynonymInput
+	SourceInput         = service.SourceInput
+	SourceRefInput      = service.SourceRefInput
 	PendingDesignations = service.PendingDesignations
 )
 
@@ -48,6 +51,7 @@ type (
 	CardVariant     = service.CardVariant
 	CardLink        = service.CardLink
 	CardSynonym     = service.CardSynonym
+	CardSource      = service.CardSource
 	CardTypeGroup   = service.CardTypeGroup
 	CardTypeSibling = service.CardTypeSibling
 	CardTypeDiff    = service.CardTypeDiff

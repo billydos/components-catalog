@@ -53,6 +53,32 @@ type SynonymInput struct {
 	YearTo      *int
 }
 
+// SourceInput — определение источника данных записи (корневая секция
+// sources, план 03 §13): code/title/type обязательны, остальное —
+// опционально; Authors/Editors/URLs — упорядоченные списки без повторов
+// (URLs — оригинал, зеркала, архивные копии; порядок значим, первый
+// элемент предпочитаемый). Библиографические тексты — не локализуемые
+// данные записи (как manufacturers/notes), не каталожные строки (D9).
+type SourceInput struct {
+	Code      string
+	Title     string
+	Type      string
+	Authors   []string
+	Editors   []string
+	Year      *int
+	Publisher string
+	Edition   string
+	ISBN      string
+	URLs      []string
+}
+
+// SourceRefInput — ссылка записи на источник: код реестра и заметка
+// места в источнике («таблица 5.3», «с. 214», «лист 3»).
+type SourceRefInput struct {
+	Code string
+	Note string
+}
+
 // DeviceInput — запись наполнения для Upsert. Семантика секций
 // (docs/plan/01-architecture.md §2.4): отсутствует (nil) — не менять; задана —
 // заменить целиком; пустой непустой-nil срез/[] — очистить; ошибка в любом
@@ -73,6 +99,10 @@ type DeviceInput struct {
 	Variants      *[]VariantInput
 	Analogs       *[]AnalogInput
 	Synonyms      *[]SynonymInput
+	// Sources — ссылки на источники данных записи (план 03 §13):
+	// семантика секции общая (отсутствует — не менять, задана — заменить
+	// ссылки целиком, [] — очистить, ошибка — запись не применяется).
+	Sources *[]SourceRefInput
 }
 
 // FindResult — результат find: точное совпадение (MatchedBySynonym —
@@ -180,11 +210,29 @@ type CardSynonym struct {
 	YearTo      *int
 }
 
+// CardSource — источник данных записи на карточке: полное библиогра-
+// фическое определение и заметка места в источнике (Note). Отображаемое
+// название типа — бандлы internal/i18n: sourcetype.<код> (D9); порядок —
+// канонический, по коду источника.
+type CardSource struct {
+	Code      string
+	Title     string
+	Type      string
+	Authors   []string
+	Editors   []string
+	Year      *int
+	Publisher string
+	Edition   string
+	ISBN      string
+	URLs      []string
+	Note      string
+}
+
 // Card — карточка записи: обозначение, система, поля разбора, атрибуты,
 // значения параметров по группам, исполнения, группа типа (одно базовое
 // обозначение — соседние записи и различия), производители, аналоги
-// (исходящие и встречные — docs/plan/02-database.md §6) и исторические
-// названия (синонимы — план 03 §9).
+// (исходящие и встречные — docs/plan/02-database.md §6), исторические
+// названия (синонимы — план 03 §9) и источники данных (план 03 §13).
 type Card struct {
 	ID            int64
 	Kind          domain.Kind
@@ -199,6 +247,7 @@ type Card struct {
 	Analogs       []CardLink
 	Backlinks     []CardLink
 	Synonyms      []CardSynonym
+	Sources       []CardSource
 }
 
 // FieldByName ищет поле разбора обозначения в карточке по коду.

@@ -33,6 +33,7 @@ const (
 	CodeUnknownAttribute       Code = "unknown_attribute"
 	CodeUnknownCondition       Code = "unknown_condition"
 	CodeUnknownParameter       Code = "unknown_parameter"
+	CodeUnknownSource          Code = "unknown_source"
 	CodeValidationFailed       Code = "validation_failed"
 )
 
@@ -57,6 +58,7 @@ var codeRegistry = map[Code]struct{}{
 	CodeUnknownAttribute:       {},
 	CodeUnknownCondition:       {},
 	CodeUnknownParameter:       {},
+	CodeUnknownSource:          {},
 	CodeValidationFailed:       {},
 }
 

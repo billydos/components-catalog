@@ -140,6 +140,24 @@ type synonymJSON struct {
 	YearTo      *int   `json:"year_to,omitempty"`
 }
 
+// cardSourceJSON — источник данных записи: полное библиографическое
+// определение и заметка места в источнике (type_name — отображаемое
+// название типа по локали, sourcetype.<код> — D9).
+type cardSourceJSON struct {
+	Code      string   `json:"code"`
+	Title     string   `json:"title"`
+	Type      string   `json:"type"`
+	TypeName  string   `json:"type_name"`
+	Authors   []string `json:"authors"`
+	Editors   []string `json:"editors"`
+	Year      *int     `json:"year,omitempty"`
+	Publisher string   `json:"publisher,omitempty"`
+	Edition   string   `json:"edition,omitempty"`
+	ISBN      string   `json:"isbn,omitempty"`
+	URLs      []string `json:"urls"`
+	Note      string   `json:"note,omitempty"`
+}
+
 // cardJSON — карточка записи (docs/plan/04-module-functionality.md §2).
 type cardJSON struct {
 	ID            int64              `json:"id"`
@@ -157,6 +175,7 @@ type cardJSON struct {
 	Analogs       []linkJSON         `json:"analogs"`
 	Backlinks     []linkJSON         `json:"backlinks"`
 	Synonyms      []synonymJSON      `json:"synonyms"`
+	Sources       []cardSourceJSON   `json:"sources"`
 }
 
 func cardToJSON(lang i18n.Language, c *service.Card) cardJSON {
@@ -174,6 +193,7 @@ func cardToJSON(lang i18n.Language, c *service.Card) cardJSON {
 		Analogs:       make([]linkJSON, 0, len(c.Analogs)),
 		Backlinks:     make([]linkJSON, 0, len(c.Backlinks)),
 		Synonyms:      make([]synonymJSON, 0, len(c.Synonyms)),
+		Sources:       make([]cardSourceJSON, 0, len(c.Sources)),
 	}
 	out.Attributes = cardAttrsToJSON(lang, c.Attributes)
 	out.Groups = groupsToJSON(lang, c.Groups)
@@ -224,7 +244,25 @@ func cardToJSON(lang i18n.Language, c *service.Card) cardJSON {
 			Designation: s.Designation, Note: s.Note, YearFrom: s.YearFrom, YearTo: s.YearTo,
 		})
 	}
+	for _, src := range c.Sources {
+		out.Sources = append(out.Sources, cardSourceJSON{
+			Code: src.Code, Title: src.Title, Type: src.Type,
+			TypeName: i18n.SourceTypeName(lang, src.Type),
+			Authors:  nonNilStrings(src.Authors), Editors: nonNilStrings(src.Editors),
+			Year:      src.Year,
+			Publisher: src.Publisher, Edition: src.Edition, ISBN: src.ISBN,
+			URLs: nonNilStrings(src.URLs), Note: src.Note,
+		})
+	}
 	return out
+}
+
+// nonNilStrings — срез без null в JSON (пустой список — []).
+func nonNilStrings(s []string) []string {
+	if s == nil {
+		return []string{}
+	}
+	return s
 }
 
 func cardAttrsToJSON(lang i18n.Language, attrs []service.CardAttribute) []cardAttrJSON {

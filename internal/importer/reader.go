@@ -84,9 +84,10 @@ func kindBySection(snap *catalog.Snapshot, section string) (domain.Kind, bool) {
 	return k, true
 }
 
-// rootKeys — допустимые ключи корня для сообщений (catalog + секции классов).
+// rootKeys — допустимые ключи корня для сообщений (catalog, sources +
+// секции классов).
 func rootKeys(snap *catalog.Snapshot) string {
-	parts := []string{"catalog"}
+	parts := []string{"catalog", "sources"}
 	for _, k := range snap.Kinds {
 		parts = append(parts, catalog.KindSection(k.Code))
 	}
@@ -112,8 +113,9 @@ func systemCodes(snap *catalog.Snapshot) string {
 }
 
 // ReadDocument разбирает корень документа (jsonc/yaml): секция catalog
-// пропускается (импортёр применяет её до записей отдельно), записи
-// классов читаются в порядке следования ключей. Проблемы формы
+// пропускается (импортёр применяет её до записей отдельно), секция
+// sources — тоже (определения источников применяются до записей),
+// записи классов читаются в порядке следования ключей. Проблемы формы
 // накапливаются в issues; записи с проблемами не попадают в Document
 // (применение частичной записи запрещено).
 func ReadDocument(root value, snap *catalog.Snapshot) (doc *Document, issues []Issue) {
@@ -124,7 +126,7 @@ func ReadDocument(root value, snap *catalog.Snapshot) (doc *Document, issues []I
 		return doc, r.issues
 	}
 	for _, m := range root.members {
-		if m.name == "catalog" {
+		if m.name == "catalog" || m.name == "sources" {
 			continue
 		}
 		kind, ok := kindBySection(snap, m.name)
@@ -347,6 +349,14 @@ func (r *reader) record(kind domain.Kind, v value, line, no int) (service.Device
 			synonyms = append(synonyms, s)
 		}
 		rec.Input.Synonyms = &synonyms
+	}
+
+	if srcVal, ok := v.has("sources"); ok && srcVal.kind != kindNull {
+		refs, ok := r.recordSources(rec, srcVal)
+		if !ok {
+			return service.DeviceInput{}, false
+		}
+		rec.Input.Sources = &refs
 	}
 	return rec.Input, true
 }

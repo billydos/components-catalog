@@ -704,8 +704,8 @@ func runImporterSuite(t *testing.T, factory configFactory) {
 				body: `{"catalog": []}`,
 				want: `catalog: catalog must be an object with subsections (allowed: kinds, ` +
 					`designation_systems, designation_system_kinds, units, ` +
-					`categories, conditions, parameter_groups, parameters, attributes, ` +
-					`validation_rules, kind_validation_rules)`,
+					`categories, source_types, conditions, parameter_groups, ` +
+					`parameters, attributes, validation_rules, kind_validation_rules)`,
 			},
 			{
 				name: "битая строка среди валидных",

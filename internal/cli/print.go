@@ -99,6 +99,14 @@ func printCard(w io.Writer, lang i18n.Language, c *service.Card, snap *catalog.S
 		}
 		fmt.Fprintln(w, i18n.Message(lang, string(domain.MsgCliSynonyms), joinParts(parts)))
 	}
+	if len(c.Sources) > 0 {
+		section()
+		parts := make([]string, 0, len(c.Sources))
+		for _, src := range c.Sources {
+			parts = append(parts, sourceDisplay(lang, src))
+		}
+		fmt.Fprintln(w, i18n.Message(lang, string(domain.MsgCliSources), joinParts(parts)))
+	}
 	if len(c.Attributes) > 0 {
 		section()
 		fmt.Fprintln(w, i18n.Message(lang, string(domain.MsgCliHAttrs)))
@@ -224,6 +232,21 @@ func synonymDisplay(lang i18n.Language, s service.CardSynonym) string {
 		return s.Designation
 	}
 	return s.Designation + " (" + joinParts(extras) + ")"
+}
+
+// sourceDisplay — источник данных записи для строки карточки:
+// «тип: название (год) — код [заметка места]»; список лиц и ссылок
+// опускается — карточка однострочна, полный состав — REST-карточка.
+func sourceDisplay(lang i18n.Language, s service.CardSource) string {
+	head := i18n.SourceTypeName(lang, s.Type) + ": " + s.Title
+	if s.Year != nil {
+		head += fmt.Sprintf(" (%d)", *s.Year)
+	}
+	head += " — " + s.Code
+	if s.Note != "" {
+		head += " [" + s.Note + "]"
+	}
+	return head
 }
 
 // valueWithConditions — значение параметра с единицей и условиями
