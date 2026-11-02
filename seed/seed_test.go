@@ -19,8 +19,8 @@ func TestSeedAppliesCleanly(t *testing.T) {
 		}
 		t.Fatal("стартовый каталог не проходит метасхему")
 	}
-	if len(snap.Parameters) != 123 || len(snap.Attributes) != 22 ||
-		len(snap.Units) != 31 || len(snap.Conditions) != 20 {
+	if len(snap.Parameters) != 136 || len(snap.Attributes) != 22 ||
+		len(snap.Units) != 32 || len(snap.Conditions) != 20 {
 		t.Fatalf("состав каталога: параметры %d, атрибуты %d, единицы %d, условия %d",
 			len(snap.Parameters), len(snap.Attributes), len(snap.Units), len(snap.Conditions))
 	}
@@ -177,6 +177,17 @@ func TestSeedSpotChecks(t *testing.T) {
 	if len(esr.ConditionSets) != 1 || len(esr.ConditionSets[0].Items) != 1 ||
 		esr.ConditionSets[0].Items[0].FixedValue == nil || *esr.ConditionSets[0].Items[0].FixedValue != 100000 {
 		t.Errorf("Esr: набор условий %+v", esr.ConditionSets)
+	}
+	z := check("Z")
+	if z.ValueType != catalog.ValueAtMost || len(z.ConditionSets) != 1 ||
+		len(z.ConditionSets[0].Items) != 1 || z.ConditionSets[0].Items[0].Condition != "freq" {
+		t.Errorf("Z: тип %s, наборы %+v — ожидался at_most с обязательным freq",
+			string(z.ValueType), z.ConditionSets)
+	}
+	ep := check("endurancePulse")
+	if ep.Unit != "" || ep.ValueType != catalog.ValueAtLeast {
+		t.Errorf("endurancePulse: единица %q, тип %s — ожидался безразмерный at_least",
+			ep.Unit, string(ep.ValueType))
 	}
 	pulse := check("IcPulseMax")
 	if len(pulse.ConditionSets) != 1 || len(pulse.ConditionSets[0].Items) != 1 ||

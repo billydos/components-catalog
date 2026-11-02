@@ -67,6 +67,8 @@ var bundleEn = map[string]string{
 	"unit.us.symbol":           "µs",
 	"unit.ms.name":             "millisecond",
 	"unit.ms.symbol":           "ms",
+	"unit.s.name":              "second",
+	"unit.s.symbol":            "s",
 	"unit.degC.name":           "degree Celsius",
 	"unit.degC.symbol":         "°C",
 	"unit.degC_per_W.name":     "degree Celsius per watt",
@@ -235,6 +237,21 @@ var bundleEn = map[string]string{
 	"param.Iripple":   "rated ripple current",
 	"param.opTempMin": "lowest operating temperature",
 	"param.opTempMax": "highest operating temperature",
+
+	// Параметры: конденсаторы — дополнительные и импульсный режим.
+	"param.Z":              "impedance (|Z|)",
+	"param.TauIns":         "insulation time constant",
+	"param.Vpeak":          "peak voltage",
+	"param.fPulse":         "pulse repetition rate",
+	"param.IPulseMax":      "maximum pulse current",
+	"param.Rdis":           "discharge resistance",
+	"param.DeltaV":         "voltage change on discharge",
+	"param.tCharge":        "charge time",
+	"param.tDischarge":     "discharge time",
+	"param.tWork":          "on time (pulse mode)",
+	"param.tPause":         "off time (pulse mode)",
+	"param.tHold":          "hold time (pulse mode)",
+	"param.endurancePulse": "electrical endurance in pulse mode, pulses",
 
 	// Параметры: реле — electrical.
 	"param.VcoilNom":      "rated coil voltage",

@@ -65,6 +65,8 @@ var bundleRu = map[string]string{
 	"unit.us.symbol":           "мкс",
 	"unit.ms.name":             "миллисекунда",
 	"unit.ms.symbol":           "мс",
+	"unit.s.name":              "секунда",
+	"unit.s.symbol":            "с",
 	"unit.degC.name":           "градус Цельсия",
 	"unit.degC.symbol":         "°C",
 	"unit.degC_per_W.name":     "градус Цельсия на ватт",
@@ -233,6 +235,21 @@ var bundleRu = map[string]string{
 	"param.Iripple":   "допустимый ток пульсаций",
 	"param.opTempMin": "наименьшая рабочая температура",
 	"param.opTempMax": "наибольшая рабочая температура",
+
+	// Параметры: конденсаторы — дополнительные и импульсный режим.
+	"param.Z":              "полное сопротивление (импеданс)",
+	"param.TauIns":         "постоянная времени изоляции",
+	"param.Vpeak":          "пиковое напряжение",
+	"param.fPulse":         "частота повторения импульсов",
+	"param.IPulseMax":      "максимальный импульсный ток",
+	"param.Rdis":           "сопротивление разряда",
+	"param.DeltaV":         "изменение напряжения при разряде",
+	"param.tCharge":        "время заряда",
+	"param.tDischarge":     "время разряда",
+	"param.tWork":          "время работы (импульсный режим)",
+	"param.tPause":         "время паузы (импульсный режим)",
+	"param.tHold":          "время ожидания (импульсный режим)",
+	"param.endurancePulse": "износостойкость в импульсном режиме, импульсов",
 
 	// Параметры: реле — electrical.
 	"param.VcoilNom":      "номинальное напряжение обмотки",

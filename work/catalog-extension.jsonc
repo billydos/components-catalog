@@ -1,0 +1,134 @@
+// catalog-extension.jsonc — расширение каталога components-catalog
+// Только коды, отсутствующие в стартовом наполнении (class-keys.md, fill-format.md).
+{
+  "catalog": {
+    "units": [
+      // Секунда: постоянная времени изоляции конденсатора (τиз) в справочнике
+      // приводится в секундах; в стартовом реестре есть только дольные единицы.
+      { "code": "s" }
+    ],
+    "parameters": [
+      // Полное сопротивление (импеданс) конденсатора на заданной частоте;
+      // международный символ величины — Z (class-keys §15).
+      {
+        "code": "Z",
+        "group": "electrical",
+        "unit": "ohm",
+        "value_type": "at_most",
+        "kinds": ["capacitor"],
+        "condition_sets": [
+          { "items": [ { "condition": "freq", "mode": "required" } ] }
+        ]
+      },
+      // Нижняя граница допуска ёмкости: у электролитических конденсаторов
+      // допуск несимметричный (например, +80/−20 %), поэтому одного
+      // at_most-параметра Tolerance недостаточно.
+      {
+        "code": "toleranceMin",
+        "group": "electrical",
+        "unit": "pct",
+        "value_type": "exact",
+        "kinds": ["capacitor"],
+        "allow_negative": true
+      },
+      // Верхняя граница допуска ёмкости (см. toleranceMin).
+      {
+        "code": "toleranceMax",
+        "group": "electrical",
+        "unit": "pct",
+        "value_type": "exact",
+        "kinds": ["capacitor"]
+      },
+      // Постоянная времени изоляции конденсатора τиз = Rиз·Cном, с.
+      {
+        "code": "Tau",
+        "group": "electrical",
+        "unit": "s",
+        "value_type": "at_least",
+        "kinds": ["capacitor"]
+      },
+      // Номинальное пиковое напряжение (предельно допустимое постоянное
+      // напряжение в течение ограниченных интервалов), В.
+      {
+        "code": "Vpeak",
+        "group": "limiting",
+        "unit": "V",
+        "value_type": "exact",
+        "kinds": ["capacitor"]
+      },
+      // Импульсный режим импульсных конденсаторов К50: параметры режима
+      // (частота повторения, время заряда/разряда, работа/пауза, ожидание,
+      // допустимый импульсный ток, сопротивление разряда, изменение
+      // напряжения при разряде, ресурс в импульсах).
+      {
+        "code": "fPulse",
+        "group": "electrical",
+        "unit": "Hz",
+        "value_type": "at_most",
+        "kinds": ["capacitor"]
+      },
+      {
+        "code": "Rdis",
+        "group": "electrical",
+        "unit": "ohm",
+        "value_type": "exact",
+        "kinds": ["capacitor"]
+      },
+      {
+        "code": "DeltaU",
+        "group": "electrical",
+        "unit": "pct",
+        "value_type": "at_most",
+        "kinds": ["capacitor"]
+      },
+      {
+        "code": "IPulseMax",
+        "group": "electrical",
+        "unit": "A",
+        "value_type": "at_most",
+        "kinds": ["capacitor"]
+      },
+      {
+        "code": "tCharge",
+        "group": "electrical",
+        "unit": "s",
+        "value_type": "exact",
+        "kinds": ["capacitor"]
+      },
+      {
+        "code": "tDischarge",
+        "group": "electrical",
+        "unit": "s",
+        "value_type": "exact",
+        "kinds": ["capacitor"]
+      },
+      {
+        "code": "tWork",
+        "group": "electrical",
+        "unit": "s",
+        "value_type": "at_most",
+        "kinds": ["capacitor"]
+      },
+      {
+        "code": "tPause",
+        "group": "electrical",
+        "unit": "s",
+        "value_type": "at_least",
+        "kinds": ["capacitor"]
+      },
+      {
+        "code": "tHold",
+        "group": "electrical",
+        "unit": "h",
+        "value_type": "at_most",
+        "kinds": ["capacitor"]
+      },
+      {
+        "code": "NPulseMin",
+        "group": "electrical",
+        "value_type": "at_least",
+        "kinds": ["capacitor"]
+      }
+    ]
+  }
+}

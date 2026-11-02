@@ -62,7 +62,7 @@ func units() []catalog.UnitDef {
 	codes := []string{
 		"V", "mV", "mA", "uA", "nA", "A",
 		"Hz", "dB", "pct", "W", "mW",
-		"ohm", "mA_per_V", "uS", "pF", "ps", "ns", "us", "ms",
+		"ohm", "mA_per_V", "uS", "pF", "ps", "ns", "us", "ms", "s",
 		"degC", "degC_per_W", "ppm_per_degC", "pct_per_degC",
 		"g", "mm", "nm", "mcd",
 		"deg", "h", "mN_m", "yr",
@@ -396,6 +396,36 @@ func parameters() []catalog.ParameterDef {
 		{Code: "opTempMax", Group: "electrical", Unit: "degC",
 			ValueType: catalog.ValueExact, ValidationRule: ruleTempPair,
 			SortOrder: 480, Active: true, Kinds: []domain.Kind{domain.KindCapacitor}},
+
+		// Конденсаторы — дополнительные характеристики и импульсный режим
+		// (§6.8; выверка сканов — work/catalog-extension-review.md).
+		{Code: "Z", Group: "electrical", Unit: "ohm",
+			ValueType: catalog.ValueAtMost, SortOrder: 720, Active: true, Kinds: []domain.Kind{domain.KindCapacitor},
+			ConditionSets: []catalog.ConditionSet{set(1, req("freq"))}},
+		{Code: "TauIns", Group: "electrical", Unit: "s",
+			ValueType: catalog.ValueAtLeast, SortOrder: 730, Active: true, Kinds: []domain.Kind{domain.KindCapacitor}},
+		{Code: "Vpeak", Group: "electrical", Unit: "V",
+			ValueType: catalog.ValueExact, SortOrder: 740, Active: true, Kinds: []domain.Kind{domain.KindCapacitor}},
+		{Code: "fPulse", Group: "electrical", Unit: "Hz",
+			ValueType: catalog.ValueAtMost, SortOrder: 750, Active: true, Kinds: []domain.Kind{domain.KindCapacitor}},
+		{Code: "IPulseMax", Group: "electrical", Unit: "A",
+			ValueType: catalog.ValueAtMost, SortOrder: 760, Active: true, Kinds: []domain.Kind{domain.KindCapacitor}},
+		{Code: "Rdis", Group: "electrical", Unit: "ohm",
+			ValueType: catalog.ValueExact, SortOrder: 770, Active: true, Kinds: []domain.Kind{domain.KindCapacitor}},
+		{Code: "DeltaV", Group: "electrical", Unit: "pct",
+			ValueType: catalog.ValueAtMost, SortOrder: 780, Active: true, Kinds: []domain.Kind{domain.KindCapacitor}},
+		{Code: "tCharge", Group: "electrical", Unit: "s",
+			ValueType: catalog.ValueExact, SortOrder: 790, Active: true, Kinds: []domain.Kind{domain.KindCapacitor}},
+		{Code: "tDischarge", Group: "electrical", Unit: "s",
+			ValueType: catalog.ValueExact, SortOrder: 800, Active: true, Kinds: []domain.Kind{domain.KindCapacitor}},
+		{Code: "tWork", Group: "electrical", Unit: "s",
+			ValueType: catalog.ValueAtMost, SortOrder: 810, Active: true, Kinds: []domain.Kind{domain.KindCapacitor}},
+		{Code: "tPause", Group: "electrical", Unit: "s",
+			ValueType: catalog.ValueAtLeast, SortOrder: 820, Active: true, Kinds: []domain.Kind{domain.KindCapacitor}},
+		{Code: "tHold", Group: "electrical", Unit: "h",
+			ValueType: catalog.ValueAtMost, SortOrder: 830, Active: true, Kinds: []domain.Kind{domain.KindCapacitor}},
+		{Code: "endurancePulse", Group: "electrical",
+			ValueType: catalog.ValueAtLeast, SortOrder: 840, Active: true, Kinds: []domain.Kind{domain.KindCapacitor}},
 
 		// Полевые транзисторы — электрические параметры (§6.1): собственные
 		// коды, величины биполярных не дублируются — пересечений с разделом
