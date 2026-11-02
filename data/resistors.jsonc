@@ -15,7 +15,7 @@
       "manufacturers": ["НПО «ЭРКОН» (Нижний Новгород)"],
       "parameters": [
         { "parameter": "Rnom", "min": 0.1, "max": 22000000 },     // 0,1 Ом – 22 МОм (ряды Е24/Е96)
-        { "parameter": "Tolerance", "max": 10 },                         // ±1; ±2; ±5; ±10 %
+        { "parameter": "Tolerance", "min": -10, "max": 10 },               // ±1; ±2; ±5; ±10 %
         { "parameter": "TCR", "max": 1500 },                       // ±100…±1500 по исполнениям
         { "parameter": "Vnoise", "max": 10 }                          // гр. А — 1; гр. Б — 5/10 мкВ/В
       ],
@@ -76,7 +76,7 @@
       "manufacturers": ["РИКОР"],
       "parameters": [
         { "parameter": "Rnom", "min": 10, "max": 1000000 },       // 10 Ом – 1 МОм
-        { "parameter": "Tolerance", "max": 20 }
+        { "parameter": "Tolerance", "min": -20, "max": 20 }
       ],
       "ratings": [ { "parameter": "Pnom", "value": 0.5 } ],
       "dimensions": [ { "parameter": "diameter", "value": 6 },
@@ -91,7 +91,7 @@
       },
       "manufacturers": ["Завод «Элия»"],
       "parameters": [
-        { "parameter": "Tolerance", "max": 5 },                          // ±0,5; ±1; ±2; ±5 %
+        { "parameter": "Tolerance", "min": -5, "max": 5 },                 // ±0,5; ±1; ±2; ±5 %
         { "parameter": "TCR", "max": 150 },
         { "parameter": "Rins", "min": 10000000000 }
       ],
@@ -137,7 +137,7 @@
         "datasheetUrl": ["http://l7805cv.ru/handbook-res-R1-4.html"]
       },
       "parameters": [
-        { "parameter": "Tolerance", "max": 5 },                          // ±1; ±2; ±5 %
+        { "parameter": "Tolerance", "min": -5, "max": 5 },                 // ±1; ±2; ±5 %
         { "parameter": "TCR", "max": 500 },
         { "parameter": "Vnoise", "max": 1.5 }
       ],
@@ -187,7 +187,7 @@
       "manufacturers": ["Резистор-НН (Нижний Новгород)", "Кермет (Пенза)"],
       "parameters": [
         { "parameter": "Rnom", "min": 1, "max": 5100000 },         // 1 Ом – 5,1 МОм
-        { "parameter": "Tolerance", "max": 10 },                         // ±2; ±5; ±10 %
+        { "parameter": "Tolerance", "min": -10, "max": 10 },               // ±2; ±5; ±10 %
         { "parameter": "nominalRow", "text": "E24" },              // ряды номиналов: E24 при ±5/±10 %,
         { "parameter": "nominalRow", "text": "E96" },              // E96 при ±2 %
         { "parameter": "TCR", "max": 1200 },
@@ -213,7 +213,7 @@
       },
       "parameters": [
         { "parameter": "Rnom", "min": 10, "max": 10000000 },       // по серии ВС
-        { "parameter": "Tolerance", "max": 20 },
+        { "parameter": "Tolerance", "min": -20, "max": 20 },
         { "parameter": "TCR", "max": 2000 },                       // отрицательный
         { "parameter": "Vnoise", "max": 5 }
       ],
@@ -233,7 +233,7 @@
       },
       "parameters": [
         { "parameter": "Rnom", "min": 1.8, "max": 10000 },         // 1,8 Ом – 10 кОм
-        { "parameter": "Tolerance", "max": 10 },                         // ±5; ±10 %
+        { "parameter": "Tolerance", "min": -10, "max": 10 },               // ±5; ±10 %
         { "parameter": "TCR", "max": 500 },                        // ±200; ±500
         { "parameter": "Rins", "min": 1000000000 }
       ],
@@ -258,7 +258,7 @@
         "datasheetUrl": ["https://www.datasheetarchive.com/CFR-25-datasheet.html"]
       },
       "manufacturers": ["YAGEO"],
-      "parameters": [ { "parameter": "Tolerance", "max": 5 } ],
+      "parameters": [ { "parameter": "Tolerance", "min": -5, "max": 5 } ],
       "ratings": [ { "parameter": "Pnom", "value": 0.25 } ]
     }
   ]

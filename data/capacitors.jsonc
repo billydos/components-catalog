@@ -13,7 +13,7 @@
       "system": "gost",
       "attributes": { "polarized": true, "spec": ["ОЖ0.464.214ТУ"] },
       "parameters": [                        // тип в целом (variant_id NULL)
-        { "parameter": "Tolerance", "max": 50 },                    // +50/−20 %
+        { "parameter": "Tolerance", "min": -20, "max": 50 },              // +50/−20 %
         { "parameter": "DF", "max": 30, "temp": 20 },        // 30 % (6,3–16 В) … 10 % (160 В)
         { "parameter": "opTempMin", "value": -40 },
         { "parameter": "opTempMax", "value": 85 }
@@ -137,7 +137,7 @@
       "attributes": { "package": "монолитный", "spec": ["ОЖ0.460.172ТУ"] },
       "parameters": [
         { "parameter": "Cnom", "min": 2.2, "max": 2200000 },  // 2,2 пФ – 2,2 мкФ (по группам ТКЕ)
-        { "parameter": "Tolerance", "max": 80 },                    // ±5…±20 %; +80/−20 % (Н90)
+        { "parameter": "Tolerance", "min": -20, "max": 80 },              // ±5…±20 %; +80/−20 % (Н90)
         { "parameter": "TCC", "text": "М47" },                // многозначный enum: группы типа
         { "parameter": "TCC", "text": "М1500" },
         { "parameter": "TCC", "text": "Н20" },
@@ -157,7 +157,7 @@
       "manufacturers": ["СКЗ (Северо-Задонский завод)"],
       "parameters": [
         { "parameter": "Cnom", "min": 1000, "max": 4700000 },   // 0,001–4,7 мкФ
-        { "parameter": "Tolerance", "max": 20 },                      // ±5/±10/±20 %
+        { "parameter": "Tolerance", "min": -20, "max": 20 },                // ±5/±10/±20 %
         { "parameter": "DF", "max": 0.8 },                     // 1 кГц
         { "parameter": "Rins", "min": 12000000000 },             // 12000 МОм (C ≤ 0,33 мкФ, 63/100 В)
         { "parameter": "opTempMin", "value": -60 },
@@ -171,7 +171,7 @@
         "datasheetUrl": ["https://eandc.ru/pdf/kondensator/k42-19.pdf"]
       },
       "parameters": [
-        { "parameter": "Tolerance", "max": 20 },                      // ±10/±20 %
+        { "parameter": "Tolerance", "min": -20, "max": 20 },                // ±10/±20 %
         { "parameter": "DF", "max": 1 },
         { "parameter": "opTempMin", "value": -25 },
         { "parameter": "opTempMax", "value": 55 }
@@ -204,7 +204,7 @@
       "attributes": { "datasheetUrl": ["https://rudatasheet.ru/capacitors/kso-2/"] },
       "parameters": [
         { "parameter": "Cnom", "min": 100, "max": 2400 },
-        { "parameter": "Tolerance", "max": 20 },                      // классы 0…III: ±2…±20 %
+        { "parameter": "Tolerance", "min": -20, "max": 20 },                // классы 0…III: ±2…±20 %
         { "parameter": "Vnom", "value": 500 },
         { "parameter": "DF", "max": 0.5 },                     // группы обкладок Б/В/Г: 0,5/0,2/0,1 %
         { "parameter": "opTempMin", "value": -60 },
@@ -217,7 +217,7 @@
       "fields": { "adjustment": "fixed", "series": "МБМ" },
       "attributes": { "datasheetUrl": ["https://eandc.ru/pdf/kondensator/mbm.pdf"] },
       "parameters": [
-        { "parameter": "Tolerance", "max": 20 },
+        { "parameter": "Tolerance", "min": -20, "max": 20 },
         { "parameter": "DF", "max": 1.5 },
         { "parameter": "Rins", "min": 2000000000 },              // 2000 МОм (160 В, C ≤ 0,1 мкФ)
         { "parameter": "opTempMin", "value": -60 },
@@ -279,7 +279,7 @@
       "fields": { "adjustment": "fixed", "series": "МБГЧ", "dev_number": 1 },
       "attributes": { "datasheetUrl": ["https://asenergi.ru/catalog/kondensatory-puskovye/mbgch.html"] },
       "parameters": [
-        { "parameter": "Tolerance", "max": 20 },
+        { "parameter": "Tolerance", "min": -20, "max": 20 },
         { "parameter": "DF", "max": 2.5 },
         { "parameter": "opTempMin", "value": -60 },
         { "parameter": "opTempMax", "value": 70 }
@@ -332,7 +332,7 @@
       "manufacturers": ["Murata"],
       "parameters": [
         { "parameter": "Cnom", "min": 100000, "max": 100000 },  // 0,1 мкФ — единичный номинал кода
-        { "parameter": "Tolerance", "max": 10 },
+        { "parameter": "Tolerance", "min": -10, "max": 10 },
         { "parameter": "TCC", "text": "X7R" },                // код заказа R7: −55…+125 °C, ±15 %
         { "parameter": "Vnom", "value": 50 },
         { "parameter": "opTempMin", "value": -55 },
@@ -350,7 +350,7 @@
       "manufacturers": ["KEMET"],
       "parameters": [
         { "parameter": "Cnom", "min": 47000000, "max": 47000000 },  // 47 мкФ — единичный номинал кода
-        { "parameter": "Tolerance", "max": 10 },                          // K = ±10 %
+        { "parameter": "Tolerance", "min": -10, "max": 10 },                // K = ±10 %
         { "parameter": "Vnom", "value": 16 },
         { "parameter": "Ileak", "max": 7.5, "Vnom": 16 },             // DCL при номинальном напряжении
         { "parameter": "DF", "max": 6 },

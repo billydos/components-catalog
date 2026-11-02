@@ -2140,7 +2140,7 @@ func suiteParameterStats(t *testing.T, factory configFactory) {
 	}
 
 	// Enum-частоты: значение у двух записей — счётчик 2 (записи, не строки);
-	// численный параметр резисторов — верхней границей at_most.
+	// численный параметр резисторов — односторонней записью (верхняя граница).
 	mlt := func(name string, tolerance float64) DeviceInput {
 		return DeviceInput{
 			Name:   name,

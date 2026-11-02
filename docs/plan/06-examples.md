@@ -322,7 +322,7 @@
       "attributes": { "technology": "металлодиэлектрические" },
       "parameters": [
         { "parameter": "Rnom", "min": 1, "max": 10000000 },
-        { "parameter": "Tolerance", "max": 5 },
+        { "parameter": "Tolerance", "min": -5, "max": 5 },
         { "parameter": "TCR", "max": 500 }
       ],
       "ratings": [
@@ -348,7 +348,7 @@
       "attributes": { "functionalChar": "А" },
       "parameters": [
         { "parameter": "Rnom", "min": 1000, "max": 2200000 },
-        { "parameter": "Tolerance", "max": 20 },
+        { "parameter": "Tolerance", "min": -20, "max": 20 },
         { "parameter": "TCR", "max": 1500 }
       ],
       "ratings": [ { "parameter": "Pnom", "value": 0.5 } ]
@@ -359,7 +359,7 @@
       "attributes": { "spec": ["ОЖ0.467.093ТУ"] },
       "parameters": [
         { "parameter": "Rnom", "min": 470, "max": 2200000 },
-        { "parameter": "Tolerance", "max": 30 }
+        { "parameter": "Tolerance", "min": -30, "max": 30 }
       ],
       "variants": [                         // номер исполнения — метка; секции, вал и закон изменения — по исполнению
         {
@@ -380,7 +380,7 @@
       "attributes": { "technology": "проволочные" },
       "parameters": [
         { "parameter": "Rnom", "min": 0.1, "max": 100000 },
-        { "parameter": "Tolerance", "max": 1 },
+        { "parameter": "Tolerance", "min": -1, "max": 1 },
         { "parameter": "TCR", "max": 100 },
         { "parameter": "Vnoise", "max": 1 }
       ],
@@ -408,14 +408,14 @@
       "name": "Р1-4",
       "system": "ost",
       "attributes": { "technology": "непроволочные" },
-      "parameters": [ { "parameter": "Rnom", "min": 1, "max": 1000000 }, { "parameter": "Tolerance", "max": 10 } ],
+      "parameters": [ { "parameter": "Rnom", "min": 1, "max": 1000000 }, { "parameter": "Tolerance", "min": -10, "max": 10 } ],
       "ratings": [ { "parameter": "Pnom", "value": 0.25 }, { "parameter": "Vmax", "value": 250 } ]
     },
     {
       "name": "РП1-46",
       "system": "ost",
       "attributes": { "functionalChar": "Б" },
-      "parameters": [ { "parameter": "Rnom", "min": 1000, "max": 1000000 }, { "parameter": "Tolerance", "max": 20 } ],
+      "parameters": [ { "parameter": "Rnom", "min": 1000, "max": 1000000 }, { "parameter": "Tolerance", "min": -20, "max": 20 } ],
       "ratings": [ { "parameter": "Pnom", "value": 0.5 } ]
     },
 
@@ -426,7 +426,7 @@
       "fields": { "series": "МЛТ" },
       "parameters": [
         { "parameter": "Rnom", "min": 1, "max": 5100000 },
-        { "parameter": "Tolerance", "max": 10 },                        // ±2; ±5; ±10 %
+        { "parameter": "Tolerance", "min": -10, "max": 10 },               // ±2; ±5; ±10 %
         { "parameter": "nominalRow", "text": "E24" },             // ряды номиналов: E24 при ±5/±10 %,
         { "parameter": "nominalRow", "text": "E96" },             // E96 при ±2 %
         { "parameter": "TCR", "max": 1200 },
@@ -447,7 +447,7 @@
       "attributes": { "technology": "проволочные" },
       "parameters": [
         { "parameter": "Rnom", "min": 1.8, "max": 10000 },
-        { "parameter": "Tolerance", "max": 10 },
+        { "parameter": "Tolerance", "min": -10, "max": 10 },
         { "parameter": "TCR", "max": 300 }
       ],
       "ratings": [ { "parameter": "Pnom", "value": 10 }, { "parameter": "Vmax", "value": 1500 } ]
@@ -458,13 +458,13 @@
       "name": "KNP-100",
       "system": "other",
       "attributes": { "package": "цементный" },
-      "parameters": [ { "parameter": "Rnom", "min": 0.1, "max": 100000 }, { "parameter": "Tolerance", "max": 5 } ],
+      "parameters": [ { "parameter": "Rnom", "min": 0.1, "max": 100000 }, { "parameter": "Tolerance", "min": -5, "max": 5 } ],
       "ratings": [ { "parameter": "Pnom", "value": 5 } ]
     },
     {
       "name": "CFR-25",
       "system": "other",
-      "parameters": [ { "parameter": "Rnom", "min": 1, "max": 10000000 }, { "parameter": "Tolerance", "max": 5 } ],
+      "parameters": [ { "parameter": "Rnom", "min": 1, "max": 10000000 }, { "parameter": "Tolerance", "min": -5, "max": 5 } ],
       "ratings": [ { "parameter": "Pnom", "value": 0.25 } ]
     },
     {
@@ -490,7 +490,7 @@
       "system": "gost",
       "attributes": { "polarized": true, "spec": ["ОЖ0.464.214ТУ"] },
       "parameters": [                       // тип в целом (variant_id NULL)
-        { "parameter": "Tolerance", "max": 50 },                              // +50/−20 %
+        { "parameter": "Tolerance", "min": -20, "max": 50 },                // +50/−20 %
         { "parameter": "DF", "max": 30, "temp": 20 }                   // 30 % (6,3–16 В) … 10 % (160 В)
       ],
       "variants": [
@@ -539,7 +539,7 @@
       "system": "gost",
       "parameters": [
         { "parameter": "Cnom", "min": 10000, "max": 1000000 },     // 0.01–1 мкФ
-        { "parameter": "Tolerance", "max": 10 },
+        { "parameter": "Tolerance", "min": -10, "max": 10 },
         { "parameter": "Vnom", "value": 250 },
         { "parameter": "DF", "max": 1 },
         { "parameter": "Rins", "min": 10000000000 },
@@ -555,7 +555,7 @@
       "fields": { "series": "КСО", "dev_number": 2 },
       "parameters": [
         { "parameter": "Cnom", "min": 51, "max": 3300 },
-        { "parameter": "Tolerance", "max": 10 },
+        { "parameter": "Tolerance", "min": -10, "max": 10 },
         { "parameter": "Vnom", "value": 500 },
         { "parameter": "DF", "max": 0.1 },
         { "parameter": "Rins", "min": 10000000000 },
@@ -569,7 +569,7 @@
       "fields": { "series": "МБМ" },
       "parameters": [
         { "parameter": "Cnom", "min": 47000, "max": 470000 },      // 0.047–0.47 мкФ
-        { "parameter": "Tolerance", "max": 10 },
+        { "parameter": "Tolerance", "min": -10, "max": 10 },
         { "parameter": "Vnom", "value": 250 },
         { "parameter": "DF", "max": 1 },
         { "parameter": "opTempMin", "value": -60 },
@@ -583,7 +583,7 @@
       "fields": { "series": "МБГЧ", "dev_number": 1 },
       "parameters": [
         { "parameter": "Cnom", "min": 100000, "max": 1000000 },    // 0.1–1 мкФ
-        { "parameter": "Tolerance", "max": 10 },
+        { "parameter": "Tolerance", "min": -10, "max": 10 },
         { "parameter": "Vnom", "value": 500 },
         { "parameter": "DF", "max": 1 },
         { "parameter": "opTempMin", "value": -60 },
@@ -603,7 +603,7 @@
       "attributes": { "technology": "керамика X7R", "package": "0603" },
       "parameters": [
         { "parameter": "Cnom", "min": 100000, "max": 100000 },     // 0.1 мкФ — единичный номинал кода, границы равны
-        { "parameter": "Tolerance", "max": 10 },
+        { "parameter": "Tolerance", "min": -10, "max": 10 },
         { "parameter": "Vnom", "value": 50 },
         { "parameter": "opTempMin", "value": -55 },
         { "parameter": "opTempMax", "value": 125 }
@@ -615,7 +615,7 @@
       "attributes": { "polarized": true, "technology": "танталовые", "package": "B" },
       "parameters": [
         { "parameter": "Cnom", "min": 47000000, "max": 47000000 }, // 47 мкФ
-        { "parameter": "Tolerance", "max": 10 },
+        { "parameter": "Tolerance", "min": -10, "max": 10 },
         { "parameter": "Vnom", "value": 16 },
         { "parameter": "Ileak", "max": 8, "Vnom": 16 },
         { "parameter": "opTempMin", "value": -55 },

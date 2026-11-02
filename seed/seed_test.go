@@ -166,6 +166,10 @@ func TestSeedSpotChecks(t *testing.T) {
 		t.Errorf("TempMin: применимость %v", tmin.Kinds)
 	}
 	tolerance := check("Tolerance")
+	if tolerance.ValueType != catalog.ValueLimits || !tolerance.AllowNegative {
+		t.Errorf("Tolerance: тип %s, отрицательные %v — ожидался limits с allow_negative",
+			string(tolerance.ValueType), tolerance.AllowNegative)
+	}
 	if !tolerance.AppliesTo(domain.KindResistor) || !tolerance.AppliesTo(domain.KindCapacitor) || tolerance.AppliesTo(domain.KindTransistor) {
 		t.Errorf("Tolerance: применимость %v", tolerance.Kinds)
 	}

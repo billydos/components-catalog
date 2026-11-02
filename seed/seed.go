@@ -346,7 +346,7 @@ func parameters() []catalog.ParameterDef {
 		{Code: "Rnom", Group: "electrical", Unit: "ohm",
 			ValueType: catalog.ValueRange, SortOrder: 350, Active: true, Kinds: re},
 		{Code: "Tolerance", Group: "electrical", Unit: "pct",
-			ValueType: catalog.ValueAtMost, SortOrder: 360, Active: true, Kinds: reCa},
+			ValueType: catalog.ValueLimits, AllowNegative: true, SortOrder: 360, Active: true, Kinds: reCa},
 		{Code: "nominalRow", Group: "electrical",
 			ValueType: catalog.ValueEnum, SortOrder: 365, Active: true, Kinds: reCa,
 			EnumValues: []string{
