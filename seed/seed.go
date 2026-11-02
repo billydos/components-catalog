@@ -398,7 +398,7 @@ func parameters() []catalog.ParameterDef {
 			SortOrder: 480, Active: true, Kinds: []domain.Kind{domain.KindCapacitor}},
 
 		// Конденсаторы — дополнительные характеристики и импульсный режим
-		// (§6.8; выверка сканов — work/catalog-extension-review.md).
+		// (§6.8; расширение по выверке сканов справочника).
 		{Code: "Z", Group: "electrical", Unit: "ohm",
 			ValueType: catalog.ValueAtMost, SortOrder: 720, Active: true, Kinds: []domain.Kind{domain.KindCapacitor},
 			ConditionSets: []catalog.ConditionSet{set(1, req("freq"))}},
