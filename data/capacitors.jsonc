@@ -25,8 +25,7 @@
       "parameters": [                        // тип в целом (variant_id NULL)
         { "parameter": "Tolerance", "min": -20, "max": 50 },              // +50/−20 %
         { "parameter": "DF", "max": 30, "temp": 20 },        // 30 % (6,3–16 В) … 10 % (160 В)
-        { "parameter": "opTempMin", "value": -40 },
-        { "parameter": "opTempMax", "value": 85 }
+        { "parameter": "opTemp", "min": -40, "max": 85 }
       ],
       "variants": [
         {
@@ -156,8 +155,7 @@
         { "parameter": "Vnom", "value": 50 },                 // Н90 — 40 В
         { "parameter": "DF", "max": 3.5 },                   // сегнетокерамика; М47/М1500 — ≤0,15 %
         { "parameter": "Rins", "min": 4000000000 },
-        { "parameter": "opTempMin", "value": -60 },
-        { "parameter": "opTempMax", "value": 125 }
+        { "parameter": "opTemp", "min": -60, "max": 125 }
       ]
     },
     {
@@ -170,8 +168,7 @@
         { "parameter": "Tolerance", "min": -20, "max": 20 },                // ±5/±10/±20 %
         { "parameter": "DF", "max": 0.8 },                     // 1 кГц
         { "parameter": "Rins", "min": 12000000000 },             // 12000 МОм (C ≤ 0,33 мкФ, 63/100 В)
-        { "parameter": "opTempMin", "value": -60 },
-        { "parameter": "opTempMax", "value": 125 }
+        { "parameter": "opTemp", "min": -60, "max": 125 }
       ]
     },
     {
@@ -181,8 +178,7 @@
       "parameters": [
         { "parameter": "Tolerance", "min": -20, "max": 20 },                // ±10/±20 %
         { "parameter": "DF", "max": 1 },
-        { "parameter": "opTempMin", "value": -25 },
-        { "parameter": "opTempMax", "value": 55 }
+        { "parameter": "opTemp", "min": -25, "max": 55 }
       ],
       "variants": [
         {
@@ -215,8 +211,7 @@
         { "parameter": "Tolerance", "min": -20, "max": 20 },                // классы 0…III: ±2…±20 %
         { "parameter": "Vnom", "value": 500 },
         { "parameter": "DF", "max": 0.5 },                     // группы обкладок Б/В/Г: 0,5/0,2/0,1 %
-        { "parameter": "opTempMin", "value": -60 },
-        { "parameter": "opTempMax", "value": 70 }
+        { "parameter": "opTemp", "min": -60, "max": 70 }
       ]
     },
     {
@@ -228,8 +223,7 @@
         { "parameter": "Tolerance", "min": -20, "max": 20 },
         { "parameter": "DF", "max": 1.5 },
         { "parameter": "Rins", "min": 2000000000 },              // 2000 МОм (160 В, C ≤ 0,1 мкФ)
-        { "parameter": "opTempMin", "value": -60 },
-        { "parameter": "opTempMax", "value": 70 }
+        { "parameter": "opTemp", "min": -60, "max": 70 }
       ],
       "variants": [
         {
@@ -289,8 +283,7 @@
       "parameters": [
         { "parameter": "Tolerance", "min": -20, "max": 20 },
         { "parameter": "DF", "max": 2.5 },
-        { "parameter": "opTempMin", "value": -60 },
-        { "parameter": "opTempMax", "value": 70 }
+        { "parameter": "opTemp", "min": -60, "max": 70 }
       ],
       "variants": [
         {
@@ -343,8 +336,7 @@
         { "parameter": "Tolerance", "min": -10, "max": 10 },
         { "parameter": "TCC", "text": "X7R" },                // код заказа R7: −55…+125 °C, ±15 %
         { "parameter": "Vnom", "value": 50 },
-        { "parameter": "opTempMin", "value": -55 },
-        { "parameter": "opTempMax", "value": 125 }
+        { "parameter": "opTemp", "min": -55, "max": 125 }
       ]
     },
     {
@@ -363,8 +355,7 @@
         { "parameter": "Ileak", "max": 7.5, "Vnom": 16 },             // DCL при номинальном напряжении
         { "parameter": "DF", "max": 6 },
         { "parameter": "Esr", "max": 1 },                           // 100 кГц
-        { "parameter": "opTempMin", "value": -55 },
-        { "parameter": "opTempMax", "value": 125 }
+        { "parameter": "opTemp", "min": -55, "max": 125 }
       ],
       "dimensions": [ { "parameter": "length", "value": 6 },
                       { "parameter": "width", "value": 3.2 },

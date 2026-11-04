@@ -50,8 +50,7 @@
       "ratings": [
         { "parameter": "VswitchMax", "value": 250 },
         { "parameter": "IswitchMax", "value": 3 },
-        { "parameter": "TempMin", "value": -60 },
-        { "parameter": "TempMax", "value": 85 }
+        { "parameter": "Temp", "min": -60, "max": 85 }
       ],
       "dimensions": [ { "parameter": "massMax", "value": 20 } ],
       "variants": [                                // паспорта РС4.529.029-00…-19
@@ -189,8 +188,7 @@
       "ratings": [
         { "parameter": "VswitchMax", "value": 127 },
         { "parameter": "IswitchMax", "value": 0.15 },
-        { "parameter": "TempMin", "value": -60 },
-        { "parameter": "TempMax", "value": 100 }
+        { "parameter": "Temp", "min": -60, "max": 100 }
       ],
       "dimensions": [ { "parameter": "massMax", "value": 3.7 } ],
       "variants": [                                // паспорта РС4.591.001…007
@@ -236,8 +234,7 @@
       "ratings": [
         { "parameter": "VswitchMax", "value": 30 },
         { "parameter": "IswitchMax", "value": 3 },
-        { "parameter": "TempMin", "value": -60 },
-        { "parameter": "TempMax", "value": 85 }
+        { "parameter": "Temp", "min": -60, "max": 85 }
       ],
       "dimensions": [ { "parameter": "massMax", "value": 24 } ],
       "variants": [                                // паспорта РФ4.523.023-01…-10 (-04 — колонки источника неоднозначны)
@@ -296,8 +293,7 @@
       "ratings": [
         { "parameter": "VswitchMax", "value": 250 },
         { "parameter": "IswitchMax", "value": 2 },
-        { "parameter": "TempMin", "value": -60 },
-        { "parameter": "TempMax", "value": 100 }
+        { "parameter": "Temp", "min": -60, "max": 100 }
       ],
       "dimensions": [ { "parameter": "massMax", "value": 11.5 } ],
       "variants": [                                // паспорта РС4.524.370 (выборка)
@@ -349,8 +345,7 @@
         { "parameter": "enduranceElec", "min": 100000 }
       ],
       "ratings": [
-        { "parameter": "TempMin", "value": -40 },
-        { "parameter": "TempMax", "value": 55 }
+        { "parameter": "Temp", "min": -40, "max": 55 }
       ],
       "dimensions": [ { "parameter": "massMax", "value": 6 } ],
       "variants": [                                // паспорта РС4.569.600 (выборка)
@@ -385,8 +380,7 @@
         { "parameter": "enduranceElec", "min": 100000 }
       ],
       "ratings": [
-        { "parameter": "TempMin", "value": -40 },
-        { "parameter": "TempMax", "value": 55 }
+        { "parameter": "Temp", "min": -40, "max": 55 }
       ],
       "dimensions": [ { "parameter": "massMax", "value": 2.5 } ]
     },
@@ -405,8 +399,7 @@
         { "parameter": "Vtest", "min": 500 }
       ],
       "ratings": [
-        { "parameter": "TempMin", "value": -60 },
-        { "parameter": "TempMax", "value": 85 }
+        { "parameter": "Temp", "min": -60, "max": 85 }
       ],
       "dimensions": [ { "parameter": "massMax", "value": 6 } ],
       "variants": [                                // паспорта РС4.569.600-00…-17 (моточные данные)
@@ -483,8 +476,7 @@
         { "parameter": "enduranceElec", "min": 100000 }
       ],
       "ratings": [
-        { "parameter": "TempMin", "value": -40 },
-        { "parameter": "TempMax", "value": 55 }
+        { "parameter": "Temp", "min": -40, "max": 55 }
       ],
       "dimensions": [ { "parameter": "massMax", "value": 6.5 } ]
     },
@@ -505,8 +497,7 @@
         { "parameter": "enduranceElec", "min": 100000 }
       ],
       "ratings": [
-        { "parameter": "TempMin", "value": -40 },
-        { "parameter": "TempMax", "value": 55 }
+        { "parameter": "Temp", "min": -40, "max": 55 }
       ],
       "dimensions": [ { "parameter": "massMax", "value": 6.5 } ]
     },
@@ -527,8 +518,7 @@
         { "parameter": "enduranceElec", "min": 100000 }
       ],
       "ratings": [
-        { "parameter": "TempMin", "value": -40 },
-        { "parameter": "TempMax", "value": 55 }
+        { "parameter": "Temp", "min": -40, "max": 55 }
       ],
       "dimensions": [ { "parameter": "massMax", "value": 15 } ]
     },
@@ -547,8 +537,7 @@
       ],
       "ratings": [
         { "parameter": "IswitchMax", "value": 0.5 },
-        { "parameter": "TempMin", "value": -40 },
-        { "parameter": "TempMax", "value": 55 }
+        { "parameter": "Temp", "min": -40, "max": 55 }
       ],
       "dimensions": [ { "parameter": "massMax", "value": 18 } ]
     },
@@ -568,8 +557,7 @@
         { "parameter": "Vtest", "min": 375 }
       ],
       "ratings": [
-        { "parameter": "TempMin", "value": -40 },
-        { "parameter": "TempMax", "value": 55 }
+        { "parameter": "Temp", "min": -40, "max": 55 }
       ],
       "dimensions": [ { "parameter": "massMax", "value": 130 } ]
     },
@@ -589,8 +577,7 @@
         { "parameter": "Vtest", "min": 1500 }
       ],
       "ratings": [
-        { "parameter": "TempMin", "value": -50 },
-        { "parameter": "TempMax", "value": 50 }
+        { "parameter": "Temp", "min": -50, "max": 50 }
       ],
       "dimensions": [ { "parameter": "massMax", "value": 360 } ] // открытое исполнение
     },
@@ -609,8 +596,7 @@
         { "parameter": "Vtest", "min": 1000 }
       ],
       "ratings": [
-        { "parameter": "TempMin", "value": -40 },
-        { "parameter": "TempMax", "value": 55 }
+        { "parameter": "Temp", "min": -40, "max": 55 }
       ],
       "dimensions": [
         { "parameter": "length", "value": 113 },
@@ -644,8 +630,7 @@
       "ratings": [
         { "parameter": "VswitchMax", "value": 125 },
         { "parameter": "IswitchMax", "value": 1 },
-        { "parameter": "TempMin", "value": -40 },
-        { "parameter": "TempMax", "value": 70 }
+        { "parameter": "Temp", "min": -40, "max": 70 }
       ],
       "dimensions": [
         { "parameter": "length", "value": 12.5 },
@@ -696,8 +681,7 @@
       "ratings": [
         { "parameter": "VswitchMax", "value": 380 },
         { "parameter": "IswitchMax", "value": 5 },
-        { "parameter": "TempMin", "value": -40 },
-        { "parameter": "TempMax", "value": 70 }
+        { "parameter": "Temp", "min": -40, "max": 70 }
       ],
       "dimensions": [
         { "parameter": "length", "value": 29 },

@@ -136,7 +136,7 @@ func seedTransistors(t *testing.T, svc *DeviceService) {
 				pvRange("hfe", 50, 350, cond("Vce", 10), cond("Ic", 1)),
 				pvAtMost("Icbo", 0.5, cond("Vcb", 10), cond("temp", 25))),
 			section("ratings",
-				pvExact("VceoMax", 20), pvExact("TempMin", -60), pvExact("TempMax", 100)),
+				pvExact("VceoMax", 20), pvRange("Temp", -60, 100)),
 		},
 		Manufacturers: &[]string{"Восход", "Терма"},
 	})
@@ -213,7 +213,7 @@ func suiteUpsertSections(t *testing.T, factory configFactory) {
 			section("parameters",
 				pvRange("hfe", 50, 350, cond("Vce", 10), cond("Ic", 1)),
 				pvAtMost("Icbo", 0.5, cond("Vcb", 10), cond("temp", 25))),
-			section("ratings", pvExact("VceoMax", 20), pvExact("TempMin", -60), pvExact("TempMax", 100)),
+			section("ratings", pvExact("VceoMax", 20), pvRange("Temp", -60, 100)),
 		},
 		Manufacturers: &[]string{"Восход", "Терма"},
 	}
@@ -245,7 +245,7 @@ func suiteUpsertSections(t *testing.T, factory configFactory) {
 	}
 	if len(card.Groups) != 2 ||
 		card.Groups[0].Section != "parameters" || len(card.Groups[0].Values) != 2 ||
-		card.Groups[1].Section != "ratings" || len(card.Groups[1].Values) != 3 {
+		card.Groups[1].Section != "ratings" || len(card.Groups[1].Values) != 2 {
 		t.Fatalf("группы: %+v", card.Groups)
 	}
 	hfe := card.Groups[0].Values[0]
@@ -277,7 +277,7 @@ func suiteUpsertSections(t *testing.T, factory configFactory) {
 	if len(card.Attributes) != 1 || card.Attributes[0].Code != "package" {
 		t.Fatalf("атрибуты после замены: %+v", card.Attributes)
 	}
-	if len(card.Groups[0].Values) != 2 || len(card.Groups[1].Values) != 3 {
+	if len(card.Groups[0].Values) != 2 || len(card.Groups[1].Values) != 2 {
 		t.Fatalf("параметры затронуты заменой атрибутов: %+v", card.Groups)
 	}
 
@@ -378,7 +378,7 @@ func suiteAtomicOnError(t *testing.T, factory configFactory) {
 	_, err := svc.Upsert(ctx, DeviceInput{
 		Name: "КТ315Б",
 		Sections: []SectionInput{
-			section("ratings", pvExact("VceoMax", 0), pvExact("TempMin", -60), pvExact("TempMax", 100)),
+			section("ratings", pvExact("VceoMax", 0), pvRange("Temp", -60, 100)),
 		},
 	})
 	wantDomainError(t, err, domain.CodeValidationFailed,
@@ -393,20 +393,20 @@ func suiteAtomicOnError(t *testing.T, factory configFactory) {
 
 	// Запись не изменилась.
 	card, _, _ := svc.Get(ctx, "transistor", "КТ315Б")
-	if len(card.Groups[0].Values) != 2 || len(card.Groups[1].Values) != 3 {
+	if len(card.Groups[0].Values) != 2 || len(card.Groups[1].Values) != 2 {
 		t.Fatalf("запись изменилась при ошибке секции: %+v", card.Groups)
 	}
 	if len(card.Attributes) != 3 {
 		t.Fatalf("атрибуты изменились при ошибке секции: %+v", card.Attributes)
 	}
 
-	// temp_pair: TempMin >= TempMax — ошибка слитого состояния.
+	// min > max — ошибка формы значения (слитое состояние).
 	_, err = svc.Upsert(ctx, DeviceInput{
 		Name:     "КТ315Б",
-		Sections: []SectionInput{section("ratings", pvExact("TempMin", 100), pvExact("TempMax", 50), pvExact("VceoMax", 25))},
+		Sections: []SectionInput{section("ratings", pvRange("Temp", 100, 50), pvExact("VceoMax", 25))},
 	})
 	wantDomainError(t, err, domain.CodeValidationFailed,
-		"parameter «TempMin» must be less than parameter «TempMax»")
+		"parameter «Temp»: min exceeds max")
 
 	// Дубликаты и пустые значения входа.
 	_, err = svc.Upsert(ctx, DeviceInput{
@@ -448,7 +448,7 @@ func suiteVariants(t *testing.T, factory configFactory) {
 		Name: "С2-33Н",
 		Sections: []SectionInput{
 			section("parameters", pvRange("Rnom", 1, 10000000), pvAtMost("Tolerance", 5)),
-			section("ratings", pvExact("TempMin", -60), pvExact("TempMax", 125)),
+			section("ratings", pvRange("Temp", -60, 125)),
 		},
 		Variants: &[]VariantInput{
 			{
@@ -1066,7 +1066,7 @@ func suiteTypeGroup(t *testing.T, factory configFactory) {
 			section("parameters",
 				pvRange("hfe", 50, 350, cond("Vce", 10), cond("Ic", 1)),
 				pvAtMost("Icbo", 0.5, cond("Vcb", 10), cond("temp", 25))),
-			section("ratings", pvExact("VceoMax", 35), pvExact("TempMin", -60), pvExact("TempMax", 100)),
+			section("ratings", pvExact("VceoMax", 35), pvRange("Temp", -60, 100)),
 		},
 	})
 
@@ -2135,8 +2135,8 @@ func suiteParameterStats(t *testing.T, factory configFactory) {
 	if p := byCode["IcMax"]; p.Min == nil || p.Max == nil || *p.Min != 100 || *p.Max != 100 {
 		t.Fatalf("IcMax: %+v", p)
 	}
-	if p := byCode["TempMin"]; p.Min == nil || *p.Min != -60 {
-		t.Fatalf("TempMin (отрицательные): %+v", p)
+	if p := byCode["Temp"]; p.Min == nil || *p.Min != -60 || p.Max == nil || *p.Max != 100 {
+		t.Fatalf("Temp (отрицательные): %+v", p)
 	}
 
 	// Enum-частоты: значение у двух записей — счётчик 2 (записи, не строки);

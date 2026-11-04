@@ -137,7 +137,6 @@ const (
 	MsgCondSetMismatch                MsgID = "cond_set_mismatch"
 	MsgRuleYearRange                  MsgID = "rule_year_range_value"
 	MsgRuleYearOrder                  MsgID = "rule_year_order"
-	MsgRuleTempPair                   MsgID = "rule_temp_pair_order"
 	MsgRuleCapCylIncomplete           MsgID = "rule_cap_cyl_incomplete"
 	MsgRuleCapFormMix                 MsgID = "rule_cap_form_mix"
 	MsgRuleCapRectIncomplete          MsgID = "rule_cap_rect_incomplete"
@@ -727,7 +726,6 @@ var msgRegistry = map[MsgID]struct{}{
 	MsgCondSetMismatch:                {},
 	MsgRuleYearRange:                  {},
 	MsgRuleYearOrder:                  {},
-	MsgRuleTempPair:                   {},
 	MsgRuleCapCylIncomplete:           {},
 	MsgRuleCapFormMix:                 {},
 	MsgRuleCapRectIncomplete:          {},

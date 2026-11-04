@@ -27,8 +27,7 @@
       ],
       "ratings": [
         { "parameter": "VceoMax", "value": 20 },
-        { "parameter": "TempMin", "value": -60 },
-        { "parameter": "TempMax", "value": 100 }
+        { "parameter": "Temp", "min": -60, "max": 100 }
       ],
       "analogs": ["BC547B", "2SC1815"]
     },
@@ -43,8 +42,7 @@
       "ratings": [
         { "parameter": "VceoMax", "value": 15 },
         { "parameter": "PcMax", "value": 150 },
-        { "parameter": "TempMin", "value": -60 },
-        { "parameter": "TempMax", "value": 70 }
+        { "parameter": "Temp", "min": -60, "max": 70 }
       ]
     },
 
@@ -72,8 +70,7 @@
         { "parameter": "VceoMax", "value": 32 },
         { "parameter": "IcMax", "value": 1000 },
         { "parameter": "PcMax", "value": 6000 },
-        { "parameter": "TempMin", "value": -40 },
-        { "parameter": "TempMax", "value": 90 }
+        { "parameter": "Temp", "min": -40, "max": 90 }
       ]
     },
 
@@ -138,7 +135,7 @@
         { "parameter": "VceoMax", "value": 60 },
         { "parameter": "IcMax", "value": 5000 },
         { "parameter": "PcMax", "value": 10000 },
-        { "parameter": "TempMax", "value": 85 }
+        { "parameter": "Temp", "max": 85 }
       ],
       "analogs": ["AD161"]                              // пара из разных систем — главный случай
     },
@@ -175,8 +172,7 @@
         { "parameter": "Pmax", "value": 300 },
         { "parameter": "IzMin", "value": 5 },
         { "parameter": "IzMax", "value": 40 },
-        { "parameter": "TempMin", "value": -60 },
-        { "parameter": "TempMax", "value": 100 }
+        { "parameter": "Temp", "min": -60, "max": 100 }
       ]
     },
     {
@@ -202,7 +198,7 @@
       "ratings": [
         { "parameter": "VrMax", "value": 45 },
         { "parameter": "IfMax", "value": 100 },
-        { "parameter": "TempMax", "value": 70 }
+        { "parameter": "Temp", "max": 70 }
       ]
     },
     {
@@ -233,8 +229,7 @@
         { "parameter": "VrMax", "value": 100 },
         { "parameter": "IfMax", "value": 200 },
         { "parameter": "Pmax", "value": 500 },
-        { "parameter": "TempMin", "value": -65 },
-        { "parameter": "TempMax", "value": 150 }
+        { "parameter": "Temp", "min": -65, "max": 150 }
       ]
     },
     {
@@ -287,8 +282,7 @@
       "ratings": [
         { "parameter": "VrMax", "value": 400 },
         { "parameter": "IfMax", "value": 300 },
-        { "parameter": "TempMin", "value": -60 },
-        { "parameter": "TempMax", "value": 70 }
+        { "parameter": "Temp", "min": -60, "max": 70 }
       ],
       "analogs": [ { "name": "1N4007", "note": "с ограничениями: запас по напряжению и току" } ]
     },
@@ -326,8 +320,7 @@
         { "parameter": "TCR", "max": 500 }
       ],
       "ratings": [
-        { "parameter": "TempMin", "value": -60 },
-        { "parameter": "TempMax", "value": 125 }
+        { "parameter": "Temp", "min": -60, "max": 125 }
       ],
       "variants": [                                     // ряд мощностей — варианты с обязательным Pnom (правило resistor_variant_power)
         {
@@ -387,8 +380,7 @@
       "ratings": [
         { "parameter": "Pnom", "value": 10 },
         { "parameter": "Vmax", "value": 750 },
-        { "parameter": "TempMin", "value": -60 },
-        { "parameter": "TempMax", "value": 155 }
+        { "parameter": "Temp", "min": -60, "max": 155 }
       ]
     },
     {
@@ -435,8 +427,7 @@
       "ratings": [
         { "parameter": "Pnom", "value": 0.5 },
         { "parameter": "Vmax", "value": 350 },
-        { "parameter": "TempMin", "value": -60 },
-        { "parameter": "TempMax", "value": 70 }
+        { "parameter": "Temp", "min": -60, "max": 70 }
       ],
       "analogs": ["С2-33Н"]
     },
@@ -543,8 +534,7 @@
         { "parameter": "Vnom", "value": 250 },
         { "parameter": "DF", "max": 1 },
         { "parameter": "Rins", "min": 10000000000 },
-        { "parameter": "opTempMin", "value": -60 },
-        { "parameter": "opTempMax", "value": 70 }
+        { "parameter": "opTemp", "min": -60, "max": 70 }
       ]
     },
 
@@ -559,8 +549,7 @@
         { "parameter": "Vnom", "value": 500 },
         { "parameter": "DF", "max": 0.1 },
         { "parameter": "Rins", "min": 10000000000 },
-        { "parameter": "opTempMin", "value": -60 },
-        { "parameter": "opTempMax", "value": 70 }
+        { "parameter": "opTemp", "min": -60, "max": 70 }
       ]
     },
     {
@@ -572,8 +561,7 @@
         { "parameter": "Tolerance", "min": -10, "max": 10 },
         { "parameter": "Vnom", "value": 250 },
         { "parameter": "DF", "max": 1 },
-        { "parameter": "opTempMin", "value": -60 },
-        { "parameter": "opTempMax", "value": 70 }
+        { "parameter": "opTemp", "min": -60, "max": 70 }
       ],
       "analogs": ["К42-19"]
     },
@@ -586,8 +574,7 @@
         { "parameter": "Tolerance", "min": -10, "max": 10 },
         { "parameter": "Vnom", "value": 500 },
         { "parameter": "DF", "max": 1 },
-        { "parameter": "opTempMin", "value": -60 },
-        { "parameter": "opTempMax", "value": 70 }
+        { "parameter": "opTemp", "min": -60, "max": 70 }
       ]
     },
 
@@ -605,8 +592,7 @@
         { "parameter": "Cnom", "min": 100000, "max": 100000 },     // 0.1 мкФ — единичный номинал кода, границы равны
         { "parameter": "Tolerance", "min": -10, "max": 10 },
         { "parameter": "Vnom", "value": 50 },
-        { "parameter": "opTempMin", "value": -55 },
-        { "parameter": "opTempMax", "value": 125 }
+        { "parameter": "opTemp", "min": -55, "max": 125 }
       ]
     },
     {
@@ -618,8 +604,7 @@
         { "parameter": "Tolerance", "min": -10, "max": 10 },
         { "parameter": "Vnom", "value": 16 },
         { "parameter": "Ileak", "max": 8, "Vnom": 16 },
-        { "parameter": "opTempMin", "value": -55 },
-        { "parameter": "opTempMax", "value": 125 }
+        { "parameter": "opTemp", "min": -55, "max": 125 }
       ]
     }
   ]
@@ -657,8 +642,7 @@
       "ratings": [
         { "parameter": "VswitchMax", "value": 250 },
         { "parameter": "IswitchMax", "value": 3 },                   // коммутируемый ток — в А
-        { "parameter": "TempMin", "value": -60 },
-        { "parameter": "TempMax", "value": 85 }
+        { "parameter": "Temp", "min": -60, "max": 85 }
       ],
       "dimensions": [ { "parameter": "massMax", "value": 20 } ],
       "variants": [
@@ -707,8 +691,7 @@
       "ratings": [
         { "parameter": "VswitchMax", "value": 125 },
         { "parameter": "IswitchMax", "value": 1 },
-        { "parameter": "TempMin", "value": -40 },
-        { "parameter": "TempMax", "value": 70 }
+        { "parameter": "Temp", "min": -40, "max": 70 }
       ],
       "dimensions": [
         { "parameter": "length", "value": 12.5 },

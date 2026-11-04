@@ -187,7 +187,6 @@ func parameters() []catalog.ParameterDef {
 	trDiReRl := []domain.Kind{domain.KindTransistor, domain.KindDiode, domain.KindResistor, domain.KindRelay}
 	reCa := []domain.Kind{domain.KindResistor, domain.KindCapacitor}
 	reCaRl := []domain.Kind{domain.KindResistor, domain.KindCapacitor, domain.KindRelay}
-	ruleTempPair := catalog.RuleTempPair
 	ruleDims := catalog.RuleCapDimensionsForm
 
 	return []catalog.ParameterDef{
@@ -395,7 +394,7 @@ func parameters() []catalog.ParameterDef {
 		{Code: "Vnom", Group: "electrical", Unit: "V",
 			ValueType: catalog.ValueExact, SortOrder: 420, Active: true, Kinds: []domain.Kind{domain.KindCapacitor}},
 		{Code: "DF", Group: "electrical", Unit: "pct",
-			ValueType: catalog.ValueAtMost, SortOrder: 430, Active: true, Kinds: []domain.Kind{domain.KindCapacitor},
+			ValueType: catalog.ValueLimits, SortOrder: 430, Active: true, Kinds: []domain.Kind{domain.KindCapacitor},
 			ConditionSets: []catalog.ConditionSet{set(1, opt("temp"))}},
 		{Code: "Ileak", Group: "electrical", Unit: "uA",
 			ValueType: catalog.ValueAtMost, SortOrder: 440, Active: true, Kinds: []domain.Kind{domain.KindCapacitor},
@@ -406,12 +405,9 @@ func parameters() []catalog.ParameterDef {
 		{Code: "Iripple", Group: "electrical", Unit: "mA",
 			ValueType: catalog.ValueAtMost, SortOrder: 460, Active: true, Kinds: []domain.Kind{domain.KindCapacitor},
 			ConditionSets: []catalog.ConditionSet{set(1, req("freq"), opt("temp"))}},
-		{Code: "opTempMin", Group: "electrical", Unit: "degC",
-			ValueType: catalog.ValueExact, AllowNegative: true, ValidationRule: ruleTempPair,
+		{Code: "opTemp", Group: "electrical", Unit: "degC",
+			ValueType: catalog.ValueLimits, AllowNegative: true,
 			SortOrder: 470, Active: true, Kinds: []domain.Kind{domain.KindCapacitor}},
-		{Code: "opTempMax", Group: "electrical", Unit: "degC",
-			ValueType: catalog.ValueExact, ValidationRule: ruleTempPair,
-			SortOrder: 480, Active: true, Kinds: []domain.Kind{domain.KindCapacitor}},
 
 		// Конденсаторы — дополнительные характеристики и импульсный режим
 		// (§6.8; расширение по выверке сканов справочника).
@@ -537,13 +533,10 @@ func parameters() []catalog.ParameterDef {
 			ConditionSets: []catalog.ConditionSet{set(1, req("pulse_duration"))}},
 
 		// Общие предельные данные (§6.2/§6.4/§6.6): транзисторы, диоды,
-		// резисторы; TempMin/TempMax — также реле (§6.11).
-		{Code: "TempMin", Group: "limiting", Unit: "degC",
-			ValueType: catalog.ValueExact, AllowNegative: true, ValidationRule: ruleTempPair,
+		// резисторы; Temp — диапазон рабочих температур, также реле (§6.11).
+		{Code: "Temp", Group: "limiting", Unit: "degC",
+			ValueType: catalog.ValueLimits, AllowNegative: true,
 			SortOrder: 150, Active: true, Kinds: trDiReRl},
-		{Code: "TempMax", Group: "limiting", Unit: "degC",
-			ValueType: catalog.ValueExact, ValidationRule: ruleTempPair,
-			SortOrder: 160, Active: true, Kinds: trDiReRl},
 		{Code: "TempJunctionMax", Group: "limiting", Unit: "degC",
 			ValueType: catalog.ValueExact, SortOrder: 170, Active: true, Kinds: trDiRe},
 		{Code: "Rth", Group: "limiting", Unit: "degC_per_W",

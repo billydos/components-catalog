@@ -52,8 +52,7 @@
         { "parameter": "VebMax", "value": 6 },
         { "parameter": "IcMax", "value": 100 },
         { "parameter": "PcMax", "value": 150 },
-        { "parameter": "TempMin", "value": -60 },
-        { "parameter": "TempMax", "value": 100 },
+        { "parameter": "Temp", "min": -60, "max": 100 },
         { "parameter": "TempJunctionMax", "value": 125 }
       ],
       "analogs": ["2N3904"]
@@ -76,8 +75,7 @@
         { "parameter": "VebMax", "value": 6 },
         { "parameter": "IcMax", "value": 100 },
         { "parameter": "PcMax", "value": 150 },
-        { "parameter": "TempMin", "value": -60 },
-        { "parameter": "TempMax", "value": 100 },
+        { "parameter": "Temp", "min": -60, "max": 100 },
         { "parameter": "TempJunctionMax", "value": 125 }
       ]
     },
@@ -98,8 +96,7 @@
         { "parameter": "VebMax", "value": 4 },
         { "parameter": "IcMax", "value": 50 },
         { "parameter": "PcMax", "value": 150 },
-        { "parameter": "TempMin", "value": -60 },
-        { "parameter": "TempMax", "value": 100 },
+        { "parameter": "Temp", "min": -60, "max": 100 },
         { "parameter": "TempJunctionMax", "value": 120 }
       ]
     },
@@ -121,8 +118,7 @@
         { "parameter": "IcMax", "value": 100 },
         { "parameter": "IcPulseMax", "value": 200, "pulse_duration": 40 },
         { "parameter": "PcMax", "value": 250 },
-        { "parameter": "TempMin", "value": -40 },
-        { "parameter": "TempMax", "value": 85 },
+        { "parameter": "Temp", "min": -40, "max": 85 },
         { "parameter": "TempJunctionMax", "value": 125 }
       ]
     },
@@ -143,8 +139,7 @@
         { "parameter": "VebMax", "value": 5 },
         { "parameter": "IcMax", "value": 100 },
         { "parameter": "PcMax", "value": 250 },
-        { "parameter": "TempMin", "value": -40 },
-        { "parameter": "TempMax", "value": 85 },
+        { "parameter": "Temp", "min": -40, "max": 85 },
         { "parameter": "TempJunctionMax", "value": 125 }
       ],
       "analogs": ["BC547B"]
@@ -166,8 +161,7 @@
         { "parameter": "VcbMax", "value": 10 },
         { "parameter": "IcMax", "value": 20 },
         { "parameter": "PcMax", "value": 30 },
-        { "parameter": "TempMin", "value": -45 },
-        { "parameter": "TempMax", "value": 55 },
+        { "parameter": "Temp", "min": -45, "max": 55 },
         { "parameter": "TempJunctionMax", "value": 85 }
       ]
     },
@@ -187,7 +181,7 @@
         { "parameter": "VebMax", "value": 5 },
         { "parameter": "IcMax", "value": 5000 },
         { "parameter": "PcMax", "value": 30000 },
-        { "parameter": "TempMax", "value": 100 },
+        { "parameter": "Temp", "max": 100 },
         { "parameter": "TempJunctionMax", "value": 150 }
       ]
     },
@@ -211,8 +205,7 @@
         { "parameter": "VebMax", "value": 6 },
         { "parameter": "IcMax", "value": 100 },
         { "parameter": "PcMax", "value": 500 },
-        { "parameter": "TempMin", "value": -65 },
-        { "parameter": "TempMax", "value": 150 },
+        { "parameter": "Temp", "min": -65, "max": 150 },
         { "parameter": "TempJunctionMax", "value": 150 }
       ]
     },
@@ -234,8 +227,7 @@
         { "parameter": "VebMax", "value": 5 },
         { "parameter": "IcMax", "value": 100 },
         { "parameter": "PcMax", "value": 625 },
-        { "parameter": "TempMin", "value": -55 },
-        { "parameter": "TempMax", "value": 150 },
+        { "parameter": "Temp", "min": -55, "max": 150 },
         { "parameter": "TempJunctionMax", "value": 150 }
       ]
     },
@@ -270,8 +262,7 @@
         { "parameter": "VebMax", "value": 6 },
         { "parameter": "IcMax", "value": 600 },
         { "parameter": "PcMax", "value": 500 },
-        { "parameter": "TempMin", "value": -65 },
-        { "parameter": "TempMax", "value": 175 },
+        { "parameter": "Temp", "min": -65, "max": 175 },
         { "parameter": "TempJunctionMax", "value": 175 }
       ]
     },
@@ -295,8 +286,7 @@
         { "parameter": "VebMax", "value": 7 },
         { "parameter": "IcMax", "value": 15000 },
         { "parameter": "PcMax", "value": 115000 },
-        { "parameter": "TempMin", "value": -65 },
-        { "parameter": "TempMax", "value": 200 },
+        { "parameter": "Temp", "min": -65, "max": 200 },
         { "parameter": "TempJunctionMax", "value": 200 }
       ]
     },
@@ -319,8 +309,7 @@
         { "parameter": "VebMax", "value": 6 },
         { "parameter": "IcMax", "value": 200 },
         { "parameter": "PcMax", "value": 625 },
-        { "parameter": "TempMin", "value": -55 },
-        { "parameter": "TempMax", "value": 150 },
+        { "parameter": "Temp", "min": -55, "max": 150 },
         { "parameter": "TempJunctionMax", "value": 150 }
       ]
     },
@@ -345,8 +334,7 @@
         { "parameter": "VebMax", "value": 5 },
         { "parameter": "IcMax", "value": 150 },
         { "parameter": "PcMax", "value": 400 },
-        { "parameter": "TempMin", "value": -55 },
-        { "parameter": "TempMax", "value": 125 },
+        { "parameter": "Temp", "min": -55, "max": 125 },
         { "parameter": "TempJunctionMax", "value": 125 }
       ]
     },
@@ -369,8 +357,7 @@
         { "parameter": "VebMax", "value": 5 },
         { "parameter": "IcMax", "value": 150 },
         { "parameter": "PcMax", "value": 400 },
-        { "parameter": "TempMin", "value": -55 },
-        { "parameter": "TempMax", "value": 125 },
+        { "parameter": "Temp", "min": -55, "max": 125 },
         { "parameter": "TempJunctionMax", "value": 125 }
       ]
     },
@@ -386,8 +373,7 @@
         { "parameter": "VdsMax", "value": 160 },
         { "parameter": "IdMax", "value": 7000 },
         { "parameter": "PdMax", "value": 100000 },
-        { "parameter": "TempMin", "value": -55 },
-        { "parameter": "TempMax", "value": 150 },
+        { "parameter": "Temp", "min": -55, "max": 150 },
         { "parameter": "TempJunctionMax", "value": 150 }
       ]
     },
@@ -411,8 +397,7 @@
         { "parameter": "VebMax", "value": 10 },
         { "parameter": "IcMax", "value": 30 },
         { "parameter": "PcMax", "value": 150 },
-        { "parameter": "TempMin", "value": -60 },
-        { "parameter": "TempMax", "value": 70 },
+        { "parameter": "Temp", "min": -60, "max": 70 },
         { "parameter": "TempJunctionMax", "value": 85 },
         { "parameter": "Rth", "value": 200 }
       ]
@@ -435,8 +420,7 @@
         { "parameter": "VebMax", "value": 10 },
         { "parameter": "IcMax", "value": 30 },
         { "parameter": "PcMax", "value": 150 },
-        { "parameter": "TempMin", "value": -60 },
-        { "parameter": "TempMax", "value": 70 },
+        { "parameter": "Temp", "min": -60, "max": 70 },
         { "parameter": "TempJunctionMax", "value": 85 }
       ]
     },
@@ -460,8 +444,7 @@
         { "parameter": "IbMax", "value": 500 },
         { "parameter": "IcMax", "value": 5000 },
         { "parameter": "PcMax", "value": 10000 },
-        { "parameter": "TempMin", "value": -60 },
-        { "parameter": "TempMax", "value": 70 },
+        { "parameter": "Temp", "min": -60, "max": 70 },
         { "parameter": "TempJunctionMax", "value": 85 },
         { "parameter": "Rth", "value": 4 }
       ]
@@ -485,8 +468,7 @@
         { "parameter": "VebMax", "value": 5 },
         { "parameter": "IcMax", "value": 5000 },
         { "parameter": "PcMax", "value": 65000 },
-        { "parameter": "TempMin", "value": -65 },
-        { "parameter": "TempMax", "value": 150 },
+        { "parameter": "Temp", "min": -65, "max": 150 },
         { "parameter": "TempJunctionMax", "value": 150 }
       ]
     },
@@ -509,8 +491,7 @@
         { "parameter": "VebMax", "value": 6 },
         { "parameter": "IcMax", "value": 500 },
         { "parameter": "PcMax", "value": 625 },
-        { "parameter": "TempMin", "value": -55 },
-        { "parameter": "TempMax", "value": 150 },
+        { "parameter": "Temp", "min": -55, "max": 150 },
         { "parameter": "TempJunctionMax", "value": 150 }
       ]
     },
@@ -529,8 +510,7 @@
         { "parameter": "VdsMax", "value": 100 },
         { "parameter": "IdMax", "value": 28000 },
         { "parameter": "PdMax", "value": 150000 },
-        { "parameter": "TempMin", "value": -55 },
-        { "parameter": "TempMax", "value": 175 },
+        { "parameter": "Temp", "min": -55, "max": 175 },
         { "parameter": "TempJunctionMax", "value": 175 }
       ]
     },
@@ -553,8 +533,7 @@
         { "parameter": "VebMax", "value": 3 },
         { "parameter": "IcMax", "value": 500 },
         { "parameter": "PcMax", "value": 20800 },
-        { "parameter": "TempMin", "value": -65 },
-        { "parameter": "TempMax", "value": 150 },
+        { "parameter": "Temp", "min": -65, "max": 150 },
         { "parameter": "TempJunctionMax", "value": 150 }
       ]
     }

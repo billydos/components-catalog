@@ -97,7 +97,7 @@ func seedDevices(t *testing.T, app *service.App) {
 			}},
 			{Section: "ratings", Values: []catalog.ParameterValue{
 				{Parameter: "VceoMax", Exact: ptr(20.0)},
-				{Parameter: "TempMin", Exact: ptr(-60.0)},
+				{Parameter: "Temp", Min: ptr(-60.0), Max: ptr(100.0)},
 			}},
 		},
 		Manufacturers: &[]string{"Восход", "Терма"},
@@ -508,8 +508,8 @@ func TestStatsKindFacets(t *testing.T) {
 		vceo.Unit != "V" {
 		t.Fatalf("VceoMax: %+v", vceo)
 	}
-	if tmp := byCode["TempMin"]; tmp.Min == nil || *tmp.Min != -60 {
-		t.Fatalf("TempMin: %+v", tmp)
+	if tmp := byCode["Temp"]; tmp.Min == nil || *tmp.Min != -60 || tmp.Max == nil || *tmp.Max != 100 {
+		t.Fatalf("Temp: %+v", tmp)
 	}
 
 	// Исполнения участвуют в агрегатах: Vnom 25/160, Cnom 1e6..4.7e9,
@@ -1051,7 +1051,7 @@ func TestCard(t *testing.T) {
 // «type_group» с мини-матрицей различий между записями одного типа.
 func TestTypeGroup(t *testing.T) {
 	app, srv := newTestAPI(t, Config{})
-	// Сосед по типу: КТ315Г — те же hfe/TempMin, отличия VceoMax.
+	// Сосед по типу: КТ315Г — те же hfe/Temp, отличия VceoMax.
 	if _, err := app.Services().Devices.Upsert(context.Background(), service.DeviceInput{
 		Name: "КТ315Г",
 		Sections: []service.SectionInput{
@@ -1062,7 +1062,7 @@ func TestTypeGroup(t *testing.T) {
 			}},
 			{Section: "ratings", Values: []catalog.ParameterValue{
 				{Parameter: "VceoMax", Exact: ptr(35.0)},
-				{Parameter: "TempMin", Exact: ptr(-60.0)},
+				{Parameter: "Temp", Min: ptr(-60.0), Max: ptr(100.0)},
 			}},
 		},
 	}); err != nil {

@@ -15,7 +15,6 @@ func TestRuleRegistry(t *testing.T) {
 		"cap_variant_matrix",
 		"relay_variant_coil",
 		"resistor_variant_power",
-		"temp_pair",
 		"year_range",
 	}
 	rules := catalog.Rules()
@@ -74,59 +73,6 @@ func TestYearRangeRule(t *testing.T) {
 			}
 		})
 	}
-}
-
-// temp_pair: обе пары (TempMin/TempMax и opTempMin/opTempMax), одностороннее
-// задание корректно (03 §10).
-func TestTempPairRule(t *testing.T) {
-	e := seedEngine(t)
-	t.Run("TempMin < TempMax", func(t *testing.T) {
-		d := catalog.Device{
-			Kind: domain.KindTransistor, System: domain.SystemGost,
-			Values: []catalog.ParameterValue{
-				{Parameter: "TempMin", Section: "ratings", Exact: f(-60)},
-				{Parameter: "TempMax", Section: "ratings", Exact: f(100)},
-			},
-		}
-		if probs := e.ValidateDevice(&d); len(probs) != 0 {
-			t.Fatalf(" got: %v", messages(probs))
-		}
-	})
-	t.Run("TempMin ≥ TempMax", func(t *testing.T) {
-		d := catalog.Device{
-			Kind: domain.KindTransistor, System: domain.SystemGost,
-			Values: []catalog.ParameterValue{
-				{Parameter: "TempMin", Section: "ratings", Exact: f(100)},
-				{Parameter: "TempMax", Section: "ratings", Exact: f(50)},
-			},
-		}
-		probs := e.ValidateDevice(&d)
-		if len(probs) != 1 || probs[0].Message != "parameter «TempMin» must be less than parameter «TempMax»" {
-			t.Fatalf(" got: %v", messages(probs))
-		}
-	})
-	t.Run("только TempMin", func(t *testing.T) {
-		d := catalog.Device{
-			Kind: domain.KindTransistor, System: domain.SystemGost,
-			Values: []catalog.ParameterValue{{Parameter: "TempMin", Section: "ratings", Exact: f(-60)}},
-		}
-		if probs := e.ValidateDevice(&d); len(probs) != 0 {
-			t.Fatalf(" got: %v", messages(probs))
-		}
-	})
-	t.Run("opTempMin ≥ opTempMax", func(t *testing.T) {
-		d := catalog.Device{
-			Kind: domain.KindCapacitor, System: domain.SystemGost,
-			Values: []catalog.ParameterValue{
-				{Parameter: "opTempMin", Section: "parameters", Exact: f(70)},
-				{Parameter: "opTempMax", Section: "parameters", Exact: f(25)},
-			},
-		}
-		probs := e.ValidateDevice(&d)
-		if len(probs) != 1 || probs[0].Message != "parameter «opTempMin» must be less than parameter «opTempMax»" {
-			t.Fatalf(" got: %v", messages(probs))
-		}
-	})
 }
 
 // cap_dimensions_form: прямоугольный, осевой и радиальный
@@ -219,8 +165,7 @@ func TestResistorVariants(t *testing.T) {
 		Values: []catalog.ParameterValue{
 			{Parameter: "Rnom", Section: "parameters", Min: f(1), Max: f(10000000)},
 			{Parameter: "Tolerance", Section: "parameters", Max: f(5)},
-			{Parameter: "TempMin", Section: "ratings", Exact: f(-60)},
-			{Parameter: "TempMax", Section: "ratings", Exact: f(125)},
+			{Parameter: "Temp", Section: "ratings", Min: f(-60), Max: f(125)},
 		},
 		Variants: []catalog.Variant{
 			{Label: "0.125 Вт", Values: []catalog.ParameterValue{

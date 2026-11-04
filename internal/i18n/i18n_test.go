@@ -79,7 +79,7 @@ func TestInvalidLanguageFallback(t *testing.T) {
 		{"GroupName", func(l Language) string { return GroupName(l, "limiting") }},
 		{"ParameterName", func(l Language) string { return ParameterName(l, "hfe") }},
 		{"AttributeName", func(l Language) string { return AttributeName(l, "description") }},
-		{"RuleDescription", func(l Language) string { return RuleDescription(l, "temp_pair") }},
+		{"RuleDescription", func(l Language) string { return RuleDescription(l, "cap_dimensions_form") }},
 		{"DesignationField", func(l Language) string { return DesignationField(l, "material") }},
 		{"MaterialName", func(l Language) string { return MaterialName(l, "si") }},
 		{"SubclassName", func(l Language) string { return SubclassName(l, "bjt") }},

@@ -152,7 +152,6 @@ var messageFormatsRu = map[string]string{
 	"rule_cap_cyl_incomplete":         "габариты: неполный цилиндрический набор корпуса — требуются diameter и leadLength (осевые) либо diameter и height (радиальные)",
 	"rule_cap_form_mix":               "габариты: смешение форм корпуса — прямоугольная (length+width+height) и цилиндрическая (diameter+leadLength/height)",
 	"rule_cap_rect_incomplete":        "габариты: неполный прямоугольный набор корпуса — требуются length, width и height",
-	"rule_temp_pair_order":            "параметр «%[1]s» должен быть меньше параметра «%[2]s»",
 	"rule_variant_cell_dup":           "вариант %[1]s: дубликат ячейки матрицы — Vnom/Cnom уже заданы вариантом %[2]s (то же конструктивное исполнение caseVariant)",
 	"rule_variant_cnom_missing":       "вариант %[1]s: отсутствует обязательный параметр Cnom",
 	"rule_variant_label_dup":          "вариант %[1]s: метка повторяется",

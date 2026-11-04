@@ -19,7 +19,7 @@ func TestSeedAppliesCleanly(t *testing.T) {
 		}
 		t.Fatal("стартовый каталог не проходит метасхему")
 	}
-	if len(snap.Parameters) != 136 || len(snap.Attributes) != 21 ||
+	if len(snap.Parameters) != 134 || len(snap.Attributes) != 21 ||
 		len(snap.Units) != 32 || len(snap.Conditions) != 20 {
 		t.Fatalf("состав каталога: параметры %d, атрибуты %d, единицы %d, условия %d",
 			len(snap.Parameters), len(snap.Attributes), len(snap.Units), len(snap.Conditions))
@@ -79,7 +79,6 @@ func TestSeedRulesPin(t *testing.T) {
 		{Code: "cap_variant_matrix"},
 		{Code: "relay_variant_coil"},
 		{Code: "resistor_variant_power"},
-		{Code: "temp_pair"},
 		{Code: "year_range"},
 	}
 	if !slices.Equal(in.Rules, want) {
@@ -162,12 +161,21 @@ func TestSeedSpotChecks(t *testing.T) {
 	if eta := check("Eta"); eta.Ceiling == nil || *eta.Ceiling != 100 {
 		t.Errorf("Eta: потолок %v, ожидался 100", eta.Ceiling)
 	}
-	tmin := check("TempMin")
-	if !tmin.AllowNegative || tmin.ValidationRule != "temp_pair" {
-		t.Errorf("TempMin: allow_negative %v, правило %q", tmin.AllowNegative, tmin.ValidationRule)
+	tmp := check("Temp")
+	if tmp.ValueType != catalog.ValueLimits || !tmp.AllowNegative || tmp.ValidationRule != "" {
+		t.Errorf("Temp: тип %s, отрицательные %v, правило %q — ожидался limits без правила",
+			string(tmp.ValueType), tmp.AllowNegative, tmp.ValidationRule)
 	}
-	if !slices.Equal(tmin.Kinds, []domain.Kind{domain.KindTransistor, domain.KindDiode, domain.KindResistor, domain.KindRelay}) {
-		t.Errorf("TempMin: применимость %v", tmin.Kinds)
+	if !slices.Equal(tmp.Kinds, []domain.Kind{domain.KindTransistor, domain.KindDiode, domain.KindResistor, domain.KindRelay}) {
+		t.Errorf("Temp: применимость %v", tmp.Kinds)
+	}
+	if df := check("DF"); df.ValueType != catalog.ValueLimits {
+		t.Errorf("DF: тип %s — ожидался limits", string(df.ValueType))
+	}
+	if ot := check("opTemp"); ot.ValueType != catalog.ValueLimits || !ot.AllowNegative ||
+		!ot.AppliesTo(domain.KindCapacitor) || ot.AppliesTo(domain.KindResistor) {
+		t.Errorf("opTemp: тип %s, отрицательные %v, применимость %v",
+			string(ot.ValueType), ot.AllowNegative, ot.Kinds)
 	}
 	tolerance := check("Tolerance")
 	if tolerance.ValueType != catalog.ValueLimits || !tolerance.AllowNegative {

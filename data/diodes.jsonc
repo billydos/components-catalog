@@ -47,8 +47,7 @@
       "ratings": [
         { "parameter": "VrMax", "value": 300 },
         { "parameter": "IfMax", "value": 200 },
-        { "parameter": "TempMin", "value": -60 },
-        { "parameter": "TempMax", "value": 85 }
+        { "parameter": "Temp", "min": -60, "max": 85 }
       ]
     },
     {
@@ -67,8 +66,7 @@
         { "parameter": "Pmax", "value": 300 },
         { "parameter": "IzMin", "value": 3 },
         { "parameter": "IzMax", "value": 45 },
-        { "parameter": "TempMin", "value": -60 },
-        { "parameter": "TempMax", "value": 125 }
+        { "parameter": "Temp", "min": -60, "max": 125 }
       ]
     },
     {
@@ -85,8 +83,7 @@
       "ratings": [
         { "parameter": "VrMax", "value": 2 },
         { "parameter": "IfMax", "value": 20 },
-        { "parameter": "TempMin", "value": -60 },
-        { "parameter": "TempMax", "value": 70 }
+        { "parameter": "Temp", "min": -60, "max": 70 }
       ]
     },
     {
@@ -103,8 +100,7 @@
       "ratings": [
         { "parameter": "VrMax", "value": 30 },
         { "parameter": "IfMax", "value": 100 },
-        { "parameter": "TempMin", "value": -55 },
-        { "parameter": "TempMax", "value": 85 },
+        { "parameter": "Temp", "min": -55, "max": 85 },
         { "parameter": "TempJunctionMax", "value": 125 }
       ]
     },
@@ -125,8 +121,7 @@
         { "parameter": "VrMax", "value": 5 },
         { "parameter": "IfMax", "value": 25 },
         { "parameter": "Pmax", "value": 500 },
-        { "parameter": "TempMin", "value": -60 },
-        { "parameter": "TempMax", "value": 70 }
+        { "parameter": "Temp", "min": -60, "max": 70 }
       ]
     },
     {
@@ -163,8 +158,7 @@
       "ratings": [
         { "parameter": "VrMax", "value": 600 },
         { "parameter": "IfMax", "value": 1000 },
-        { "parameter": "TempMin", "value": -40 },
-        { "parameter": "TempMax", "value": 85 }
+        { "parameter": "Temp", "min": -40, "max": 85 }
       ]
     },
     {
@@ -183,8 +177,7 @@
       "ratings": [
         { "parameter": "VrMax", "value": 400 },
         { "parameter": "IfMax", "value": 500 },
-        { "parameter": "TempMin", "value": -60 },
-        { "parameter": "TempMax", "value": 85 }
+        { "parameter": "Temp", "min": -60, "max": 85 }
       ]
     },
 
@@ -219,8 +212,7 @@
       "ratings": [
         { "parameter": "VrMax", "value": 1300 },
         { "parameter": "IfMax", "value": 1000 },
-        { "parameter": "TempMin", "value": -50 },
-        { "parameter": "TempMax", "value": 175 }
+        { "parameter": "Temp", "min": -50, "max": 175 }
       ]
     },
     {
@@ -233,7 +225,7 @@
       "manufacturers": ["Vishay", "onsemi", "Fairchild"],
       "ratings": [
         { "parameter": "Pmax", "value": 1300 },
-        { "parameter": "TempMax", "value": 175 }
+        { "parameter": "Temp", "max": 175 }
       ]
     },
     {
@@ -256,7 +248,7 @@
         { "parameter": "VrMax", "value": 85 },
         { "parameter": "IfMax", "value": 215 },           // одна нагруженная диода, TA=25 °C (Diotec)
         { "parameter": "Pmax", "value": 350 },
-        { "parameter": "TempMin", "value": -55 },
+        { "parameter": "Temp", "min": -55 },
         { "parameter": "TempJunctionMax", "value": 150 }
       ]
     },
@@ -280,7 +272,7 @@
         { "parameter": "VrMax", "value": 30 },
         { "parameter": "IfMax", "value": 200 },           // на диод, DC (Diotec)
         { "parameter": "Pmax", "value": 290 },
-        { "parameter": "TempMin", "value": -55 },
+        { "parameter": "Temp", "min": -55 },
         { "parameter": "TempJunctionMax", "value": 150 }
       ]
     },
@@ -323,8 +315,7 @@
       "ratings": [
         { "parameter": "VrMax", "value": 1000 },
         { "parameter": "IfMax", "value": 1000 },
-        { "parameter": "TempMin", "value": -50 },
-        { "parameter": "TempMax", "value": 175 }
+        { "parameter": "Temp", "min": -50, "max": 175 }
       ],
       "analogs": ["Д226"]                    // замена 1N4007 советским Д226 — с запасом проверять по режимам
     },
@@ -344,8 +335,7 @@
       "ratings": [
         { "parameter": "VrMax", "value": 1000 },
         { "parameter": "IfMax", "value": 3000 },
-        { "parameter": "TempMin", "value": -50 },
-        { "parameter": "TempMax", "value": 175 }
+        { "parameter": "Temp", "min": -50, "max": 175 }
       ]
     },
 
@@ -362,7 +352,7 @@
         { "parameter": "VrMax", "value": 80 },
         { "parameter": "IfMax", "value": 100 },
         { "parameter": "Pmax", "value": 200 },
-        { "parameter": "TempMax", "value": 125 }
+        { "parameter": "Temp", "max": 125 }
       ]
     },
     {
@@ -380,8 +370,7 @@
       "ratings": [
         { "parameter": "VrMax", "value": 400 },
         { "parameter": "IfMax", "value": 1000 },
-        { "parameter": "TempMin", "value": -55 },
-        { "parameter": "TempMax", "value": 150 }
+        { "parameter": "Temp", "min": -55, "max": 150 }
       ]
     },
 
@@ -401,8 +390,7 @@
       "ratings": [
         { "parameter": "VrMax", "value": 400 },
         { "parameter": "IfMax", "value": 300 },
-        { "parameter": "TempMin", "value": -60 },
-        { "parameter": "TempMax", "value": 80 }
+        { "parameter": "Temp", "min": -60, "max": 80 }
       ],
       "analogs": [ { "name": "1N4007", "note": "замена с запасом по напряжению и току" } ]
     },
@@ -423,7 +411,7 @@
         { "parameter": "Pmax", "value": 340 },
         { "parameter": "IzMin", "value": 3 },
         { "parameter": "IzMax", "value": 40 },
-        { "parameter": "TempMax", "value": 125 }
+        { "parameter": "Temp", "max": 125 }
       ]
     },
     {
@@ -442,7 +430,7 @@
       "ratings": [
         { "parameter": "VrMax", "value": 10 },
         { "parameter": "IfMax", "value": 16 },
-        { "parameter": "TempMax", "value": 70 }
+        { "parameter": "Temp", "max": 70 }
       ]
     },
 
@@ -464,8 +452,7 @@
       "ratings": [
         { "parameter": "VrMax", "value": 1000 },
         { "parameter": "IfMax", "value": 1000 },
-        { "parameter": "TempMin", "value": -50 },
-        { "parameter": "TempMax", "value": 175 }
+        { "parameter": "Temp", "min": -50, "max": 175 }
       ]
     },
     {
@@ -485,8 +472,7 @@
       "ratings": [
         { "parameter": "VrMax", "value": 600 },
         { "parameter": "IfMax", "value": 2000 },          // с вынужденным охлаждением TC=100 °C; свободностояще 1,2 А @ TA=50 °C
-        { "parameter": "TempMin", "value": -50 },
-        { "parameter": "TempMax", "value": 150 }
+        { "parameter": "Temp", "min": -50, "max": 150 }
       ]
     },
     {
@@ -506,8 +492,7 @@
         { "parameter": "VrMax", "value": 5 },            // на сегмент
         { "parameter": "IfMax", "value": 25 },            // на сегмент
         { "parameter": "Pmax", "value": 62.5 },            // на сегмент
-        { "parameter": "TempMin", "value": -40 },
-        { "parameter": "TempMax", "value": 85 }
+        { "parameter": "Temp", "min": -40, "max": 85 }
       ]
     },
     {
@@ -527,8 +512,7 @@
       "ratings": [
         { "parameter": "VrMax", "value": 5 },
         { "parameter": "IfMax", "value": 30 },            // на сегмент, DC
-        { "parameter": "TempMin", "value": -40 },
-        { "parameter": "TempMax", "value": 85 },
+        { "parameter": "Temp", "min": -40, "max": 85 },
         { "parameter": "TempJunctionMax", "value": 125 }
       ]
     }

@@ -15,7 +15,7 @@
 //     позитивность/allow_negative, потолок, наборы условий
 //     (required/optional/запрещено, условия-константы fixed_value), enum;
 //   - реестр именованных правил (year_range, cap_dimensions_form,
-//     temp_pair, cap_variant_matrix, resistor_variant_power) и механизм
+//     cap_variant_matrix, relay_variant_coil, resistor_variant_power) и механизм
 //     привязки правил данными (параметр/атрибут/класс записи);
 //   - ApplyCatalog — применение каталога (upsert по коду) с валидацией
 //     метасхемы при импорте (docs/plan/03-data-model.md §12).

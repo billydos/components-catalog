@@ -51,7 +51,6 @@ const (
 	RuleCapVariantMatrix     = "cap_variant_matrix"
 	RuleRelayVariantCoil     = "relay_variant_coil"
 	RuleResistorVariantPower = "resistor_variant_power"
-	RuleTempPair             = "temp_pair"
 	RuleYearRange            = "year_range"
 )
 
@@ -61,7 +60,6 @@ const (
 var ruleRegistry = map[string]Rule{
 	"year_range":             yearRangeRule{},
 	"cap_dimensions_form":    capDimensionsFormRule{},
-	"temp_pair":              tempPairRule{},
 	"cap_variant_matrix":     capVariantMatrixRule{},
 	"relay_variant_coil":     relayVariantCoilRule{},
 	"resistor_variant_power": resistorVariantPowerRule{},
@@ -117,25 +115,6 @@ func (yearRangeRule) CheckAttributes(_ *Engine, _ domain.Kind, vals []AttributeV
 	}
 	if hasFrom && hasTo && from >= to {
 		probs = append(probs, ruleProblem(domain.MsgRuleYearOrder))
-	}
-	return probs
-}
-
-// tempPairRule — согласованность температурных пар: TempMin < TempMax
-// (предельные данные) и opTempMin < opTempMax (характеристики конденсаторов),
-// если заданы оба значения (привязка — все четыре параметра).
-type tempPairRule struct{}
-
-func (tempPairRule) Code() string { return "temp_pair" }
-
-func (tempPairRule) CheckValues(_ *Engine, _ domain.Kind, vals []ParameterValue) []Problem {
-	var probs []Problem
-	for _, pair := range [][2]string{{"TempMin", "TempMax"}, {"opTempMin", "opTempMax"}} {
-		lo, hasLo := paramExact(vals, pair[0])
-		hi, hasHi := paramExact(vals, pair[1])
-		if hasLo && hasHi && lo >= hi {
-			probs = append(probs, ruleProblem(domain.MsgRuleTempPair, pair[0], pair[1]))
-		}
 	}
 	return probs
 }

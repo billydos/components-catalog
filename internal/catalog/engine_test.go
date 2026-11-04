@@ -78,8 +78,7 @@ func TestValidateDeviceTransistorExample(t *testing.T) {
 			{Parameter: "Icbo", Section: "parameters", Max: f(0.5),
 				Conditions: []catalog.ConditionValue{{Condition: "Vcb", Value: 10}, {Condition: "temp", Value: 25}}},
 			{Parameter: "VceoMax", Section: "ratings", Exact: f(20)},
-			{Parameter: "TempMin", Section: "ratings", Exact: f(-60)},
-			{Parameter: "TempMax", Section: "ratings", Exact: f(100)},
+			{Parameter: "Temp", Section: "ratings", Min: f(-60), Max: f(100)},
 		},
 	}
 	if probs := e.ValidateDevice(&d); len(probs) != 0 {
@@ -266,7 +265,7 @@ func TestPositivityAndCeiling(t *testing.T) {
 			catalog.ParameterValue{Parameter: "Pmax", Section: "ratings", Exact: f(0)},
 			"parameter «Pmax»: value of key value must be positive"},
 		{"отрицательная температура разрешена", domain.KindTransistor,
-			catalog.ParameterValue{Parameter: "TempMin", Section: "ratings", Exact: f(-60)}, ""},
+			catalog.ParameterValue{Parameter: "Temp", Section: "ratings", Min: f(-60)}, ""},
 		{"потолок превышен", domain.KindTransistor,
 			catalog.ParameterValue{Parameter: "Eta", Section: "parameters", Min: f(101), Conditions: []catalog.ConditionValue{{Condition: "freq", Value: 400}}},
 			"parameter «Eta»: value of key min exceeds the ceiling 100"},

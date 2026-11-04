@@ -33,8 +33,7 @@
         { "parameter": "Vnoise", "max": 10 }                          // гр. А — 1; гр. Б — 5/10 мкВ/В
       ],
       "ratings": [
-        { "parameter": "TempMin", "value": -60 },
-        { "parameter": "TempMax", "value": 155 }
+        { "parameter": "Temp", "min": -60, "max": 155 }
       ],
       "variants": [
         {
@@ -110,8 +109,7 @@
       ],
       "ratings": [
         { "parameter": "Vmax", "value": 300 },
-        { "parameter": "TempMin", "value": -60 },
-        { "parameter": "TempMax", "value": 155 }
+        { "parameter": "Temp", "min": -60, "max": 155 }
       ],
       "variants": [
         {
@@ -155,8 +153,7 @@
         { "parameter": "Vnoise", "max": 1.5 }
       ],
       "ratings": [
-        { "parameter": "TempMin", "value": -60 },
-        { "parameter": "TempMax", "value": 85 }
+        { "parameter": "Temp", "min": -60, "max": 85 }
       ],
       "variants": [
         {
@@ -209,8 +206,7 @@
       "ratings": [
         { "parameter": "Pnom", "value": 0.5 },
         { "parameter": "Vmax", "value": 350 },
-        { "parameter": "TempMin", "value": -60 },
-        { "parameter": "TempMax", "value": 70 }
+        { "parameter": "Temp", "min": -60, "max": 70 }
       ],
       "dimensions": [ { "parameter": "diameter", "value": 4.2 },
                       { "parameter": "leadLength", "value": 25 },
@@ -232,8 +228,7 @@
       ],
       "ratings": [
         { "parameter": "Pnom", "value": 0.5 },
-        { "parameter": "TempMin", "value": -60 },
-        { "parameter": "TempMax", "value": 125 }
+        { "parameter": "Temp", "min": -60, "max": 125 }
       ]
     },
     {
@@ -253,8 +248,7 @@
       "ratings": [
         { "parameter": "Pnom", "value": 10 },
         { "parameter": "Vmax", "value": 1400 },
-        { "parameter": "TempMin", "value": -60 },
-        { "parameter": "TempMax", "value": 155 }
+        { "parameter": "Temp", "min": -60, "max": 155 }
       ],
       "dimensions": [ { "parameter": "diameter", "value": 14 },
                       { "parameter": "height", "value": 40 },

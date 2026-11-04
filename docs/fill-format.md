@@ -136,9 +136,9 @@ jsonc/yaml читаются целиком с потолком тела 16 Ми�
 |-----|-------|-------------|-----------------|-----------|--------------------|
 | `exact` | точное значение | `value` | условия | `min`, `max`, `text` | `VceoMax`, `Pnom`, `Vnom`, `massMax` |
 | `at_least` | не менее X | `min` | `max` (верхняя граница), условия | `value`, `text` | `fT`, `hfb`, `Rins`, `endurance` |
-| `at_most` | не более X | `max` | условия | `min`, `value`, `text` | `Icbo`, `Vf`, `DF`, `VceSat` |
+| `at_most` | не более X | `max` | условия | `min`, `value`, `text` | `Icbo`, `Vf`, `Esr`, `VceSat` |
 | `range` | диапазон | `min` и `max` | условия | `value`, `text` | `Rnom`, `Cnom`, `Vz`, `Rcoil` |
-| `limits` | одностороннее ограничение любого направления либо диапазон | `min` либо `max` | вторая граница, условия | `value`, `text` | `hfe`, `h11`, `Tolerance` |
+| `limits` | одностороннее ограничение любого направления либо диапазон | `min` либо `max` | вторая граница, условия | `value`, `text` | `hfe`, `h11`, `Tolerance`, `DF`, `Temp` |
 | `text` | произвольный текст | `text` | условия | `value`, `min`, `max` | — (в стартовом наполнении нет) |
 | `enum` | словарное значение | `text` — из `enum_values` параметра | условия | `value`, `min`, `max` | `nominalRow`, `TCC` |
 

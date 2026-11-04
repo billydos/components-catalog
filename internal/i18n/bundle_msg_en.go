@@ -153,7 +153,6 @@ var messageFormatsEn = map[string]string{
 	"rule_cap_cyl_incomplete":         "dimensions: incomplete cylindrical case set — diameter and leadLength (axial) or diameter and height (radial) are required",
 	"rule_cap_form_mix":               "dimensions: mixed case forms — rectangular (length+width+height) and cylindrical (diameter+leadLength/height)",
 	"rule_cap_rect_incomplete":        "dimensions: incomplete rectangular case set — length, width and height are required",
-	"rule_temp_pair_order":            "parameter «%[1]s» must be less than parameter «%[2]s»",
 	"rule_variant_cell_dup":           "variant %[1]s: duplicate matrix cell — Vnom/Cnom already set by variant %[2]s (same caseVariant)",
 	"rule_variant_cnom_missing":       "variant %[1]s: mandatory parameter Cnom is missing",
 	"rule_variant_label_dup":          "variant %[1]s: label repeats",

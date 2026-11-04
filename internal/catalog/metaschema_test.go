@@ -13,7 +13,7 @@ func TestSeedSnapshotCounts(t *testing.T) {
 	snap := seedSnapshot(t)
 	want := struct {
 		units, categories, sourceTypes, conditions, groups, params, attrs, rules int
-	}{32, 11, 7, 20, 3, 136, 21, 6}
+	}{32, 11, 7, 20, 3, 134, 21, 5}
 	if got := len(snap.Units); got != want.units {
 		t.Errorf("единиц: %d, ожидалось %d", got, want.units)
 	}
@@ -156,8 +156,8 @@ func TestMetaschemaViolations(t *testing.T) {
 			{Kind: "thyristor", Rule: "cap_variant_matrix"},
 		}}, "catalog: device-kind rule: kind «thyristor» does not exist"},
 		{"правило параметров у класса", catalog.Input{KindRules: []catalog.KindRuleRef{
-			{Kind: domain.KindDiode, Rule: "temp_pair"},
-		}}, "catalog: device-kind rule (diode): rule «temp_pair» does not apply to device records"},
+			{Kind: domain.KindDiode, Rule: "cap_dimensions_form"},
+		}}, "catalog: device-kind rule (diode): rule «cap_dimensions_form» does not apply to device records"},
 	}
 	base := seedSnapshot(t)
 	for _, tc := range cases {
@@ -206,8 +206,8 @@ func TestMetaschemaAttributeViolations(t *testing.T) {
 			textListWithUnit,
 		}}, "catalog: attribute «yearFrom» of type text_list must not have a unit"},
 		{"правило параметров у атрибута", catalog.Input{Attributes: []catalog.AttributeDef{
-			withAttrRule(base, "temp_pair"),
-		}}, "catalog: attribute «description»: rule «temp_pair» does not apply to attributes"},
+			withAttrRule(base, "cap_dimensions_form"),
+		}}, "catalog: attribute «description»: rule «cap_dimensions_form» does not apply to attributes"},
 		{"неизвестный класс применимости атрибута", catalog.Input{Attributes: []catalog.AttributeDef{
 			withAttrKinds(base, domain.Kind("thyristor")),
 		}}, "catalog: attribute «description»: applicability kind «thyristor» does not exist"},

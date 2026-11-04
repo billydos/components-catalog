@@ -239,15 +239,14 @@ var bundleEn = map[string]string{
 	"param.Rins":       "insulation resistance",
 
 	// Параметры: конденсаторы — electrical.
-	"param.Cnom":      "nominal capacitance (series range)",
-	"param.TCC":       "temperature coefficient of capacitance (TCC)",
-	"param.Vnom":      "rated voltage",
-	"param.DF":        "dissipation factor (tan δ)",
-	"param.Ileak":     "leakage current",
-	"param.Esr":       "equivalent series resistance (ESR)",
-	"param.Iripple":   "rated ripple current",
-	"param.opTempMin": "lowest operating temperature",
-	"param.opTempMax": "highest operating temperature",
+	"param.Cnom":    "nominal capacitance (series range)",
+	"param.TCC":     "temperature coefficient of capacitance (TCC)",
+	"param.Vnom":    "rated voltage",
+	"param.DF":      "dissipation factor (tan δ)",
+	"param.Ileak":   "leakage current",
+	"param.Esr":     "equivalent series resistance (ESR)",
+	"param.Iripple": "rated ripple current",
+	"param.opTemp":  "operating temperature range",
 
 	// Параметры: конденсаторы — дополнительные и импульсный режим.
 	"param.Z":              "impedance (|Z|)",
@@ -301,8 +300,7 @@ var bundleEn = map[string]string{
 	"param.IdPulseMax": "maximum peak drain current",
 
 	// Параметры: общие предельные данные.
-	"param.TempMin":         "minimum ambient temperature",
-	"param.TempMax":         "maximum ambient temperature",
+	"param.Temp":            "ambient operating temperature range",
 	"param.TempJunctionMax": "maximum junction temperature",
 	"param.Rth":             "thermal resistance",
 
@@ -371,7 +369,6 @@ var bundleEn = map[string]string{
 
 	// Именованные правила (validation_rules).
 	"rule.year_range":             "production years: yearFrom < yearTo; range 1949–2100",
-	"rule.temp_pair":              "temperature pair consistency: TempMin < TempMax and opTempMin < opTempMax (when both are set)",
 	"rule.cap_dimensions_form":    "case form consistency: rectangular (length+width+height) or cylindrical — axial (diameter+leadLength) or radial (diameter+height); mixing is an error",
 	"rule.cap_variant_matrix":     "capacitor variant: Vnom and Cnom are mandatory, dimensions follow a consistent case form; label and matrix cell (caseVariant, Vnom, Cnom) are unique within the record",
 	"rule.relay_variant_coil":     "relay variant (passport): Rcoil and a coil nominal (VcoilNom, or Ipickup for current windings) are mandatory, label uniqueness",
