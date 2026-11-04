@@ -19,8 +19,8 @@ func TestSeedAppliesCleanly(t *testing.T) {
 		}
 		t.Fatal("стартовый каталог не проходит метасхему")
 	}
-	if len(snap.Parameters) != 134 || len(snap.Attributes) != 21 ||
-		len(snap.Units) != 32 || len(snap.Conditions) != 20 {
+	if len(snap.Parameters) != 147 || len(snap.Attributes) != 21 ||
+		len(snap.Units) != 34 || len(snap.Conditions) != 20 {
 		t.Fatalf("состав каталога: параметры %d, атрибуты %d, единицы %d, условия %d",
 			len(snap.Parameters), len(snap.Attributes), len(snap.Units), len(snap.Conditions))
 	}
@@ -110,6 +110,7 @@ func TestSeedTCCEnum(t *testing.T) {
 		"П100", "П120", "П60", "П33", "МП0", "М33", "М47", "М75",
 		"М150", "М220", "М330", "М470", "М750", "М700", "М1500", "М1300", "М2200",
 		"Н10", "Н20", "Н30", "Н50", "Н70", "Н90",
+		"±50", "±100", "±200", "+(33±30)",
 		"C0G", "NP0", "U2J", "X5R", "X6S", "X7R", "X7S", "X8R", "Y5V", "Z5U",
 	}
 	if !slices.Equal(p.EnumValues, want) {
@@ -180,6 +181,14 @@ func TestSeedSpotChecks(t *testing.T) {
 		ifmax.ConditionSets[0].Items[0].Condition != "temp" ||
 		ifmax.ConditionSets[0].Items[0].Mode != catalog.ModeOptional {
 		t.Errorf("IfMax: наборы %+v — ожидался один с опциональным temp", ifmax.ConditionSets)
+	}
+	if ac := check("AlphaC"); ac.ValueType != catalog.ValueLimits || !ac.AllowNegative {
+		t.Errorf("AlphaC: тип %s, отрицательные %v — ожидался limits с allow_negative",
+			string(ac.ValueType), ac.AllowNegative)
+	}
+	if end := check("endurance"); !end.AppliesTo(domain.KindResistor) || !end.AppliesTo(domain.KindCapacitor) ||
+		end.AppliesTo(domain.KindTransistor) {
+		t.Errorf("endurance: применимость %v", end.Kinds)
 	}
 	if ot := check("opTemp"); ot.ValueType != catalog.ValueLimits || !ot.AllowNegative ||
 		!ot.AppliesTo(domain.KindCapacitor) || ot.AppliesTo(domain.KindResistor) {
@@ -348,9 +357,10 @@ func TestSeedSpotChecks(t *testing.T) {
 		t.Errorf("functionalChar: %+v", a)
 	}
 	// Конструктивные признаки переменных резисторов (03 §10):
-	// число секций и вид конца вала — уровни записи/исполнения (D12).
+	// число секций и вид конца вала — уровни записи/исполнения (D12);
+	// секционность распространена и на конденсаторы (справочник 1983).
 	if a := attr("sections"); a.Type != catalog.AttrInt || !a.AppliesTo(domain.KindResistor) ||
-		a.AppliesTo(domain.KindCapacitor) {
+		!a.AppliesTo(domain.KindCapacitor) || a.AppliesTo(domain.KindTransistor) {
 		t.Errorf("sections: %+v", a)
 	}
 	if a := attr("shaftEnd"); a.Type != catalog.AttrEnum || !a.AppliesTo(domain.KindResistor) ||

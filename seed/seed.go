@@ -62,8 +62,8 @@ func Catalog() catalog.Input {
 func units() []catalog.UnitDef {
 	codes := []string{
 		"V", "mV", "mA", "uA", "nA", "A",
-		"Hz", "dB", "pct", "W", "mW",
-		"ohm", "mA_per_V", "uS", "pF", "ps", "ns", "us", "ms", "s",
+		"Hz", "dB", "pct", "W", "mW", "var",
+		"ohm", "mA_per_V", "uS", "pF", "uH", "ps", "ns", "us", "ms", "s",
 		"degC", "degC_per_W", "ppm_per_degC", "pct_per_degC",
 		"g", "mm", "nm", "mcd",
 		"deg", "h", "mN_m", "yr",
@@ -386,6 +386,10 @@ func parameters() []catalog.ParameterDef {
 				"М150", "М220", "М330", "М470", "М750", "М700", "М1500", "М1300", "М2200",
 				// Ненормируемый (сегнетокерамика), %.
 				"Н10", "Н20", "Н30", "Н50", "Н70", "Н90",
+				// Группы ТКЕ слюдяных, 10⁻⁶/°C, дословно по справочнику
+				// («Справочник по электрическим конденсаторам», 1983);
+				// комбинированный допуск К31-10 — как в источнике.
+				"±50", "±100", "±200", "+(33±30)",
 				// Международные коды EIA RS-198: класс 1 — линейный ТКЕ
 				// (10⁻⁶/°C), класс 2 — буква нижней границы диапазона +
 				// цифра верхней + буква предела изменения ёмкости (S9).
@@ -438,6 +442,37 @@ func parameters() []catalog.ParameterDef {
 			ValueType: catalog.ValueAtMost, SortOrder: 830, Active: true, Kinds: []domain.Kind{domain.KindCapacitor}},
 		{Code: "endurancePulse", Group: "electrical",
 			ValueType: catalog.ValueAtLeast, SortOrder: 840, Active: true, Kinds: []domain.Kind{domain.KindCapacitor}},
+
+		// Конденсаторы — параметры по выверке «Справочника по электрическим
+		// конденсаторам» 1983 (work/tmp/CONSOLIDATED-NEW-CODES.md).
+		{Code: "Qreact", Group: "electrical", Unit: "var",
+			ValueType: catalog.ValueExact, SortOrder: 850, Active: true, Kinds: []domain.Kind{domain.KindCapacitor}},
+		{Code: "Lnom", Group: "electrical", Unit: "uH",
+			ValueType: catalog.ValueAtLeast, SortOrder: 860, Active: true, Kinds: []domain.Kind{domain.KindCapacitor}},
+		{Code: "IthroughMax", Group: "electrical", Unit: "A",
+			ValueType: catalog.ValueExact, SortOrder: 870, Active: true, Kinds: []domain.Kind{domain.KindCapacitor}},
+		{Code: "RinsCase", Group: "electrical", Unit: "ohm",
+			ValueType: catalog.ValueAtLeast, SortOrder: 880, Active: true, Kinds: []domain.Kind{domain.KindCapacitor}},
+		{Code: "CnomTotal", Group: "electrical", Unit: "pF",
+			ValueType: catalog.ValueRange, SortOrder: 890, Active: true, Kinds: []domain.Kind{domain.KindCapacitor}},
+		{Code: "VnomAc", Group: "electrical", Unit: "V",
+			ValueType: catalog.ValueExact, SortOrder: 900, Active: true, Kinds: []domain.Kind{domain.KindCapacitor}},
+		{Code: "VacMax", Group: "electrical", Unit: "V",
+			ValueType: catalog.ValueAtMost, SortOrder: 910, Active: true, Kinds: []domain.Kind{domain.KindCapacitor},
+			ConditionSets: []catalog.ConditionSet{set(1, req("freq"))}},
+		{Code: "Z0", Group: "electrical", Unit: "ohm",
+			ValueType: catalog.ValueExact, SortOrder: 920, Active: true, Kinds: []domain.Kind{domain.KindCapacitor}},
+		{Code: "Rcoupling", Group: "electrical", Unit: "ohm",
+			ValueType: catalog.ValueAtLeast, SortOrder: 930, Active: true, Kinds: []domain.Kind{domain.KindCapacitor},
+			ConditionSets: []catalog.ConditionSet{set(1, req("freq"))}},
+		{Code: "AlphaC", Group: "electrical", Unit: "ppm_per_degC",
+			ValueType: catalog.ValueLimits, AllowNegative: true, SortOrder: 940, Active: true, Kinds: []domain.Kind{domain.KindCapacitor}},
+		{Code: "fMax", Group: "electrical", Unit: "Hz",
+			ValueType: catalog.ValueExact, SortOrder: 950, Active: true, Kinds: []domain.Kind{domain.KindCapacitor}},
+		{Code: "DeltaClife", Group: "electrical", Unit: "pct",
+			ValueType: catalog.ValueLimits, AllowNegative: true, SortOrder: 960, Active: true, Kinds: []domain.Kind{domain.KindCapacitor}},
+		{Code: "DeltaCshelf", Group: "electrical", Unit: "pct",
+			ValueType: catalog.ValueLimits, AllowNegative: true, SortOrder: 970, Active: true, Kinds: []domain.Kind{domain.KindCapacitor}},
 
 		// Полевые транзисторы — электрические параметры (§6.1): собственные
 		// коды, величины биполярных не дублируются — пересечений с разделом
@@ -628,13 +663,13 @@ func parameters() []catalog.ParameterDef {
 		{Code: "imbalance", Group: "limiting", Unit: "dB",
 			ValueType: catalog.ValueAtMost, SortOrder: 340, Active: true, Kinds: re},
 		{Code: "endurance", Group: "limiting",
-			ValueType: catalog.ValueAtLeast, SortOrder: 350, Active: true, Kinds: re},
+			ValueType: catalog.ValueAtLeast, SortOrder: 350, Active: true, Kinds: reCa},
 		{Code: "rotationAngle", Group: "limiting", Unit: "deg",
-			ValueType: catalog.ValueAtLeast, SortOrder: 360, Active: true, Kinds: re},
+			ValueType: catalog.ValueAtLeast, SortOrder: 360, Active: true, Kinds: reCa},
 		{Code: "switchAngle", Group: "limiting", Unit: "deg",
 			ValueType: catalog.ValueAtMost, SortOrder: 370, Active: true, Kinds: re},
 		{Code: "staticFrictionTorque", Group: "limiting", Unit: "mN_m",
-			ValueType: catalog.ValueAtMost, SortOrder: 380, Active: true, Kinds: re},
+			ValueType: catalog.ValueAtMost, SortOrder: 380, Active: true, Kinds: reCa},
 		{Code: "humidity", Group: "limiting", Unit: "pct",
 			ValueType: catalog.ValueAtMost, SortOrder: 390, Active: true, Kinds: re,
 			ConditionSets: []catalog.ConditionSet{set(1, opt("temp"))}},
@@ -730,7 +765,7 @@ func attributes() []catalog.AttributeDef {
 				"1A", "1B", "1C", "2A", "2B", "2C", "3C", "4C",
 			}},
 		{Code: "sections", Type: catalog.AttrInt, SortOrder: 200, Active: true,
-			Kinds: []domain.Kind{domain.KindResistor}},
+			Kinds: []domain.Kind{domain.KindResistor, domain.KindCapacitor}},
 		{Code: "shaftEnd", Type: catalog.AttrEnum, SortOrder: 210, Active: true,
 			Kinds: []domain.Kind{domain.KindResistor}, EnumValues: []string{
 				// Вид конца вала переменного резистора (03 §10):

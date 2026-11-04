@@ -13,7 +13,7 @@ func TestSeedSnapshotCounts(t *testing.T) {
 	snap := seedSnapshot(t)
 	want := struct {
 		units, categories, sourceTypes, conditions, groups, params, attrs, rules int
-	}{32, 11, 7, 20, 3, 134, 21, 5}
+	}{34, 11, 7, 20, 3, 147, 21, 5}
 	if got := len(snap.Units); got != want.units {
 		t.Errorf("единиц: %d, ожидалось %d", got, want.units)
 	}
@@ -391,7 +391,7 @@ func TestApplyCatalogUpsert(t *testing.T) {
 		updated.EnumValues = []string{"МП0"}
 		catalog.ApplyCatalog(snap, catalog.Input{Parameters: []catalog.ParameterDef{updated}})
 		got, _ := snap.Parameter("TCC")
-		if len(got.EnumValues) != 33 {
+		if len(got.EnumValues) != 37 {
 			t.Fatalf("исходный снимок изменён: %d значений", len(got.EnumValues))
 		}
 	})
