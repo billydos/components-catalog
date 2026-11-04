@@ -172,6 +172,15 @@ func TestSeedSpotChecks(t *testing.T) {
 	if df := check("DF"); df.ValueType != catalog.ValueLimits {
 		t.Errorf("DF: тип %s — ожидался limits", string(df.ValueType))
 	}
+	if tcr := check("TCR"); tcr.ValueType != catalog.ValueLimits || !tcr.AllowNegative {
+		t.Errorf("TCR: тип %s, отрицательные %v — ожидался limits с allow_negative",
+			string(tcr.ValueType), tcr.AllowNegative)
+	}
+	if ifmax := check("IfMax"); len(ifmax.ConditionSets) != 1 || len(ifmax.ConditionSets[0].Items) != 1 ||
+		ifmax.ConditionSets[0].Items[0].Condition != "temp" ||
+		ifmax.ConditionSets[0].Items[0].Mode != catalog.ModeOptional {
+		t.Errorf("IfMax: наборы %+v — ожидался один с опциональным temp", ifmax.ConditionSets)
+	}
 	if ot := check("opTemp"); ot.ValueType != catalog.ValueLimits || !ot.AllowNegative ||
 		!ot.AppliesTo(domain.KindCapacitor) || ot.AppliesTo(domain.KindResistor) {
 		t.Errorf("opTemp: тип %s, отрицательные %v, применимость %v",

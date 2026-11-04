@@ -29,7 +29,7 @@
       "parameters": [
         { "parameter": "Rnom", "min": 0.1, "max": 22000000 },     // 0,1 Ом – 22 МОм (ряды Е24/Е96)
         { "parameter": "Tolerance", "min": -10, "max": 10 },               // ±1; ±2; ±5; ±10 %
-        { "parameter": "TCR", "max": 1500 },                       // ±100…±1500 по исполнениям
+        { "parameter": "TCR", "min": -1500, "max": 1500 },       // ±100…±1500 по исполнениям
         { "parameter": "Vnoise", "max": 10 }                          // гр. А — 1; гр. Б — 5/10 мкВ/В
       ],
       "ratings": [
@@ -104,7 +104,7 @@
       "manufacturers": ["Завод «Элия»"],
       "parameters": [
         { "parameter": "Tolerance", "min": -5, "max": 5 },                 // ±0,5; ±1; ±2; ±5 %
-        { "parameter": "TCR", "max": 150 },
+        { "parameter": "TCR", "min": -150, "max": 150 },
         { "parameter": "Rins", "min": 10000000000 }
       ],
       "ratings": [
@@ -149,7 +149,7 @@
       "sources": ["ds_r1_4"],
       "parameters": [
         { "parameter": "Tolerance", "min": -5, "max": 5 },                 // ±1; ±2; ±5 %
-        { "parameter": "TCR", "max": 500 },
+        { "parameter": "TCR", "min": -500, "max": 500 },
         { "parameter": "Vnoise", "max": 1.5 }
       ],
       "ratings": [
@@ -200,7 +200,7 @@
         { "parameter": "Tolerance", "min": -10, "max": 10 },               // ±2; ±5; ±10 %
         { "parameter": "nominalRow", "text": "E24" },              // ряды номиналов: E24 при ±5/±10 %,
         { "parameter": "nominalRow", "text": "E96" },              // E96 при ±2 %
-        { "parameter": "TCR", "max": 1200 },
+        { "parameter": "TCR", "min": -1200, "max": 1200 },
         { "parameter": "Vnoise", "max": 5 }
       ],
       "ratings": [
@@ -223,7 +223,7 @@
       "parameters": [
         { "parameter": "Rnom", "min": 10, "max": 10000000 },       // по серии ВС
         { "parameter": "Tolerance", "min": -20, "max": 20 },
-        { "parameter": "TCR", "max": 2000 },                       // отрицательный
+        { "parameter": "TCR", "min": -2000 },                     // отрицательный (по источнику)
         { "parameter": "Vnoise", "max": 5 }
       ],
       "ratings": [
@@ -242,7 +242,7 @@
       "parameters": [
         { "parameter": "Rnom", "min": 1.8, "max": 10000 },         // 1,8 Ом – 10 кОм
         { "parameter": "Tolerance", "min": -10, "max": 10 },               // ±5; ±10 %
-        { "parameter": "TCR", "max": 500 },                        // ±200; ±500
+        { "parameter": "TCR", "min": -500, "max": 500 },           // ±200; ±500
         { "parameter": "Rins", "min": 1000000000 }
       ],
       "ratings": [

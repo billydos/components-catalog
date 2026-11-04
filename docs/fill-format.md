@@ -138,7 +138,7 @@ jsonc/yaml читаются целиком с потолком тела 16 Ми�
 | `at_least` | не менее X | `min` | `max` (верхняя граница), условия | `value`, `text` | `fT`, `hfb`, `Rins`, `endurance` |
 | `at_most` | не более X | `max` | условия | `min`, `value`, `text` | `Icbo`, `Vf`, `Esr`, `VceSat` |
 | `range` | диапазон | `min` и `max` | условия | `value`, `text` | `Rnom`, `Cnom`, `Vz`, `Rcoil` |
-| `limits` | одностороннее ограничение любого направления либо диапазон | `min` либо `max` | вторая граница, условия | `value`, `text` | `hfe`, `h11`, `Tolerance`, `DF`, `Temp` |
+| `limits` | одностороннее ограничение любого направления либо диапазон | `min` либо `max` | вторая граница, условия | `value`, `text` | `hfe`, `h11`, `Tolerance`, `DF`, `Temp`, `TCR` |
 | `text` | произвольный текст | `text` | условия | `value`, `min`, `max` | — (в стартовом наполнении нет) |
 | `enum` | словарное значение | `text` — из `enum_values` параметра | условия | `value`, `min`, `max` | `nominalRow`, `TCC` |
 

@@ -471,7 +471,8 @@
       ],
       "ratings": [
         { "parameter": "VrMax", "value": 600 },
-        { "parameter": "IfMax", "value": 2000 },          // с вынужденным охлаждением TC=100 °C; свободностояще 1,2 А @ TA=50 °C
+        { "parameter": "IfMax", "value": 2000, "temp": 100 },  // с вынужденным охлаждением (TC)
+        { "parameter": "IfMax", "value": 1200, "temp": 50 },   // свободностояще (TA)
         { "parameter": "Temp", "min": -50, "max": 150 }
       ]
     },
