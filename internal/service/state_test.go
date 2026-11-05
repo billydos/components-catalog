@@ -11,8 +11,9 @@ import (
 // (имена производителей, метки исполнений, заметки аналогов, тексты
 // атрибутов и значений) не должны склеивать разные состояния — исход
 // Skipped возможен только для полностью равных состояний. Множества
-// (поля, атрибуты, условия, производители, аналоги) нечувствительны
-// к порядку; порядок значений в секциях и исполнениях значим.
+// (поля, атрибуты, условия, производители, аналоги) и порядок разных
+// параметров/секций нечувствительны к порядку; значимы порядок
+// одноимённых строк одного параметра и порядок исполнений.
 func TestSameState(t *testing.T) {
 	group := func(vals ...stateValue) map[string][]stateValue {
 		return map[string][]stateValue{"g": vals}
@@ -126,12 +127,43 @@ func TestSameState(t *testing.T) {
 			b:    &deviceState{},
 			want: true,
 		},
-		// Порядок значений и исполнений значим (sort_order).
+		// Порядок разных параметров внутри секции/группы не значим
+		// (параметры внутри секции упорядочены каталогом —
+		// docs/fill-format.md §4); значимы порядок исполнений и
+		// относительный порядок одноимённых строк одного параметра.
 		{
-			name: "порядок значений в группе значим",
+			name: "порядок разных параметров в группе не значим",
 			a:    &deviceState{groupValues: group(exact("P", 1), exact("Q", 2))},
 			b:    &deviceState{groupValues: group(exact("Q", 2), exact("P", 1))},
+			want: true,
+		},
+		{
+			name: "порядок одноимённых строк одного параметра значим",
+			a:    &deviceState{groupValues: group(exact("P", 1), exact("P", 2))},
+			b:    &deviceState{groupValues: group(exact("P", 2), exact("P", 1))},
 			want: false,
+		},
+		{
+			name: "перемежающиеся легас-строки равны каноническому порядку",
+			a:    &deviceState{groupValues: group(exact("P", 1), exact("Q", 2), exact("P", 3))},
+			b:    &deviceState{groupValues: group(exact("P", 1), exact("P", 3), exact("Q", 2))},
+			want: true,
+		},
+		{
+			name: "перемежание с иной последовательностью одноимённых строк не равно",
+			a:    &deviceState{groupValues: group(exact("P", 1), exact("Q", 2), exact("P", 3))},
+			b:    &deviceState{groupValues: group(exact("P", 3), exact("P", 1), exact("Q", 2))},
+			want: false,
+		},
+		{
+			name: "порядок секций исполнения не значим",
+			a: &deviceState{variants: []stateVariant{{Values: []stateValue{
+				{Parameter: "P", Section: "parameters"}, {Parameter: "m", Section: "dimensions"},
+			}}}},
+			b: &deviceState{variants: []stateVariant{{Values: []stateValue{
+				{Parameter: "m", Section: "dimensions"}, {Parameter: "P", Section: "parameters"},
+			}}}},
+			want: true,
 		},
 		{
 			name: "порядок исполнений значим",

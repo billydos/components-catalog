@@ -4,6 +4,7 @@ import (
 	"cmp"
 	"context"
 	"maps"
+	"math"
 	"slices"
 
 	"github.com/billydos/components-catalog/internal/catalog"
@@ -32,7 +33,10 @@ type stateValue struct {
 }
 
 // stateVariant — исполнение: метка, плоский упорядоченный список значений
-// и атрибуты исполнения (отсортированы по коду).
+// и атрибуты исполнения (отсортированы по коду). Значения следуют в
+// каноническом порядке секций и параметров каталога; порядок секций
+// и разных параметров входа значимостью не обладает, относительный
+// порядок одноимённых строк одного параметра — сохраняется.
 type stateVariant struct {
 	Label      string
 	Values     []stateValue
@@ -266,7 +270,9 @@ func (s *stateMerger) merge(cur *deviceState, in *DeviceInput, explicit []domain
 	} else {
 		out.attributes = cur.attributes
 	}
-	// Секции групп: заменяется только группа секции входа.
+	// Секции групп: заменяется только группа секции входа; значения
+	// канонизируются по параметрам каталога (порядок разных параметров
+	// значимостью не обладает — docs/fill-format.md §4).
 	maps.Copy(out.groupValues, cur.groupValues)
 	for _, sec := range in.Sections {
 		g, _ := s.snap.GroupBySection(sec.Section)
@@ -278,24 +284,30 @@ func (s *stateMerger) merge(cur *deviceState, in *DeviceInput, explicit []domain
 				Conditions: sortedCondsInput(v.Conditions),
 			})
 		}
-		out.groupValues[g.Code] = vals
+		out.groupValues[g.Code] = s.canonicalValues(vals)
 	}
 	// Исполнения: nil — не менять, иначе полная замена набора. Значения
 	// несут имя секции группы, в которой стоят (проверка принадлежности
-	// секции — движком, как у значений типа в целом).
+	// секции — движком, как у значений типа в целом); секции канонизируются
+	// по группам каталога, значения внутри секции — по параметрам каталога:
+	// порядок секций и разных параметров значимостью не обладает,
+	// относительный порядок одноимённых строк одного параметра
+	// сохраняется (docs/fill-format.md §4) и задаёт sort_order.
 	if in.Variants != nil {
 		out.variants = make([]stateVariant, 0, len(*in.Variants))
 		for _, v := range *in.Variants {
 			sv := stateVariant{Label: v.Label, Attributes: normalizeAttrs(v.Attributes)}
-			for _, sec := range v.Sections {
+			for _, sec := range s.canonicalSections(v.Sections) {
+				vals := make([]stateValue, 0, len(sec.Values))
 				for _, val := range sec.Values {
-					sv.Values = append(sv.Values, stateValue{
+					vals = append(vals, stateValue{
 						Parameter: val.Parameter,
 						Section:   sec.Section,
 						Exact:     val.Exact, Min: val.Min, Max: val.Max, Text: val.Text,
 						Conditions: sortedCondsInput(val.Conditions),
 					})
 				}
+				sv.Values = append(sv.Values, s.canonicalValues(vals)...)
 			}
 			out.variants = append(out.variants, sv)
 		}
@@ -339,18 +351,86 @@ func sortedCondsInput(conds []catalog.ConditionValue) []catalog.ConditionValue {
 	return out
 }
 
+// canonicalSections — копия секций в каноническом порядке: SortOrder
+// группы каталога, при равенстве — имя секции (детерминированный
+// порядок). Порядок секций значений исполнений значимостью не обладает
+// (план 03 §7): хранение канонично, экспорт пишет секции в порядке
+// групп каталога — round-trip без изменений. Неизвестная секция
+// невозможна (принадлежность проверена против каталога до слияния)
+// и ставится последней.
+func (s *stateMerger) canonicalSections(sections []SectionInput) []SectionInput {
+	out := append([]SectionInput(nil), sections...)
+	slices.SortStableFunc(out, func(a, b SectionInput) int {
+		if ar, br := s.sectionRank(a.Section), s.sectionRank(b.Section); ar != br {
+			return cmp.Compare(ar, br)
+		}
+		return cmp.Compare(a.Section, b.Section)
+	})
+	return out
+}
+
+func (s *stateMerger) sectionRank(section string) int {
+	g, ok := s.snap.GroupBySection(section)
+	if !ok {
+		return math.MaxInt
+	}
+	return g.SortOrder
+}
+
+// canonicalValues — копия значений секции в каноническом порядке
+// параметров каталога: SortOrder параметра, при равенстве — код
+// (детерминированный порядок). Порядок разных параметров внутри секции
+// значимостью не обладает — параметры внутри секции упорядочены каталогом
+// (docs/fill-format.md §4); относительный порядок одноимённых строк
+// одного параметра сохраняется (стабильная сортировка) — он значим и
+// задаёт sort_order. Неизвестный каталогу параметр отвергается движком
+// до записи (хранение защищено FK); до валидации он детерминированно
+// ставится последним (MaxInt в compareParameterCodes).
+func (s *stateMerger) canonicalValues(vals []stateValue) []stateValue {
+	out := append([]stateValue(nil), vals...)
+	slices.SortStableFunc(out, func(a, b stateValue) int {
+		return compareParameterCodes(s.snap, a.Parameter, b.Parameter)
+	})
+	return out
+}
+
+// compareParameterCodes — канонический порядок параметров каталога:
+// SortOrder параметра, при равенстве — код. Единая точка для слияния
+// (canonicalValues — сохраняемый sort_order) и карточки (cardGroups —
+// порядок отображения и экспорта): смена порядка в одном месте
+// оставляет хранение, карточку и экспорт согласованными.
+func compareParameterCodes(snap *catalog.Snapshot, a, b string) int {
+	if ar, br := paramRank(snap, a), paramRank(snap, b); ar != br {
+		return cmp.Compare(ar, br)
+	}
+	return cmp.Compare(a, b)
+}
+
+// paramRank — позиция параметра в каноническом порядке каталога
+// (неизвестный каталогу — последний).
+func paramRank(snap *catalog.Snapshot, code string) int {
+	p, ok := snap.Parameter(code)
+	if !ok {
+		return math.MaxInt
+	}
+	return p.SortOrder
+}
+
 func normalizeAttrs(vals []catalog.AttributeValue) []catalog.AttributeValue {
 	out := append([]catalog.AttributeValue(nil), vals...)
 	slices.SortStableFunc(out, func(a, b catalog.AttributeValue) int { return cmp.Compare(a.Attribute, b.Attribute) })
 	return out
 }
 
-// sameState сравнивает состояния канонически: порядок значений внутри
-// секций и исполнений значим (он задаёт sort_order); явные поля,
-// атрибуты, условия, производители, аналоги, синонимы и источники
-// сравниваются как множества (нормализуются сортировкой копий —
-// равенство не зависит от порядка чтения из БД). Числа сравниваются
-// бит-то-точно (round-trip REAL; NaN в значениях исключён валидацией).
+// sameState сравнивает состояния канонически: значимы порядок исполнений
+// и относительный порядок одноимённых строк одного параметра (они задают
+// sort_order); порядок секций и разных параметров внутри секции
+// значимостью не обладает — параметры внутри секции упорядочены каталогом
+// (docs/fill-format.md §4); явные поля, атрибуты, условия, производители,
+// аналоги, синонимы и источники сравниваются как множества
+// (нормализуются сортировкой копий — равенство не зависит от порядка
+// чтения из БД). Числа сравниваются бит-то-точно (round-trip REAL; NaN
+// в значениях исключён валидацией).
 func sameState(a, b *deviceState) bool {
 	return fieldsEqual(a.fields, b.fields) &&
 		attrsEqual(a.attributes, b.attributes) &&
@@ -387,29 +467,32 @@ func attrEqual(a, b catalog.AttributeValue) bool {
 		boolPtrEqual(a.Bool, b.Bool)
 }
 
-// groupValuesEqual — сравнение по группам каталога; порядок значений
-// внутри группы значим (sort_order).
+// groupValuesEqual — сравнение по группам каталога; значения группы —
+// по параметрам (valuesByKeyEqual).
 func groupValuesEqual(a, b map[string][]stateValue) bool {
 	if len(a) != len(b) {
 		return false
 	}
 	for g, av := range a {
 		bv, ok := b[g]
-		if !ok || !valuesEqual(av, bv) {
+		if !ok || !valuesByKeyEqual(av, bv) {
 			return false
 		}
 	}
 	return true
 }
 
-// variantsEqual — порядок исполнений значим (sort_order); атрибуты
-// сравниваются как множества по коду.
+// variantsEqual — исполнения сравниваются попарно по порядку (sort_order):
+// метка, атрибуты (множества по коду) и значения по секциям и параметрам
+// (порядок разных параметров и секций значимостью не обладает —
+// docs/fill-format.md §4; исторические базы могут нести порядок файла
+// наполнения, пришедшего до канонизации).
 func variantsEqual(a, b []stateVariant) bool {
 	if len(a) != len(b) {
 		return false
 	}
 	for i := range a {
-		if a[i].Label != b[i].Label || !valuesEqual(a[i].Values, b[i].Values) ||
+		if a[i].Label != b[i].Label || !variantValuesEqual(a[i].Values, b[i].Values) ||
 			!attrsEqual(a[i].Attributes, b[i].Attributes) {
 			return false
 		}
@@ -417,7 +500,69 @@ func variantsEqual(a, b []stateVariant) bool {
 	return true
 }
 
-// valuesEqual — порядок значений значим (sort_order).
+// variantValuesEqual — значения исполнения по секциям, внутри секции —
+// по параметрам: порядок секций, разных параметров и чередование — нет,
+// порядок одноимённых строк одного параметра — значим.
+func variantValuesEqual(a, b []stateValue) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	ag, bg := valuesBySection(a), valuesBySection(b)
+	if len(ag) != len(bg) {
+		return false
+	}
+	for sec, av := range ag {
+		bv, ok := bg[sec]
+		if !ok || !valuesByKeyEqual(av, bv) {
+			return false
+		}
+	}
+	return true
+}
+
+// valuesByKeyEqual — значения секции/группы по параметрам: порядок
+// разных параметров значимостью не обладает (каноничен по каталогу —
+// docs/fill-format.md §4), порядок одноимённых строк одного параметра
+// значим (он задаёт sort_order).
+func valuesByKeyEqual(a, b []stateValue) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	ag, bg := valuesByParameter(a), valuesByParameter(b)
+	if len(ag) != len(bg) {
+		return false
+	}
+	for p, av := range ag {
+		bv, ok := bg[p]
+		if !ok || !valuesEqual(av, bv) {
+			return false
+		}
+	}
+	return true
+}
+
+// valuesBySection — значения, сгруппированные по имени секции; порядок
+// внутри секции — порядок следования в списке.
+func valuesBySection(vals []stateValue) map[string][]stateValue {
+	out := make(map[string][]stateValue)
+	for _, v := range vals {
+		out[v.Section] = append(out[v.Section], v)
+	}
+	return out
+}
+
+// valuesByParameter — значения, сгруппированные по коду параметра;
+// порядок одноимённых строк — порядок следования в списке.
+func valuesByParameter(vals []stateValue) map[string][]stateValue {
+	out := make(map[string][]stateValue)
+	for _, v := range vals {
+		out[v.Parameter] = append(out[v.Parameter], v)
+	}
+	return out
+}
+
+// valuesEqual — значения одного параметра в порядке следования
+// (относительный порядок одноимённых строк значим — sort_order).
 func valuesEqual(a, b []stateValue) bool {
 	if len(a) != len(b) {
 		return false

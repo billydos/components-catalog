@@ -176,6 +176,7 @@ func runSuite(t *testing.T, factory configFactory) {
 	t.Run("attributes text_list", func(t *testing.T) { suiteAttrTextList(t, factory) })
 	t.Run("atomic on error", func(t *testing.T) { suiteAtomicOnError(t, factory) })
 	t.Run("variants", func(t *testing.T) { suiteVariants(t, factory) })
+	t.Run("variant section order", func(t *testing.T) { suiteVariantSectionOrder(t, factory) })
 	t.Run("variant attributes", func(t *testing.T) { suiteVariantAttributes(t, factory) })
 	t.Run("variant filters", func(t *testing.T) { suiteVariantFilters(t, factory) })
 	t.Run("analogs", func(t *testing.T) { suiteAnalogs(t, factory) })
@@ -536,6 +537,123 @@ func suiteVariants(t *testing.T, factory configFactory) {
 	_, err = svc.Upsert(ctx, DeviceInput{Name: "К50-35", Variants: &cv})
 	wantDomainError(t, err, domain.CodeValidationFailed,
 		"variant «25 В»: mandatory parameter Cnom is missing")
+}
+
+// suiteVariantSectionOrder — порядок секций и разных параметров внутри
+// секции значимостью не обладает (docs/fill-format.md §4: параметры
+// внутри секции упорядочены каталогом): вход с секциями и параметрами
+// в порядке, отличном от каталожного, повтор того же входа и тот же
+// набор в каноническом порядке (форма экспорта) — Skipped без записи;
+// относительный порядок одноимённых строк одного параметра значим —
+// перестановка обновляет; карточка отображает параметры в порядке
+// каталога независимо от порядка входа.
+func suiteVariantSectionOrder(t *testing.T, factory configFactory) {
+	ctx := context.Background()
+	app := openSuiteApp(t, factory)
+	svc := app.Services().Devices
+
+	base := func(sections []SectionInput, variants []VariantInput) DeviceInput {
+		return DeviceInput{
+			Name:     "С2-33Н",
+			Sections: sections,
+			Variants: &variants,
+		}
+	}
+	recordSections := []SectionInput{
+		section("parameters", pvRange("Rnom", 1, 10000000), pvAtMost("Tolerance", 5)),
+		section("ratings", pvRange("Temp", -60, 125)),
+	}
+	// Секции исполнения и параметры внутри секции в порядке файла
+	// наполнения: dimensions до ratings (каталожный порядок групп —
+	// ratings, dimensions), Vmax до Pnom (каталожный порядок параметров —
+	// Pnom, Vmax).
+	fileOrder := []VariantInput{{
+		Label: "0.5 Вт",
+		Sections: []SectionInput{
+			section("dimensions", pvExact("massMax", 0.15)),
+			section("ratings", pvExact("Vmax", 350), pvExact("Pnom", 0.5)),
+		},
+	}}
+	if out := mustUpsert(t, svc, base(recordSections, fileOrder)); out != OutcomeAdded {
+		t.Fatalf("исход: %s", out)
+	}
+	if out := mustUpsert(t, svc, base(recordSections, fileOrder)); out != OutcomeSkipped {
+		t.Fatalf("повтор того же входа: %s", out)
+	}
+	// Тот же набор в каноническом порядке секций и параметров (форма
+	// экспорта) — Skipped: round-trip не меняет состояние.
+	canonical := []VariantInput{{
+		Label: "0.5 Вт",
+		Sections: []SectionInput{
+			section("ratings", pvExact("Pnom", 0.5), pvExact("Vmax", 350)),
+			section("dimensions", pvExact("massMax", 0.15)),
+		},
+	}}
+	if out := mustUpsert(t, svc, base(recordSections, canonical)); out != OutcomeSkipped {
+		t.Fatalf("канонический порядок: %s", out)
+	}
+	// Перестановка разных параметров в секциях записи — тоже Skipped.
+	shuffledRecord := []SectionInput{
+		section("ratings", pvRange("Temp", -60, 125)),
+		section("parameters", pvAtMost("Tolerance", 5), pvRange("Rnom", 1, 10000000)),
+	}
+	if out := mustUpsert(t, svc, base(shuffledRecord, fileOrder)); out != OutcomeSkipped {
+		t.Fatalf("перестановка параметров в секциях записи: %s", out)
+	}
+	// Карточка: группы — в порядке каталога, параметры внутри группы —
+	// в порядке каталога: в файле Vmax шёл до Pnom — карточка показывает
+	// Pnom, Vmax.
+	card, _, _ := svc.Get(ctx, "resistor", "С2-33Н")
+	if len(card.Variants) != 1 || len(card.Variants[0].Groups) != 2 ||
+		card.Variants[0].Groups[0].Section != "ratings" ||
+		card.Variants[0].Groups[1].Section != "dimensions" {
+		t.Fatalf("группы исполнения: %+v", card.Variants)
+	}
+	ratings := card.Variants[0].Groups[0].Values
+	if len(ratings) != 2 || ratings[0].Parameter != "Pnom" || ratings[1].Parameter != "Vmax" {
+		t.Fatalf("порядок параметров каталога: %+v", ratings)
+	}
+	// Относительный порядок одноимённых строк одного параметра значим
+	// (строки различаются условиями — «Icbo при 25 °C и при 85 °C»;
+	// порядок строк на карточке — docs/fill-format.md §4): перестановка —
+	// обновление, повтор перестановки — Skipped.
+	icbo25 := pvAtMost("Icbo", 0.5, cond("Vcb", 10), cond("temp", 25))
+	icbo85 := pvAtMost("Icbo", 1, cond("Vcb", 10), cond("temp", 85))
+	tr := func(vals ...catalog.ParameterValue) DeviceInput {
+		return DeviceInput{
+			Name:       "КТ315Б",
+			Attributes: []catalog.AttributeValue{attrText("structure", "npn")},
+			Sections:   []SectionInput{section("parameters", vals...)},
+		}
+	}
+	if out := mustUpsert(t, svc, tr(icbo25, icbo85)); out != OutcomeAdded {
+		t.Fatalf("одноимённые строки: %s", out)
+	}
+	if out := mustUpsert(t, svc, tr(icbo85, icbo25)); out != OutcomeUpdatedExisting {
+		t.Fatalf("перестановка одноимённых строк: %s", out)
+	}
+	if out := mustUpsert(t, svc, tr(icbo85, icbo25)); out != OutcomeSkipped {
+		t.Fatalf("повтор перестановки одноимённых строк: %s", out)
+	}
+	// Одноимённые строки на карточке — в порядке входа (перестановка
+	// применилась: сначала 85 °C, затем 25 °C).
+	trCard, _, _ := svc.Get(ctx, "transistor", "КТ315Б")
+	if len(trCard.Groups) == 0 || len(trCard.Groups[0].Values) != 2 {
+		t.Fatalf("значения КТ315Б: %+v", trCard.Groups)
+	}
+	icbo := trCard.Groups[0].Values
+	tempOf := func(v CardValue) float64 {
+		for _, c := range v.Conditions {
+			if c.Condition == "temp" {
+				return c.Value
+			}
+		}
+		return -1
+	}
+	if icbo[0].Parameter != "Icbo" || icbo[1].Parameter != "Icbo" ||
+		tempOf(icbo[0]) != 85 || tempOf(icbo[1]) != 25 {
+		t.Fatalf("одноимённые строки в порядке входа: %+v", icbo)
+	}
 }
 
 // suiteVariantAttributes — атрибуты исполнений (план 03 §7/§10):

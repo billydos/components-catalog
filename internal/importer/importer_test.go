@@ -209,6 +209,78 @@ func runImporterSuite(t *testing.T, factory configFactory) {
 		}
 	})
 
+	t.Run("VariantSectionOrderRoundTrip", func(t *testing.T) {
+		app := openApp(t, factory)
+		// Секции исполнения и параметры внутри секций в порядке,
+		// отличном от каталожного (dimensions до ratings, Vmax до Pnom):
+		// экспорт пишет группы и параметры в порядке каталога, повторный
+		// импорт экспорта и исходного файла — Skipped (порядок секций
+		// и разных параметров значимостью не обладает — план 03 §7,
+		// docs/fill-format.md §4).
+		file := filepath.Join(t.TempDir(), "order.jsonc")
+		write(t, file, `{
+			"resistors": [
+				{
+					"name": "СП3-33",
+					"variants": [
+						{ "label": "0.5 Вт",
+							"dimensions": [ { "parameter": "massMax", "value": 0.15 } ],
+							"ratings": [ { "parameter": "Vmax", "value": 350 }, { "parameter": "Pnom", "value": 0.5 } ] }
+					]
+				}
+			]
+		}`)
+		rep := importFile(t, app, file, false)
+		if rep.HasIssues() || rep.Added != 1 {
+			t.Fatalf("импорт: %+v; %v", rep, issueMessages(rep.Issues))
+		}
+		rep = importFile(t, app, file, false)
+		if rep.HasIssues() || rep.Skipped != 1 {
+			t.Fatalf("повтор исходного файла: %+v; %v", rep, issueMessages(rep.Issues))
+		}
+		// Тот же набор в каноническом порядке секций и параметров —
+		// тоже Skipped.
+		canonical := filepath.Join(t.TempDir(), "canonical.jsonc")
+		write(t, canonical, `{
+			"resistors": [
+				{
+					"name": "СП3-33",
+					"variants": [
+						{ "label": "0.5 Вт",
+							"ratings": [ { "parameter": "Pnom", "value": 0.5 }, { "parameter": "Vmax", "value": 350 } ],
+							"dimensions": [ { "parameter": "massMax", "value": 0.15 } ] }
+					]
+				}
+			]
+		}`)
+		rep = importFile(t, app, canonical, false)
+		if rep.HasIssues() || rep.Skipped != 1 {
+			t.Fatalf("канонический порядок: %+v; %v", rep, issueMessages(rep.Issues))
+		}
+		var buf bytes.Buffer
+		if err := New(app).Export(context.Background(), &buf, FormatJSONC, nil); err != nil {
+			t.Fatalf("экспорт: %v", err)
+		}
+		// Порядок экспорта каноничен: секции варианта — в порядке групп
+		// каталога (ratings до dimensions), параметры внутри секции —
+		// в порядке каталога (Pnom до Vmax).
+		out := buf.String()
+		ri, di := strings.Index(out, `"ratings"`), strings.Index(out, `"dimensions"`)
+		if ri < 0 || di < 0 || ri > di {
+			t.Fatalf("экспорт: секции варианта не в порядке каталога (ratings=%d dimensions=%d):\n%s", ri, di, out)
+		}
+		pi, vi := strings.Index(out, `"Pnom"`), strings.Index(out, `"Vmax"`)
+		if pi < 0 || vi < 0 || pi > vi {
+			t.Fatalf("экспорт: параметры не в порядке каталога (Pnom=%d Vmax=%d):\n%s", pi, vi, out)
+		}
+		exp := filepath.Join(t.TempDir(), "export.jsonc")
+		write(t, exp, buf.String())
+		rep = importFile(t, app, exp, false)
+		if rep.HasIssues() || rep.Skipped != 1 {
+			t.Fatalf("повторный импорт экспорта: %+v; %v", rep, issueMessages(rep.Issues))
+		}
+	})
+
 	t.Run("ForwardAnalogReferencesResolved", func(t *testing.T) {
 		app := openApp(t, factory)
 		// Прямая ссылка на позднейшую запись файла: многопроходное

@@ -748,6 +748,9 @@ components:
         name: {type: string}
         values:
           type: array
+          description: Значения в каноническом порядке каталога (sort_order
+            параметра); одноимённые строки одного параметра — в порядке
+            наполнения.
           items: {$ref: "#/components/schemas/CardValue"}
     CardVariant:
       type: object
