@@ -318,10 +318,16 @@ func (a *API) writeError(w *responseWriter, r *http.Request, status int, code do
 
 // writeDomainErr — ожидаемая ошибка домена: статус по коду и контексту
 // (inQuery — параметры/путь запроса, иначе — тело записи POST/PUT);
-// текст — каталог сообщений по локали запроса (D9).
+// текст — каталог сообщений по локали запроса (D9). Внутренняя ошибка
+// несёт технические детали аргументами (сбой обслуживания, DDL) — наружу
+// фиксированный текст и журнал, как у неожидаемых ошибок.
 func (a *API) writeDomainErr(w *responseWriter, r *http.Request, err error, inQuery bool) {
 	de, ok := domain.AsError(err)
 	if !ok {
+		a.writeErr(w, r, err)
+		return
+	}
+	if de.Code == domain.CodeInternal {
 		a.writeErr(w, r, err)
 		return
 	}
