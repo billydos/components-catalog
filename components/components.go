@@ -108,3 +108,9 @@ func (a *App) Revisions(ctx context.Context) (catalogRev, dataRev int64, err err
 // Stats собирает агрегаты приложения: количества записей по классам,
 // версия схемы модуля и счётчики ревизий.
 func (a *App) Stats(ctx context.Context) (Stats, error) { return a.svc.Stats(ctx) }
+
+// MaintainStats обновляет статистику планировщика хранилища после
+// массовой записи помимо импортёра (план 02-database.md §4): составные
+// индексы вариантных параметрических фильтров выбираются планами по
+// актуальной статистике.
+func (a *App) MaintainStats(ctx context.Context) error { return a.svc.MaintainStats(ctx) }

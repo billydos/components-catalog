@@ -91,8 +91,8 @@ func TestSchemaVersionMismatch(t *testing.T) {
 	// Пин фактической версии: документация плана (02-database.md §5)
 	// называет текущую версию — рассинхрон константы заметен тестом,
 	// а не молчаливым пропуском consumers (тесты читают константу).
-	if SchemaVersion != 13 {
-		t.Fatalf("SchemaVersion = %d, ожидалась 13 (docs/plan/02-database.md §5)", SchemaVersion)
+	if SchemaVersion != 14 {
+		t.Fatalf("SchemaVersion = %d, ожидалась 14 (docs/plan/02-database.md §5)", SchemaVersion)
 	}
 	path, db := openSQLiteFile(t)
 	ctx := context.Background()
@@ -196,6 +196,45 @@ func TestEnsureCreatedSQLiteMemory(t *testing.T) {
 	}
 	if err := db.CheckSchema(context.Background()); err != nil {
 		t.Fatalf("CheckSchema: %v", err)
+	}
+}
+
+// TestMaintainStats — обслуживание статистики планировщика (план 02
+// §4): на sqlite ANALYZE (приближённый, с analysis_limit) создаёт
+// sqlite_stat1 — по этой статистике планировщик выбирает составные
+// индексы корреляции вариантных фильтров (§3); на postgres ANALYZE
+// таблиц данных выполняется без ошибок (локальный прогон опционален).
+func TestMaintainStats(t *testing.T) {
+	ctx := context.Background()
+	_, db := openSQLiteFile(t)
+	if _, err := db.EnsureCreated(ctx); err != nil {
+		t.Fatalf("EnsureCreated: %v", err)
+	}
+	if err := db.MaintainStats(ctx); err != nil {
+		t.Fatalf("MaintainStats: %v", err)
+	}
+	var n int
+	if err := db.queryRow(ctx,
+		`SELECT COUNT(*) FROM sqlite_master WHERE type = 'table' AND name = 'sqlite_stat1'`,
+		nil).Scan(&n); err != nil {
+		t.Fatalf("sqlite_stat1: %v", err)
+	}
+	if n != 1 {
+		t.Fatal("sqlite_stat1 не создана — ANALYZE не выполнялся")
+	}
+
+	dsn := testutil.PostgresDSN(t)
+	testutil.DropAllTables(t, dsn)
+	pg, err := Open(ctx, Config{Dialect: "postgres", DSN: dsn})
+	if err != nil {
+		t.Fatalf("open postgres: %v", err)
+	}
+	defer pg.Close() //nolint:errcheck — тестовое соединение
+	if _, err := pg.EnsureCreated(ctx); err != nil {
+		t.Fatalf("EnsureCreated postgres: %v", err)
+	}
+	if err := pg.MaintainStats(ctx); err != nil {
+		t.Fatalf("MaintainStats postgres: %v", err)
 	}
 }
 

@@ -41,10 +41,27 @@ import "strings"
 // FK device_variants; базы прежних версий пересоздаются импортом (D5).
 // Версия 13 — источники данных записи (план 03 §13, D13): словарь
 // source_types (каталог), реестр sources с лицами (авторы/редакторы)
-// и ссылками device_sources; атрибут datasheetUrl упразднён — ссылки
-// на документацию несут источники типа datasheet; базы прежних версий
+// и ссылками device_sources; атрибут datasheetUrl упразднён — ссылки на
+// документацию несут источники типа datasheet; базы прежних версий
 // пересоздаются импортом (D5).
-const SchemaVersion = 13
+// Версия 14 — составные покрывающие индексы parameter_values
+// (variant_id, parameter_code, value_min, value_max, value_exact) и
+// (device_id, parameter_code, …) при сохранении одиночных idx_pv_variant
+// и idx_pv_device (не префиксная замена: postgres в параметризованных
+// планах корреляционных seek'ов выбирает узкие одиночные индексы —
+// без них уходит в Materialize+Nested Loop по всей таблице значений),
+// плюс обслуживание статистики планировщика после массовой записи
+// импорта (MaintainStats диалекта): вариантная семантика параметрических
+// фильтров (R8) коррелирует строки значений с исполнением/записью,
+// и поиск по колонкам корреляции обязан идти индексом по актуальной
+// статистике — без неё sqlite строит MULTI-INDEX OR по индексам значений
+// (кандидаты по всей таблице на каждую пару запись×исполнение —
+// квадратичная деградация на вариантных данных), postgres ошибается
+// в селективности диапазонов параметризованного плана; покрывающие
+// индексы дают адресный seek (variant_id=?, parameter_code=?) без
+// выборки строки таблицы обоим планировщикам (измерения — qa/reports/).
+// Базы версии 13 пересоздаются импортом (D5).
+const SchemaVersion = 14
 
 // autoIncToken — маркер авто-PK в переносимом DDL; диалект заменяет его
 // своим определением в RewriteDDL (sqlite: PRIMARY KEY AUTOINCREMENT —
@@ -352,6 +369,8 @@ var ddlStatements = []string{
 	`CREATE INDEX IF NOT EXISTS idx_pv_code_text ON parameter_values(parameter_code, value_text)`,
 	`CREATE INDEX IF NOT EXISTS idx_pv_device ON parameter_values(device_id)`,
 	`CREATE INDEX IF NOT EXISTS idx_pv_variant ON parameter_values(variant_id)`,
+	`CREATE INDEX IF NOT EXISTS idx_pv_device_code ON parameter_values(device_id, parameter_code, value_min, value_max, value_exact)`,
+	`CREATE INDEX IF NOT EXISTS idx_pv_variant_code ON parameter_values(variant_id, parameter_code, value_min, value_max, value_exact)`,
 
 	`CREATE INDEX IF NOT EXISTS idx_dv_device ON device_variants(device_id)`,
 

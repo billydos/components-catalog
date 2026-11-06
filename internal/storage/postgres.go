@@ -18,6 +18,26 @@ type postgresDialect struct{}
 
 func (postgresDialect) Name() string { return "postgres" }
 
+// MaintainStats — ANALYZE таблиц данных путей поиска (записи, исполнения,
+// значения параметров и присоединённые атрибуты/поля): границы
+// параметрических фильтров связываются параметрами ($n), планировщик не
+// видит их значений в оценке селективности — актуальная статистика
+// удерживает план на составных индексах корреляции (02-database.md §3).
+// Между вызовами импортёра статистику поддерживает autovacuum; вызов
+// снимает окно усталой статистики сразу после массовой записи.
+func (postgresDialect) MaintainStats(ctx context.Context, db *sql.DB) error {
+	for _, table := range [...]string{
+		"devices", "device_variants", "parameter_values",
+		"device_designation_fields", "device_attribute_values",
+		"device_variant_attribute_values",
+	} {
+		if _, err := db.ExecContext(ctx, "ANALYZE "+table); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 // RewriteDDL подставляет авто-PK и точные типы: INTEGER → BIGINT —
 // диапазон int64 у id и ссылок совпадает со sqlite, входные значения вне
 // int4 (REST/поиск по id) не отбрасываются кодированием параметров;

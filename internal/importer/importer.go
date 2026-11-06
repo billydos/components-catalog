@@ -149,6 +149,9 @@ func (m *Importer) importDocument(ctx context.Context, r io.Reader, name string,
 		return rep, err
 	}
 	m.applyRecords(ctx, doc.Records, readSnap, dryRun, &rep, o, srcPlan.codes)
+	if err := m.maintainStats(ctx, dryRun, &rep); err != nil {
+		return rep, err
+	}
 	return rep, nil
 }
 
@@ -314,7 +317,26 @@ func (m *Importer) importNDJSON(ctx context.Context, r io.Reader, name string,
 		return rep, err
 	}
 	m.applyRecords(ctx, records, readSnap, dryRun, &rep, o, srcPlan.codes)
+	if err := m.maintainStats(ctx, dryRun, &rep); err != nil {
+		return rep, err
+	}
 	return rep, nil
+}
+
+// maintainStats обновляет статистику планировщика после применённой
+// записи импорта: составные индексы вариантных параметрических фильтров
+// выбираются планами по статистике (план 02 §3/§4). Dry-run и прогон без
+// изменений обслуживание не запускают. Отказ — внутренняя ошибка: данные
+// импорта уже зафиксированы, статистика — обслуживание, а не часть
+// применения записей.
+func (m *Importer) maintainStats(ctx context.Context, dryRun bool, rep *Report) error {
+	if dryRun || rep.Added == 0 && rep.Updated == 0 {
+		return nil
+	}
+	if err := m.app.MaintainStats(ctx); err != nil {
+		return domain.NewErrorf(domain.CodeInternal, domain.MsgInternalError, err.Error())
+	}
+	return nil
 }
 
 // mergeSourceItems собирает дерево корневой секции sources из строк

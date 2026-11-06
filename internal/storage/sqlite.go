@@ -139,3 +139,18 @@ func (sqliteDialect) Open(ctx context.Context, cfg Config) (*pools, error) {
 	}
 	return &pools{reads: readDB, writes: writeDB}, nil
 }
+
+// MaintainStats — приближённая статистика ANALYZE с analysis_limit
+// (миллисекунды на 10⁵ строк): sqlite без sqlite_stat1 оценивает индексы
+// значений выгоднее составных индексов корреляции и строит MULTI-INDEX OR
+// с кандидатами по всей таблице на каждую пару запись×исполнение
+// вариантного фильтра (измерения — qa/reports/). Пул записи — одно
+// выделенное соединение: PRAGMA и ANALYZE выполняются на нём; analysis_limit
+// остаётся установленным для соединения (неявных ANALYZE в модуле нет).
+func (sqliteDialect) MaintainStats(ctx context.Context, db *sql.DB) error {
+	if _, err := db.ExecContext(ctx, `PRAGMA analysis_limit=400`); err != nil {
+		return err
+	}
+	_, err := db.ExecContext(ctx, `ANALYZE`)
+	return err
+}

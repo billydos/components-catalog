@@ -59,6 +59,16 @@ type Dialect interface {
 	// случае возвращает SELECT вызывающего кода. Ошибки уникальности
 	// не возникает — транзакция остаётся рабочей в обоих диалектах.
 	InsertIfAbsentReturningID(ctx context.Context, tx *sql.Tx, query string, args []any) (id int64, inserted bool, err error)
+
+	// MaintainStats обновляет статистику планировщика после массовой
+	// записи (импорт): составные индексы параметрического поиска
+	// (02-database.md §3) выбираются планом по статистике — без неё
+	// планировщики уходят в сканы по индексам значений (sqlite —
+	// MULTI-INDEX OR на каждую пару запись×исполнение вариантного
+	// фильтра, postgres — промах селективности диапазонов
+	// параметризованного плана). Выполняется вне транзакций на пуле
+	// записи; вызов — по факту записи (importer), не на каждом открытии.
+	MaintainStats(ctx context.Context, db *sql.DB) error
 }
 
 // pools — соединения хранилища: пул чтения и соединение записи.
@@ -128,6 +138,13 @@ func (d *DB) Close() error {
 
 // DialectName возвращает код диалекта хранилища.
 func (d *DB) DialectName() string { return d.dialect.Name() }
+
+// MaintainStats — обслуживание статистики планировщика после массовой
+// записи (диалектозависимое — docs/plan/02-database.md §4): вне явных
+// транзакций, на пуле записи.
+func (d *DB) MaintainStats(ctx context.Context) error {
+	return d.dialect.MaintainStats(ctx, d.writes)
+}
 
 // Begin открывает явную транзакцию записи (единственный путь DML).
 func (d *DB) Begin(ctx context.Context) (*Tx, error) {

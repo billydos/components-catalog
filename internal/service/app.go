@@ -123,6 +123,14 @@ func (a *App) Revisions(ctx context.Context) (catalogRev, dataRev int64, err err
 	return a.db.Revisions(ctx)
 }
 
+// MaintainStats обновляет статистику планировщика хранилища после
+// массовой записи (импорт): диалектозависимое обслуживание — план
+// 02-database.md §4. Публичный метод фасада — встраиваемые потребители
+// ведут массовую запись и помимо импортёра.
+func (a *App) MaintainStats(ctx context.Context) error {
+	return a.db.MaintainStats(ctx)
+}
+
 // seedIfEmpty применяет сиды каталога на пустую базу (kinds пуста) —
 // повторные запуски идемпотентны (upsert по коду). Ошибки — доменные
 // (seed_failed): классификация CLI и локализация работают как у прочих

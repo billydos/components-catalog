@@ -3,6 +3,7 @@ package importer
 import (
 	"bytes"
 	"context"
+	"database/sql"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -14,6 +15,8 @@ import (
 	"github.com/billydos/components-catalog/internal/service"
 	"github.com/billydos/components-catalog/internal/storage"
 	"github.com/billydos/components-catalog/internal/testutil"
+
+	_ "modernc.org/sqlite" // прямое соединение к файловой базе теста обслуживания статистики
 )
 
 // Интеграционный набор этапа 4 (план работ 4.2–4.6): один и тот же набор
@@ -86,6 +89,80 @@ func openApp(t *testing.T, factory configFactory) *service.App {
 	}
 	t.Cleanup(func() { app.Close() })
 	return app
+}
+
+// TestImportMaintainsStats — обслуживание статистики планировщика
+// привязано к факту записи (план 02 §4): прогон с применёнными записями
+// заполняет sqlite_stat1, dry-run и повторный импорт без изменений —
+// нет. Наблюдение — по файловой базе sqlite вторым соединением
+// database/sql (анализ статистики — internals диалекта, сервисного
+// пути нет).
+func TestImportMaintainsStats(t *testing.T) {
+	cfg := fileConfig(t)
+	app := openApp(t, func(*testing.T) service.Config { return cfg })
+	imp := New(app)
+	ctx := context.Background()
+
+	doc := `{"transistors": [{"name": "КТ361Б", "attributes": {"structure": "pnp"}}]}`
+	changed := `{"transistors": [{"name": "КТ361Б", "attributes": {"structure": "pnp", "yearFrom": 1970}}]}`
+
+	stat1 := func() int {
+		db, err := sql.Open("sqlite", cfg.DSN)
+		if err != nil {
+			t.Fatalf("open stat: %v", err)
+		}
+		defer db.Close() //nolint:errcheck — тестовое соединение
+		var n int
+		if err := db.QueryRow(`SELECT COUNT(*) FROM sqlite_stat1`).Scan(&n); err != nil {
+			t.Fatalf("sqlite_stat1: %v", err)
+		}
+		return n
+	}
+	clearStat1 := func() {
+		db, err := sql.Open("sqlite", cfg.DSN)
+		if err != nil {
+			t.Fatalf("open stat: %v", err)
+		}
+		defer db.Close() //nolint:errcheck — тестовое соединение
+		if _, err := db.Exec(`DELETE FROM sqlite_stat1`); err != nil {
+			t.Fatalf("очистка sqlite_stat1: %v", err)
+		}
+	}
+
+	// Применённая запись — статистика собрана.
+	rep, err := imp.ImportFormat(ctx, strings.NewReader(doc), FormatJSONC, false)
+	if err != nil || rep.Added != 1 {
+		t.Fatalf("импорт: %+v err=%v", rep, err)
+	}
+	if stat1() == 0 {
+		t.Fatal("применённая запись не обновила sqlite_stat1")
+	}
+	clearStat1()
+
+	// Повторный импорт без изменений и dry-run — обслуживание не запускается.
+	rep, err = imp.ImportFormat(ctx, strings.NewReader(doc), FormatJSONC, false)
+	if err != nil || rep.Skipped != 1 {
+		t.Fatalf("повторный импорт: %+v err=%v", rep, err)
+	}
+	if n := stat1(); n != 0 {
+		t.Fatalf("повторный импорт запустил обслуживание: sqlite_stat1=%d", n)
+	}
+	rep, err = imp.ImportFormat(ctx, strings.NewReader(changed), FormatJSONC, true)
+	if err != nil || !rep.DryRun || rep.Updated != 1 {
+		t.Fatalf("dry-run: %+v err=%v", rep, err)
+	}
+	if n := stat1(); n != 0 {
+		t.Fatalf("dry-run запустил обслуживание: sqlite_stat1=%d", n)
+	}
+
+	// Изменённая запись — статистика снова собрана.
+	rep, err = imp.ImportFormat(ctx, strings.NewReader(changed), FormatJSONC, false)
+	if err != nil || rep.Updated != 1 {
+		t.Fatalf("импорт изменения: %+v err=%v", rep, err)
+	}
+	if stat1() == 0 {
+		t.Fatal("обновление записи не обновило sqlite_stat1")
+	}
 }
 
 func importFile(t *testing.T, app *service.App, path string, dryRun bool) Report {
