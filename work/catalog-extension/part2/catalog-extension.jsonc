@@ -1,0 +1,149 @@
+// catalog-extension.jsonc — расширение каталога components-catalog (партия 2:
+// выверка даташитов мировых серий). Встроено в стартовый сид (seed/seed.go);
+// файл сохранён как исходник расширения. Новые коды конденсаторов
+// (fill-format.md, class-keys.md) и переопределения Esr / operatingLife /
+// shelfLife с расширенными наборами условий.
+{
+  "catalog": {
+    "parameters": [
+      // Отношение модулей импеданса при низкой температуре к значению при +20 °C.
+      {
+        "code": "Zratio",
+        "group": "electrical",
+        "value_type": "at_most",
+        "kinds": ["capacitor"],
+        "condition_sets": [
+          {
+            "items": [
+              { "condition": "temp", "mode": "required" },
+              { "condition": "freq", "mode": "optional" }
+            ]
+          }
+        ],
+        "sort_order": 725
+      },
+      // ЭСР; расширение сидовых наборов условий: низкотемпературный ЭПС и
+      // произвольная частота без температуры (набор 3 — на будущее, строк под
+      // него в данных пока нет).
+      {
+        "code": "Esr",
+        "group": "electrical",
+        "unit": "ohm",
+        "value_type": "at_most",
+        "kinds": ["capacitor"],
+        "condition_sets": [
+          // Набор 1 — каноническое измерение: 100 кГц, частоту в строке можно опустить.
+          {
+            "items": [
+              { "condition": "freq", "mode": "required", "fixed_value": 100000 }
+            ]
+          },
+          // Набор 2 — низкотемпературный ЭПС: температура обязательна, частота любая.
+          {
+            "items": [
+              { "condition": "temp", "mode": "required" },
+              { "condition": "freq", "mode": "optional" }
+            ]
+          },
+          // Набор 3 — произвольная частота без температуры (скудные источники).
+          {
+            "items": [
+              { "condition": "freq", "mode": "required" }
+            ]
+          }
+        ],
+        "sort_order": 450
+      },
+      // Минимальный срок службы; расширение сидового набора: температура опциональна.
+      {
+        "code": "operatingLife",
+        "group": "limiting",
+        "unit": "h",
+        "value_type": "at_least",
+        "condition_sets": [
+          {
+            "items": [
+              { "condition": "temp", "mode": "optional" }
+            ]
+          }
+        ],
+        "sort_order": 400
+      },
+      // Срок сохраняемости; расширение сидового набора: температура опциональна.
+      {
+        "code": "shelfLife",
+        "group": "limiting",
+        "unit": "yr",
+        "value_type": "at_least",
+        "condition_sets": [
+          {
+            "items": [
+              { "condition": "temp", "mode": "optional" }
+            ]
+          }
+        ],
+        "sort_order": 410
+      },
+      // Тангенс угла потерь после испытания на долговечность, % от исходного.
+      // Продолжительность и температура испытания — operatingLife (h) соответствующей записи/варианта.
+      {
+        "code": "DFLife",
+        "group": "electrical",
+        "unit": "pct",
+        "value_type": "at_most",
+        "kinds": ["capacitor"],
+        "sort_order": 435
+      },
+      // Ток утечки после испытания на долговечность, % от исходного.
+      // Продолжительность и температура испытания — operatingLife (h) соответствующей записи/варианта.
+      {
+        "code": "IleakLife",
+        "group": "electrical",
+        "unit": "pct",
+        "value_type": "at_most",
+        "kinds": ["capacitor"],
+        "sort_order": 445
+      },
+      // Эквивалентное последовательное сопротивление после испытания на долговечность, % от исходного.
+      // Продолжительность и температура испытания — operatingLife (h) соответствующей записи/варианта.
+      {
+        "code": "EsrLife",
+        "group": "electrical",
+        "unit": "pct",
+        "value_type": "at_most",
+        "kinds": ["capacitor"],
+        "sort_order": 455
+      },
+      // Тангенс угла потерь после испытания на сохраняемость, % от исходного.
+      // Продолжительность и температура — в notes (shelf life) соответствующей записи.
+      {
+        "code": "DFShelf",
+        "group": "electrical",
+        "unit": "pct",
+        "value_type": "at_most",
+        "kinds": ["capacitor"],
+        "sort_order": 437
+      },
+      // Ток утечки после испытания на сохраняемость, % от исходного.
+      // Продолжительность и температура — в notes (shelf life) соответствующей записи.
+      {
+        "code": "IleakShelf",
+        "group": "electrical",
+        "unit": "pct",
+        "value_type": "at_most",
+        "kinds": ["capacitor"],
+        "sort_order": 447
+      },
+      // Эквивалентное последовательное сопротивление после испытания на сохраняемость, % от исходного.
+      // Продолжительность и температура — в notes (shelf life) соответствующей записи.
+      {
+        "code": "EsrShelf",
+        "group": "electrical",
+        "unit": "pct",
+        "value_type": "at_most",
+        "kinds": ["capacitor"],
+        "sort_order": 457
+      }
+    ]
+  }
+}
