@@ -405,7 +405,14 @@ func parameters() []catalog.ParameterDef {
 			ConditionSets: []catalog.ConditionSet{set(1, req("Vnom"), opt("temp"))}},
 		{Code: "Esr", Group: "electrical", Unit: "ohm",
 			ValueType: catalog.ValueAtMost, SortOrder: 450, Active: true, Kinds: []domain.Kind{domain.KindCapacitor},
-			ConditionSets: []catalog.ConditionSet{set(1, fixed("freq", 100000))}},
+			ConditionSets: []catalog.ConditionSet{
+				// Набор 1 — каноническое измерение 100 кГц (частота в строке
+				// записи опускается); набор 2 — низкотемпературный ЭПС;
+				// набор 3 — произвольная частота без температуры.
+				set(1, fixed("freq", 100000)),
+				set(2, req("temp"), opt("freq")),
+				set(3, req("freq")),
+			}},
 		{Code: "Iripple", Group: "electrical", Unit: "mA",
 			ValueType: catalog.ValueAtMost, SortOrder: 460, Active: true, Kinds: []domain.Kind{domain.KindCapacitor},
 			ConditionSets: []catalog.ConditionSet{set(1, req("freq"), opt("temp"))}},
@@ -444,7 +451,7 @@ func parameters() []catalog.ParameterDef {
 			ValueType: catalog.ValueAtLeast, SortOrder: 840, Active: true, Kinds: []domain.Kind{domain.KindCapacitor}},
 
 		// Конденсаторы — параметры по выверке «Справочника по электрическим
-		// конденсаторам» 1983 (work/tmp/CONSOLIDATED-NEW-CODES.md).
+		// конденсаторам» 1983 (work/catalog-extension/part1/CONSOLIDATED-NEW-CODES.md).
 		{Code: "Qreact", Group: "electrical", Unit: "var",
 			ValueType: catalog.ValueExact, SortOrder: 850, Active: true, Kinds: []domain.Kind{domain.KindCapacitor}},
 		{Code: "Lnom", Group: "electrical", Unit: "uH",
@@ -473,6 +480,28 @@ func parameters() []catalog.ParameterDef {
 			ValueType: catalog.ValueLimits, AllowNegative: true, SortOrder: 960, Active: true, Kinds: []domain.Kind{domain.KindCapacitor}},
 		{Code: "DeltaCshelf", Group: "electrical", Unit: "pct",
 			ValueType: catalog.ValueLimits, AllowNegative: true, SortOrder: 970, Active: true, Kinds: []domain.Kind{domain.KindCapacitor}},
+
+		// Конденсаторы — пост-тестовые значения и низкотемпературный
+		// импеданс по выверке даташитов мировых серий
+		// (work/catalog-extension/part2). Режим испытания Life-кодов —
+		// operatingLife записи/варианта (часы + опц. temp, §6.12);
+		// длительность и температура shelf-теста — notes: рейтинг shelfLife
+		// в годах ему не тождествен.
+		{Code: "DFLife", Group: "electrical", Unit: "pct",
+			ValueType: catalog.ValueAtMost, SortOrder: 435, Active: true, Kinds: []domain.Kind{domain.KindCapacitor}},
+		{Code: "DFShelf", Group: "electrical", Unit: "pct",
+			ValueType: catalog.ValueAtMost, SortOrder: 437, Active: true, Kinds: []domain.Kind{domain.KindCapacitor}},
+		{Code: "IleakLife", Group: "electrical", Unit: "pct",
+			ValueType: catalog.ValueAtMost, SortOrder: 445, Active: true, Kinds: []domain.Kind{domain.KindCapacitor}},
+		{Code: "IleakShelf", Group: "electrical", Unit: "pct",
+			ValueType: catalog.ValueAtMost, SortOrder: 447, Active: true, Kinds: []domain.Kind{domain.KindCapacitor}},
+		{Code: "EsrLife", Group: "electrical", Unit: "pct",
+			ValueType: catalog.ValueAtMost, SortOrder: 455, Active: true, Kinds: []domain.Kind{domain.KindCapacitor}},
+		{Code: "EsrShelf", Group: "electrical", Unit: "pct",
+			ValueType: catalog.ValueAtMost, SortOrder: 457, Active: true, Kinds: []domain.Kind{domain.KindCapacitor}},
+		{Code: "Zratio", Group: "electrical",
+			ValueType: catalog.ValueAtMost, SortOrder: 725, Active: true, Kinds: []domain.Kind{domain.KindCapacitor},
+			ConditionSets: []catalog.ConditionSet{set(1, req("temp"), opt("freq"))}},
 
 		// Полевые транзисторы — электрические параметры (§6.1): собственные
 		// коды, величины биполярных не дублируются — пересечений с разделом
@@ -678,9 +707,11 @@ func parameters() []catalog.ParameterDef {
 		// (все классы, D7); у конденсаторов — единственные представители
 		// секции ratings.
 		{Code: "operatingLife", Group: "limiting", Unit: "h",
-			ValueType: catalog.ValueAtLeast, SortOrder: 400, Active: true},
+			ValueType: catalog.ValueAtLeast, SortOrder: 400, Active: true,
+			ConditionSets: []catalog.ConditionSet{set(1, opt("temp"))}},
 		{Code: "shelfLife", Group: "limiting", Unit: "yr",
-			ValueType: catalog.ValueAtLeast, SortOrder: 410, Active: true},
+			ValueType: catalog.ValueAtLeast, SortOrder: 410, Active: true,
+			ConditionSets: []catalog.ConditionSet{set(1, opt("temp"))}},
 
 		// Массогабаритные данные (§6.7) — все классы.
 		{Code: "massMax", Group: "dimensional", Unit: "g",

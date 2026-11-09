@@ -350,11 +350,49 @@ func TestConditionSets(t *testing.T) {
 			t.Fatalf(" got: %v", messages(probs))
 		}
 	})
-	t.Run("fixed_value нарушено", func(t *testing.T) {
-		d := valP("Esr", catalog.ConditionValue{Condition: "freq", Value: 1})
+	t.Run("набор 2 — низкотемпературный ЭПС", func(t *testing.T) {
+		for _, conds := range [][]catalog.ConditionValue{
+			{{Condition: "temp", Value: -40}, {Condition: "freq", Value: 100000}},
+			{{Condition: "temp", Value: 20}},
+		} {
+			d := valP("Esr", conds...)
+			d.Kind = domain.KindCapacitor
+			if probs := e.ValidateDevice(d); len(probs) != 0 {
+				t.Fatalf("набор %v: %v", conds, messages(probs))
+			}
+		}
+	})
+	t.Run("набор 3 — произвольная частота без температуры", func(t *testing.T) {
+		d := valP("Esr", catalog.ConditionValue{Condition: "freq", Value: 120})
 		d.Kind = domain.KindCapacitor
-		probs := e.ValidateDevice(d)
-		if len(probs) != 1 || probs[0].Message != "parameter «Esr»: condition «freq» is fixed to value 100000" {
+		if probs := e.ValidateDevice(d); len(probs) != 0 {
+			t.Fatalf(" got: %v", messages(probs))
+		}
+	})
+	t.Run("fixed_value нарушено", func(t *testing.T) {
+		// У сидового Esr нарушение фикса недостижимо: строка с произвольной
+		// freq проходит набором 3. Правило проверяется тестовым определением,
+		// применённым поверх сида.
+		snap, probs := catalog.ApplyCatalog(seedSnapshot(t), catalog.Input{
+			Parameters: []catalog.ParameterDef{{
+				Code: "FixProbe", Group: "electrical", Unit: "ohm",
+				ValueType: catalog.ValueAtMost, SortOrder: 458, Active: true,
+				Kinds: []domain.Kind{domain.KindCapacitor},
+				ConditionSets: []catalog.ConditionSet{{
+					No: 1,
+					Items: []catalog.ConditionSetItem{{
+						Condition: "freq", Mode: catalog.ModeRequired, FixedValue: f(100000),
+					}},
+				}},
+			}},
+		})
+		if len(probs) != 0 {
+			t.Fatalf("каталог: %v", messages(probs))
+		}
+		d := valP("FixProbe", catalog.ConditionValue{Condition: "freq", Value: 1})
+		d.Kind = domain.KindCapacitor
+		probs = catalog.NewEngine(snap).ValidateDevice(d)
+		if len(probs) != 1 || probs[0].Message != "parameter «FixProbe»: condition «freq» is fixed to value 100000" {
 			t.Fatalf(" got: %v", messages(probs))
 		}
 	})

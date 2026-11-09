@@ -19,7 +19,7 @@ func TestSeedAppliesCleanly(t *testing.T) {
 		}
 		t.Fatal("стартовый каталог не проходит метасхему")
 	}
-	if len(snap.Parameters) != 147 || len(snap.Attributes) != 21 ||
+	if len(snap.Parameters) != 154 || len(snap.Attributes) != 21 ||
 		len(snap.Units) != 34 || len(snap.Conditions) != 20 {
 		t.Fatalf("состав каталога: параметры %d, атрибуты %d, единицы %d, условия %d",
 			len(snap.Parameters), len(snap.Attributes), len(snap.Units), len(snap.Conditions))
@@ -204,9 +204,15 @@ func TestSeedSpotChecks(t *testing.T) {
 		t.Errorf("Tolerance: применимость %v", tolerance.Kinds)
 	}
 	esr := check("Esr")
-	if len(esr.ConditionSets) != 1 || len(esr.ConditionSets[0].Items) != 1 ||
-		esr.ConditionSets[0].Items[0].FixedValue == nil || *esr.ConditionSets[0].Items[0].FixedValue != 100000 {
-		t.Errorf("Esr: набор условий %+v", esr.ConditionSets)
+	if len(esr.ConditionSets) != 3 ||
+		len(esr.ConditionSets[0].Items) != 1 ||
+		esr.ConditionSets[0].Items[0].FixedValue == nil || *esr.ConditionSets[0].Items[0].FixedValue != 100000 ||
+		len(esr.ConditionSets[1].Items) != 2 ||
+		esr.ConditionSets[1].Items[0].Condition != "temp" || esr.ConditionSets[1].Items[0].Mode != catalog.ModeRequired ||
+		esr.ConditionSets[1].Items[1].Condition != "freq" || esr.ConditionSets[1].Items[1].Mode != catalog.ModeOptional ||
+		len(esr.ConditionSets[2].Items) != 1 ||
+		esr.ConditionSets[2].Items[0].Condition != "freq" || esr.ConditionSets[2].Items[0].FixedValue != nil {
+		t.Errorf("Esr: набор условий %+v — ожидались фикс. 100 кГц / temp+опц. freq / freq", esr.ConditionSets)
 	}
 	z := check("Z")
 	if z.ValueType != catalog.ValueAtMost || len(z.ConditionSets) != 1 ||
@@ -218,6 +224,24 @@ func TestSeedSpotChecks(t *testing.T) {
 	if ep.Unit != "" || ep.ValueType != catalog.ValueAtLeast {
 		t.Errorf("endurancePulse: единица %q, тип %s — ожидался безразмерный at_least",
 			ep.Unit, string(ep.ValueType))
+	}
+	// Пост-тестовые значения (part2): Life/Shelf — % от исходного, без
+	// наборов условий; Zratio — безразмерный, temp обязательна.
+	for _, code := range []string{"DFLife", "DFShelf", "IleakLife", "IleakShelf", "EsrLife", "EsrShelf"} {
+		p := check(code)
+		if p.Unit != "pct" || p.ValueType != catalog.ValueAtMost || len(p.ConditionSets) != 0 ||
+			!p.AppliesTo(domain.KindCapacitor) || p.AppliesTo(domain.KindResistor) {
+			t.Errorf("%s: единица %q, тип %s, наборы %+v, применимость %v",
+				code, p.Unit, string(p.ValueType), p.ConditionSets, p.Kinds)
+		}
+	}
+	zr := check("Zratio")
+	if zr.Unit != "" || zr.ValueType != catalog.ValueAtMost || len(zr.ConditionSets) != 1 ||
+		len(zr.ConditionSets[0].Items) != 2 ||
+		zr.ConditionSets[0].Items[0].Condition != "temp" || zr.ConditionSets[0].Items[0].Mode != catalog.ModeRequired ||
+		zr.ConditionSets[0].Items[1].Condition != "freq" || zr.ConditionSets[0].Items[1].Mode != catalog.ModeOptional {
+		t.Errorf("Zratio: единица %q, тип %s, наборы %+v — ожидался безразмерный at_most с temp+опц. freq",
+			zr.Unit, string(zr.ValueType), zr.ConditionSets)
 	}
 	pulse := check("IcPulseMax")
 	if len(pulse.ConditionSets) != 1 || len(pulse.ConditionSets[0].Items) != 1 ||
@@ -309,8 +333,8 @@ func TestSeedSpotChecks(t *testing.T) {
 		"switchAngle":          {"deg", catalog.ValueAtMost, 0},
 		"staticFrictionTorque": {"mN_m", catalog.ValueAtMost, 0},
 		"humidity":             {"pct", catalog.ValueAtMost, 1},
-		"operatingLife":        {"h", catalog.ValueAtLeast, 0},
-		"shelfLife":            {"yr", catalog.ValueAtLeast, 0},
+		"operatingLife":        {"h", catalog.ValueAtLeast, 1},
+		"shelfLife":            {"yr", catalog.ValueAtLeast, 1},
 		"hfe":                  {"", catalog.ValueLimits, 6},
 		"h11":                  {"ohm", catalog.ValueLimits, 3},
 	} {
@@ -328,6 +352,11 @@ func TestSeedSpotChecks(t *testing.T) {
 		p := check(code)
 		if p.Group != "limiting" || len(p.Kinds) != 0 {
 			t.Errorf("%s: группа %q, применимость %v", code, p.Group, p.Kinds)
+		}
+		if len(p.ConditionSets) != 1 || len(p.ConditionSets[0].Items) != 1 ||
+			p.ConditionSets[0].Items[0].Condition != "temp" ||
+			p.ConditionSets[0].Items[0].Mode != catalog.ModeOptional {
+			t.Errorf("%s: набор условий %+v — ожидался один с опциональным temp", code, p.ConditionSets)
 		}
 	}
 	for _, code := range []string{"massMax", "length", "width", "height", "diameter", "leadLength", "leadPitch", "leadDiameter", "shaftDiameter", "shaftLength"} {

@@ -282,6 +282,16 @@ var bundleEn = map[string]string{
 	"param.DeltaClife":  "capacitance change over the minimum life",
 	"param.DeltaCshelf": "capacitance change over the shelf life",
 
+	// Параметры: конденсаторы — пост-тестовые значения и низкотемпературный
+	// импеданс (даташиты мировых серий, work/catalog-extension/part2).
+	"param.DFLife":     "dissipation factor after life test, % of initial",
+	"param.DFShelf":    "dissipation factor after shelf-life test, % of initial",
+	"param.IleakLife":  "leakage current after life test, % of initial",
+	"param.IleakShelf": "leakage current after shelf-life test, % of initial",
+	"param.EsrLife":    "equivalent series resistance (ESR) after life test, % of initial",
+	"param.EsrShelf":   "equivalent series resistance (ESR) after shelf-life test, % of initial",
+	"param.Zratio":     "impedance ratio at low temperature to +20 °C",
+
 	// Параметры: реле — electrical.
 	"param.VcoilNom":      "rated coil voltage",
 	"param.Rcoil":         "coil resistance (DC)",
