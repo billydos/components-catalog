@@ -169,7 +169,11 @@ func (m *Importer) importDocument(ctx context.Context, r io.Reader, name string,
 // первой записи отвергается сама по себе: её содержимое отбрасывается
 // с проблемой строки, а чистый каталог до неё применяется — план по
 // нему уже роздан чтению записей, отмена разнесла бы валидацию и
-// запись. Строка sources после первой записи отвергается так же.
+// запись. Строка sources после первой записи отвергается так же;
+// не-массивное значение строки sources (число, строка, объект,
+// логическое значение) — проблема строки, портящая блок источников
+// целиком: определения не применяются, позднейшая чистая строка блок
+// не реабилитирует.
 // Строка-обёртка с классовым ключом считается записью (отвергнутой):
 // гейт смешанного файла catalog import видит её и отвергает файл до
 // применения каталога.
@@ -278,9 +282,19 @@ func (m *Importer) importNDJSON(ctx context.Context, r io.Reader, name string,
 			}
 			// null-строка («sources»: null) — секция не задана, как
 			// отсутствующая: присутствием не считается.
-			if srcVal.kind != kindNull {
-				srcItems = append(srcItems, srcVal)
+			if srcVal.kind == kindNull {
+				continue
 			}
+			// Форма значения проверяется у каждой строки: не-массив
+			// (число, строка, объект, bool) не сливается в реестр и не
+			// исчезает молча — проблема строки, блок источников
+			// не применяется.
+			if srcVal.kind != kindArray {
+				rep.Issues = append(rep.Issues, issuef(number, domain.MsgImportSourcesArray))
+				sourcesTainted = true
+				continue
+			}
+			srcItems = append(srcItems, srcVal)
 			continue
 		}
 		flushCatalog()
@@ -461,9 +475,11 @@ func (m *Importer) planSources(tree value, read *catalog.Snapshot, rep *Report) 
 	}
 	defs, issues := ReadSourcesSection(tree)
 	rep.Issues = append(rep.Issues, issues...)
-	if len(issues) > 0 {
-		return sourcesPlan{defs: defs}
-	}
+	// Проблемы читателя не маскируют проблемы значений: валидация
+	// сервиса идёт по прочитанным определениям и накопляется вместе с
+	// проблемами формы (как метасхема у секции catalog — полный список
+	// за один прогон).
+	apply := len(issues) == 0
 	if err := m.app.Services().Sources.ValidateSourceDefs(defs, read); err != nil {
 		iss := issuef(0, domain.MsgInternalError, err.Error())
 		if de, ok := domain.AsError(err); ok {
@@ -471,6 +487,9 @@ func (m *Importer) planSources(tree value, read *catalog.Snapshot, rep *Report) 
 			iss.Code = de.Code
 		}
 		rep.Issues = append(rep.Issues, iss)
+		apply = false
+	}
+	if !apply {
 		return sourcesPlan{defs: defs}
 	}
 	codes := make(map[string]bool, len(defs))

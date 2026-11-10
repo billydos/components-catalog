@@ -258,6 +258,7 @@ var messageFormatsRu = map[string]string{
 	"import_record_source_note_string":   "%[1]s: \"note\" должно быть строкой",
 	"import_syntax_error":                "файл не является корректным %[1]s: %[2]s",
 	"import_unexpected_token":            "неожидаемый токен %[1]v",
+	"import_value_condition_number":      "%[1]s: значение условия измерения «%[2]s» должно быть числом",
 	"import_value_key_number":            "%[1]s: ключ \"%[2]s\" должен быть числом",
 	"import_value_kind_array":            "массив",
 	"import_value_kind_bool":             "логическое значение",

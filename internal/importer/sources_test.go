@@ -2,6 +2,7 @@ package importer
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -248,6 +249,114 @@ func runSourcesSuite(t *testing.T, factory configFactory) {
 			if err != nil || len(rows) != 0 {
 				t.Fatalf("случай %d: реестр применён (%d)", i, len(rows))
 			}
+		}
+	})
+
+	// Не-массивное значение строки sources (число, объект) — проблема
+	// строки с номером: итог не зависит от порядка строк, опечатка не
+	// исчезает молча; блок источников не применяется, ссылки записей
+	// получают unknown_source.
+	t.Run("NDJSONSourcesNonArrayValue", func(t *testing.T) {
+		badLines := []struct {
+			name string
+			line string
+		}{
+			{"число", `{"sources": 42}`},
+			{"объект", `{"sources": {"code": "a1", "type": "book", "title": "X"}}`},
+			{"логическое значение", `{"sources": true}`},
+		}
+		for _, bad := range badLines {
+			for _, place := range []struct {
+				name   string
+				prefix string
+				lineNo int
+			}{
+				{"в первой строке", "", 1},
+				{"после корректной строки",
+					`{"sources": [{"code": "a1", "type": "book", "title": "X"}]}` + "\n", 2},
+			} {
+				label := bad.name + " " + place.name
+				app := openApp(t, factory)
+				path := filepath.Join(t.TempDir(), "src.ndjson")
+				write(t, path, place.prefix+bad.line+"\n"+
+					`{"transistors": {"name": "КТ315Б", "sources": ["a1"]}}`+"\n")
+				rep := importFile(t, app, path, false)
+				if !rep.HasIssues() || rep.Rejected != 1 || rep.Added != 0 {
+					t.Fatalf("%s: итог: %+v; проблемы: %v", label, rep, issueMessages(rep.Issues))
+				}
+				if rep.SourcesApplied {
+					t.Fatalf("%s: блок источников применён", label)
+				}
+				want := fmt.Sprintf("line %d: \"sources\" must be an array of source definitions "+
+					"(objects {code, title, type, …})", place.lineNo)
+				if rep.Issues[0].String() != want {
+					t.Fatalf("%s: текст: %q, ожидался %q", label, rep.Issues[0].String(), want)
+				}
+				rows, err := app.Services().Sources.ListSources(context.Background())
+				if err != nil || len(rows) != 0 {
+					t.Fatalf("%s: реестр применён (%d)", label, len(rows))
+				}
+			}
+		}
+	})
+
+	// Проблемы определений накапливаются по всей секции (Issues-модель),
+	// а не до первого дефектного: определения после дефектного тоже
+	// читаются; секция с проблемами не применяется вовсе — валидное
+	// определение среди дефектных в реестр не попадает.
+	t.Run("AllDefProblemsAccumulated", func(t *testing.T) {
+		app := openApp(t, factory)
+		path := writeSourcesFile(t, `{"sources": [
+			{ "type": "book", "title": "X" },
+			{ "code": "ok1", "type": "book", "title": "Валидное" },
+			{ "code": "a3", "title": "Y" }]}`)
+		rep := importFile(t, app, path, false)
+		if len(rep.Issues) != 2 {
+			t.Fatalf("проблем: %d, ожидалось 2: %v", len(rep.Issues), issueMessages(rep.Issues))
+		}
+		got := issueMessages(rep.Issues)
+		want := []string{
+			"source no. 1: mandatory field \"code\"",
+			"source no. 3: mandatory field \"type\"",
+		}
+		for i, w := range want {
+			if got[i] != w {
+				t.Errorf("проблема %d: %q, ожидалась %q", i+1, got[i], w)
+			}
+		}
+		rows, err := app.Services().Sources.ListSources(context.Background())
+		if err != nil || len(rows) != 0 {
+			t.Fatalf("реестр применён (%d)", len(rows))
+		}
+	})
+
+	// Проблемы формы определений не маскируют проблемы значений:
+	// валидация сервиса идёт по прочитанным определениям и накопляется
+	// вместе с проблемами читателя — полный список за один прогон
+	// (как метасхема у секции catalog).
+	t.Run("FormAndValueProblemsAccumulated", func(t *testing.T) {
+		app := openApp(t, factory)
+		path := writeSourcesFile(t, `{"sources": [
+			{ "type": "book", "title": "X" },
+			{ "code": "a1", "type": "book", "title": "Y" },
+			{ "code": "a1", "type": "book", "title": "Z" } ]}`)
+		rep := importFile(t, app, path, false)
+		if len(rep.Issues) != 2 {
+			t.Fatalf("проблем: %d, ожидалось 2: %v", len(rep.Issues), issueMessages(rep.Issues))
+		}
+		got := issueMessages(rep.Issues)
+		want := []string{
+			"source no. 1: mandatory field \"code\"",
+			"source code «a1» is defined more than once",
+		}
+		for i, w := range want {
+			if got[i] != w {
+				t.Errorf("проблема %d: %q, ожидалась %q", i+1, got[i], w)
+			}
+		}
+		rows, err := app.Services().Sources.ListSources(context.Background())
+		if err != nil || len(rows) != 0 {
+			t.Fatalf("реестр применён (%d)", len(rows))
 		}
 	})
 

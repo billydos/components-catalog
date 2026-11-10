@@ -259,6 +259,7 @@ var messageFormatsEn = map[string]string{
 	"import_record_source_note_string":   "%[1]s: \"note\" must be a string",
 	"import_syntax_error":                "the file is not valid %[1]s: %[2]s",
 	"import_unexpected_token":            "unexpected token %[1]v",
+	"import_value_condition_number":      "%[1]s: value of measurement condition «%[2]s» must be a number",
 	"import_value_key_number":            "%[1]s: key \"%[2]s\" must be a number",
 	"import_value_kind_array":            "array",
 	"import_value_kind_bool":             "boolean",

@@ -545,6 +545,13 @@ func (r *reader) valueObject(rec *Record, where any, v value) (catalog.Parameter
 			return catalog.ParameterValue{}, false
 		}
 		if !ok {
+			// Известное каталогу условие с неверным типом значения —
+			// проблема типа, а не «неизвестный ключ»: код узнали,
+			// сообщение указывает на значение.
+			if _, known := r.snap.Condition(m.name); known {
+				r.recFail(rec, domain.MsgImportValueConditionNumber, where, m.name)
+				return catalog.ParameterValue{}, false
+			}
 			r.recFail(rec, domain.MsgImportValueUnknownKey, where, m.name)
 			return catalog.ParameterValue{}, false
 		}

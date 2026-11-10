@@ -348,6 +348,40 @@ func TestReadDocumentUnparseableNumber(t *testing.T) {
 	}
 }
 
+// Известное каталогу условие с неверным типом значения (строка, null) —
+// сообщение о значении условия, а не «неизвестное поле»; неизвестный
+// ключ с тем же неверным типом — прежнее сообщение с перечнем
+// допустимых (неизвестный код с числом читатель пропускает — его
+// отвергает движок каталога).
+func TestReadDocumentConditionValueType(t *testing.T) {
+	root, snap := parseDoc(t, `{
+		"transistors": [
+			{ "name": "КТ315Б", "parameters": [
+				{ "parameter": "hfe", "Vce": "5" },
+				{ "parameter": "hfe", "Ic": null },
+				{ "parameter": "hfe", "Vcx": "5" } ] }
+		]
+	}`)
+	doc, issues := ReadDocument(root, snap)
+	if len(doc.Records) != 0 || doc.Rejected != 1 {
+		t.Fatalf("записи: %d, rejected: %d: %v", len(doc.Records), doc.Rejected, issueMessages(issues))
+	}
+	got := issueMessages(issues)
+	want := []string{
+		`record «КТ315Б»: section «parameters», value no. 1: value of measurement condition «Vce» must be a number`,
+		`record «КТ315Б»: section «parameters», value no. 2: value of measurement condition «Ic» must be a number`,
+		`record «КТ315Б»: section «parameters», value no. 3: key «Vcx» — unknown field (allowed: parameter, value, min, max, text and measurement condition codes)`,
+	}
+	if len(got) != len(want) {
+		t.Fatalf("проблем: %d, ожидалось %d: %v", len(got), len(want), got)
+	}
+	for i, w := range want {
+		if got[i] != w {
+			t.Errorf("проблема %d: %q, ожидалась %q", i+1, got[i], w)
+		}
+	}
+}
+
 func TestReadDocumentVariantsAndAnalogs(t *testing.T) {
 	root, snap := parseDoc(t, `{
 		"capacitors": [

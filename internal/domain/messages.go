@@ -227,6 +227,7 @@ const (
 	MsgImportValueParameterString     MsgID = "import_value_parameter_string"
 	MsgImportValueTextString          MsgID = "import_value_text_string"
 	MsgImportValueKeyNumber           MsgID = "import_value_key_number"
+	MsgImportValueConditionNumber     MsgID = "import_value_condition_number"
 	MsgImportValueUnknownKey          MsgID = "import_value_unknown_key"
 	MsgImportValueParameterRequired   MsgID = "import_value_parameter_required"
 	MsgImportVariantLabelString       MsgID = "import_variant_label_string"
@@ -821,6 +822,7 @@ var msgRegistry = map[MsgID]struct{}{
 	MsgImportValueParameterString:     {},
 	MsgImportValueTextString:          {},
 	MsgImportValueKeyNumber:           {},
+	MsgImportValueConditionNumber:     {},
 	MsgImportValueUnknownKey:          {},
 	MsgImportValueParameterRequired:   {},
 	MsgImportVariantLabelString:       {},

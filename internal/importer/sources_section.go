@@ -20,7 +20,10 @@ const sourceDefKeys = "code, title, type, authors, editors, year, publisher, edi
 // ReadSourcesSection читает корневую секцию sources — массив
 // определений источников. Значение null/отсутствие — пустой вход;
 // строки NDJSON ({"sources": […]}) читаются тем же читателем и
-// сливаются конкатенацией массивов (importNDJSON).
+// сливаются конкатенацией массивов (importNDJSON). Проблемы
+// накапливаются по всем определениям (Issues-модель — полный список
+// за один прогон); определения с проблемами в результат не входят,
+// секция при наличии проблем не применяется вовсе.
 func ReadSourcesSection(v value) ([]service.SourceInput, []Issue) {
 	r := &reader{}
 	if v.kind == kindNull {
@@ -34,7 +37,7 @@ func ReadSourcesSection(v value) ([]service.SourceInput, []Issue) {
 	for i, item := range v.items {
 		def, ok := readSourceDef(r, i+1, item)
 		if !ok {
-			return nil, r.issues
+			continue
 		}
 		out = append(out, def)
 	}
