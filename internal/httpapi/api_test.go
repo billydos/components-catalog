@@ -1275,6 +1275,13 @@ func TestSuggest(t *testing.T) {
 		apiPrefix+"/suggest?q=%D0%9A&kind=transistor&kind=diode", "")
 	wantError(t, status, eb, http.StatusBadRequest, "validation_failed",
 		"query parameter «kind» is set more than once")
+
+	// Посторонний ключ запроса — 400 (опечатка в имени параметра не
+	// сужает выдачу молча).
+	status, _, eb = do(t, srv, http.MethodGet,
+		apiPrefix+"/suggest?q="+esc("КТ3")+"&kindd=transistor", "")
+	wantError(t, status, eb, http.StatusBadRequest, "validation_failed",
+		"unknown query parameter «kindd»")
 }
 
 func TestSuggestDisabled(t *testing.T) {

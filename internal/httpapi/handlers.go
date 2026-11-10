@@ -216,6 +216,7 @@ func (a *API) handleGetByID(w *responseWriter, r *http.Request, params map[strin
 
 // handleSuggest — GET /api/v1/suggest: автодополнение по префиксу
 // обозначения (хендлер отключается конфигурацией — не монтируется).
+// Повтор разбираемого параметра и посторонний ключ запроса — 400.
 func (a *API) handleSuggest(w *responseWriter, r *http.Request, _ map[string]string) {
 	values, err := parseStrictQuery(r)
 	if err != nil {
@@ -225,6 +226,13 @@ func (a *API) handleSuggest(w *responseWriter, r *http.Request, _ map[string]str
 	if err := rejectDuplicateParams(values, "q", "kind", "limit"); err != nil {
 		a.writeDomainErr(w, r, err, true)
 		return
+	}
+	for _, name := range slices.Sorted(maps.Keys(values)) {
+		if name != "q" && name != "kind" && name != "limit" {
+			a.writeError(w, r, http.StatusBadRequest, domain.CodeValidationFailed,
+				domain.MsgApiQueryParamUnknown, name)
+			return
+		}
 	}
 	q := values.Get("q")
 	if q == "" {
@@ -256,7 +264,8 @@ func (a *API) handleSuggest(w *responseWriter, r *http.Request, _ map[string]str
 
 // handleParse — GET /api/v1/parse: разбор обозначения (автодетект либо
 // явная система/класс) с перечнем кандидатов строгих систем — основа UX
-// ввода обозначения; разбор — только сервисный слой.
+// ввода обозначения; разбор — только сервисный слой. Повтор разбираемого
+// параметра и посторонний ключ запроса — 400.
 func (a *API) handleParse(w *responseWriter, r *http.Request, _ map[string]string) {
 	values, err := parseStrictQuery(r)
 	if err != nil {
@@ -266,6 +275,13 @@ func (a *API) handleParse(w *responseWriter, r *http.Request, _ map[string]strin
 	if err := rejectDuplicateParams(values, "designation", "system", "kind"); err != nil {
 		a.writeDomainErr(w, r, err, true)
 		return
+	}
+	for _, name := range slices.Sorted(maps.Keys(values)) {
+		if name != "designation" && name != "system" && name != "kind" {
+			a.writeError(w, r, http.StatusBadRequest, domain.CodeValidationFailed,
+				domain.MsgApiQueryParamUnknown, name)
+			return
+		}
 	}
 	designation := values.Get("designation")
 	if designation == "" {

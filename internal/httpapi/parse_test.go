@@ -136,6 +136,10 @@ func TestParseErrors(t *testing.T) {
 			"unknown device kind «bogus»"},
 		{"designation=" + esc("КТ315Б") + "&designation=BC547B", "validation_failed",
 			"query parameter «designation» is set more than once"},
+		// Посторонний ключ запроса — опечатка в имени параметра не
+		// меняет разбор молча.
+		{"designation=" + esc("КТ315Б") + "&sistem=gost", "validation_failed",
+			"unknown query parameter «sistem»"},
 		// Неразбираемое обозначение — отказ автодетекта (дословный текст).
 		{"designation=" + esc("МЛТ-0.5"), "invalid_designation",
 			"designation «МЛТ-0.5»: designation system not recognized (supported: gost, ost, pro, jedec, jis)"},

@@ -503,7 +503,8 @@ paths:
       operationId: suggest
       summary: Автодополнение по префиксу обозначения
       description: Отключаем конфигурацией модуля — хендлер не монтируется
-        (404 при отключении).
+        (404 при отключении). Повтор разбираемого параметра и посторонний
+        ключ запроса — 400 validation_failed (опечатки не молчат).
       parameters:
         - {name: q, in: query, required: true, schema: {type: string}, description: "Префикс обозначения либо исторического названия записи — синонима."}
         - {name: kind, in: query, schema: {type: string}, description: "Класс приборов."}
@@ -538,7 +539,8 @@ paths:
         класс/система (первый кандидат при автодетекте совпадает
         с основным результатом). Числового «конфиденса» у строгих
         грамматик нет — перечень кандидатов и есть эквивалент. Повтор
-        любого разбираемого параметра запроса — 400 validation_failed.
+        любого разбираемого параметра запроса и посторонний ключ запроса —
+        400 validation_failed (опечатки не молчат).
       parameters:
         - {name: designation, in: query, required: true, schema: {type: string}, description: "Обозначение (канонизируется)."}
         - {name: system, in: query, schema: {type: string, enum: [gost, ost, pro, jedec, jis, other]}, description: "Система обозначений; без параметра — автодетект."}
