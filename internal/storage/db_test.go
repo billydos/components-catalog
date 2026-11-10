@@ -387,6 +387,115 @@ func TestBatchReadsOverChunkLimit(t *testing.T) {
 	}
 }
 
+// TestBatchReadsDuplicateIDs — повторяющийся id входа на границе чанка
+// (первое вхождение — последним id первого чанка, повтор — первым id
+// второго) не дублирует записи, дочерние строки и условия значений
+// в слиянии результатов батч-чтений.
+func TestBatchReadsDuplicateIDs(t *testing.T) {
+	for _, dialect := range []string{"sqlite", "postgres"} {
+		t.Run(dialect, func(t *testing.T) {
+			db := openDevicesDB(t, dialect)
+			seedFacetCatalog(t, db)
+			ctx := t.Context()
+			tx, err := db.Begin(ctx)
+			if err != nil {
+				t.Fatalf("begin: %v", err)
+			}
+			if _, err := tx.exec(ctx, `INSERT INTO conditions(code) VALUES ('Ta')`, nil); err != nil {
+				t.Fatalf("сид условия: %v", err)
+			}
+			// 999 записей-наполнителей, цель — последней: повтор её id
+			// попадает на границу чанка (позиции maxInList-1 и maxInList).
+			const fillers = maxInList - 1
+			ids := make([]int64, 0, maxInList+1)
+			for i := 0; i < fillers; i++ {
+				id, _, err := tx.InsertDevice(ctx, "resistor", "gost", fmt.Sprintf("D%06d", i))
+				if err != nil {
+					t.Fatalf("вставка %d: %v", i, err)
+				}
+				ids = append(ids, id)
+			}
+			target, _, err := tx.InsertDevice(ctx, "resistor", "gost", "КТ315")
+			if err != nil {
+				t.Fatalf("вставка цели: %v", err)
+			}
+			if err := tx.InsertDesignationFields(ctx, target,
+				[]domain.Field{domain.TextField("subclass", "bjt")}); err != nil {
+				t.Fatalf("поля цели: %v", err)
+			}
+			exact := 100.0
+			if err := tx.InsertValues(ctx, target, nil, []ParamValue{{
+				Parameter: "hfe", Exact: &exact,
+				Conditions: []Cond{{Code: "Ta", Value: 25}},
+			}}); err != nil {
+				t.Fatalf("значения цели: %v", err)
+			}
+			ids = append(ids, target, target)
+			if len(ids) != maxInList+1 {
+				t.Fatalf("размер входа: %d, ожидался %d", len(ids), maxInList+1)
+			}
+			if err := tx.Commit(); err != nil {
+				t.Fatalf("commit: %v", err)
+			}
+
+			rows, err := db.FindDevicesByIDs(ctx, ids)
+			if err != nil {
+				t.Fatalf("FindDevicesByIDs: %v", err)
+			}
+			if len(rows) != maxInList {
+				t.Fatalf("записей: %d, ожидалось %d (повтор цели учтён один раз)",
+					len(rows), maxInList)
+			}
+			seen := make(map[int64]bool, len(rows))
+			for _, r := range rows {
+				if seen[r.ID] {
+					t.Fatalf("дубликат записи %d в результате", r.ID)
+				}
+				seen[r.ID] = true
+			}
+			fields, err := db.LoadFieldsByIDs(ctx, ids)
+			if err != nil {
+				t.Fatalf("LoadFieldsByIDs: %v", err)
+			}
+			if len(fields[target]) != 1 || fields[target][0].Name != "subclass" {
+				t.Fatalf("поля цели: %+v", fields[target])
+			}
+			values, err := db.LoadValuesByIDs(ctx, ids)
+			if err != nil {
+				t.Fatalf("LoadValuesByIDs: %v", err)
+			}
+			vr := values[target]
+			if len(vr) != 1 || vr[0].Value.Parameter != "hfe" {
+				t.Fatalf("значения цели: %+v", vr)
+			}
+			if len(vr[0].Value.Conditions) != 1 || vr[0].Value.Conditions[0].Code != "Ta" {
+				t.Fatalf("условия цели: %+v", vr[0].Value.Conditions)
+			}
+		})
+	}
+}
+
+// TestBeginReadOnlySnapshotIsolation — транзакция чтения пула чтения
+// берёт один снимок СУБД: на postgres уровень изоляции REPEATABLE READ
+// (sqlite-драйвер уровень игнорирует — WAL-чтение и так держит стабильный
+// снимок; нога sqlite покрывается всем пакетом тестов на BeginReadOnly).
+func TestBeginReadOnlySnapshotIsolation(t *testing.T) {
+	db := openDevicesDB(t, "postgres")
+	tx, err := db.BeginReadOnly(t.Context())
+	if err != nil {
+		t.Fatalf("begin read only: %v", err)
+	}
+	defer tx.Rollback() //nolint:errcheck — откат транзакции чтения
+	var level string
+	if err := tx.queryRow(t.Context(),
+		`SELECT current_setting('transaction_isolation')`, nil).Scan(&level); err != nil {
+		t.Fatalf("transaction_isolation: %v", err)
+	}
+	if level != "repeatable read" {
+		t.Fatalf("уровень изоляции чтения: %q, ожидался repeatable read", level)
+	}
+}
+
 // TestSearchPageValidation — отрицательные limit/offset отвергаются
 // доменной ошибкой до запроса.
 func TestSearchPageValidation(t *testing.T) {

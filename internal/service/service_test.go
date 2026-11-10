@@ -1440,6 +1440,26 @@ func suiteGetByIDs(t *testing.T, factory configFactory) {
 	if cards, err = svc.GetByIDs(ctx, []int64{1 << 40}); err != nil || len(cards) != 0 {
 		t.Fatalf("несуществующий id: карточек %d (err %v), ожидалось 0", len(cards), err)
 	}
+
+	// Повторяющийся id входа — карточка одна, без удвоенных секций
+	// (дочерние таблицы — значения, атрибуты, производители — по одному
+	// набору на запись).
+	dup := []int64{ids[0], ids[1], ids[0], ids[1], ids[0]}
+	cards, err = svc.GetByIDs(ctx, dup)
+	if err != nil {
+		t.Fatalf("повторяющиеся id: %v", err)
+	}
+	if len(cards) != 2 || cards[0].ID != ids[0] || cards[1].ID != ids[1] {
+		t.Fatalf("повторяющиеся id: карточки %+v, ожидались записи %d, %d без повторов",
+			cards, ids[0], ids[1])
+	}
+	dupSingle, ok, err := svc.GetByID(ctx, ids[0])
+	if err != nil || !ok {
+		t.Fatalf("get by id %d: ok=%v err=%v", ids[0], ok, err)
+	}
+	if !reflect.DeepEqual(cards[0], dupSingle) {
+		t.Fatalf("карточка с повторяющимся id отличается от одиночной:\n%+v\n%+v", cards[0], dupSingle)
+	}
 }
 
 // suiteSearch — подstring, фильтры полей/атрибутов/параметров, сортировка,

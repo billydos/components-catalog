@@ -15,12 +15,15 @@ import (
 // снимок данных — конкурентная запись не даёт карточку со смешанным
 // состоянием): поля разбора, атрибуты, значения параметров по группам
 // каталога, исполнения (матрица номиналов), производители, исходящие
-// и встречные ссылки-аналоги (D8). Порядок результата — по порядку id
-// входа; параллельно удалённые записи пропускаются.
+// и встречные ссылки-аналоги (D8). Повторяющиеся id входа игнорируются
+// (учитывается первое вхождение — карточка без удвоенных секций); порядок
+// результата — по порядку id входа; параллельно удалённые записи
+// пропускаются.
 func (s *DeviceService) buildCards(ctx context.Context, snap *catalog.Snapshot, ids []int64) ([]*Card, error) {
 	if len(ids) == 0 {
 		return nil, nil
 	}
+	ids = dedupIDs(ids)
 	tx, err := s.app.db.BeginReadOnly(ctx)
 	if err != nil {
 		return nil, err
@@ -109,6 +112,21 @@ func (s *DeviceService) buildCards(ctx context.Context, snap *catalog.Snapshot, 
 		attachTypeGroup(snap, c, fields[c.ID], values[c.ID], siblings, sibValues)
 	}
 	return cards, nil
+}
+
+// dedupIDs — список id без повторов, первое вхождение сохраняет позицию
+// (порядок результата карточек — по порядку входа).
+func dedupIDs(ids []int64) []int64 {
+	seen := make(map[int64]bool, len(ids))
+	out := make([]int64, 0, len(ids))
+	for _, id := range ids {
+		if seen[id] {
+			continue
+		}
+		seen[id] = true
+		out = append(out, id)
+	}
+	return out
 }
 
 // typeBases — базовые обозначения (поле base) собираемых записей без

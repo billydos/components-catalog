@@ -764,7 +764,7 @@ func TestReplaceSynonyms(t *testing.T) {
 			}
 			replace := func(rows []SynonymRow) {
 				t.Helper()
-				if err := tx.ReplaceSynonyms(ctx, id, rows); err != nil {
+				if err := tx.ReplaceSynonyms(ctx, id, "resistor", rows); err != nil {
 					t.Fatalf("замена синонимов: %v", err)
 				}
 			}
@@ -834,6 +834,39 @@ func TestReplaceSynonyms(t *testing.T) {
 			if err := tx.Commit(); err != nil {
 				t.Fatalf("commit: %v", err)
 			}
+
+			// Уникальность синонима в пределах класса (D11) подкреплена БД:
+			// заявка обозначения, занятого синонимом другой записи того же
+			// класса, — доменная ошибка с обозначением владельца (путь
+			// параллельного писателя postgres: его заявка закоммитилась
+			// между проверками сервисного слоя и вставкой); тот же синоним
+			// в другом классе допустим.
+			tx, err = db.Begin(ctx)
+			if err != nil {
+				t.Fatalf("begin: %v", err)
+			}
+			if _, err := tx.exec(ctx, `INSERT INTO kinds(code) VALUES ('capacitor')`, nil); err != nil {
+				t.Fatalf("сид класса: %v", err)
+			}
+			capID, _, err := tx.InsertDevice(ctx, "capacitor", "gost", "К10-7")
+			if err != nil {
+				t.Fatalf("вставка конденсатора: %v", err)
+			}
+			if err := tx.ReplaceSynonyms(ctx, capID, "capacitor",
+				[]SynonymRow{{Designation: "ПЭВ", SortOrder: 0}}); err != nil {
+				t.Fatalf("синоним другого класса: %v", err)
+			}
+			err = tx.ReplaceSynonyms(ctx, other, "resistor",
+				[]SynonymRow{{Designation: "ПЭВ", SortOrder: 0}})
+			de, ok := domain.AsError(err)
+			if !ok || de.Code != domain.CodeValidationFailed ||
+				de.MsgID != domain.MsgSvcSynonymConflictOther {
+				t.Fatalf("конфликт синонима: ожидалась svc_synonym_conflict_other, получено %v", err)
+			}
+			if err := tx.Commit(); err != nil {
+				t.Fatalf("commit: %v", err)
+			}
+
 			tx, err = db.Begin(ctx)
 			if err != nil {
 				t.Fatalf("begin: %v", err)

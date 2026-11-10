@@ -154,3 +154,10 @@ func (sqliteDialect) MaintainStats(ctx context.Context, db *sql.DB) error {
 	_, err := db.ExecContext(ctx, `ANALYZE`)
 	return err
 }
+
+// LockDesignations — no-op: запись идёт через единственное выделенное
+// соединение, транзакции писателя исполняются целиком последовательно —
+// конкурентных заявок обозначений одного класса нет (02-database.md §4).
+func (sqliteDialect) LockDesignations(ctx context.Context, tx *sql.Tx, kind string, designations []string) error {
+	return nil
+}

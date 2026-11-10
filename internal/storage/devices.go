@@ -257,7 +257,7 @@ func (t *Tx) LoadAttributes(ctx context.Context, deviceID int64) ([]AttrRow, err
 }
 
 // LoadVariantAttributesByIDs — атрибуты исполнений по списку id
-// исполнений (карточки, слитое состояние Upsert).
+// исполнений (карточки, слитое состояние Upsert). Повторяющиеся id входа игнорируются (учитывается первое вхождение).
 func (t *Tx) LoadVariantAttributesByIDs(ctx context.Context, ids []int64) (map[int64][]AttrRow, error) {
 	return loadVariantAttributesByIDs(ctx, t.tx, ids, nil)
 }
@@ -265,6 +265,7 @@ func (t *Tx) LoadVariantAttributesByIDs(ctx context.Context, ids []int64) (map[i
 // LoadVariantAttributesByIDsCodes — атрибуты исполнений по списку id
 // исполнений и кодов атрибутов (пакетная проекция колонок значений
 // поиска); вызывается в транзакции чтения — согласованный снимок.
+// Повторяющиеся id входа игнорируются (учитывается первое вхождение).
 func (t *Tx) LoadVariantAttributesByIDsCodes(ctx context.Context, ids []int64, codes []string) (map[int64][]AttrRow, error) {
 	return loadVariantAttributesByIDs(ctx, t.tx, ids, codes)
 }
@@ -554,8 +555,9 @@ func nullableYear(v sql.NullInt64) *int {
 	return &y
 }
 
-// FindDevicesByIDs — записи по списку стабильных id (параллельно удалённые
-// в результате отсутствуют; порядок строк — по id).
+// FindDevicesByIDs — записи по списку стабильных id; повторяющиеся id
+// входа игнорируются (учитывается первое вхождение). Параллельно удалённые
+// в результате отсутствуют; порядок строк — по id.
 func (d *DB) FindDevicesByIDs(ctx context.Context, ids []int64) ([]*DeviceRow, error) {
 	return findDevicesByIDs(ctx, d.reads, ids)
 }
@@ -594,7 +596,7 @@ WHERE id IN `+inList("id", chunk, args)+` ORDER BY id`, args)
 	return out, nil
 }
 
-// LoadFieldsByIDs — поля разбора обозначений по списку записей.
+// LoadFieldsByIDs — поля разбора обозначений по списку записей. Повторяющиеся id входа игнорируются (учитывается первое вхождение).
 func (d *DB) LoadFieldsByIDs(ctx context.Context, ids []int64) (map[int64][]domain.Field, error) {
 	return loadFieldsByIDs(ctx, d.reads, ids)
 }
@@ -639,13 +641,14 @@ WHERE device_id IN `+inList("id", chunk, args)+` ORDER BY device_id, field`, arg
 	return out, err
 }
 
-// LoadAttributesByIDs — значения атрибутов по списку записей.
+// LoadAttributesByIDs — значения атрибутов по списку записей. Повторяющиеся id входа игнорируются (учитывается первое вхождение).
 func (d *DB) LoadAttributesByIDs(ctx context.Context, ids []int64) (map[int64][]AttrRow, error) {
 	return loadAttributesByIDs(ctx, d.reads, ids, nil)
 }
 
 // LoadAttributesByIDsCodes — значения атрибутов по списку записей
 // и кодов атрибутов (пакетная проекция колонок значений поиска).
+// Повторяющиеся id входа игнорируются (учитывается первое вхождение).
 func (d *DB) LoadAttributesByIDsCodes(ctx context.Context, ids []int64, codes []string) (map[int64][]AttrRow, error) {
 	return loadAttributesByIDs(ctx, d.reads, ids, codes)
 }
@@ -656,7 +659,7 @@ func (t *Tx) LoadAttributesByIDs(ctx context.Context, ids []int64) (map[int64][]
 
 // LoadAttributesByIDsCodes — значения атрибутов по списку записей
 // и кодов атрибутов; вызывается в транзакции чтения — согласованный
-// снимок с прочими чтениями страницы.
+// снимок с прочими чтениями страницы. Повторяющиеся id входа игнорируются (учитывается первое вхождение).
 func (t *Tx) LoadAttributesByIDsCodes(ctx context.Context, ids []int64, codes []string) (map[int64][]AttrRow, error) {
 	return loadAttributesByIDs(ctx, t.tx, ids, codes)
 }
@@ -698,14 +701,14 @@ FROM device_attribute_values
 
 // LoadValuesByIDs — все значения параметров (тип в целом и исполнения)
 // с условиями по списку записей; порядок строк внутри записи — как у
-// LoadValues.
+// LoadValues. Повторяющиеся id входа игнорируются (учитывается первое вхождение).
 func (d *DB) LoadValuesByIDs(ctx context.Context, ids []int64) (map[int64][]ValueRow, error) {
 	return loadValuesByIDs(ctx, d.reads, ids, nil)
 }
 
 // LoadValuesByIDsCodes — значения параметров (тип в целом и исполнения)
 // с условиями по списку записей и кодов параметров (пакетная проекция
-// колонок значений поиска).
+// колонок значений поиска). Повторяющиеся id входа игнорируются (учитывается первое вхождение).
 func (d *DB) LoadValuesByIDsCodes(ctx context.Context, ids []int64, codes []string) (map[int64][]ValueRow, error) {
 	return loadValuesByIDs(ctx, d.reads, ids, codes)
 }
@@ -716,7 +719,7 @@ func (t *Tx) LoadValuesByIDs(ctx context.Context, ids []int64) (map[int64][]Valu
 
 // LoadValuesByIDsCodes — значения параметров с условиями по списку
 // записей и кодов параметров; вызывается в транзакции чтения —
-// согласованный снимок с прочими чтениями страницы.
+// согласованный снимок с прочими чтениями страницы. Повторяющиеся id входа игнорируются (учитывается первое вхождение).
 func (t *Tx) LoadValuesByIDsCodes(ctx context.Context, ids []int64, codes []string) (map[int64][]ValueRow, error) {
 	return loadValuesByIDs(ctx, t.tx, ids, codes)
 }
@@ -795,7 +798,7 @@ ORDER BY pv.device_id, (CASE WHEN pv.variant_id IS NULL THEN 0 ELSE 1 END),
 	return out, err
 }
 
-// LoadVariantsByIDs — исполнения по списку записей.
+// LoadVariantsByIDs — исполнения по списку записей. Повторяющиеся id входа игнорируются (учитывается первое вхождение).
 func (d *DB) LoadVariantsByIDs(ctx context.Context, ids []int64) (map[int64][]VariantRow, error) {
 	return loadVariantsByIDs(ctx, d.reads, ids)
 }
@@ -833,7 +836,7 @@ WHERE device_id IN `+inList("id", chunk, args)+` ORDER BY device_id, sort_order,
 	return out, err
 }
 
-// LoadManufacturersByIDs — производители по списку записей.
+// LoadManufacturersByIDs — производители по списку записей. Повторяющиеся id входа игнорируются (учитывается первое вхождение).
 func (d *DB) LoadManufacturersByIDs(ctx context.Context, ids []int64) (map[int64][]string, error) {
 	return loadManufacturersByIDs(ctx, d.reads, ids)
 }
@@ -870,7 +873,7 @@ WHERE dm.device_id IN `+inList("id", chunk, args)+` ORDER BY dm.device_id, m.nam
 	return out, err
 }
 
-// LoadOutgoingAnalogsByIDs — исходящие ссылки-аналоги по списку записей.
+// LoadOutgoingAnalogsByIDs — исходящие ссылки-аналоги по списку записей. Повторяющиеся id входа игнорируются (учитывается первое вхождение).
 func (d *DB) LoadOutgoingAnalogsByIDs(ctx context.Context, ids []int64) (map[int64][]AnalogRow, error) {
 	return loadOutgoingAnalogsByIDs(ctx, d.reads, ids)
 }
@@ -913,6 +916,7 @@ ORDER BY a.device_id, t.designation`, args)
 
 // LoadBacklinksByIDs — встречные ссылки («кто указал запись аналогом») по
 // списку записей, индекс по analog_device_id (docs/plan/02-database.md §3).
+// Повторяющиеся id входа игнорируются (учитывается первое вхождение).
 func (d *DB) LoadBacklinksByIDs(ctx context.Context, ids []int64) (map[int64][]BacklinkRow, error) {
 	return loadBacklinksByIDs(ctx, d.reads, ids)
 }
@@ -954,7 +958,7 @@ ORDER BY a.analog_device_id, s.designation`, args)
 }
 
 // LoadSynonymsByIDs — исторические названия записей по списку (пакетное
-// чтение карточек; порядок внутри записи — как у LoadSynonyms).
+// чтение карточек; порядок внутри записи — как у LoadSynonyms). Повторяющиеся id входа игнорируются (учитывается первое вхождение).
 func (d *DB) LoadSynonymsByIDs(ctx context.Context, ids []int64) (map[int64][]SynonymRow, error) {
 	return loadSynonymsByIDs(ctx, d.reads, ids)
 }
@@ -1471,9 +1475,15 @@ VALUES (@id, @target, @note)`,
 
 // ReplaceSynonyms заменяет исторические названия записи целиком (секция
 // synonyms); строки, вставленные параллельным писателем в той же записи
-// и не видимые DELETE этого вызова, сохраняются. Порядок среза —
+// и не видимые DELETE этого вызова, сохраняются. kind — класс
+// записи-владельца: уникальность (kind_code, designation) подкреплена БД,
+// конфликт с синонимом другой записи того же класса (параллельный писатель
+// postgres, чья заявка закоммитилась между проверками сервисного слоя
+// и вставкой) — доменная ошибка svc_synonym_conflict_other по
+// перечитыванию владельца; строка, не видная перечитыванию, — внутренняя
+// ошибка storage_reread_missing (образец InsertDevice). Порядок среза —
 // sort_order.
-func (t *Tx) ReplaceSynonyms(ctx context.Context, deviceID int64, rows []SynonymRow) error {
+func (t *Tx) ReplaceSynonyms(ctx context.Context, deviceID int64, kind domain.Kind, rows []SynonymRow) error {
 	if _, err := t.exec(ctx,
 		`DELETE FROM device_synonyms WHERE device_id = @id`,
 		map[string]any{"id": deviceID}); err != nil {
@@ -1487,15 +1497,30 @@ func (t *Tx) ReplaceSynonyms(ctx context.Context, deviceID int64, rows []Synonym
 		if r.YearTo != nil {
 			yearTo = *r.YearTo
 		}
-		if _, err := t.InsertIfAbsent(ctx, `
-INSERT INTO device_synonyms(device_id, designation, note, year_from, year_to, sort_order)
-VALUES (@id, @designation, @note, @year_from, @year_to, @sort)`,
+		inserted, err := t.InsertIfAbsent(ctx, `
+INSERT INTO device_synonyms(device_id, kind_code, designation, note, year_from, year_to, sort_order)
+VALUES (@id, @kind, @designation, @note, @year_from, @year_to, @sort)`,
 			map[string]any{
-				"id": deviceID, "designation": r.Designation, "note": nilIfEmpty(r.Note),
-				"year_from": yearFrom, "year_to": yearTo, "sort": r.SortOrder,
-			}); err != nil {
+				"id": deviceID, "kind": string(kind), "designation": r.Designation,
+				"note": nilIfEmpty(r.Note), "year_from": yearFrom, "year_to": yearTo,
+				"sort": r.SortOrder,
+			})
+		if err != nil {
 			return err
 		}
+		if inserted {
+			continue
+		}
+		owner, err := t.FindSynonymOwner(ctx, kind, r.Designation)
+		if err != nil {
+			return err
+		}
+		if owner != nil && owner.DeviceID != deviceID {
+			return domain.NewErrorf(domain.CodeValidationFailed,
+				domain.MsgSvcSynonymConflictOther, r.Designation, owner.Designation)
+		}
+		return domain.NewErrorf(domain.CodeInternal, domain.MsgStorageRereadMissing,
+			"device_synonyms(kind_code = "+string(kind)+", designation = "+r.Designation+")")
 	}
 	return nil
 }

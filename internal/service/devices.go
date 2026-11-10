@@ -163,6 +163,26 @@ func (s *DeviceService) applyUpsert(ctx context.Context, in DeviceInput,
 		return outcome, nil // dry-run: записи нет — транзакция чтения откатится
 	}
 
+	// Заявки обозначений класса этой записи (обозначение само + заявленные
+	// исторические названия) сериализуются между конкурентными писателями
+	// до проверок чтением: уникальность записи и синонима живёт в разных
+	// таблицах, на postgres (READ COMMITTED) без сериализации два писателя
+	// проходят встречные проверки до коммита друг друга. SQLite — no-op
+	// (одно соединение записи). Канонизация синонимов здесь ошибок не даёт:
+	// фаза чтения уже отвергла неканонизируемые.
+	var claimSynonyms []string
+	if in.Synonyms != nil {
+		claimSynonyms = make([]string, 0, len(*in.Synonyms))
+		for _, s := range *in.Synonyms {
+			canonical, err := domain.Canonicalize(s.Designation)
+			if err != nil {
+				return "", err
+			}
+			claimSynonyms = append(claimSynonyms, canonical)
+		}
+	}
+	claims := append([]string{p.Designation}, claimSynonyms...)
+
 	// Фаза записи — атомарная транзакция записи: состояние перечитывается
 	// (между фазами мог писать конкурент), валидация повторяется по
 	// текущему состоянию. Свежесть снимка валидации перепроверяется
@@ -177,6 +197,12 @@ func (s *DeviceService) applyUpsert(ctx context.Context, in DeviceInput,
 		outcome, retry, err := func() (Outcome, bool, error) {
 			tx, err := s.app.db.Begin(ctx)
 			if err != nil {
+				return "", false, err
+			}
+			// Сериализация заявок обозначений — до всех проверок чтением
+			// этой транзакции (postgresql — advisory lock до конца
+			// транзакции; sqlite — no-op).
+			if err := tx.LockDesignations(ctx, string(p.Kind), claims); err != nil {
 				return "", false, err
 			}
 			// Откат в defer закрывает транзакцию на любом выходе итерации
@@ -490,7 +516,7 @@ func (s *DeviceService) writeUpsert(ctx context.Context, tx *storage.Tx, deviceI
 				YearFrom: syn.YearFrom, YearTo: syn.YearTo, SortOrder: i,
 			})
 		}
-		if err := tx.ReplaceSynonyms(ctx, deviceID, rows); err != nil {
+		if err := tx.ReplaceSynonyms(ctx, deviceID, p.Kind, rows); err != nil {
 			return err
 		}
 	}
@@ -818,9 +844,10 @@ func (s *DeviceService) GetByID(ctx context.Context, id int64) (*Card, bool, err
 }
 
 // GetByIDs возвращает карточки по списку стабильных id пакетным чтением
-// дочерних таблиц (экспорт — без запросов на каждую запись): порядок
-// результата — по порядку id входа, параллельно удалённые записи
-// пропускаются.
+// дочерних таблиц (экспорт — без запросов на каждую запись); повторяющиеся
+// id входа игнорируются (учитывается первое вхождение — карточка без
+// удвоенных секций); порядок результата — по порядку id входа, параллельно
+// удалённые записи пропускаются.
 func (s *DeviceService) GetByIDs(ctx context.Context, ids []int64) ([]*Card, error) {
 	snap, err := s.app.cache.Snapshot(ctx)
 	if err != nil {

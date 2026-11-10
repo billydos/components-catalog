@@ -69,6 +69,17 @@ type Dialect interface {
 	// параметризованного плана). Выполняется вне транзакций на пуле
 	// записи; вызов — по факту записи (importer), не на каждом открытии.
 	MaintainStats(ctx context.Context, db *sql.DB) error
+
+	// LockDesignations сериализует конкурентные заявки обозначений одного
+	// класса (создание записи устройства, заявка исторического названия)
+	// до конца транзакции: проверки уникальности синонимов (D11) —
+	// чтения, уникальность записи и синонима живёт в разных таблицах,
+	// и на postgres (READ COMMITTED, параллельные писатели) check-then-
+	// insert двух таблиц пропускает обе заявки. Ключ заявки — пара
+	// (kind, designation); блокировка берётся до проверок чтением.
+	// SQLite — no-op: единственное соединение записи исполняет
+	// транзакции писателя целиком последовательно.
+	LockDesignations(ctx context.Context, tx *sql.Tx, kind string, designations []string) error
 }
 
 // pools — соединения хранилища: пул чтения и соединение записи.
@@ -158,10 +169,15 @@ func (d *DB) Begin(ctx context.Context) (*Tx, error) {
 // BeginReadOnly открывает транзакцию чтения из пула чтения: проверки без
 // DML (dry-run, каноническое сравнение Skipped, пакетные чтения карточки)
 // не занимают выделенное соединение записи (SQLite) и не блокируют
-// писателей. Транзакция только читается — Commit отвергается, откат —
-// Rollback вызывающего (обычно defer).
+// писателей. Все операторы транзакции идут по одному снимку СУБД
+// (REPEATABLE READ — как у LoadSnapshot; sqlite-драйвер уровень
+// игнорирует, WAL-чтение и так держит стабильный снимок): составные
+// чтения — страница потока изменений с ревизией, карточки с дочерними
+// таблицами — согласованы и не смешивают состояния. Транзакция только
+// читается — Commit отвергается, откат — Rollback вызывающего (обычно
+// defer).
 func (d *DB) BeginReadOnly(ctx context.Context) (*Tx, error) {
-	tx, err := d.reads.BeginTx(ctx, nil)
+	tx, err := d.reads.BeginTx(ctx, &sql.TxOptions{Isolation: sql.LevelRepeatableRead})
 	if err != nil {
 		return nil, err
 	}
@@ -312,13 +328,24 @@ func inTextList(prefix string, values []string, args map[string]any) string {
 	return "(" + strings.Join(parts, ", ") + ")"
 }
 
-// eachIDChunk обходит список id чанками не длиннее maxInList: батч-чтения
-// выполняют запрос по чанку и сливают результаты (карта или срез
-// вызывающего), лимит аргументов одного оператора не превышается.
+// eachIDChunk обходит список id чанками не длиннее maxInList, отбрасывая
+// повторяющиеся id (учитывается первое вхождение): батч-чтения выполняют
+// запрос по чанку и сливают результаты (карта или срез вызывающего), лимит
+// аргументов одного оператора не превышается, а повтор id на границе чанка
+// не дублирует строки дочерних таблиц и условия значений в слиянии.
 func eachIDChunk(ids []int64, fn func(chunk []int64) error) error {
-	for start := 0; start < len(ids); start += maxInList {
-		end := min(start+maxInList, len(ids))
-		if err := fn(ids[start:end]); err != nil {
+	seen := make(map[int64]bool, len(ids))
+	uniq := make([]int64, 0, len(ids))
+	for _, id := range ids {
+		if seen[id] {
+			continue
+		}
+		seen[id] = true
+		uniq = append(uniq, id)
+	}
+	for start := 0; start < len(uniq); start += maxInList {
+		end := min(start+maxInList, len(uniq))
+		if err := fn(uniq[start:end]); err != nil {
 			return err
 		}
 	}
@@ -363,6 +390,13 @@ func (t *Tx) InsertReturningID(ctx context.Context, query string, args map[strin
 func (t *Tx) InsertIfAbsentReturningID(ctx context.Context, query string, args map[string]any) (int64, bool, error) {
 	q, vals := positional(query, args)
 	return t.dialect.InsertIfAbsentReturningID(ctx, t.tx, q, vals)
+}
+
+// LockDesignations — сериализация конкурентных заявок обозначений одного
+// класса до конца транзакции (метод диалекта); вызывается до проверок
+// уникальности чтением в транзакции записи устройства.
+func (t *Tx) LockDesignations(ctx context.Context, kind string, designations []string) error {
+	return t.dialect.LockDesignations(ctx, t.tx, kind, designations)
 }
 
 // withOnConflict дописывает подавление конфликта уникальности к оператору

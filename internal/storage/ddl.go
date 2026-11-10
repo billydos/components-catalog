@@ -61,7 +61,13 @@ import "strings"
 // индексы дают адресный seek (variant_id=?, parameter_code=?) без
 // выборки строки таблицы обоим планировщикам (измерения — qa/reports/).
 // Базы версии 13 пересоздаются импортом (D5).
-const SchemaVersion = 14
+// Версия 15 — инвариант D11 на уровне БД: колонка kind_code и UNIQUE
+// (kind_code, designation) в device_synonyms — синоним уникален в пределах
+// класса независимо от пути записи (параллельные писатели postgres);
+// сериализация заявок обозначений одного класса (создание записи против
+// заявки синонима) — метод диалекта LockDesignations; базы прежних версий
+// пересоздаются импортом (D5).
+const SchemaVersion = 15
 
 // autoIncToken — маркер авто-PK в переносимом DDL; диалект заменяет его
 // своим определением в RewriteDDL (sqlite: PRIMARY KEY AUTOINCREMENT —
@@ -318,14 +324,20 @@ var ddlStatements = []string{
 	// принадлежит владельцу device_id, у синонима нет своей записи;
 	// note — происхождение имени, year_from/year_to — годы его
 	// употребления (элементы заказа/даты — не локализуемые строки).
+	// kind_code — класс владельца (денормализация): UNIQUE с designation
+	// подкрепляет инвариант D11 «синоним уникален в пределах класса»
+	// на уровне БД — параллельные писатели не коммитят двух владельцев
+	// одного синонима.
 	`CREATE TABLE IF NOT EXISTS device_synonyms (
     device_id   INTEGER NOT NULL REFERENCES devices(id) ON DELETE CASCADE,
+    kind_code   TEXT NOT NULL REFERENCES kinds(code),
     designation TEXT NOT NULL,
     note        TEXT NULL,
     year_from   INTEGER NULL,
     year_to     INTEGER NULL,
     sort_order  INTEGER NOT NULL DEFAULT 0,
-    PRIMARY KEY (device_id, designation)
+    PRIMARY KEY (device_id, designation),
+    UNIQUE (kind_code, designation)
 )`,
 
 	// Ссылки записей на источники данных (план 03 §13): note — место

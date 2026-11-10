@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"net/url"
+	"slices"
 	"strings"
 	"time"
 
@@ -170,6 +171,33 @@ func (postgresDialect) InsertIfAbsentReturningID(ctx context.Context, tx *sql.Tx
 		return 0, false, err
 	}
 	return id, true, nil
+}
+
+// designationLockSeparator — разделитель пары (kind, designation) в ключе
+// блокировки: код класса каталога его не содержит, склейка пар однозначна.
+const designationLockSeparator = "\x1f"
+
+// LockDesignations — pg_advisory_xact_lock по хэшу ключа «kind\x1fобозначение»:
+// блокировка живёт до конца транзакции (xact), заявки одного обозначения
+// класса — создание записи и заявка исторического названия — исполняются
+// последовательно, проверки чтением видят коммит предшественника. Ключи
+// сортируются: две транзакции, берящие несколько блокировок, не тупикуются
+// одинаковым порядком. Хэш может коллидировать — коллизия лишь
+// последовательствует несвязанные заявки, корректности не касается.
+func (postgresDialect) LockDesignations(ctx context.Context, tx *sql.Tx, kind string, designations []string) error {
+	keys := make([]string, 0, len(designations))
+	for _, d := range designations {
+		keys = append(keys, kind+designationLockSeparator+d)
+	}
+	slices.Sort(keys)
+	keys = slices.Compact(keys)
+	for _, key := range keys {
+		if _, err := tx.ExecContext(ctx,
+			`SELECT pg_advisory_xact_lock(hashtextextended($1, 0))`, key); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // appendDSNParam дописывает параметр к DSN в его форме: URL
