@@ -428,17 +428,20 @@ func runImporterSuite(t *testing.T, factory configFactory) {
 		if len(card.Analogs) != 1 || card.Analogs[0].Designation != "Д226" {
 			t.Fatalf("исходящие 1N4007: %+v", card.Analogs)
 		}
+		// Повторный импорт — unchanged по обеим записям. Проверка
+		// обязана идти до открытия app2: на postgres фабрика теста
+		// очищает общую одноразовую базу при каждом openApp, и dry-run
+		// на втором приложении стёр бы записи первого.
+		rep = importFile(t, app, file, false)
+		if rep.HasIssues() || rep.Skipped != 2 {
+			t.Fatalf("повторный: %+v; проблемы: %v", rep, issueMessages(rep.Issues))
+		}
 		// Dry-run прогнозирует тот же итог (холостое создание в
 		// симуляции применённого).
 		app2 := openApp(t, factory)
 		rep = importFile(t, app2, file, true)
 		if rep.HasIssues() || rep.Added != 2 {
 			t.Fatalf("dry-run взаимных ссылок: %+v; %v", rep, issueMessages(rep.Issues))
-		}
-		// Повторный импорт — unchanged по обеим записям.
-		rep = importFile(t, app, file, false)
-		if rep.HasIssues() || rep.Skipped != 2 {
-			t.Fatalf("повторный: %+v; проблемы: %v", rep, issueMessages(rep.Issues))
 		}
 	})
 
