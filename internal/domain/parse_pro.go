@@ -131,7 +131,10 @@ func parsePro(s *scanner, _ Kind) (ParsedDesignation, error) {
 	}
 
 	// Подкласс — код единого словаря (C/D/F/L/S/U → bjt и т.д.).
-	subclassCode, _ := ProSubclassByLetter(class)
+	subclassCode, err := proSubclassCode(class)
+	if err != nil {
+		return ParsedDesignation{}, err
+	}
 	fields := []Field{
 		TextField("material", material.Code),
 		TextField("subclass", subclassCode),
@@ -152,4 +155,16 @@ func runeIn(r rune, s string) bool {
 		}
 	}
 	return false
+}
+
+// proSubclassCode отображает вторую букву PRO ELECTRON в код единого
+// словаря (C/D/F/L/S/U → bjt и т.д.); буква вне словаря — рассинхронизация
+// таблицы классов грамматики и словаря: ошибка разработки, а не тихая
+// порча фильтруемого поля пустым кодом.
+func proSubclassCode(r rune) (string, error) {
+	code, ok := ProSubclassByLetter(r)
+	if !ok {
+		return "", NewErrorf(CodeInternal, MsgSubclassDictSync, string(SystemPro), string(r))
+	}
+	return code, nil
 }

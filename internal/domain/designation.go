@@ -488,7 +488,9 @@ func ParseDesignationForSystem(text string, system System, kind Kind) (ParsedDes
 // неоднозначный класс Ф грамматики gost, как в автодетекте). Контракт
 // ошибок общий с автодетектом: ошибки канонизации и вердикты isVerdictError
 // возвращаются как есть (вердикт прерывает перебор), ни один парсер
-// не принял — autodetect_failed.
+// не принял — autodetect_failed; итоговый класс первого кандидата
+// проверяется против подсказки kind — designation_mismatch, как в основном
+// разборе.
 func ParseDesignationCandidates(text string, kind Kind) ([]ParsedDesignation, error) {
 	if kind != "" && !kind.IsValid() {
 		return nil, NewErrorf(CodeValidationFailed, MsgKindUnknown, string(kind))
@@ -518,6 +520,9 @@ func ParseDesignationCandidates(text string, kind Kind) ([]ParsedDesignation, er
 	}
 	if len(out) == 0 {
 		return nil, NewErrorf(CodeInvalidDesignation, MsgAutodetectFailed, canonical)
+	}
+	if kind != "" && out[0].Kind != kind {
+		return nil, kindMismatch(canonical, out[0].Kind, kind)
 	}
 	return out, nil
 }

@@ -11,8 +11,10 @@ var messageFormatsEn = map[string]string{
 	"schema_version_mismatch":  "database was created by another module version (%[1]d ≠ %[2]d); recreate it: delete the file/database and run import",
 	"database_not_initialized": "database is not initialized or is not a module database; run init (CLI) or EnsureCreated",
 	"kind_not_supported":       "designation belongs to a kind not supported by the module",
-	"gost_subclass_dict_sync":  "designation subclass dictionary is out of sync with the gost subclass table («%[1]s»)", "kind_ambiguous": "device kind is not determined unambiguously by the designation; specify the kind explicitly",
-	"kind_ambiguous_mismatch": "designation «%[1]s» belongs to an ambiguous kind (diode or transistor); kind %[2]s was given", "kind_required": "designation system other does not determine the device kind; specify the kind explicitly",
+	"subclass_dict_sync":       "designation subclass dictionary is out of sync with the %[1]s subclass table («%[2]s»)",
+	"kind_ambiguous":           "device kind is not determined unambiguously by the designation; specify the kind explicitly",
+	"kind_ambiguous_mismatch":  "designation «%[1]s» belongs to an ambiguous kind (diode or transistor); kind %[2]s was given",
+	"kind_required":            "designation system other does not determine the device kind; specify the kind explicitly",
 
 	// Сканер обозначений.
 	"scanner_expected":   "designation «%[1]s»: position %[2]d: expected: %[3]s, got «%[4]s»",

@@ -71,3 +71,14 @@ func TestParseJisMessages(t *testing.T) {
 		}
 	}
 }
+
+// Таблица букв класса и словарь синхронизированы: каждой разбираемой букве
+// (полная и сокращённая формы) соответствует код словаря — иначе
+// jisSubclassCode вернёт ошибку словаря вместо тихой порчи данных.
+func TestJisSubclassTablesSync(t *testing.T) {
+	for _, r := range jisClassLetters + jisShortFormClasses {
+		if _, ok := JisSubclassByLetter(r); !ok {
+			t.Errorf("буква класса %q отсутствует в словаре JisSubclassByLetter", string(r))
+		}
+	}
+}

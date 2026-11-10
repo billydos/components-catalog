@@ -22,7 +22,7 @@ const (
 	MsgSchemaVersionMismatch  MsgID = "schema_version_mismatch"
 	MsgDatabaseNotInitialized MsgID = "database_not_initialized"
 	MsgKindNotSupported       MsgID = "kind_not_supported"
-	MsgGostSubclassDictSync   MsgID = "gost_subclass_dict_sync"
+	MsgSubclassDictSync       MsgID = "subclass_dict_sync"
 	MsgKindAmbiguous          MsgID = "kind_ambiguous"
 	MsgKindAmbiguousMismatch  MsgID = "kind_ambiguous_mismatch"
 	MsgKindRequired           MsgID = "kind_required"
@@ -622,7 +622,7 @@ var msgRegistry = map[MsgID]struct{}{
 	MsgSchemaVersionMismatch:  {},
 	MsgDatabaseNotInitialized: {},
 	MsgKindNotSupported:       {},
-	MsgGostSubclassDictSync:   {},
+	MsgSubclassDictSync:       {},
 	MsgKindAmbiguous:          {},
 	MsgKindAmbiguousMismatch:  {},
 	MsgKindRequired:           {},

@@ -149,7 +149,7 @@ func checkGostDevNumber(s *scanner, digits string, allowLeadingZero bool, pos in
 func gostSubclassCode(subclass string) (string, error) {
 	code, ok := GostSubclassBySymbol([]rune(subclass)[0])
 	if !ok {
-		return "", NewErrorf(CodeInternal, MsgGostSubclassDictSync, subclass)
+		return "", NewErrorf(CodeInternal, MsgSubclassDictSync, string(SystemGost), subclass)
 	}
 	return code, nil
 }

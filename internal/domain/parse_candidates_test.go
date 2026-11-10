@@ -104,6 +104,8 @@ func TestParseDesignationCandidatesErrors(t *testing.T) {
 		{"КФ102А", "", domain.CodeKindAmbiguous, domain.MsgKindAmbiguous},
 		{"С2-33Н-0.125", "", domain.CodePowerSuffix, domain.MsgPowerSuffix},
 		{"КТ315Б", domain.Kind("x"), domain.CodeValidationFailed, domain.MsgKindUnknown},
+		{"КТ315Б", domain.KindResistor, domain.CodeDesignationMismatch, domain.MsgKindMismatch},
+		{"BC547B", domain.KindDiode, domain.CodeDesignationMismatch, domain.MsgKindMismatch},
 	}
 	for _, tc := range cases {
 		_, err := domain.ParseDesignationCandidates(tc.input, tc.kind)

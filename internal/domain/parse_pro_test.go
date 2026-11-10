@@ -88,3 +88,14 @@ func TestParseProKind(t *testing.T) {
 		}
 	}
 }
+
+// Таблица классов и словарь синхронизированы: каждой разбираемой второй
+// букве соответствует код словаря — иначе proSubclassCode вернёт ошибку
+// словаря вместо тихой порчи данных.
+func TestProSubclassTablesSync(t *testing.T) {
+	for r := range proClassKinds {
+		if _, ok := ProSubclassByLetter(r); !ok {
+			t.Errorf("буква класса %q отсутствует в словаре ProSubclassByLetter", string(r))
+		}
+	}
+}

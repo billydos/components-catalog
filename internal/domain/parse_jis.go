@@ -99,7 +99,10 @@ func parseJis(s *scanner, _ Kind) (ParsedDesignation, error) {
 	fields := []Field{NumField("junctions", float64(junc-'0'))}
 	if subclass != "" {
 		// Подкласс — код единого словаря (A/B/C/D → bjt, J/K → fet, …).
-		code, _ := JisSubclassByLetter([]rune(subclass)[0])
+		code, err := jisSubclassCode([]rune(subclass)[0])
+		if err != nil {
+			return ParsedDesignation{}, err
+		}
 		fields = append(fields, TextField("subclass", code))
 	}
 	fields = append(fields, NumField("dev_number", float64(devNumber)))
@@ -127,7 +130,10 @@ func parseJisShortForm(s *scanner) (ParsedDesignation, error) {
 		return ParsedDesignation{}, s.eofErr()
 	}
 	full := "2S" + string(class) + run
-	subclassCode, _ := JisSubclassByLetter(class)
+	subclassCode, err := jisSubclassCode(class)
+	if err != nil {
+		return ParsedDesignation{}, err
+	}
 	// Сокращённая форма суффиксов не несёт: базовое обозначение (тип)
 	// совпадает с восстановленной полной формой.
 	return ParsedDesignation{
@@ -141,4 +147,16 @@ func parseJisShortForm(s *scanner) (ParsedDesignation, error) {
 			TextField(FieldBase, full),
 		},
 	}, nil
+}
+
+// jisSubclassCode отображает букву класса JIS в код единого словаря
+// (A/B/C/D → bjt, J/K → fet, …); буква вне словаря — рассинхронизация
+// таблицы классов грамматики и словаря: ошибка разработки, а не тихая
+// порча фильтруемого поля пустым кодом.
+func jisSubclassCode(r rune) (string, error) {
+	code, ok := JisSubclassByLetter(r)
+	if !ok {
+		return "", NewErrorf(CodeInternal, MsgSubclassDictSync, string(SystemJis), string(r))
+	}
+	return code, nil
 }
