@@ -116,9 +116,13 @@ parameter_condition_set_items(parameter_code TEXT NOT NULL, set_no INTEGER NOT N
                               mode TEXT NOT NULL,             -- required | optional
                               fixed_value REAL NULL,          -- условие-константа (Esr:
                                                                -- freq = 100 кГц): при заданном
-                                                              -- значении mode = required,
-                                                              -- значение в файле можно опустить
-                                                              -- либо задать равным fixed_value
+                                                               -- значении mode = required,
+                                                               -- значение в файле можно опустить
+                                                               -- либо задать равным fixed_value
+                                                               -- (явное значение константы
+                                                               -- освобождено от требования
+                                                               -- позитивности условия в
+                                                               -- сопоставившемся наборе),
                               PRIMARY KEY (parameter_code, set_no, condition_code),
                               FOREIGN KEY (parameter_code, set_no)
                                   REFERENCES parameter_condition_sets(parameter_code, set_no)

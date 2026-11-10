@@ -363,35 +363,34 @@ func checkValueShape(p *ParameterDef, v *ParameterValue) []Problem {
 	return probs
 }
 
-// checkValueConditions — условия значения: известность, позитивность
-// (allow_negative у условия), соответствие одному из наборов условий
-// параметра (required обязательны, optional допустимы, остальные
-// запрещены; fixed_value — константа, которую можно опустить либо задать
-// равной — docs/plan/02-database.md §2.2). У безусловного параметра условий
-// быть не должно.
+// checkValueConditions — условия значения: известность, соответствие
+// одному из наборов условий параметра (required обязательны, optional
+// допустимы, остальные запрещены; fixed_value — константа, которую
+// можно опустить либо задать равной — docs/plan/02-database.md §2.2),
+// позитивность (allow_negative у условия; явное значение, равное
+// fixed-константе сопоставившегося набора, допустимо — план 02 §2.2).
+// У безусловного параметра условий быть не должно.
 func (e *Engine) checkValueConditions(p *ParameterDef, v *ParameterValue) []Problem {
 	var probs []Problem
 	add := func(id domain.MsgID, args ...any) {
 		probs = append(probs, Problemf(domain.CodeValidationFailed, id, args...))
 	}
 	conds := make(map[string]float64, len(v.Conditions))
+	unique := make([]ConditionValue, 0, len(v.Conditions))
 	unknown := false
 	for _, cv := range v.Conditions {
 		if _, dup := conds[cv.Condition]; dup {
 			add(domain.MsgCondDuplicate, p.Code, cv.Condition)
 			continue
 		}
-		c, ok := e.snap.Condition(cv.Condition)
-		if !ok {
+		if _, ok := e.snap.Condition(cv.Condition); !ok {
 			probs = append(probs, Problemf(domain.CodeUnknownCondition, domain.MsgCondUnknown,
 				p.Code, cv.Condition))
 			unknown = true
 			continue
 		}
-		if cv.Value <= 0 && !c.AllowNegative {
-			add(domain.MsgCondPositive, p.Code, cv.Condition)
-		}
 		conds[cv.Condition] = cv.Value
+		unique = append(unique, cv)
 	}
 	if unknown {
 		return probs
@@ -402,27 +401,56 @@ func (e *Engine) checkValueConditions(p *ParameterDef, v *ParameterValue) []Prob
 		}
 		return probs
 	}
+	// Сопоставившиеся наборы: константа набора, не заданная равной,
+	// исключает его из сопоставления, поэтому явное значение fixed-константы
+	// легитимно ровно в сопоставившихся наборах — позитивность к нему
+	// не применяется, ко всем прочим значениям условий — применяется.
+	matched := make([]ConditionSet, 0, 1)
 	for _, set := range p.ConditionSets {
 		if conditionSetMatches(set, conds) {
-			return probs
+			matched = append(matched, set)
 		}
 	}
-	fixedReported := false
-	for _, set := range p.ConditionSets {
-		for _, it := range set.Items {
-			if it.FixedValue == nil {
-				continue
-			}
-			if val, has := conds[it.Condition]; has && val != *it.FixedValue {
-				add(domain.MsgCondFixed, p.Code, it.Condition, formatNum(*it.FixedValue))
-				fixedReported = true
+	if len(matched) == 0 {
+		fixedReported := false
+		for _, set := range p.ConditionSets {
+			for _, it := range set.Items {
+				if it.FixedValue == nil {
+					continue
+				}
+				if val, has := conds[it.Condition]; has && val != *it.FixedValue {
+					add(domain.MsgCondFixed, p.Code, it.Condition, formatNum(*it.FixedValue))
+					fixedReported = true
+				}
 			}
 		}
+		if !fixedReported {
+			add(domain.MsgCondSetMismatch, p.Code)
+		}
+		return probs
 	}
-	if !fixedReported {
-		add(domain.MsgCondSetMismatch, p.Code)
+	for _, cv := range unique {
+		c, _ := e.snap.Condition(cv.Condition) // известность проверена выше
+		if cv.Value <= 0 && !c.AllowNegative && !fixedConditionValue(matched, cv.Condition, cv.Value) {
+			add(domain.MsgCondPositive, p.Code, cv.Condition)
+		}
 	}
 	return probs
+}
+
+// fixedConditionValue — значение условия равно fixed-константе одного
+// из сопоставившихся наборов параметра: явное задание константы в файле
+// допустимо (план 02 §2.2 — «опустить либо задать равным»), требование
+// позитивности к нему не применяется.
+func fixedConditionValue(sets []ConditionSet, cond string, val float64) bool {
+	for _, set := range sets {
+		for _, it := range set.Items {
+			if it.FixedValue != nil && it.Condition == cond && val == *it.FixedValue {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 // conditionSetMatches — соответствие заданных условий набору: required

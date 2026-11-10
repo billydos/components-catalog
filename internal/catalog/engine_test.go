@@ -350,6 +350,92 @@ func TestConditionSets(t *testing.T) {
 			t.Fatalf(" got: %v", messages(probs))
 		}
 	})
+	t.Run("fixed_value нулевая константа задана равной", func(t *testing.T) {
+		// Явный нуль константы (Vce=0, Vcb=0, Veb=0) допустим как
+		// опущенное значение: позитивность условия к константе набора
+		// не применяется (план 02 §2.2).
+		for _, tc := range []struct {
+			parameter string
+			cond      catalog.ConditionValue
+			extra     []catalog.ConditionValue
+			limits    bool
+		}{
+			{"hfe", catalog.ConditionValue{Condition: "Vce", Value: 0},
+				[]catalog.ConditionValue{{Condition: "Ie", Value: 1}}, true},
+			{"hfe", catalog.ConditionValue{Condition: "Vce", Value: 0},
+				[]catalog.ConditionValue{{Condition: "Ic", Value: 1}}, true},
+			{"Cobo", catalog.ConditionValue{Condition: "Vcb", Value: 0}, nil, false},
+			{"Cibo", catalog.ConditionValue{Condition: "Veb", Value: 0}, nil, false},
+		} {
+			d := valP(tc.parameter, tc.cond)
+			d.Values[0].Conditions = append(d.Values[0].Conditions, tc.extra...)
+			if tc.limits {
+				d.Values[0].Min, d.Values[0].Max = f(50), f(350)
+			}
+			if probs := e.ValidateDevice(d); len(probs) != 0 {
+				t.Fatalf("%s %v: %v", tc.parameter, d.Values[0].Conditions, messages(probs))
+			}
+		}
+	})
+	t.Run("отрицательное значение условия-константы", func(t *testing.T) {
+		// Нуль константы допустим, прочие неположительные значения —
+		// нет: -5 не равно fixed-константе наборов hfe.
+		d := valP("hfe",
+			catalog.ConditionValue{Condition: "Vce", Value: -5}, catalog.ConditionValue{Condition: "Ie", Value: 1})
+		d.Values[0].Min, d.Values[0].Max = f(50), f(350)
+		probs := e.ValidateDevice(d)
+		if len(probs) != 1 || probs[0].Message != "parameter «hfe»: condition «Vce» — value must be positive" {
+			t.Fatalf(" got: %v", messages(probs))
+		}
+	})
+	t.Run("фикс чужого набора не освобождает от позитивности", func(t *testing.T) {
+		// Набор A фиксирует Vce=0, набор B требует Vce без фикса:
+		// комбинация {Vce:0, Ic:1} сопоставляется только с B — нуль
+		// не константа сопоставившегося набора, позитивность действует.
+		// На сидах недостижимо (наборы hfe зеркальны по форме) — правило
+		// проверяется тестовым определением поверх сида.
+		snap, probs := catalog.ApplyCatalog(seedSnapshot(t), catalog.Input{
+			Parameters: []catalog.ParameterDef{{
+				Code: "CrossProbe", Group: "electrical",
+				ValueType: catalog.ValueLimits, SortOrder: 459, Active: true,
+				Kinds: []domain.Kind{domain.KindTransistor},
+				ConditionSets: []catalog.ConditionSet{
+					{No: 1, Items: []catalog.ConditionSetItem{
+						{Condition: "Vce", Mode: catalog.ModeRequired, FixedValue: f(0)},
+						{Condition: "Ie", Mode: catalog.ModeRequired},
+					}},
+					{No: 2, Items: []catalog.ConditionSetItem{
+						{Condition: "Vce", Mode: catalog.ModeRequired},
+						{Condition: "Ic", Mode: catalog.ModeRequired},
+					}},
+				},
+			}},
+		})
+		if len(probs) != 0 {
+			t.Fatalf("каталог: %v", messages(probs))
+		}
+		eng := catalog.NewEngine(snap)
+		d := &catalog.Device{
+			Kind: domain.KindTransistor, System: domain.SystemGost,
+			Values: []catalog.ParameterValue{{
+				Parameter: "CrossProbe", Section: "parameters", Min: f(50), Max: f(350),
+				Conditions: []catalog.ConditionValue{
+					{Condition: "Vce", Value: 0}, {Condition: "Ic", Value: 1},
+				},
+			}},
+		}
+		probs = eng.ValidateDevice(d)
+		if len(probs) != 1 || probs[0].Message != "parameter «CrossProbe»: condition «Vce» — value must be positive" {
+			t.Fatalf(" got: %v", messages(probs))
+		}
+		// Та же константа в сопоставившемся наборе — допустима явно.
+		d.Values[0].Conditions = []catalog.ConditionValue{
+			{Condition: "Vce", Value: 0}, {Condition: "Ie", Value: 1},
+		}
+		if probs = eng.ValidateDevice(d); len(probs) != 0 {
+			t.Fatalf("константа своего набора: %v", messages(probs))
+		}
+	})
 	t.Run("набор 2 — низкотемпературный ЭПС", func(t *testing.T) {
 		for _, conds := range [][]catalog.ConditionValue{
 			{{Condition: "temp", Value: -40}, {Condition: "freq", Value: 100000}},
