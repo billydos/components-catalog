@@ -350,6 +350,99 @@ func TestCatalogAndETag(t *testing.T) {
 	}
 }
 
+// TestETagLocale — ETag локализуемых ответов идентифицирует конкретное
+// представление (RFC 9110): negotiated-локаль входит в ETag /catalog и
+// /components — 304 не пересекается между локалями, синонимы локали
+// («ru» и «ru-RU») дают одно представление. Локализуемые GET-ответы
+// (200 и 304) несут Vary: Accept-Language — кэш обязан различать
+// представления; нелокализуемые Vary не несут.
+func TestETagLocale(t *testing.T) {
+	_, srv := newTestAPI(t, Config{})
+	get := func(path, lang, ifNoneMatch string) *http.Response {
+		t.Helper()
+		req, _ := http.NewRequest(http.MethodGet, srv.URL+path, nil)
+		if lang != "" {
+			req.Header.Set("Accept-Language", lang)
+		}
+		if ifNoneMatch != "" {
+			req.Header.Set("If-None-Match", ifNoneMatch)
+		}
+		resp, err := srv.Client().Do(req)
+		if err != nil {
+			t.Fatal(err)
+		}
+		resp.Body.Close()
+		return resp
+	}
+	for _, path := range []string{apiPrefix + "/catalog", apiPrefix + "/components"} {
+		en := get(path, "", "")
+		if en.StatusCode != http.StatusOK {
+			t.Fatalf("%s: статус %d", path, en.StatusCode)
+		}
+		ru := get(path, "ru", "")
+		if ru.StatusCode != http.StatusOK {
+			t.Fatalf("%s (ru): статус %d", path, ru.StatusCode)
+		}
+		if en.Header.Get("Vary") != "Accept-Language" || ru.Header.Get("Vary") != "Accept-Language" {
+			t.Errorf("%s: Vary 200: en %q, ru %q — ожидался Accept-Language",
+				path, en.Header.Get("Vary"), ru.Header.Get("Vary"))
+		}
+		if en.Header.Get("ETag") == "" || ru.Header.Get("ETag") == en.Header.Get("ETag") {
+			t.Fatalf("%s: ETag не различает локали: en %q, ru %q", path,
+				en.Header.Get("ETag"), ru.Header.Get("ETag"))
+		}
+		same := get(path, "ru", ru.Header.Get("ETag"))
+		if same.StatusCode != http.StatusNotModified {
+			t.Errorf("%s: та же локаль с If-None-Match: %d, ожидался 304", path, same.StatusCode)
+		}
+		if same.Header.Get("Vary") != "Accept-Language" {
+			t.Errorf("%s: Vary 304: %q, ожидался Accept-Language", path, same.Header.Get("Vary"))
+		}
+		if other := get(path, "ru", en.Header.Get("ETag")); other.StatusCode != http.StatusOK {
+			t.Errorf("%s: ETag локали en на запросе ru: %d, ожидался 200", path, other.StatusCode)
+		}
+		synonym := get(path, "ru-RU,ru;q=0.9", ru.Header.Get("ETag"))
+		if synonym.StatusCode != http.StatusNotModified {
+			t.Errorf("%s: синоним локали ru с ETag ru: %d, ожидался 304", path, synonym.StatusCode)
+		}
+	}
+	// Прочие локализуемые GET-ответы несут Vary: Accept-Language.
+	_, body, _ := do(t, srv, http.MethodGet, apiPrefix+"/components/transistor/"+esc("КТ315Б"), "")
+	id := decode[cardJSON](t, body).ID
+	for _, path := range []string{
+		apiPrefix + "/kinds",
+		apiPrefix + "/stats?kind=transistor",
+		apiPrefix + "/components/transistor/" + esc("КТ315Б"),
+		fmt.Sprintf("%s/components/id/%d", apiPrefix, id),
+	} {
+		if resp := get(path, "", ""); resp.Header.Get("Vary") != "Accept-Language" {
+			t.Errorf("%s: Vary: %q, ожидался Accept-Language", path, resp.Header.Get("Vary"))
+		}
+	}
+	// Нелокализуемые GET-ответы Vary не несут.
+	for _, path := range []string{
+		apiPrefix + "/stats",
+		apiPrefix + "/changes",
+		apiPrefix + "/suggest?q=" + esc("КТ3"),
+		apiPrefix + "/parse?designation=" + esc("КТ315Б"),
+	} {
+		if resp := get(path, "", ""); resp.Header.Get("Vary") == "Accept-Language" {
+			t.Errorf("%s: неожиданный Vary Accept-Language", path)
+		}
+	}
+	// Тексты ошибок локализованы той же локалью — error-ответы тоже
+	// несут Vary: Accept-Language (в том числе у нелокализуемых данных).
+	for _, path := range []string{
+		apiPrefix + "/components/transistor/" + esc("КТ999А"),
+		apiPrefix + "/changes?bogus=1",
+	} {
+		if resp := get(path, "", ""); resp.Header.Get("Vary") != "Accept-Language" {
+			t.Errorf("%s: Vary ошибки %d: %q, ожидался Accept-Language",
+				path, resp.StatusCode, resp.Header.Get("Vary"))
+		}
+	}
+}
+
 // Словари значений полей обозначения в снимке каталога: состав
 // material/subclass/adjustment — реестры internal/domain (пин-тест полноты),
 // category — словарь данных каталога (снимок, расширяемый импортом);

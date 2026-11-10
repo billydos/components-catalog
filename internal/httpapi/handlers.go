@@ -35,24 +35,28 @@ func (a *API) handleKinds(w *responseWriter, r *http.Request, _ map[string]strin
 			Code: string(k.Code), Name: i18n.KindName(lang, string(k.Code)),
 		})
 	}
+	varyLanguage(w)
 	writeJSON(w, http.StatusOK, resp)
 }
 
 // handleCatalog — GET /api/v1/catalog: снимок каталога для построения
-// форм и фильтров; ETag по catalog_revision (сайт кэширует до смены).
+// форм и фильтров; ETag по catalog_revision и локали представления
+// (сайт кэширует до смены; Vary: Accept-Language — RFC 9110).
 func (a *API) handleCatalog(w *responseWriter, r *http.Request, _ map[string]string) {
 	snap, err := a.app.Snapshot(r.Context())
 	if err != nil {
 		a.writeDomainErr(w, r, err, true)
 		return
 	}
-	etag := catalogETag(snap.Revision)
+	lang := requestLang(r)
+	varyLanguage(w)
+	etag := catalogETag(snap.Revision, lang)
 	w.Header().Set("ETag", etag)
 	if etagMatch(r, etag) {
 		w.WriteHeader(http.StatusNotModified)
 		return
 	}
-	writeJSON(w, http.StatusOK, catalogToJSON(requestLang(r), snap))
+	writeJSON(w, http.StatusOK, catalogToJSON(lang, snap))
 }
 
 // handleStats — GET /api/v1/stats: количества по классам, версия схемы,
@@ -82,7 +86,9 @@ func (a *API) handleStats(w *responseWriter, r *http.Request, _ map[string]strin
 			a.writeDomainErr(w, r, err, true)
 			return
 		}
-		writeJSON(w, http.StatusOK, parameterStatsToJSON(requestLang(r), ps))
+		lang := requestLang(r)
+		varyLanguage(w)
+		writeJSON(w, http.StatusOK, parameterStatsToJSON(lang, ps))
 		return
 	}
 	st, err := a.app.Stats(r.Context())
@@ -118,11 +124,13 @@ func parseStrictQuery(r *http.Request) (url.Values, error) {
 
 // handleSearch — GET /api/v1/components: подстрока обозначения, система,
 // фильтры полей/атрибутов/параметров, сортировка, пагинация; ETag —
-// data_revision и хэш канонической строки запроса (разные фильтры —
-// разные ETag). Разбор параметров и сервисная валидация запроса — строго
+// data_revision, хэш канонической строки запроса и локаль представления
+// (разные фильтры или локали — разные ETag; Vary: Accept-Language).
+// Разбор параметров и сервисная валидация запроса — строго
 // до проверки ETag: ошибки 400 (транспортные и семантические) приоритетнее
 // отсечения 304, в том числе для If-None-Match: *.
 func (a *API) handleSearch(w *responseWriter, r *http.Request, _ map[string]string) {
+	lang := requestLang(r)
 	snap, err := a.app.Snapshot(r.Context())
 	if err != nil {
 		a.writeDomainErr(w, r, err, true)
@@ -147,7 +155,8 @@ func (a *API) handleSearch(w *responseWriter, r *http.Request, _ map[string]stri
 		a.writeErr(w, r, err)
 		return
 	}
-	etag := searchETag(dataRev, values)
+	varyLanguage(w)
+	etag := searchETag(dataRev, values, lang)
 	w.Header().Set("ETag", etag)
 	if etagMatch(r, etag) {
 		w.WriteHeader(http.StatusNotModified)
@@ -158,7 +167,7 @@ func (a *API) handleSearch(w *responseWriter, r *http.Request, _ map[string]stri
 		a.writeDomainErr(w, r, err, true)
 		return
 	}
-	writeJSON(w, http.StatusOK, searchPageToJSON(requestLang(r), q.Values, page))
+	writeJSON(w, http.StatusOK, searchPageToJSON(lang, q.Values, page))
 }
 
 // handleGet — GET /api/v1/components/{kind}/{designation}: карточка
@@ -179,6 +188,7 @@ func (a *API) handleGet(w *responseWriter, r *http.Request, params map[string]st
 			domain.MsgApiCardNotFound, params["designation"])
 		return
 	}
+	varyLanguage(w)
 	writeJSON(w, http.StatusOK, cardToJSON(requestLang(r), card))
 }
 
@@ -200,6 +210,7 @@ func (a *API) handleGetByID(w *responseWriter, r *http.Request, params map[strin
 			domain.MsgApiIdNotFound, params["id"])
 		return
 	}
+	varyLanguage(w)
 	writeJSON(w, http.StatusOK, cardToJSON(requestLang(r), card))
 }
 
@@ -566,6 +577,18 @@ func (a *API) readRecordBody(w *responseWriter, r *http.Request) (service.Device
 // (q-значения, базовый подтег), по умолчанию en (D9).
 func requestLang(r *http.Request) i18n.Language {
 	return i18n.Negotiate(r.Header.Get("Accept-Language"))
+}
+
+// varyLanguage — метка кэшей: представление ответа выбирается по
+// заголовку Accept-Language (локализованные строки — D9). Ставится на
+// локализуемых ответах до записи заголовка — и на 200, и на 304:
+// кэш, не различающий локали, отдаст представление чужого языка
+// (RFC 9110/9111). Vary — списковое поле: уже поставленные сайтом
+// значения (Accept-Encoding) дополняются, а не затираются.
+func varyLanguage(w *responseWriter) {
+	if !slices.Contains(w.Header().Values("Vary"), "Accept-Language") {
+		w.Header().Add("Vary", "Accept-Language")
+	}
 }
 
 // checkKind — класс пути существует в каталоге (текст ошибки — общий

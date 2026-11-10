@@ -53,6 +53,9 @@ paths:
       responses:
         "200":
           description: Классы приборов (name — по локали запроса).
+          headers:
+            Vary:
+              $ref: "#/components/headers/VaryLanguage"
           content:
             application/json:
               schema: {$ref: "#/components/schemas/KindsResponse"}
@@ -73,7 +76,8 @@ paths:
         формат наполнения (snake_case по колонкам каталожных таблиц);
         отображаемые строки (name, описания, имена и символы единиц) —
         по локали запроса (D9).
-        ETag — по catalog_revision: снимок кэшируется до смены каталога.
+        ETag — по catalog_revision и локали представления (разные локали —
+        разные ETag, RFC 9110): снимок кэшируется до смены каталога.
       parameters:
         - $ref: "#/components/parameters/AcceptLanguage"
       responses:
@@ -81,8 +85,10 @@ paths:
           description: Снимок каталога.
           headers:
             ETag:
-              description: Сильный ETag вида "catalog-<catalog_revision>".
+              description: Сильный ETag вида "catalog-<catalog_revision>-<локаль>".
               schema: {type: string}
+            Vary:
+              $ref: "#/components/headers/VaryLanguage"
           content:
             application/json:
               schema: {$ref: "#/components/schemas/CatalogSnapshot"}
@@ -91,6 +97,8 @@ paths:
           headers:
             ETag:
               schema: {type: string}
+            Vary:
+              $ref: "#/components/headers/VaryLanguage"
         "500":
           $ref: "#/components/responses/InternalError"
         "405":
@@ -125,6 +133,11 @@ paths:
         "200":
           description: Агрегаты модуля (без kind) либо фасетные агрегаты
             класса (с kind); name — по локали запроса, unit — канонический код.
+          headers:
+            Vary:
+              description: Accept-Language — на ответе с kind (представление
+                локализуется); на агрегатах модуля без kind не отдаётся.
+              schema: {type: string, const: Accept-Language}
           content:
             application/json:
               schema:
@@ -188,8 +201,9 @@ paths:
         Подстрока обозначения, система, фильтр по набору стабильных id,
         фильтры полей/атрибутов/параметров, сортировка, пагинация. Ответ —
         список с обозначением, классом, системой и ключевыми полями;
-        ETag — по data_revision и канонической строке запроса (разные
-        фильтры/сортировки — разные ETag). Повтор любого параметра
+        ETag — по data_revision, канонической строке запроса и локали
+        представления (разные фильтры/сортировки или локали — разные
+        ETag, RFC 9110). Повтор любого параметра
         запроса — 400 validation_failed; исключения — намеренно
         повторяемые id (набор фильтра, до 200 значений), словарные
         фильтры material/subclass/adjustment/category (мультивыбор —
@@ -297,11 +311,13 @@ paths:
           headers:
             ETag:
               description: |
-                Сильный ETag вида "data-<data_revision>-<hash>": hash —
-                хэш канонической строки запроса (имена параметров
+                Сильный ETag вида "data-<data_revision>-<hash>-<локаль>":
+                hash — хэш канонической строки запроса (имена параметров
                 отсортированы, пары name=value через «&»; повторяемый id
                 входит каждым значением — порядок значим).
               schema: {type: string}
+            Vary:
+              $ref: "#/components/headers/VaryLanguage"
           content:
             application/json:
               schema: {$ref: "#/components/schemas/SearchPage"}
@@ -310,6 +326,8 @@ paths:
           headers:
             ETag:
               schema: {type: string}
+            Vary:
+              $ref: "#/components/headers/VaryLanguage"
         "400":
           $ref: "#/components/responses/BadRequest"
         "500":
@@ -327,6 +345,8 @@ paths:
         в пути. Существующий (kind, designation) — 409 already_exists
         без изменения записи (создание атомарно, гонка параллельных
         POST не применяет секции к чужой записи).
+      parameters:
+        - $ref: "#/components/parameters/AcceptLanguage"
       requestBody:
         required: true
         content:
@@ -343,6 +363,9 @@ paths:
         "404":
           description: Редкая гонка — запись удалена между применением
             и чтением карточки для ответа.
+          headers:
+            Vary:
+              $ref: "#/components/headers/VaryLanguage"
           content:
             application/json:
               schema: {$ref: "#/components/schemas/Error"}
@@ -363,9 +386,13 @@ paths:
         этим путём или поиском — прямой путь для них не гарантируется.
       parameters:
         - {name: id, in: path, required: true, schema: {type: integer, format: int64}}
+        - $ref: "#/components/parameters/AcceptLanguage"
       responses:
         "200":
           description: Карточка записи.
+          headers:
+            Vary:
+              $ref: "#/components/headers/VaryLanguage"
           content:
             application/json:
               schema: {$ref: "#/components/schemas/Card"}
@@ -394,6 +421,9 @@ paths:
       responses:
         "200":
           description: Карточка записи.
+          headers:
+            Vary:
+              $ref: "#/components/headers/VaryLanguage"
           content:
             application/json:
               schema: {$ref: "#/components/schemas/Card"}
@@ -436,6 +466,9 @@ paths:
         "404":
           description: Редкая гонка — запись удалена между применением
             и чтением карточки для ответа.
+          headers:
+            Vary:
+              $ref: "#/components/headers/VaryLanguage"
           content:
             application/json:
               schema: {$ref: "#/components/schemas/Error"}
@@ -586,6 +619,12 @@ paths:
         "405":
           $ref: "#/components/responses/MethodNotAllowed"
 components:
+  headers:
+    VaryLanguage:
+      description: Всегда Accept-Language — представление ответа выбирается
+        по локали запроса (D9); кэш обязан различать представления
+        разных локалей (RFC 9110/9111).
+      schema: {type: string, const: Accept-Language}
   parameters:
     Kind:
       name: kind
@@ -608,16 +647,25 @@ components:
   responses:
     BadRequest:
       description: Неверный запрос (параметры/путь/синтаксис тела).
+      headers:
+        Vary:
+          $ref: "#/components/headers/VaryLanguage"
       content:
         application/json:
           schema: {$ref: "#/components/schemas/Error"}
     NotFound:
       description: Не найдено.
+      headers:
+        Vary:
+          $ref: "#/components/headers/VaryLanguage"
       content:
         application/json:
           schema: {$ref: "#/components/schemas/Error"}
     Conflict:
       description: Конфликт (запись уже существует).
+      headers:
+        Vary:
+          $ref: "#/components/headers/VaryLanguage"
       content:
         application/json:
           schema: {$ref: "#/components/schemas/Error"}
@@ -628,16 +676,24 @@ components:
         Allow:
           description: Разделённый запятыми список допустимых методов пути.
           schema: {type: string}
+        Vary:
+          $ref: "#/components/headers/VaryLanguage"
       content:
         application/json:
           schema: {$ref: "#/components/schemas/Error"}
     Unprocessable:
       description: Семантическая ошибка записи/обозначения.
+      headers:
+        Vary:
+          $ref: "#/components/headers/VaryLanguage"
       content:
         application/json:
           schema: {$ref: "#/components/schemas/Error"}
     InternalError:
       description: Внутренняя ошибка.
+      headers:
+        Vary:
+          $ref: "#/components/headers/VaryLanguage"
       content:
         application/json:
           schema: {$ref: "#/components/schemas/Error"}

@@ -307,9 +307,11 @@ func writeJSON(w *responseWriter, status int, v any) {
 }
 
 // writeError — транспортная ошибка с кодом домена: текст — каталог
-// сообщений по локали запроса (D9).
+// сообщений по локали запроса (D9); Vary: Accept-Language — текст
+// сообщения локализован (кэш не хранит представления чужой локали).
 func (a *API) writeError(w *responseWriter, r *http.Request, status int, code domain.Code, id domain.MsgID, args ...any) {
 	w.fail(code)
+	varyLanguage(w)
 	writeJSON(w, status, errorBody{
 		Code:    string(code),
 		Message: i18n.Message(requestLang(r), string(id), args...),
@@ -332,6 +334,7 @@ func (a *API) writeDomainErr(w *responseWriter, r *http.Request, err error, inQu
 		return
 	}
 	w.fail(de.Code)
+	varyLanguage(w)
 	writeJSON(w, statusFor(de.Code, inQuery), errorBody{
 		Code:    string(de.Code),
 		Message: i18n.Message(requestLang(r), string(de.MsgID), de.Args...),
@@ -345,6 +348,7 @@ func (a *API) writeDomainErr(w *responseWriter, r *http.Request, err error, inQu
 func (a *API) writeErr(w *responseWriter, r *http.Request, err error) {
 	a.log.Error("непредвиденная ошибка REST", "error", err)
 	w.fail(domain.CodeInternal)
+	varyLanguage(w)
 	writeJSON(w, http.StatusInternalServerError, errorBody{
 		Code:    string(domain.CodeInternal),
 		Message: i18n.Message(requestLang(r), string(domain.MsgApiPanic)),
@@ -387,20 +391,23 @@ func statusFor(code domain.Code, inQuery bool) int {
 	return http.StatusUnprocessableEntity
 }
 
-// catalogETag — сильный ETag снимка каталога по catalog_revision
-// («catalog-<n>»).
-func catalogETag(rev int64) string {
-	return fmt.Sprintf(`"catalog-%d"`, rev)
+// catalogETag — сильный ETag снимка каталога: catalog_revision и локаль
+// представления («catalog-<n>-<lang>»). Снимок локализуется (имена,
+// символы единиц — D9), поэтому ETag идентифицирует конкретное
+// представление, а не только версию данных (RFC 9110).
+func catalogETag(rev int64, lang i18n.Language) string {
+	return fmt.Sprintf(`"catalog-%d-%s"`, rev, lang)
 }
 
-// searchETag — сильный ETag страницы поиска: data_revision и хэш
-// канонической строки запроса («data-<n>-<hash>»): имена параметров
-// отсортированы, пары name=value через «&» (повторяемый параметр id
-// входит каждым значением — id=1&id=2; порядок значим: без sort порядок
-// выдачи следует порядку передачи id). ETag идентифицирует
-// представление конкретного запроса, а не любые фильтры с той же
-// ревизией (RFC 9110); hash — FNV-1a 64.
-func searchETag(dataRev int64, values url.Values) string {
+// searchETag — сильный ETag страницы поиска: data_revision, хэш
+// канонической строки запроса и локаль представления
+// («data-<n>-<hash>-<lang>»): имена параметров отсортированы, пары
+// name=value через «&» (повторяемый параметр id входит каждым значением —
+// id=1&id=2; порядок значим: без sort порядок выдачи следует порядку
+// передачи id). Страница локализуется (D9), ETag идентифицирует
+// представление конкретного запроса и локали, а не любые фильтры
+// с той же ревизией (RFC 9110); hash — FNV-1a 64.
+func searchETag(dataRev int64, values url.Values, lang i18n.Language) string {
 	names := slices.Sorted(maps.Keys(values))
 	h := fnv.New64a()
 	for i, name := range names {
@@ -413,7 +420,7 @@ func searchETag(dataRev int64, values url.Values) string {
 			h.Write([]byte(v))
 		}
 	}
-	return fmt.Sprintf(`"data-%d-%016x"`, dataRev, h.Sum64())
+	return fmt.Sprintf(`"data-%d-%016x-%s"`, dataRev, h.Sum64(), lang)
 }
 
 // etagMatch — If-None-Match совпадает с ETag (точное значение либо «*»).
