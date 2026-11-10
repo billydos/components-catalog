@@ -34,8 +34,13 @@ func metaProblem(id domain.MsgID, a ...any) Problem {
 }
 
 // validateInputSelf — внутренняя согласованность входа: непустые и
-// уникальные коды в каждом разделе, известность правил, допустимость
-// литеральных перечислений (типы значений, режимы условий).
+// уникальные коды в каждом разделе, отсутствие повторов в подсписках
+// строки (условия одного набора, номера наборов условий, enum-значения,
+// классы применимости — батч-вставки каталога пишут строки с уникальными
+// ключами, провалидированное обязано совпадать с записанным), свобода
+// секции класса от коллизий с ключами корня формата наполнения,
+// известность правил, допустимость литеральных перечислений (типы
+// значений, режимы условий).
 func validateInputSelf(in Input) []Problem {
 	var probs []Problem
 	probs = append(probs, checkCodes("kinds", in.Kinds, func(r KindDef) string { return string(r.Code) })...)
@@ -53,6 +58,15 @@ func validateInputSelf(in Input) []Problem {
 	probs = append(probs, checkPairCodes("kind_validation_rules", in.KindRules,
 		func(r KindRuleRef) string { return string(r.Kind) + "+" + r.Rule })...)
 
+	for _, r := range in.Kinds {
+		if r.Code == "" {
+			continue
+		}
+		if RootSectionReserved(KindSection(r.Code)) {
+			probs = append(probs, metaProblem(domain.MsgMetaKindSectionReserved,
+				string(r.Code), KindSection(r.Code)))
+		}
+	}
 	for _, r := range in.Rules {
 		if r.Code == "" {
 			continue
@@ -74,12 +88,30 @@ func validateInputSelf(in Input) []Problem {
 				probs = append(probs, metaProblem(domain.MsgMetaParamRuleUnknown, p.Code, p.ValidationRule))
 			}
 		}
+		if v, dup := firstDup(p.EnumValues); dup {
+			probs = append(probs, metaProblem(domain.MsgMetaParamEnumDup, p.Code, v))
+		}
+		if k, dup := firstDup(p.Kinds); dup {
+			probs = append(probs, metaProblem(domain.MsgMetaParamKindDup, p.Code, string(k)))
+		}
+		seenNo := make(map[int]bool, len(p.ConditionSets))
 		for j := range p.ConditionSets {
-			for _, it := range p.ConditionSets[j].Items {
+			set := &p.ConditionSets[j]
+			if seenNo[set.No] {
+				probs = append(probs, metaProblem(domain.MsgMetaCondSetNumberDup, p.Code, set.No))
+			}
+			seenNo[set.No] = true
+			seen := make(map[string]bool, len(set.Items))
+			for _, it := range set.Items {
 				if !it.Mode.Valid() {
 					probs = append(probs, metaProblem(domain.MsgMetaCondModeUnknown,
-						p.Code, p.ConditionSets[j].No, string(it.Mode)))
+						p.Code, set.No, string(it.Mode)))
 				}
+				if seen[it.Condition] {
+					probs = append(probs, metaProblem(domain.MsgMetaCondSetDup,
+						p.Code, set.No, it.Condition))
+				}
+				seen[it.Condition] = true
 			}
 		}
 	}
@@ -95,6 +127,12 @@ func validateInputSelf(in Input) []Problem {
 			if _, ok := RuleByCode(a.ValidationRule); !ok {
 				probs = append(probs, metaProblem(domain.MsgMetaAttrRuleUnknown, a.Code, a.ValidationRule))
 			}
+		}
+		if v, dup := firstDup(a.EnumValues); dup {
+			probs = append(probs, metaProblem(domain.MsgMetaAttrEnumDup, a.Code, v))
+		}
+		if k, dup := firstDup(a.Kinds); dup {
+			probs = append(probs, metaProblem(domain.MsgMetaAttrKindDup, a.Code, string(k)))
 		}
 	}
 	return probs
@@ -121,6 +159,19 @@ func checkCodes[T any](section string, rows []T, code func(T) string) []Problem 
 // (система+класс, семейство+класс, класс+правило).
 func checkPairCodes[T any](section string, rows []T, key func(T) string) []Problem {
 	return checkCodes(section, rows, key)
+}
+
+// firstDup — первый повторившийся элемент среза; false — повторов нет.
+func firstDup[T comparable](rows []T) (T, bool) {
+	seen := make(map[T]bool, len(rows))
+	for _, v := range rows {
+		if seen[v] {
+			return v, true
+		}
+		seen[v] = true
+	}
+	var zero T
+	return zero, false
 }
 
 // kindRuleKey — составной ключ привязки правила к классу

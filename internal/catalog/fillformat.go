@@ -7,14 +7,21 @@ import (
 // Ключи формата наполнения, зарезервированные служебными секциями
 // (docs/fill-format.md). Реестр — единственный источник для читателя
 // формата (internal/importer/reader.go) и инвариантов метасхемы:
-// коды условий и имена секций групп не могут совпадать с зарезервиро-
-// ванными ключами — такие определения каталога невыразимы в файле
-// наполнения, round-trip их искажает.
+// коды условий, имена секций групп и секции классов корня не могут
+// совпадать с зарезервированными ключами — такие определения каталога
+// невыразимы в файле наполнения, round-trip их искажает.
 
 // KindSection — ключ секции корня формата наполнения для класса:
 // код класса с «s» (transistors, diodes, resistors, capacitors,
 // relays; docs/fill-format.md §2).
 func KindSection(k domain.Kind) string { return string(k) + "s" }
+
+// RootSectionReserved сообщает, зарезервирован ли ключ корня формата
+// наполнения (catalog, sources; docs/fill-format.md §2): секция класса
+// с таким именем неотличима от служебной — записи класса невыразимы.
+func RootSectionReserved(name string) bool {
+	return name == "catalog" || name == "sources"
+}
 
 // ValueKeyReserved сообщает, зарезервирован ли ключ объекта значения
 // секции группы: parameter, value, min, max, text (docs/fill-format.md §4).

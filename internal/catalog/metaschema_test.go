@@ -122,6 +122,34 @@ func TestMetaschemaViolations(t *testing.T) {
 				r.ConditionSets = []catalog.ConditionSet{{No: 1, Items: []catalog.ConditionSetItem{{Condition: "freq", Mode: catalog.ModeOptional, FixedValue: f(1)}}}}
 			}),
 		}}, "catalog: parameter «Eta»: condition set 1, condition «freq»: fixed_value is allowed only for a required condition"},
+		{"дубликат условия в наборе", catalog.Input{Parameters: []catalog.ParameterDef{
+			p(func(r *catalog.ParameterDef) {
+				r.ConditionSets = []catalog.ConditionSet{{No: 1, Items: []catalog.ConditionSetItem{
+					{Condition: "freq", Mode: catalog.ModeOptional},
+					{Condition: "freq", Mode: catalog.ModeRequired},
+				}}}
+			}),
+		}}, "catalog: parameter «Eta»: condition set 1: duplicate condition «freq»"},
+		{"дубликат номера набора условий", catalog.Input{Parameters: []catalog.ParameterDef{
+			p(func(r *catalog.ParameterDef) {
+				r.ConditionSets = []catalog.ConditionSet{
+					{No: 1, Items: []catalog.ConditionSetItem{{Condition: "freq", Mode: catalog.ModeRequired}}},
+					{No: 1, Items: []catalog.ConditionSetItem{{Condition: "temp", Mode: catalog.ModeOptional}}},
+				}
+			}),
+		}}, "catalog: parameter «Eta»: duplicate condition set number 1"},
+		{"дубликат enum-значения параметра", catalog.Input{Parameters: []catalog.ParameterDef{
+			p(func(r *catalog.ParameterDef) {
+				r.ValueType = catalog.ValueEnum
+				r.Unit = ""
+				r.EnumValues = []string{"A", "A"}
+			}),
+		}}, "catalog: parameter «Eta»: duplicate enum value «A»"},
+		{"дубликат класса применимости параметра", catalog.Input{Parameters: []catalog.ParameterDef{
+			p(func(r *catalog.ParameterDef) {
+				r.Kinds = []domain.Kind{domain.KindTransistor, domain.KindTransistor}
+			}),
+		}}, "catalog: parameter «Eta»: duplicate applicability kind «transistor»"},
 		{"дубликат кода параметра", catalog.Input{Parameters: []catalog.ParameterDef{
 			p(func(*catalog.ParameterDef) {}), p(func(*catalog.ParameterDef) {}),
 		}}, "catalog: section parameters: duplicate code «Eta»"},
@@ -149,6 +177,9 @@ func TestMetaschemaViolations(t *testing.T) {
 		{"класс с секцией существующей группы", catalog.Input{Kinds: []catalog.KindDef{
 			{Code: "parameter"},
 		}}, "catalog: group «electrical»: section name «parameters» is reserved by the fill format"},
+		{"класс с секцией корневого ключа sources", catalog.Input{Kinds: []catalog.KindDef{
+			{Code: "source"},
+		}}, "catalog: kind «source»: section name «sources» is reserved by the fill format"},
 		{"несуществующая system применимости", catalog.Input{SystemKinds: []catalog.SystemKindRef{
 			{System: "din", Kind: domain.KindResistor},
 		}}, "catalog: system applicability: system «din» does not exist"},
@@ -211,6 +242,12 @@ func TestMetaschemaAttributeViolations(t *testing.T) {
 		{"неизвестный класс применимости атрибута", catalog.Input{Attributes: []catalog.AttributeDef{
 			withAttrKinds(base, domain.Kind("thyristor")),
 		}}, "catalog: attribute «description»: applicability kind «thyristor» does not exist"},
+		{"дубликат enum-значения атрибута", catalog.Input{Attributes: []catalog.AttributeDef{
+			withAttrEnumValues(base, "x", "x"),
+		}}, "catalog: attribute «description»: duplicate enum value «x»"},
+		{"дубликат класса применимости атрибута", catalog.Input{Attributes: []catalog.AttributeDef{
+			withAttrKinds(base, domain.KindTransistor, domain.KindTransistor),
+		}}, "catalog: attribute «description»: duplicate applicability kind «transistor»"},
 	}
 	snap := seedSnapshot(t)
 	for _, tc := range cases {
@@ -233,6 +270,12 @@ func yearFrom(t *testing.T) *catalog.AttributeDef {
 func withAttrType(base *catalog.AttributeDef, t catalog.AttrType) catalog.AttributeDef {
 	row := *base
 	row.Type = t
+	return row
+}
+
+func withAttrEnumValues(base *catalog.AttributeDef, values ...string) catalog.AttributeDef {
+	row := withAttrType(base, catalog.AttrEnum)
+	row.EnumValues = values
 	return row
 }
 
@@ -422,6 +465,77 @@ func TestApplyCatalogSelfProblemsSkipApply(t *testing.T) {
 	// непустой список проблем — поведение отказа не зависит от пути.
 	_, probs = catalog.ApplyCatalog(snap, catalog.Input{Parameters: in.Parameters[:1]})
 	hasProblem(t, probs, "catalog: parameter «NewP»: unit «no_such_unit» does not exist")
+}
+
+// Инвариант «провалидировано = записано»: батч-вставки каталога пишут
+// строки с уникальными ключами (ON CONFLICT молча отбрасывает вторую
+// строку повтора), поэтому повторы в подсписках строки входа — условия
+// одного набора, enum-значения, классы применимости — отвергаются
+// применением целиком, а не урезаются при записи.
+func TestApplyCatalogRejectsSublistDuplicates(t *testing.T) {
+	snap := seedSnapshot(t)
+	in := catalog.Input{Parameters: []catalog.ParameterDef{
+		{Code: "DupP", Group: "electrical", ValueType: catalog.ValueEnum,
+			SortOrder: 490, Active: true,
+			EnumValues: []string{"A", "A"},
+			Kinds:      []domain.Kind{domain.KindTransistor, domain.KindTransistor},
+			ConditionSets: []catalog.ConditionSet{
+				{No: 1, Items: []catalog.ConditionSetItem{
+					{Condition: "freq", Mode: catalog.ModeRequired},
+					{Condition: "freq", Mode: catalog.ModeOptional},
+				}},
+				{No: 1, Items: []catalog.ConditionSetItem{
+					{Condition: "temp", Mode: catalog.ModeOptional},
+				}},
+			}},
+	}}
+	out, probs := catalog.ApplyCatalog(snap, in)
+	hasProblem(t, probs, "catalog: parameter «DupP»: condition set 1: duplicate condition «freq»")
+	hasProblem(t, probs, "catalog: parameter «DupP»: duplicate condition set number 1")
+	hasProblem(t, probs, "catalog: parameter «DupP»: duplicate enum value «A»")
+	hasProblem(t, probs, "catalog: parameter «DupP»: duplicate applicability kind «transistor»")
+	if _, ok := out.Parameter("DupP"); ok {
+		t.Fatal("вход с повторами перенесён в снимок")
+	}
+	if _, ok := snap.Parameter("DupP"); ok {
+		t.Fatal("исходный снимок изменён")
+	}
+}
+
+// Негативный контроль проверок повторов: легитимные входы не отвергаются —
+// одно и то же условие в разных наборах, одно и то же enum-значение у
+// разных параметров, класс без коллизии секции с ключами корня.
+func TestApplyCatalogAllowsDistinctSublists(t *testing.T) {
+	snap := seedSnapshot(t)
+	p := func(code string, sets ...catalog.ConditionSet) catalog.ParameterDef {
+		return catalog.ParameterDef{Code: code, Group: "electrical",
+			ValueType: catalog.ValueEnum, SortOrder: 490, Active: true,
+			EnumValues: []string{"A", "B"}, ConditionSets: sets}
+	}
+	cases := []struct {
+		name string
+		in   catalog.Input
+	}{
+		{"одно условие в разных наборах", catalog.Input{Parameters: []catalog.ParameterDef{
+			p("NewP",
+				catalog.ConditionSet{No: 1, Items: []catalog.ConditionSetItem{{Condition: "freq", Mode: catalog.ModeRequired}}},
+				catalog.ConditionSet{No: 2, Items: []catalog.ConditionSetItem{{Condition: "freq", Mode: catalog.ModeOptional}}}),
+		}}},
+		{"одно enum-значение у разных параметров", catalog.Input{Parameters: []catalog.ParameterDef{
+			p("NewP1"), p("NewP2"),
+		}}},
+		{"класс без коллизии секции корня", catalog.Input{Kinds: []catalog.KindDef{
+			{Code: "sensor"},
+		}}},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			_, probs := catalog.ApplyCatalog(snap, tc.in)
+			if len(probs) != 0 {
+				t.Fatalf("легитимный вход отвергнут: %v", messages(probs))
+			}
+		})
+	}
 }
 
 // Критерий этапа 2: расширение каталога только вставкой строк — новый

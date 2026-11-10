@@ -153,9 +153,15 @@ const (
 	MsgMetaRuleUnknownSection         MsgID = "meta_rule_unknown_section"
 	MsgMetaParamValueType             MsgID = "meta_param_value_type"
 	MsgMetaParamRuleUnknown           MsgID = "meta_param_rule_unknown"
+	MsgMetaParamEnumDup               MsgID = "meta_param_enum_dup"
+	MsgMetaParamKindDup               MsgID = "meta_param_kind_dup"
 	MsgMetaCondModeUnknown            MsgID = "meta_cond_mode_unknown"
+	MsgMetaCondSetDup                 MsgID = "meta_cond_set_dup"
+	MsgMetaCondSetNumberDup           MsgID = "meta_cond_set_number_dup"
 	MsgMetaAttrValueType              MsgID = "meta_attr_value_type"
 	MsgMetaAttrRuleUnknown            MsgID = "meta_attr_rule_unknown"
+	MsgMetaAttrEnumDup                MsgID = "meta_attr_enum_dup"
+	MsgMetaAttrKindDup                MsgID = "meta_attr_kind_dup"
 	MsgMetaSystemRefMissing           MsgID = "meta_system_ref_missing"
 	MsgMetaSystemKindMissing          MsgID = "meta_system_kind_missing"
 	MsgMetaCondUnitMissing            MsgID = "meta_cond_unit_missing"
@@ -164,6 +170,7 @@ const (
 	MsgMetaGroupSortNegative          MsgID = "meta_group_sort_negative"
 	MsgMetaGroupSectionDup            MsgID = "meta_group_section_dup"
 	MsgMetaGroupSectionReserved       MsgID = "meta_group_section_reserved"
+	MsgMetaKindSectionReserved        MsgID = "meta_kind_section_reserved"
 	MsgMetaRuleUnknown                MsgID = "meta_rule_unknown"
 	MsgMetaKindRuleKindMissing        MsgID = "meta_kind_rule_kind_missing"
 	MsgMetaKindRuleUnknown            MsgID = "meta_kind_rule_unknown"
@@ -742,9 +749,15 @@ var msgRegistry = map[MsgID]struct{}{
 	MsgMetaRuleUnknownSection:         {},
 	MsgMetaParamValueType:             {},
 	MsgMetaParamRuleUnknown:           {},
+	MsgMetaParamEnumDup:               {},
+	MsgMetaParamKindDup:               {},
 	MsgMetaCondModeUnknown:            {},
+	MsgMetaCondSetDup:                 {},
+	MsgMetaCondSetNumberDup:           {},
 	MsgMetaAttrValueType:              {},
 	MsgMetaAttrRuleUnknown:            {},
+	MsgMetaAttrEnumDup:                {},
+	MsgMetaAttrKindDup:                {},
 	MsgMetaSystemRefMissing:           {},
 	MsgMetaSystemKindMissing:          {},
 	MsgMetaCondUnitMissing:            {},
@@ -753,6 +766,7 @@ var msgRegistry = map[MsgID]struct{}{
 	MsgMetaGroupSortNegative:          {},
 	MsgMetaGroupSectionDup:            {},
 	MsgMetaGroupSectionReserved:       {},
+	MsgMetaKindSectionReserved:        {},
 	MsgMetaRuleUnknown:                {},
 	MsgMetaKindRuleKindMissing:        {},
 	MsgMetaKindRuleUnknown:            {},
