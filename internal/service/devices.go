@@ -129,7 +129,9 @@ func (s *DeviceService) applyUpsert(ctx context.Context, in DeviceInput,
 
 	// Фаза чтения — транзакция пула чтения: проверки без DML не занимают
 	// выделенное соединение записи (SQLite) и не блокируют писателей.
-	dev, cur, merged, analogs, sourceRefs, err := func() (*storage.DeviceRow, *deviceState, *deviceState, []resolvedAnalog, []storage.DeviceSourceRef, error) {
+	// Разрешённые аналоги и ссылки на источники нужны только фазе записи —
+	// здесь она перечитывает их по своей транзакции.
+	dev, cur, merged, _, _, err := func() (*storage.DeviceRow, *deviceState, *deviceState, []resolvedAnalog, []storage.DeviceSourceRef, error) {
 		rtx, err := s.app.db.BeginReadOnly(ctx)
 		if err != nil {
 			return nil, nil, nil, nil, nil, err
@@ -172,46 +174,57 @@ func (s *DeviceService) applyUpsert(ctx context.Context, in DeviceInput,
 	// пересобирать не нужно. Повторный дрейф — гонка ничтожного окна:
 	// попытка продолжается с текущим снимком.
 	for attempt := 0; ; attempt++ {
-		tx, err := s.app.db.Begin(ctx)
-		if err != nil {
-			return "", err
-		}
-		dev, cur, merged, analogs, sourceRefs, err = s.readMerged(ctx, tx, merger, p, &in, explicit, pending)
-		if err != nil {
-			tx.Rollback() //nolint:errcheck — откат нефиксированной транзакции
-			return "", err
-		}
-		if snapOverride == nil {
-			rev, rerr := tx.CatalogRevision(ctx)
-			if rerr != nil {
-				tx.Rollback() //nolint:errcheck — откат нефиксированной транзакции
-				return "", rerr
+		outcome, retry, err := func() (Outcome, bool, error) {
+			tx, err := s.app.db.Begin(ctx)
+			if err != nil {
+				return "", false, err
 			}
-			if rev != snap.Revision && attempt == 0 {
-				tx.Rollback() //nolint:errcheck — откат нефиксированной транзакции
-				fresh, ferr := s.app.cache.Snapshot(ctx)
-				if ferr != nil {
-					return "", ferr
+			// Откат в defer закрывает транзакцию на любом выходе итерации
+			// (ошибка применения, гонка createOnly, дрейф ревизии); после
+			// Commit безопасен — ErrTxDone. Открытая транзакция не покидает
+			// итерацию: единственное соединение записи SQLite и блокировки
+			// postgres не застревают после сбоя посреди записи.
+			defer tx.Rollback() //nolint:errcheck — откат нефиксированной транзакции
+			dev, cur, merged, analogs, sourceRefs, err := s.readMerged(ctx, tx, merger, p, &in, explicit, pending)
+			if err != nil {
+				return "", false, err
+			}
+			if snapOverride == nil {
+				rev, rerr := tx.CatalogRevision(ctx)
+				if rerr != nil {
+					return "", false, rerr
 				}
-				snap = fresh
-				merger = &stateMerger{snap: snap}
-				continue
+				if rev != snap.Revision && attempt == 0 {
+					// Снимок обновляется вне соединения записи после
+					// отката итерации: DB-чтение внутри Tx самоблокируется
+					// на :memory:/MaxOpen=1 (db.go).
+					return "", true, nil
+				}
+				// Повторный дрейф (вторая попытка уже на свежем снимке) —
+				// гонка ничтожного окна, продолжаем с текущим снимком.
 			}
-			// Повторный дрейф (вторая попытка уже на свежем снимке) —
-			// гонка ничтожного окна, продолжаем с текущим снимком.
+			if dev != nil && createOnly {
+				return "", false, domain.NewErrorf(domain.CodeAlreadyExists,
+					domain.MsgSvcRecordAlreadyExists, p.Designation)
+			}
+			if out, err, done := skippedOrValidatedCommit(merger, snap, p, tx, dev, cur, merged); done {
+				return out, false, err
+			}
+			if dev == nil {
+				return OutcomeAdded, false, s.writeUpsert(ctx, tx, 0, p, in, cur, merged, explicit, analogs, sourceRefs, snap, createOnly)
+			}
+			return OutcomeUpdatedExisting, false, s.writeUpsert(ctx, tx, dev.ID, p, in, cur, merged, explicit, analogs, sourceRefs, snap, false)
+		}()
+		if retry {
+			fresh, ferr := s.app.cache.Snapshot(ctx)
+			if ferr != nil {
+				return "", ferr
+			}
+			snap = fresh
+			merger = &stateMerger{snap: snap}
+			continue
 		}
-		if dev != nil && createOnly {
-			tx.Rollback() //nolint:errcheck — откат нефиксированной транзакции
-			return "", domain.NewErrorf(domain.CodeAlreadyExists,
-				domain.MsgSvcRecordAlreadyExists, p.Designation)
-		}
-		if outcome, err, done := skippedOrValidatedCommit(merger, snap, p, tx, dev, cur, merged); done {
-			return outcome, err
-		}
-		if dev == nil {
-			return OutcomeAdded, s.writeUpsert(ctx, tx, 0, p, in, cur, merged, explicit, analogs, sourceRefs, snap, createOnly)
-		}
-		return OutcomeUpdatedExisting, s.writeUpsert(ctx, tx, dev.ID, p, in, cur, merged, explicit, analogs, sourceRefs, snap, false)
+		return outcome, err
 	}
 }
 
@@ -308,7 +321,11 @@ func skippedOrValidated(merger *stateMerger, snap *catalog.Snapshot, p domain.Pa
 }
 
 // skippedOrValidatedCommit — то же в фазе записи: Skipped фиксируется
-// пустой транзакцией, проблема валидации — отказ с откатом.
+// пустой транзакцией, проблема валидации — отказ. Транзакцию закрывает
+// вызывающий: фиксация — Commit здесь, все прочие исходы (включая ошибку
+// Commit при уже отменённом контексте — sql.Tx тогда не освобождает
+// соединение сам) — откат в defer вызывающего; второго вызывателя
+// без defer быть не должно.
 func skippedOrValidatedCommit(merger *stateMerger, snap *catalog.Snapshot, p domain.ParsedDesignation,
 	tx *storage.Tx, dev *storage.DeviceRow, cur, merged *deviceState) (Outcome, error, bool) {
 	if dev != nil && sameState(cur, merged) {

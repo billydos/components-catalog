@@ -7,6 +7,7 @@ import (
 	"reflect"
 	"slices"
 	"testing"
+	"time"
 
 	"github.com/billydos/components-catalog/internal/catalog"
 	"github.com/billydos/components-catalog/internal/domain"
@@ -175,6 +176,7 @@ func runSuite(t *testing.T, factory configFactory) {
 	t.Run("upsert sections", func(t *testing.T) { suiteUpsertSections(t, factory) })
 	t.Run("attributes text_list", func(t *testing.T) { suiteAttrTextList(t, factory) })
 	t.Run("atomic on error", func(t *testing.T) { suiteAtomicOnError(t, factory) })
+	t.Run("write phase rollback", func(t *testing.T) { suiteWritePhaseRollback(t, factory) })
 	t.Run("variants", func(t *testing.T) { suiteVariants(t, factory) })
 	t.Run("variant section order", func(t *testing.T) { suiteVariantSectionOrder(t, factory) })
 	t.Run("variant attributes", func(t *testing.T) { suiteVariantAttributes(t, factory) })
@@ -436,6 +438,65 @@ func suiteAtomicOnError(t *testing.T, factory configFactory) {
 	_, err = svc.Upsert(ctx, DeviceInput{Name: "КТ315Б", System: domain.SystemPro})
 	wantDomainError(t, err, domain.CodeDesignationMismatch,
 		"designation «КТ315Б» does not match designation system pro")
+}
+
+// suiteWritePhaseRollback — сбой посреди применения записи (после первых
+// DML) не оставляет транзакцию записи открытой: запись не применяется
+// вовсе, следующая запись проходит (на SQLite единственное соединение
+// записи — утечка блокировала бы его навсегда, на postgres оставался бы
+// idle-in-transaction с блокировками). Сбой воспроизводится
+// снимком-переопределением с параметром, отсутствующим в БД (механизм
+// dry-run расширенного каталога): валидация проходит по снимку, вставка
+// значения падает на внешнем ключе parameter_values(parameter_code).
+// Саму утечку детектируют SQLite-ноги (зависание единственного
+// соединения); postgres-пул допускает следующую запись и без отката —
+// на этой ноге тест проверяет лишь атомарность применения.
+func suiteWritePhaseRollback(t *testing.T, factory configFactory) {
+	ctx := context.Background()
+	app := openSuiteApp(t, factory)
+	svc := app.Services().Devices
+
+	base, err := app.cache.Snapshot(ctx)
+	if err != nil {
+		t.Fatalf("снимок каталога: %v", err)
+	}
+	group, ok := base.GroupBySection("parameters")
+	if !ok {
+		t.Fatal("группа секции parameters не найдена в сиде")
+	}
+	hypo, probs := catalog.ApplyCatalog(base, catalog.Input{
+		Parameters: []catalog.ParameterDef{{
+			Code: "zzHypo", Group: group.Code, ValueType: catalog.ValueRange, Active: true,
+		}},
+	})
+	if len(probs) > 0 {
+		t.Fatalf("гипотетический снимок: %v", probs[0].Err())
+	}
+
+	_, err = svc.applyUpsert(ctx, DeviceInput{
+		Name:     "КТ315Б",
+		Sections: []SectionInput{section("parameters", pvRange("zzHypo", 1, 2))},
+	}, hypo, PendingDesignations{}, true, false)
+	if err == nil {
+		t.Fatal("ожидалась ошибка применения, получен nil")
+	}
+
+	// Запись не применилась вовсе и соединение записи свободно:
+	// ограниченный контекст превращает зависание на утёкшей транзакции
+	// в ошибку, а не в вечное ожидание.
+	bounded, cancel := context.WithTimeout(ctx, 30*time.Second)
+	defer cancel()
+	if _, ok, err := svc.Get(bounded, "transistor", "КТ315Б"); err != nil {
+		t.Fatalf("чтение после сбоя применения: %v (утечка транзакции записи?)", err)
+	} else if ok {
+		t.Fatal("запись применилась несмотря на сбой")
+	}
+	if out, err := svc.Upsert(bounded, DeviceInput{
+		Name:       "КТ315Б",
+		Attributes: []catalog.AttributeValue{attrText("structure", "npn")},
+	}); err != nil || out != OutcomeAdded {
+		t.Fatalf("запись после сбоя применения: out=%s err=%v (утечка транзакции записи?)", out, err)
+	}
 }
 
 // suiteVariants — исполнения: матрица в карточке, полная замена секции,
