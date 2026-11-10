@@ -530,8 +530,12 @@ type pendingRecord struct {
 
 // applyRecords применяет записи: многопроходное разрешение исходящих
 // ссылок-аналогов (прямые ссылки на позднейшие записи файла), исходы
-// считаются по записям. В dry-run записи проверяются без записи в БД;
-// ссылки на создаваемые этим же прогоном обозначения допускаются.
+// считаются по записям. Dry-run зеркалит реальный прогон тем же
+// многопроходным алгоритмом (применение записи — DryRun по снимку,
+// применённая часть — симуляция в памяти): записи, которые реальный
+// прогон отвергнет, не считаются существующими целями ссылок последующих
+// проходов — прогноз контрольного прогона сходится с применением.
+// Ссылки на создаваемые этим же прогоном обозначения допускаются.
 // sourceCodes — коды источников корневой секции этого же файла
 // (разрешение ссылок dry-run; реальный импорт применяет реестр до
 // записей). Итоговый исход каждой записи отмечается прогрессом
@@ -554,23 +558,27 @@ func (m *Importer) applyRecords(ctx context.Context, records []Record, snap *cat
 		}
 		byKind[canonical] = true
 	}
+	// Предикат «обозначение — запись этого файла» (цели холостого
+	// создания при разрыве тупика взаимных ссылок).
 	recordsFn := func(kind domain.Kind, designation string) bool {
 		return pendingRecords[kind][designation]
 	}
 
-	// Последовательная симуляция применённой части прогона (dry-run):
-	// реальный импорт применяет записи по порядку файла, и конфликты
-	// уникальности синонимов видны из БД; dry-run не пишет — обозначения
-	// применённых записей (created) и заявки их синонимов (synClaims)
-	// регистрируются после успешной проверки записи (отвергнутая запись
-	// не применяется — её синонимы никому не мешают).
+	// Симуляция применённой части прогона (dry-run): реальный импорт
+	// применяет записи по порядку файла, и конфликты уникальности
+	// синонимов видны из БД; dry-run не пишет — обозначения применённых
+	// записей (created) и заявки их синонимов (synClaims) регистрируются
+	// после успешной проверки записи (отвергнутая запись не применяется —
+	// её синонимы никому не мешают), проходы разрешения — как у
+	// реального прогона.
 	created := make(map[domain.Kind]map[string]bool)
 	synClaims := make(map[domain.Kind]map[string]string)
+	createdFn := func(kind domain.Kind, designation string) bool {
+		return created[kind][designation]
+	}
 	pending := service.PendingDesignations{
-		Records: recordsFn,
-		Created: func(kind domain.Kind, designation string) bool {
-			return created[kind][designation]
-		},
+		Records: createdFn,
+		Created: createdFn,
 		Synonym: func(kind domain.Kind, designation string) (string, bool) {
 			owner, claimed := synClaims[kind][designation]
 			return owner, claimed
@@ -579,6 +587,7 @@ func (m *Importer) applyRecords(ctx context.Context, records []Record, snap *cat
 			return sourceCodes[code]
 		},
 	}
+	filePending := service.PendingDesignations{Records: recordsFn}
 	applyClaim := func(rec Record) {
 		owner, err := domain.Canonicalize(rec.Input.Name)
 		if err != nil {
@@ -602,6 +611,19 @@ func (m *Importer) applyRecords(ctx context.Context, records []Record, snap *cat
 			synClaims[rec.Kind][canonical] = owner
 		}
 	}
+	// upsert — применение записи текущего режима: реальный прогон пишет,
+	// dry-run проверяет по снимку с симуляцией применённой части.
+	upsert := func(in service.DeviceInput) (service.Outcome, error) {
+		if dryRun {
+			return m.app.Services().Devices.DryRun(ctx, in, snap, pending)
+		}
+		return m.app.Services().Devices.Upsert(ctx, in)
+	}
+	hollowClaim := func(p *pendingRecord) {
+		if dryRun {
+			applyClaim(p.rec)
+		}
+	}
 
 	queue := make([]*pendingRecord, 0, len(records))
 	for i := range records {
@@ -618,17 +640,50 @@ func (m *Importer) applyRecords(ctx context.Context, records []Record, snap *cat
 		}
 		o.appliedOutcome()
 	}
+	// withdrawClaim отзывает заявку записи в симуляции применённой части
+	// dry-run — зеркалирует компенсирующее удаление реального прогона:
+	// холостая запись отвергнута, её обозначение и заявленные синонимы
+	// перестают существовать для последующих проходов.
+	withdrawClaim := func(rec Record) {
+		owner, err := domain.Canonicalize(rec.Input.Name)
+		if err != nil {
+			return
+		}
+		if created[rec.Kind] != nil {
+			delete(created[rec.Kind], owner)
+		}
+		if rec.Input.Synonyms == nil {
+			return
+		}
+		for _, s := range *rec.Input.Synonyms {
+			canonical, err := domain.Canonicalize(s.Designation)
+			if err != nil {
+				continue
+			}
+			if o, claimed := synClaims[rec.Kind][canonical]; claimed && o == owner {
+				delete(synClaims[rec.Kind], canonical)
+			}
+		}
+	}
 	// recordIssue выводит запись из очереди проблемой прогона; холостое
 	// создание компенсируется удалением — контракт «запись не применяется
-	// вовсе» (холостое создание в отчёт не входило). Штатное удаление
-	// двигает data_revision, поэтому отвергнутая запись оставляет шум в
-	// счётчике ревизий — принятый компромисс: служебного пути записи мимо
-	// счётчика ревизий нет, целостность отчёта важнее точности счётчика.
-	// Ошибка компенсации — проблема прогона, а не тихая потеря.
+	// вовсе» (холостое создание в отчёт не входило; dry-run ничего не
+	// писал — компенсация ограничивается отзывом заявки в симуляции).
+	// Штатное удаление двигает data_revision, поэтому отвергнутая запись
+	// оставляет шум в счётчике ревизий — принятый компромисс:
+	// служебного пути записи мимо счётчика ревизий нет, целостность
+	// отчёта важнее точности счётчика. Ошибка компенсации — проблема
+	// прогона, а не тихая потеря.
 	recordIssue := func(p *pendingRecord, err error) {
 		rep.Rejected++
 		rep.Issues = append(rep.Issues, issueFromError(p.rec, err))
 		o.appliedOutcome()
+		if dryRun {
+			if p.created {
+				withdrawClaim(p.rec)
+			}
+			return
+		}
 		if !p.created {
 			return
 		}
@@ -639,29 +694,17 @@ func (m *Importer) applyRecords(ctx context.Context, records []Record, snap *cat
 		}
 	}
 
-	if dryRun {
-		for _, p := range queue {
-			outcome, err := m.app.Services().Devices.DryRun(ctx, p.rec.Input, snap, pending)
-			if err != nil {
-				recordIssue(p, err)
-				continue
-			}
-			applyClaim(p.rec)
-			recordOutcome(p.rec, outcome)
-		}
-		return
-	}
-
 	// Проходы повторяются, пока прогресс есть: ссылка на позднейшую запись
-	// файла разрешается после её вставки. Взаимные ссылки (A → B и B → A в
-	// одном файле) блокируют друг друга — цикл разрывает холостое создание
+	// файла разрешается после её применения (dry-run — после регистрации
+	// в симуляции применённого). Взаимные ссылки (A → B и B → A в одном
+	// файле) блокируют друг друга — цикл разрывает холостое создание
 	// одной из записей без секции аналогов (03 §8: импорт воспроизводит
 	// состояние независимо от порядка записей).
 	for len(queue) > 0 {
 		progress := false
 		var next []*pendingRecord
 		for _, p := range queue {
-			outcome, err := m.app.Services().Devices.Upsert(ctx, p.rec.Input)
+			outcome, err := upsert(p.rec.Input)
 			if err != nil && isAnalogNotFound(err) {
 				p.lastErr = err
 				next = append(next, p)
@@ -675,6 +718,9 @@ func (m *Importer) applyRecords(ctx context.Context, records []Record, snap *cat
 				rep.Added++
 				o.appliedOutcome()
 			default:
+				if dryRun {
+					applyClaim(p.rec)
+				}
 				recordOutcome(p.rec, outcome)
 			}
 			progress = true
@@ -684,7 +730,7 @@ func (m *Importer) applyRecords(ctx context.Context, records []Record, snap *cat
 			continue
 		}
 		var advanced bool
-		queue, advanced = m.breakAnalogDeadlock(ctx, queue, pending, recordIssue)
+		queue, advanced = m.breakAnalogDeadlock(ctx, queue, filePending, upsert, hollowClaim, recordIssue)
 		if !advanced {
 			break
 		}
@@ -699,15 +745,18 @@ func (m *Importer) applyRecords(ctx context.Context, records []Record, snap *cat
 // холостое применение (без секции аналогов) первой подходящей записи —
 // новая, все цели её ссылок создаются этим же прогоном. Полное состояние
 // применит следующий проход; при неудаче вызывающая сторона удаляет
-// холостую запись (компенсация). Возвращает очередь (возможно, без
-// безнадёжной записи) и признак продвижения.
+// холостую запись (компенсация). upsert — применение записи текущего
+// режима (реальный прогон/dry-run), hollowClaim — регистрация холостого
+// создания в симуляции применённой части dry-run. Возвращает очередь
+// (возможно, без безнадёжной записи) и признак продвижения.
 func (m *Importer) breakAnalogDeadlock(ctx context.Context, queue []*pendingRecord,
-	pending service.PendingDesignations, recordIssue func(*pendingRecord, error)) ([]*pendingRecord, bool) {
+	filePending service.PendingDesignations, upsert func(service.DeviceInput) (service.Outcome, error),
+	hollowClaim func(*pendingRecord), recordIssue func(*pendingRecord, error)) ([]*pendingRecord, bool) {
 	for i, p := range queue {
 		if p.created || p.rec.Input.Analogs == nil {
 			continue
 		}
-		if !allAnalogTargetsPending(p.rec, pending) {
+		if !allAnalogTargetsPending(p.rec, filePending) {
 			continue
 		}
 		exists, err := m.deviceExists(ctx, p.rec)
@@ -724,7 +773,7 @@ func (m *Importer) breakAnalogDeadlock(ctx context.Context, queue []*pendingReco
 		}
 		stripped := p.rec.Input
 		stripped.Analogs = nil
-		if _, err := m.app.Services().Devices.Upsert(ctx, stripped); err != nil {
+		if _, err := upsert(stripped); err != nil {
 			if isAnalogNotFound(err) {
 				continue
 			}
@@ -733,6 +782,7 @@ func (m *Importer) breakAnalogDeadlock(ctx context.Context, queue []*pendingReco
 			return rest, true
 		}
 		p.created = true
+		hollowClaim(p)
 		return queue, true
 	}
 	return queue, false

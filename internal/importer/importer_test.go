@@ -387,6 +387,12 @@ func runImporterSuite(t *testing.T, factory configFactory) {
 		if len(card.Backlinks) != 1 || card.Backlinks[0].Designation != "МП39" {
 			t.Fatalf("встречные ссылки BC547B: %+v", card.Backlinks)
 		}
+		// Dry-run прогнозирует тот же итог (многопроходное разрешение).
+		app2 := openApp(t, factory)
+		rep = importFile(t, app2, file, true)
+		if rep.HasIssues() || rep.Added != 2 {
+			t.Fatalf("dry-run: %+v; %v", rep, issueMessages(rep.Issues))
+		}
 	})
 
 	t.Run("MutualAnalogReferences", func(t *testing.T) {
@@ -422,6 +428,13 @@ func runImporterSuite(t *testing.T, factory configFactory) {
 		if len(card.Analogs) != 1 || card.Analogs[0].Designation != "Д226" {
 			t.Fatalf("исходящие 1N4007: %+v", card.Analogs)
 		}
+		// Dry-run прогнозирует тот же итог (холостое создание в
+		// симуляции применённого).
+		app2 := openApp(t, factory)
+		rep = importFile(t, app2, file, true)
+		if rep.HasIssues() || rep.Added != 2 {
+			t.Fatalf("dry-run взаимных ссылок: %+v; %v", rep, issueMessages(rep.Issues))
+		}
 		// Повторный импорт — unchanged по обеим записям.
 		rep = importFile(t, app, file, false)
 		if rep.HasIssues() || rep.Skipped != 2 {
@@ -442,6 +455,76 @@ func runImporterSuite(t *testing.T, factory configFactory) {
 		want := "record «МП39»: analog «BC999ZZ» not found in kind transistor"
 		if rep.Issues[0].String() != want {
 			t.Fatalf("текст: %q, ожидался %q", rep.Issues[0].String(), want)
+		}
+	})
+
+	// Прогноз dry-run сходится с применением: запись, которую реальный
+	// прогон отвергает, не бывает существующей целью чужой ссылки-аналога
+	// — контрольный прогон не обещает «добавлено» записи, ссылающейся на
+	// отвергнутую цель.
+	t.Run("DryRunMatchesRejectedAnalogTarget", func(t *testing.T) {
+		app := openApp(t, factory)
+		file := filepath.Join(t.TempDir(), "broken-target.jsonc")
+		write(t, file, `{
+			"transistors": [
+				{ "name": "КТ602А", "analogs": ["КТ602Б"] },
+				{ "name": "КТ602Б", "parameters": [ { "parameter": "zzz", "value": 5 } ] }
+			]
+		}`)
+		rep := importFile(t, app, file, true)
+		if rep.Rejected != 2 || rep.Added != 0 || rep.Records != 2 {
+			t.Fatalf("dry-run: %+v; %v", rep, issueMessages(rep.Issues))
+		}
+		if !containsMessage(issueMessages(rep.Issues),
+			"record «КТ602А»: analog «КТ602Б» not found in kind transistor") {
+			t.Fatalf("тексты dry-run: %v", issueMessages(rep.Issues))
+		}
+		// Реальный прогон — тот же итог.
+		rep = importFile(t, app, file, false)
+		if rep.Rejected != 2 || rep.Added != 0 {
+			t.Fatalf("импорт: %+v; %v", rep, issueMessages(rep.Issues))
+		}
+	})
+
+	// Отказ холостой записи посреди прогона: реальный прогон компенсирует
+	// её удалением, dry-run отзывает заявку в симуляции применённого —
+	// прогноз сходится с применением и по исходам, и по текстам проблем
+	// (ссылка на скомпенсированную цель не разрешается, синоним
+	// скомпенсированной записи освобождается).
+	t.Run("DryRunMatchesCompensatedHollowRecords", func(t *testing.T) {
+		for _, tc := range []struct {
+			name string
+			file string
+		}{
+			{"аналог на отвергнутую холостую", `{
+				"transistors": [
+					{ "name": "H1", "system": "other", "analogs": ["T1", "H1"] },
+					{ "name": "K1", "system": "other", "analogs": ["H1", "U1"] },
+					{ "name": "T1", "system": "other", "analogs": ["W1"] },
+					{ "name": "U1", "system": "other", "analogs": ["W1"] },
+					{ "name": "W1", "system": "other", "analogs": ["U1"] }
+				]
+			}`},
+			{"синоним отвергнутой холостой", `{
+				"transistors": [
+					{ "name": "H1", "system": "other", "analogs": ["T1", "H1"], "synonyms": ["S1"] },
+					{ "name": "T1", "system": "other", "analogs": ["W1"] },
+					{ "name": "K1", "system": "other", "analogs": ["W1"], "synonyms": ["S1"] },
+					{ "name": "W1", "system": "other", "analogs": ["T1"] }
+				]
+			}`},
+		} {
+			file := filepath.Join(t.TempDir(), "hollow.jsonc")
+			write(t, file, tc.file)
+			dry := importFile(t, openApp(t, factory), file, true)
+			real := importFile(t, openApp(t, factory), file, false)
+			if dry.Added != real.Added || dry.Rejected != real.Rejected || dry.Updated != real.Updated {
+				t.Fatalf("%s: dry-run %+v, реальный %+v", tc.name, dry, real)
+			}
+			if !slices.Equal(issueMessages(dry.Issues), issueMessages(real.Issues)) {
+				t.Fatalf("%s: проблемы dry=%v real=%v", tc.name,
+					issueMessages(dry.Issues), issueMessages(real.Issues))
+			}
 		}
 	})
 
