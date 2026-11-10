@@ -177,10 +177,25 @@ func (s *SourceService) Apply(ctx context.Context, defs []SourceInput, snap *cat
 	return true, tx.Commit()
 }
 
-// ListSources читает весь реестр источников в порядке кода (служебное
-// чтение; экспорт пользуется ссылками карточек).
-func (s *SourceService) ListSources(ctx context.Context) ([]storage.SourceRow, error) {
-	return s.app.db.LoadSources(ctx)
+// ListSources читает весь реестр источников в порядке кода: экспорт
+// пишет корневую секцию sources полного реестра — восстановление базы
+// из экспортов не теряет источники, на которые не ссылается ни одна
+// запись (в том числе при выгрузке одного класса).
+func (s *SourceService) ListSources(ctx context.Context) ([]SourceInput, error) {
+	rows, err := s.app.db.LoadSources(ctx)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]SourceInput, len(rows))
+	for i := range rows {
+		out[i] = SourceInput{
+			Code: rows[i].Code, Title: rows[i].Title, Type: rows[i].Type,
+			Year: rows[i].Year, Publisher: rows[i].Publisher,
+			Edition: rows[i].Edition, ISBN: rows[i].ISBN,
+			Authors: rows[i].Authors, Editors: rows[i].Editors, URLs: rows[i].URLs,
+		}
+	}
+	return out, nil
 }
 
 // sourceRowOf — строка хранилища из входного определения.

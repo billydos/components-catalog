@@ -1059,7 +1059,7 @@ components:
     ImportReport:
       type: object
       description: Синхронный отчёт прогона импорта POST /api/v1/import.
-      required: [dry_run, records, added, updated, skipped, rejected, catalog_applied, issues]
+      required: [dry_run, records, added, updated, skipped, rejected, catalog_applied, sources_applied, issues]
       properties:
         dry_run: {type: boolean, description: Контрольный прогон без записи в БД.}
         records: {type: integer, description: Записей в теле (включая отвергнутые).}
@@ -1067,7 +1067,8 @@ components:
         updated: {type: integer}
         skipped: {type: integer, description: Слитое состояние совпадает с текущим — без записи в БД и без инкремента ревизий.}
         rejected: {type: integer, description: Записи, не применённые из-за проблем.}
-        catalog_applied: {type: boolean, description: Секция catalog применена.}
+        catalog_applied: {type: boolean, description: Секция catalog применена с фактическим изменением (повторный импорт идентичного каталога — false, catalog_revision не инкрементируется).}
+        sources_applied: {type: boolean, description: Реестр источников изменён корневой секцией sources (инкремент data_revision без событий change_events; повторный импорт без изменений — false).}
         issues:
           type: array
           description: Полный список проблем прогона (может быть пустым).

@@ -28,35 +28,59 @@ func (s *CatalogService) Snapshot(ctx context.Context) (*catalog.Snapshot, error
 // наборы условий и применимость параметров/атрибутов к классам замещаются
 // целиком по строке; незаданные (нулевые) sort_order существующих строк
 // сохраняются из снимка; привязки систем и правил к классам — только
-// добавление; непустой список проблем — отказ целиком). Изменение каталога
-// инкрементирует catalog_revision атомарно в той же транзакции.
-func (s *CatalogService) Import(ctx context.Context, in catalog.Input) error {
-	cur, err := s.app.cache.Snapshot(ctx)
-	if err != nil {
-		return err
+// добавление; непустой список проблем — отказ целиком). Возвращает true,
+// если каталог изменился: запись и инкремент catalog_revision атомарны
+// в той же транзакции, повторный импорт идентичного каталога ничего
+// не пишет и ревизию не двигает (идемпотентность, как Skipped у записей
+// и определений источников). Вердикт «нет изменений» перепроверяется
+// свежей ревизией: параллельный писатель между чтением снимка и решением
+// не даёт устаревшего пропуска (единственный контролируемый ретрай —
+// по образцу записей устройств).
+func (s *CatalogService) Import(ctx context.Context, in catalog.Input) (bool, error) {
+	for attempt := 0; ; attempt++ {
+		cur, err := s.app.cache.Snapshot(ctx)
+		if err != nil {
+			return false, err
+		}
+		// Записываются те же строки, что валидировались: незаданные sort_order
+		// доопределяются из снимка до ApplyCatalog.
+		filled := catalog.FillSortOrders(cur, in)
+		out, problems := catalog.ApplyCatalog(cur, filled)
+		if len(problems) > 0 {
+			return false, problems[0].Err()
+		}
+		if catalog.RowsEqual(cur, out) {
+			rev, err := s.app.db.CatalogRevision(ctx)
+			if err != nil {
+				return false, err
+			}
+			if rev != cur.Revision && attempt == 0 {
+				// Снимок обновляется после перечитывания ревизии: каталог
+				// писал конкурент — решение пересчитывается по свежему
+				// состоянию. Повторный дрейф — гонка ничтожного окна,
+				// вердикт принимается.
+				s.app.cache.Invalidate()
+				continue
+			}
+			return false, nil
+		}
+		tx, err := s.app.db.Begin(ctx)
+		if err != nil {
+			return false, err
+		}
+		defer tx.Rollback() //nolint:errcheck — откат нефиксированной транзакции
+		if err := tx.WriteCatalog(ctx, filled); err != nil {
+			return false, err
+		}
+		if err := tx.BumpCatalogRevision(ctx); err != nil {
+			return false, err
+		}
+		if err := tx.Commit(); err != nil {
+			return false, err
+		}
+		s.app.cache.Invalidate()
+		return true, nil
 	}
-	// Записываются те же строки, что валидировались: незаданные sort_order
-	// доопределяются из снимка до ApplyCatalog.
-	in = catalog.FillSortOrders(cur, in)
-	if _, problems := catalog.ApplyCatalog(cur, in); len(problems) > 0 {
-		return problems[0].Err()
-	}
-	tx, err := s.app.db.Begin(ctx)
-	if err != nil {
-		return err
-	}
-	defer tx.Rollback() //nolint:errcheck — откат нефиксированной транзакции
-	if err := tx.WriteCatalog(ctx, in); err != nil {
-		return err
-	}
-	if err := tx.BumpCatalogRevision(ctx); err != nil {
-		return err
-	}
-	if err := tx.Commit(); err != nil {
-		return err
-	}
-	s.app.cache.Invalidate()
-	return nil
 }
 
 // Search выполняет поиск: подстрока обозначения, фильтр по набору id

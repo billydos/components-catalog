@@ -128,3 +128,85 @@ func TestProblemErr(t *testing.T) {
 		t.Fatalf("проблема не преобразована в ошибку домена: %v", err)
 	}
 }
+
+// RowsEqual — равенство определений снимков без учёта порядка: чтение БД
+// упорядочивает разделы канонически, применение каталога дописывает новые
+// строки в конец — порядок не часть данных (идемпотентность повторного
+// импорта каталога строится на этом равенстве).
+func TestRowsEqual(t *testing.T) {
+	fv := func(f float64) *float64 { return &f }
+	base := func() *catalog.Snapshot {
+		return &catalog.Snapshot{
+			Kinds: []catalog.KindDef{{Code: domain.KindDiode}, {Code: domain.KindTransistor}},
+			Units: []catalog.UnitDef{{Code: "V"}, {Code: "mV"}},
+			Parameters: []catalog.ParameterDef{{
+				Code: "hfe", Group: "electrical", ValueType: catalog.ValueEnum,
+				Kinds:      []domain.Kind{domain.KindDiode, domain.KindTransistor},
+				EnumValues: []string{"a", "b"},
+				ConditionSets: []catalog.ConditionSet{{
+					No: 1,
+					Items: []catalog.ConditionSetItem{
+						{Condition: "Vce", Mode: catalog.ModeRequired, FixedValue: fv(5)},
+						{Condition: "Ic", Mode: catalog.ModeOptional},
+					},
+				}},
+			}},
+		}
+	}
+	reordered := func() *catalog.Snapshot {
+		s := base()
+		s.Kinds = []catalog.KindDef{{Code: domain.KindTransistor}, {Code: domain.KindDiode}}
+		s.Parameters = []catalog.ParameterDef{{
+			Code: "hfe", Group: "electrical", ValueType: catalog.ValueEnum,
+			Kinds:      []domain.Kind{domain.KindTransistor, domain.KindDiode},
+			EnumValues: []string{"b", "a"},
+			ConditionSets: []catalog.ConditionSet{{
+				No: 1,
+				Items: []catalog.ConditionSetItem{
+					{Condition: "Ic", Mode: catalog.ModeOptional},
+					{Condition: "Vce", Mode: catalog.ModeRequired, FixedValue: fv(5)},
+				},
+			}},
+		}}
+		return s
+	}
+
+	if !catalog.RowsEqual(base(), reordered()) {
+		t.Fatal("переупорядоченные разделы ошибочно неравны")
+	}
+	if catalog.RowsEqual(base(), nil) || catalog.RowsEqual(nil, base()) {
+		t.Fatal("nil-снимок не равен непустому")
+	}
+	if !catalog.RowsEqual(nil, nil) {
+		t.Fatal("nil-снимки неравны")
+	}
+
+	changed := reordered()
+	changed.Units = append(changed.Units, catalog.UnitDef{Code: "kV"})
+	if catalog.RowsEqual(base(), changed) {
+		t.Fatal("новая строка раздела не замечена")
+	}
+
+	changed = reordered()
+	changed.Parameters[0].Group = "env"
+	if catalog.RowsEqual(base(), changed) {
+		t.Fatal("изменённое поле строки не замечено")
+	}
+
+	// Необязательные числа: «не задано» (nil) ≠ явный ноль — и у
+	// fixed_value элемента набора, и у потолка параметра.
+	nilFixed := base()
+	nilFixed.Parameters[0].ConditionSets[0].Items[1].FixedValue = nil
+	zeroFixed := base()
+	zeroFixed.Parameters[0].ConditionSets[0].Items[1].FixedValue = fv(0)
+	if catalog.RowsEqual(nilFixed, zeroFixed) {
+		t.Fatal("fixed_value «не задано» равно нулю")
+	}
+	nilCeiling := base()
+	nilCeiling.Parameters[0].Ceiling = nil
+	zeroCeiling := base()
+	zeroCeiling.Parameters[0].Ceiling = fv(0)
+	if catalog.RowsEqual(nilCeiling, zeroCeiling) {
+		t.Fatal("потолок «не задано» равен нулю")
+	}
+}

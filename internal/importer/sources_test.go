@@ -414,6 +414,44 @@ func runSourcesSuite(t *testing.T, factory configFactory) {
 		}
 	})
 
+	t.Run("ExportFullRegistry", func(t *testing.T) {
+		app := openApp(t, factory)
+		// Определение без единой ссылки остаётся в реестре (позднейшая
+		// запись может сослаться на него): экспорт пишет полный реестр —
+		// восстановление базы из экспортов источник не теряет, в том
+		// числе при выгрузке одного класса.
+		path := writeSourcesFile(t, `{"sources": [
+			{ "code": "orphan", "type": "book", "title": "Справочник без ссылок" }],
+			"transistors": [ { "name": "КТ315Б" } ]}`)
+		rep := importFile(t, app, path, false)
+		if rep.HasIssues() || !rep.SourcesApplied {
+			t.Fatalf("итог: %+v; проблемы: %v", rep, issueMessages(rep.Issues))
+		}
+		var buf strings.Builder
+		if err := New(app).Export(context.Background(), &buf, FormatJSONC, nil); err != nil {
+			t.Fatalf("экспорт: %v", err)
+		}
+		if !strings.Contains(buf.String(), `"code": "orphan"`) {
+			t.Fatalf("экспорт теряет источник без ссылок:\n%s", buf.String())
+		}
+		kind := domain.KindTransistor
+		buf.Reset()
+		if err := New(app).Export(context.Background(), &buf, FormatJSONC, &kind); err != nil {
+			t.Fatalf("экспорт класса: %v", err)
+		}
+		if !strings.Contains(buf.String(), `"code": "orphan"`) {
+			t.Fatalf("экспорт одного класса теряет источник без ссылок:\n%s", buf.String())
+		}
+		// Восстановление из экспорта: реестр на месте, повторный импорт
+		// экспорта — без изменений.
+		exp := filepath.Join(t.TempDir(), "export.jsonc")
+		write(t, exp, buf.String())
+		rep = importFile(t, app, exp, false)
+		if rep.HasIssues() || rep.Skipped != 1 || rep.SourcesApplied {
+			t.Fatalf("round-trip: %+v; проблемы: %v", rep, issueMessages(rep.Issues))
+		}
+	})
+
 	t.Run("NDJSONSourcesBlock", func(t *testing.T) {
 		app := openApp(t, factory)
 		body := "{\"sources\": [{\"code\": \"ba8082\", \"type\": \"handbook\", \"title\": \"Полупроводниковые приборы\"}]}\n" +

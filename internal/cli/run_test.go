@@ -428,8 +428,25 @@ func TestCatalogCommands(t *testing.T) {
 
 	db2 := testDB(t)
 	stdout, stderr, code = run(t, "catalog", "import", catFile, "--db", db2)
+	if code != 0 || stderr != "" || strings.Contains(stdout, "catalog extended") {
+		t.Fatalf("catalog import идентичного сида: код %d, %q, %q", code, stdout, stderr)
+	}
+
+	// Расширение каталога — новое определение применяется.
+	extFile := filepath.Join(t.TempDir(), "ext.jsonc")
+	if err := os.WriteFile(extFile, []byte(`{"catalog": {"categories": [{"code": "choke"}]}}`), 0o644); err != nil {
+		t.Fatalf("запись: %v", err)
+	}
+	stdout, stderr, code = run(t, "catalog", "import", extFile, "--db", db2)
 	if code != 0 || stderr != "" || !strings.Contains(stdout, "catalog extended") {
-		t.Fatalf("catalog import: код %d, %q, %q", code, stdout, stderr)
+		t.Fatalf("catalog import расширения: код %d, %q, %q", code, stdout, stderr)
+	}
+
+	// Повторный импорт того же файла — без изменений: «каталог расширен»
+	// не печатается, ревизия не двигается (идемпотентность).
+	stdout, stderr, code = run(t, "catalog", "import", extFile, "--db", db2)
+	if code != 0 || stderr != "" || strings.Contains(stdout, "catalog extended") {
+		t.Fatalf("повторный catalog import: код %d, %q, %q", code, stdout, stderr)
 	}
 
 	// catalog import отвергает файл с записями классов.
@@ -631,12 +648,14 @@ func TestCatalogExportToFile(t *testing.T) {
 	run(t, "init", "--db", db2)
 	// Формат выгрузки — jsonc (по --format), а не по расширению: для
 	// round-trip импорта копия получает распознаваемое расширение.
+	// Импорт выгрузки сида в засеянную базу — без изменений: «каталог
+	// расширен» не печатается, ревизия не двигается (идемпотентность).
 	roundTrip := filepath.Join(t.TempDir(), "catalog-round-trip.jsonc")
 	if err := os.WriteFile(roundTrip, data, 0o644); err != nil {
 		t.Fatalf("запись: %v", err)
 	}
 	out, stderr, code := run(t, "catalog", "import", roundTrip, "--db", db2)
-	if code != 0 || stderr != "" || !strings.Contains(out, "catalog extended") {
+	if code != 0 || stderr != "" || strings.Contains(out, "catalog extended") {
 		t.Fatalf("round-trip каталога: код %d, %q, %q", code, out, stderr)
 	}
 

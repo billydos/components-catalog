@@ -166,6 +166,28 @@ func TestImportReport(t *testing.T) {
 	if !rep.CatalogApplied || rep.Skipped != 1 {
 		t.Fatalf("отчёт с каталогом: %+v", rep)
 	}
+
+	// Корневая секция sources — отчёт отмечает фактическое изменение
+	// глобального реестра источников (data_revision без событий);
+	// повторный импорт без изменений — false.
+	sourcesBody := "{\"sources\": [{\"code\": \"ref1\", \"type\": \"book\", \"title\": \"Справочник\"}]}\n" +
+		"{\"transistors\": {\"name\": \"ГТ109Г\"}}\n"
+	status, body, _ = doImport(t, srv, "", ndjsonCT, sourcesBody)
+	if status != http.StatusOK {
+		t.Fatalf("статус: %d, тело %s", status, body)
+	}
+	rep = decode[importReportJSON](t, body)
+	if !rep.SourcesApplied || rep.Skipped != 1 {
+		t.Fatalf("отчёт с источниками: %+v", rep)
+	}
+	status, body, _ = doImport(t, srv, "", ndjsonCT, sourcesBody)
+	if status != http.StatusOK {
+		t.Fatalf("статус: %d, тело %s", status, body)
+	}
+	rep = decode[importReportJSON](t, body)
+	if rep.SourcesApplied {
+		t.Fatalf("повторный импорт источников отмечен изменением: %+v", rep)
+	}
 }
 
 func TestImportHardErrors(t *testing.T) {

@@ -2130,16 +2130,35 @@ func suiteRevisions(t *testing.T, factory configFactory) {
 	}
 
 	// Импорт каталога меняет только catalog_revision.
-	err := app.Services().Catalog.Import(ctx, catalog.Input{
+	changed, err := app.Services().Catalog.Import(ctx, catalog.Input{
 		Units: []catalog.UnitDef{{Code: "test_unit"}},
 	})
 	if err != nil {
 		t.Fatalf("импорт каталога: %v", err)
 	}
+	if !changed {
+		t.Fatal("импорт новой единицы: ожидалось изменение каталога")
+	}
 	catNext, dataNext, _ := app.Revisions(ctx)
 	if catNext != catAfter+1 || dataNext != dataAgain {
 		t.Fatalf("ревизии после каталога: catalog %d→%d data %d→%d",
 			catAfter, catNext, dataAgain, dataNext)
+	}
+
+	// Повторный импорт идентичного каталога — без изменений: признак
+	// false, запись и инкремент catalog_revision не выполняются.
+	changed, err = app.Services().Catalog.Import(ctx, catalog.Input{
+		Units: []catalog.UnitDef{{Code: "test_unit"}},
+	})
+	if err != nil {
+		t.Fatalf("повторный импорт каталога: %v", err)
+	}
+	if changed {
+		t.Fatal("повторный импорт идентичного каталога отмечен изменением")
+	}
+	catAgain, _, _ := app.Revisions(ctx)
+	if catAgain != catNext {
+		t.Fatalf("повторный импорт двинул catalog_revision: %d → %d", catNext, catAgain)
 	}
 }
 
@@ -2368,7 +2387,7 @@ func suiteParameterStats(t *testing.T, factory configFactory) {
 	// Неприменимый к классу параметр не показывается, даже когда его данные
 	// остались после изменения применимости каталогом (D7): фильтр поиска
 	// по нему для этого класса — 400, слайдер был бы неработоспособен.
-	err = app.Services().Catalog.Import(ctx, catalog.Input{
+	_, err = app.Services().Catalog.Import(ctx, catalog.Input{
 		Parameters: []catalog.ParameterDef{{
 			Code: "fT", Group: "electrical", Unit: "Hz",
 			ValueType: catalog.ValueAtLeast, SortOrder: 30, Active: true,
@@ -2403,7 +2422,7 @@ func suiteCatalogImport(t *testing.T, factory configFactory) {
 	cat := app.Services().Catalog
 
 	// Новый код словаря — данными каталога.
-	err := cat.Import(ctx, catalog.Input{
+	_, err := cat.Import(ctx, catalog.Input{
 		Categories: []catalog.CategoryDef{
 			{Code: "choke"},
 		},
@@ -2445,7 +2464,7 @@ func suiteCatalogImport(t *testing.T, factory configFactory) {
 		t.Fatal("сид hfe без sort_order — проверка сохранения стала бы вакуантной")
 	}
 	wantOrder := hfeSeed.SortOrder
-	err = cat.Import(ctx, catalog.Input{
+	_, err = cat.Import(ctx, catalog.Input{
 		Parameters: []catalog.ParameterDef{{
 			Code: "hfe", Group: "electrical", ValueType: catalog.ValueLimits,
 			Active: true, Kinds: []domain.Kind{domain.KindTransistor},
@@ -2463,7 +2482,7 @@ func suiteCatalogImport(t *testing.T, factory configFactory) {
 	}
 
 	// Неверный каталог — проблемы метасхемы, применение целиком отменено.
-	err = cat.Import(ctx, catalog.Input{
+	_, err = cat.Import(ctx, catalog.Input{
 		Rules: []catalog.RuleDef{{Code: "nosuch_rule"}},
 	})
 	wantDomainError(t, err, domain.CodeInvalidImportFile,
@@ -2665,7 +2684,7 @@ func TestDeleteKindBySnapshot(t *testing.T) {
 
 	// Класс, добавленный расширением каталога: валиден для Delete
 	// (записи нет — false, но не kind_unknown).
-	if err := app.Services().Catalog.Import(ctx, catalog.Input{
+	if _, err := app.Services().Catalog.Import(ctx, catalog.Input{
 		Kinds: []catalog.KindDef{{Code: "thyristor"}},
 	}); err != nil {
 		t.Fatalf("расширение каталога: %v", err)

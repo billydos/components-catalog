@@ -143,7 +143,7 @@ func (a *App) seedIfEmpty(ctx context.Context) error {
 	if n > 0 {
 		return nil
 	}
-	if err := a.catalogSvc.Import(ctx, seed.Catalog()); err != nil {
+	if _, err := a.catalogSvc.Import(ctx, seed.Catalog()); err != nil {
 		return domain.NewErrorf(domain.CodeSeedFailed, domain.MsgSeedFailed, err.Error())
 	}
 	return nil

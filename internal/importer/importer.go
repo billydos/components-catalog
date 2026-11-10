@@ -28,8 +28,8 @@ type Report struct {
 	Added          int
 	Updated        int
 	Skipped        int
-	Rejected       int // записи, не применённые из-за проблем
-	CatalogApplied bool
+	Rejected       int  // записи, не применённые из-за проблем
+	CatalogApplied bool // каталог изменён и записан секцией catalog файла
 	SourcesApplied bool // реестр источников изменён корневой секцией sources
 	Issues         []Issue
 }
@@ -441,16 +441,19 @@ func (m *Importer) planCatalog(tree value, cur *catalog.Snapshot, rep *Report) c
 }
 
 // commitCatalog применяет план каталога: в dry-run — без записи (снимок
-// чтения — гипотетический), иначе — Catalog.Import и свежий снимок БД.
+// чтения — гипотетический), иначе — Catalog.Import и свежий снимок БД;
+// отчёт отмечает фактическое изменение (повторный импорт идентичного
+// каталога — без записи, ревизия не двигается).
 func (m *Importer) commitCatalog(ctx context.Context, plan catalogPlan,
 	dryRun bool, rep *Report) (*catalog.Snapshot, error) {
 	if !plan.apply || dryRun {
 		return plan.read, nil
 	}
-	if err := m.app.Services().Catalog.Import(ctx, plan.in); err != nil {
+	changed, err := m.app.Services().Catalog.Import(ctx, plan.in)
+	if err != nil {
 		return nil, err
 	}
-	rep.CatalogApplied = true
+	rep.CatalogApplied = changed
 	return m.app.Snapshot(ctx)
 }
 

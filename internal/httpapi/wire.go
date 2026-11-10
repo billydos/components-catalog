@@ -521,8 +521,10 @@ type importIssueJSON struct {
 }
 
 // importReportJSON — синхронный отчёт прогона импорта POST /api/v1/import:
-// признак контрольного прогона (dry_run), счётчики исходов записей
-// и полный список проблем за прогон; issues — всегда массив.
+// признак контрольного прогона (dry_run), счётчики исходов записей,
+// фактическое применение глобальных секций (catalog — каталог, sources —
+// реестр источников; повторный импорт без изменений — false) и полный
+// список проблем за прогон; issues — всегда массив.
 type importReportJSON struct {
 	DryRun         bool              `json:"dry_run"`
 	Records        int               `json:"records"`
@@ -531,6 +533,7 @@ type importReportJSON struct {
 	Skipped        int               `json:"skipped"`
 	Rejected       int               `json:"rejected"`
 	CatalogApplied bool              `json:"catalog_applied"`
+	SourcesApplied bool              `json:"sources_applied"`
 	Issues         []importIssueJSON `json:"issues"`
 }
 
@@ -539,7 +542,8 @@ func importReportToJSON(lang i18n.Language, rep *importer.Report) importReportJS
 		DryRun:  rep.DryRun,
 		Records: rep.Records, Added: rep.Added, Updated: rep.Updated,
 		Skipped: rep.Skipped, Rejected: rep.Rejected, CatalogApplied: rep.CatalogApplied,
-		Issues: make([]importIssueJSON, 0, len(rep.Issues)),
+		SourcesApplied: rep.SourcesApplied,
+		Issues:         make([]importIssueJSON, 0, len(rep.Issues)),
 	}
 	for _, iss := range rep.Issues {
 		// Проблемы с MsgID internal_error — не-доменные ошибки применения

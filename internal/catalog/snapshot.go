@@ -490,6 +490,114 @@ func (s *Snapshot) RulesForKind(kind domain.Kind) []string {
 	return s.index().kindRules[kind]
 }
 
+// RowsEqual сообщает, совпадают ли все определения двух снимков (ревизия
+// и поисковые индексы не участвуют). Сравнение — по множествам строк:
+// чтение из БД упорядочивает разделы канонически (по коду), применение
+// каталога сохраняет порядок действующих строк и дописывает новые в конец
+// — порядок строк и подсписков (применимость к классам, enum-значения,
+// элементы наборов условий) хранением не фиксируется. Опора детекции
+// «применение ничего не меняет»: повторный импорт идентичного каталога
+// не пишет и не двигает ревизию (как Skipped у записей).
+func RowsEqual(a, b *Snapshot) bool {
+	if a == nil || b == nil {
+		return a == b
+	}
+	return setsEqual(a.Kinds, b.Kinds) &&
+		setsEqual(a.Systems, b.Systems) &&
+		setsEqual(a.SystemKinds, b.SystemKinds) &&
+		setsEqual(a.Units, b.Units) &&
+		setsEqual(a.Categories, b.Categories) &&
+		setsEqual(a.SourceTypes, b.SourceTypes) &&
+		setsEqual(a.Conditions, b.Conditions) &&
+		setsEqual(a.Groups, b.Groups) &&
+		setsEqual(a.Rules, b.Rules) &&
+		setsEqual(a.KindRules, b.KindRules) &&
+		rowsEqual(a.Parameters, b.Parameters,
+			func(r ParameterDef) string { return r.Code }, parametersEqual) &&
+		rowsEqual(a.Attributes, b.Attributes,
+			func(r AttributeDef) string { return r.Code }, attributesEqual)
+}
+
+// setsEqual — равенство множеств сравнимых строк (дубликаты в снимке
+// исключены валидацией метасхемы и ключами БД).
+func setsEqual[T comparable](a, b []T) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	seen := make(map[T]bool, len(a))
+	for _, v := range a {
+		seen[v] = true
+	}
+	for _, v := range b {
+		if !seen[v] {
+			return false
+		}
+	}
+	return true
+}
+
+// rowsEqual — равенство разделов с уникальным ключом строки: равные длины
+// и совпадение строк одного ключа (порядок не важен).
+func rowsEqual[T any, K comparable](a, b []T, key func(T) K, eq func(T, T) bool) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	byKey := make(map[K]T, len(b))
+	for _, r := range b {
+		byKey[key(r)] = r
+	}
+	for _, r := range a {
+		br, ok := byKey[key(r)]
+		if !ok || !eq(r, br) {
+			return false
+		}
+	}
+	return true
+}
+
+// parametersEqual — равенство строк параметров по всем полям, включая
+// подсписки (применимость, enum, наборы условий).
+func parametersEqual(a, b ParameterDef) bool {
+	return a.Code == b.Code && a.Group == b.Group && a.Unit == b.Unit &&
+		a.ValueType == b.ValueType && a.AllowNegative == b.AllowNegative &&
+		a.ValidationRule == b.ValidationRule && a.SortOrder == b.SortOrder &&
+		a.Active == b.Active &&
+		floatPtrEqual(a.Ceiling, b.Ceiling) &&
+		setsEqual(a.Kinds, b.Kinds) &&
+		setsEqual(a.EnumValues, b.EnumValues) &&
+		rowsEqual(a.ConditionSets, b.ConditionSets,
+			func(r ConditionSet) int { return r.No }, conditionSetsEqual)
+}
+
+// attributesEqual — равенство строк атрибутов по всем полям, включая
+// подсписки (применимость, enum).
+func attributesEqual(a, b AttributeDef) bool {
+	return a.Code == b.Code && a.GroupName == b.GroupName && a.Type == b.Type &&
+		a.Unit == b.Unit && a.ValidationRule == b.ValidationRule &&
+		a.SortOrder == b.SortOrder && a.Active == b.Active &&
+		setsEqual(a.Kinds, b.Kinds) && setsEqual(a.EnumValues, b.EnumValues)
+}
+
+// conditionSetsEqual — равенство наборов условий (элементы — множеством:
+// условия набора уникальны, порядок хранением не фиксируется).
+func conditionSetsEqual(a, b ConditionSet) bool {
+	return rowsEqual(a.Items, b.Items,
+		func(r ConditionSetItem) string { return r.Condition }, conditionItemsEqual)
+}
+
+// conditionItemsEqual — равенство элементов набора условий.
+func conditionItemsEqual(a, b ConditionSetItem) bool {
+	return a.Mode == b.Mode && floatPtrEqual(a.FixedValue, b.FixedValue)
+}
+
+// floatPtrEqual — равенство необязательных чисел (nil — «не задано»).
+func floatPtrEqual(a, b *float64) bool {
+	if a == nil || b == nil {
+		return a == b
+	}
+	return *a == *b
+}
+
 // Clone глубоко копирует снимок (основа для применения каталога).
 func (s *Snapshot) Clone() *Snapshot {
 	if s == nil {

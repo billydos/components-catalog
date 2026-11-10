@@ -592,6 +592,73 @@ func runImporterSuite(t *testing.T, factory configFactory) {
 		}
 	})
 
+	t.Run("CatalogImportIdempotent", func(t *testing.T) {
+		app := openApp(t, factory)
+		file := filepath.Join(t.TempDir(), "cat.jsonc")
+		write(t, file, `{"catalog": {"categories": [ { "code": "choke" } ]}}`)
+		rep, err := importCatalogFile(t, app, file, false)
+		if err != nil || !rep.CatalogApplied {
+			t.Fatalf("первичный импорт: %v %+v", err, rep)
+		}
+		catRev, _, err := app.Revisions(context.Background())
+		if err != nil {
+			t.Fatalf("ревизии: %v", err)
+		}
+		// Повторный импорт того же файла — без изменений: каталог
+		// не переписывается, признак применения не поднимается,
+		// catalog_revision не движется (ETag /catalog стабилен).
+		rep, err = importCatalogFile(t, app, file, false)
+		if err != nil {
+			t.Fatalf("повторный импорт: %v", err)
+		}
+		if rep.HasIssues() || rep.CatalogApplied {
+			t.Fatalf("повторный импорт: %+v; проблемы: %v", rep, issueMessages(rep.Issues))
+		}
+		catRev2, _, err := app.Revisions(context.Background())
+		if err != nil {
+			t.Fatalf("ревизии: %v", err)
+		}
+		if catRev2 != catRev {
+			t.Fatalf("повторный импорт двинул catalog_revision: %d → %d", catRev, catRev2)
+		}
+
+		// Импорт catalog import-файлом обычного import — тот же исход.
+		rep = importFile(t, app, file, false)
+		if rep.HasIssues() || rep.CatalogApplied {
+			t.Fatalf("повторный import: %+v; проблемы: %v", rep, issueMessages(rep.Issues))
+		}
+
+		// NDJSON: строки catalog сливаются до валидации метасхемы —
+		// идемпотентность слитого входа отдельно (слияние не порождает
+		// различий, невидимых повторному импорту).
+		nd := filepath.Join(t.TempDir(), "cat.ndjson")
+		write(t, nd,
+			`{"catalog": {"categories": [ { "code": "ndchoke" } ]}}`+"\n"+
+				`{"catalog": {"units": [ { "code": "ndu" } ]}}`+"\n")
+		rep, err = importCatalogFile(t, app, nd, false)
+		if err != nil || !rep.CatalogApplied {
+			t.Fatalf("первичный ndjson: %v %+v", err, rep)
+		}
+		catRev3, _, err := app.Revisions(context.Background())
+		if err != nil {
+			t.Fatalf("ревизии: %v", err)
+		}
+		rep, err = importCatalogFile(t, app, nd, false)
+		if err != nil {
+			t.Fatalf("повторный ndjson: %v", err)
+		}
+		if rep.HasIssues() || rep.CatalogApplied {
+			t.Fatalf("повторный ndjson: %+v; проблемы: %v", rep, issueMessages(rep.Issues))
+		}
+		catRev4, _, err := app.Revisions(context.Background())
+		if err != nil {
+			t.Fatalf("ревизии: %v", err)
+		}
+		if catRev4 != catRev3 {
+			t.Fatalf("повторный ndjson двинул catalog_revision: %d → %d", catRev3, catRev4)
+		}
+	})
+
 	t.Run("CatalogImportFileRejectsRecords", func(t *testing.T) {
 		app := openApp(t, factory)
 		catRev, dataRev, err := app.Revisions(context.Background())

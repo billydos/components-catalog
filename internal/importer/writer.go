@@ -5,7 +5,6 @@ import (
 	"context"
 	"encoding/json"
 	"io"
-	"slices"
 	"strconv"
 	"strings"
 
@@ -16,9 +15,10 @@ import (
 
 // Экспорт — round-trip формат наполнения (docs/plan/04 §4): тот же вид файла,
 // что читает importer, во всех форматах реестра. Порядок детерминирован:
-// классы — по снимку каталога, записи — по (kind, designation), секции
-// групп — по группам каталога, значения — по sort_order, условия — по коду,
-// атрибуты — по каталогу; повторный экспорт даёт байтово тот же файл.
+// классы — по снимку каталога, записи — по (kind, designation), источники —
+// по коду реестра, секции групп — по группам каталога, значения — по
+// sort_order, условия — по коду, атрибуты — по каталогу; повторный экспорт
+// даёт байтово тот же файл.
 
 // formatExportNum — канонический текст числа: без экспоненты и потери
 // точности (кратчайшая десятичная запись, round-trip точен для float64).
@@ -45,26 +45,22 @@ func (m *Importer) Export(ctx context.Context, w io.Writer, format Format, kind 
 		}
 	}
 
+	// Корневая секция sources — полный реестр (порядок — по коду):
+	// восстановление базы из экспортов не теряет источники, на которые
+	// не ссылается ни одна запись.
+	srcDefs, err := m.app.Services().Sources.ListSources(ctx)
+	if err != nil {
+		return err
+	}
+	srcTree := sourcesTree(srcDefs)
+
 	switch format {
 	case FormatNDJSON:
 		// Построчный поток для больших объёмов: записи пишутся по мере
 		// чтения батчами, дерево всего файла в памяти не собирается.
 		// Определения источников пишутся раньше записей (корневая
-		// секция sources предшествует использованию) — первый проход
-		// собирает ссылки, второй пишет строки.
-		referenced := map[string]service.CardSource{}
-		for _, k := range snap.Kinds {
-			if kind != nil && k.Code != *kind {
-				continue
-			}
-			if err := m.eachKindCard(ctx, k.Code, func(card *service.Card) error {
-				collectSources(referenced, card)
-				return nil
-			}); err != nil {
-				return err
-			}
-		}
-		if srcTree := sourcesTree(referenced); srcTree.kind == kindArray {
+		// секция sources предшествует использованию).
+		if srcTree.kind == kindArray {
 			if err := writeNDJSONLine(w, object(pair("sources", srcTree))); err != nil {
 				return err
 			}
@@ -81,12 +77,14 @@ func (m *Importer) Export(ctx context.Context, w io.Writer, format Format, kind 
 	}
 
 	root := value{kind: kindObject}
-	referenced := map[string]service.CardSource{}
+	if srcTree.kind == kindArray {
+		root.members = append(root.members, member{name: "sources", value: srcTree})
+	}
 	for _, k := range snap.Kinds {
 		if kind != nil && k.Code != *kind {
 			continue
 		}
-		records, err := m.exportKindRecords(ctx, snap, k.Code, referenced)
+		records, err := m.exportKindRecords(ctx, k.Code)
 		if err != nil {
 			return err
 		}
@@ -94,9 +92,6 @@ func (m *Importer) Export(ctx context.Context, w io.Writer, format Format, kind 
 			continue
 		}
 		root.members = append(root.members, member{name: catalog.KindSection(k.Code), value: array(records...)})
-	}
-	if srcTree := sourcesTree(referenced); srcTree.kind == kindArray {
-		root.members = append([]member{{name: "sources", value: srcTree}}, root.members...)
 	}
 
 	if format == FormatYAML {
@@ -128,14 +123,10 @@ func (m *Importer) ExportCatalog(ctx context.Context, w io.Writer, format Format
 }
 
 // exportKindRecords собирает деревья записей класса (документные
-// форматы): обход батчами карточек, дерево — целиком в памяти;
-// referenced накапливает определения источников, на которые ссылаются
-// выгружаемые записи (корневая секция sources).
-func (m *Importer) exportKindRecords(ctx context.Context, snap *catalog.Snapshot,
-	kind domain.Kind, referenced map[string]service.CardSource) ([]value, error) {
+// форматы): обход батчами карточек, дерево — целиком в памяти.
+func (m *Importer) exportKindRecords(ctx context.Context, kind domain.Kind) ([]value, error) {
 	var out []value
 	err := m.eachKindCard(ctx, kind, func(card *service.Card) error {
-		collectSources(referenced, card)
 		// Разбор обозначения над реестром семейств каталога — как при
 		// импорте: явные классификационные поля = хранимые минус
 		// продукты парсера (round-trip секции fields). Эволюция
@@ -319,30 +310,16 @@ func recordTree(c *service.Card, parsed *domain.ParsedDesignation) value {
 	return object(members...)
 }
 
-// collectSources регистрирует определения источников записи в наборе
-// выгружаемых (последний wins — записи ссылаются на одно определение,
-// заметка места в источник не входит).
-func collectSources(referenced map[string]service.CardSource, c *service.Card) {
-	for _, src := range c.Sources {
-		referenced[src.Code] = src
-	}
-}
-
-// sourcesTree строит корневую секцию sources из набора определений:
-// строки по коду (детерминированный порядок), поля — как в файле
-// наполнения, незаданные опускаются; пустой набор — пустое дерево.
-func sourcesTree(referenced map[string]service.CardSource) value {
-	if len(referenced) == 0 {
+// sourcesTree строит корневую секцию sources из полного реестра:
+// строки в порядке кода (порядок чтения реестра), поля — как в файле
+// наполнения, незаданные опускаются; пустой реестр — пустое дерево
+// (секция не пишется).
+func sourcesTree(defs []service.SourceInput) value {
+	if len(defs) == 0 {
 		return value{}
 	}
-	codes := make([]string, 0, len(referenced))
-	for code := range referenced {
-		codes = append(codes, code)
-	}
-	slices.Sort(codes)
-	rows := make([]value, 0, len(codes))
-	for _, code := range codes {
-		src := referenced[code]
+	rows := make([]value, 0, len(defs))
+	for _, src := range defs {
 		pairs := []member{
 			pair("code", str(src.Code)), pair("title", str(src.Title)),
 			pair("type", str(src.Type)),
