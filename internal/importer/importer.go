@@ -810,11 +810,12 @@ func (m *Importer) deviceExists(ctx context.Context, rec Record) (bool, error) {
 	return found, err
 }
 
-// isAnalogNotFound — ошибка разрешения аналога (цель не найдена): единственный
-// источник not_found в Upsert.
+// isAnalogNotFound — ошибка разрешения аналога (цель не найдена):
+// выделенный код unknown_analog — ошибка значения тела, а не отсутствия
+// ресурса (у Upsert кодов not_found нет).
 func isAnalogNotFound(err error) bool {
 	de, ok := domain.AsError(err)
-	return ok && de.Code == domain.CodeNotFound
+	return ok && de.Code == domain.CodeUnknownAnalog
 }
 
 // issueFromError — проблема записи из ошибки домена.

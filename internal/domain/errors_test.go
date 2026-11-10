@@ -31,6 +31,7 @@ func TestKnownCodes(t *testing.T) {
 		"seed_failed",
 		"storage_ddl_failed",
 		"storage_open_failed",
+		"unknown_analog",
 		"unknown_attribute",
 		"unknown_condition",
 		"unknown_parameter",

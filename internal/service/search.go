@@ -495,6 +495,11 @@ func buildSearchRequest(snap *catalog.Snapshot, q SearchQuery) (storage.SearchRe
 			if a.HasNum {
 				return req, domain.NewErrorf(domain.CodeValidationFailed, domain.MsgSvcFilterAttrText, a.Attribute)
 			}
+		case catalog.AttrBool:
+			// Хранилище фильтрует num_value/text_value, у логических
+			// атрибутов обе всегда NULL — фильтр молча давал бы пустой
+			// результат; отвергается здесь, а не только в транспорте.
+			return req, domain.NewErrorf(domain.CodeValidationFailed, domain.MsgSvcFilterAttrBool, a.Attribute)
 		default:
 			if !a.HasNum {
 				return req, domain.NewErrorf(domain.CodeValidationFailed, domain.MsgSvcFilterAttrNumber, a.Attribute)

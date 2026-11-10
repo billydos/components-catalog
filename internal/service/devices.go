@@ -696,7 +696,7 @@ func resolveAnalogs(ctx context.Context, tx *storage.Tx, kind domain.Kind,
 				out = append(out, resolvedAnalog{designation: canonical, note: strings.TrimSpace(a.Note)})
 				continue
 			}
-			return nil, domain.NewErrorf(domain.CodeNotFound, domain.MsgSvcAnalogNotFound, canonical, string(kind))
+			return nil, domain.NewErrorf(domain.CodeUnknownAnalog, domain.MsgSvcAnalogNotFound, canonical, string(kind))
 		}
 		out = append(out, resolvedAnalog{
 			id: dev.ID, designation: canonical, note: strings.TrimSpace(a.Note),

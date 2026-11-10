@@ -381,6 +381,7 @@ const (
 	MsgSvcSearchValuesMax       MsgID = "svc_search_values_max"
 	MsgSvcSearchValuesDuplicate MsgID = "svc_search_values_duplicate"
 	MsgSvcValuesBoolAttr        MsgID = "svc_values_attr_bool"
+	MsgSvcFilterAttrBool        MsgID = "svc_filter_attr_bool"
 	MsgSvcFilterAttrText        MsgID = "svc_filter_attr_text_expected"
 	MsgSvcFilterAttrNumber      MsgID = "svc_filter_attr_number_expected"
 	MsgSvcFilterParamSet        MsgID = "svc_filter_param_value_missing"
@@ -421,7 +422,6 @@ const (
 	MsgApiParamDuplicate      MsgID = "api_param_duplicate"
 	MsgApiNumberParam         MsgID = "api_number_param"
 	MsgApiBoolParam           MsgID = "api_bool_param"
-	MsgApiBoolAttrFilter      MsgID = "api_bool_attr_filter"
 	MsgApiIdParam             MsgID = "api_id_param"
 	MsgApiValuesCode          MsgID = "api_values_code"
 	MsgInternalError          MsgID = "internal_error"
@@ -964,6 +964,7 @@ var msgRegistry = map[MsgID]struct{}{
 	MsgSvcFilterOpUnknown:             {},
 	MsgSvcFieldUnknown:                {},
 	MsgSvcFilterAttrText:              {},
+	MsgSvcFilterAttrBool:              {},
 	MsgSvcFilterAttrNumber:            {},
 	MsgSvcFilterParamSet:              {},
 	MsgSvcFilterParamText:             {},
@@ -1008,7 +1009,6 @@ var msgRegistry = map[MsgID]struct{}{
 	MsgApiParamDuplicate:              {},
 	MsgApiNumberParam:                 {},
 	MsgApiBoolParam:                   {},
-	MsgApiBoolAttrFilter:              {},
 	MsgApiIdParam:                     {},
 	MsgApiValuesCode:                  {},
 	MsgInternalError:                  {},

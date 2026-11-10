@@ -960,6 +960,10 @@ func TestSearchErrors(t *testing.T) {
 			"attribute «structure» is not applicable to kind resistor"},
 		{"attr.polarized=true", "validation_failed",
 			"attribute filter «polarized»: boolean attributes are not supported in filters"},
+		// Комбинация с несовместимым kind: применимость проверяется раньше
+		// формы значения — более точная диагностика (400 сохраняется).
+		{"kind=transistor&attr.polarized=1", "attribute_not_applicable",
+			"attribute «polarized» is not applicable to kind transistor"},
 		{"attr.structure=1967", "validation_failed", "attribute filter «structure»: a text value is expected"},
 		{"par.hfe.avg=5", "validation_failed", "unknown query parameter «par.hfe.avg»"},
 		{"limit=0", "validation_failed", "parameter limit: an integer from 1 to 200 is expected"},
@@ -1336,6 +1340,13 @@ func TestCreate(t *testing.T) {
 	if status != http.StatusUnprocessableEntity || eb.Code != "invalid_designation" {
 		t.Fatalf("невалидное обозначение: %d %+v", status, eb)
 	}
+
+	// Неразрешимый аналог в теле — ошибка значения тела (422
+	// unknown_analog), а не 404: маршрут существует.
+	status, _, eb = do(t, srv, http.MethodPost, apiPrefix+"/components",
+		`{"name":"ГТ402Г","analogs":["НЕТ123"]}`)
+	wantError(t, status, eb, http.StatusUnprocessableEntity, "unknown_analog",
+		"analog «НЕТ123» not found in kind transistor")
 
 	// Система other без класса — создание адресуется PUT (документировано);
 	// POST честно отказывает.

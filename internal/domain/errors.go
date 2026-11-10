@@ -30,6 +30,7 @@ const (
 	CodeSeedFailed             Code = "seed_failed"
 	CodeStorageDDLFailed       Code = "storage_ddl_failed"
 	CodeStorageOpenFailed      Code = "storage_open_failed"
+	CodeUnknownAnalog          Code = "unknown_analog"
 	CodeUnknownAttribute       Code = "unknown_attribute"
 	CodeUnknownCondition       Code = "unknown_condition"
 	CodeUnknownParameter       Code = "unknown_parameter"
@@ -55,6 +56,7 @@ var codeRegistry = map[Code]struct{}{
 	CodeSeedFailed:             {},
 	CodeStorageDDLFailed:       {},
 	CodeStorageOpenFailed:      {},
+	CodeUnknownAnalog:          {},
 	CodeUnknownAttribute:       {},
 	CodeUnknownCondition:       {},
 	CodeUnknownParameter:       {},

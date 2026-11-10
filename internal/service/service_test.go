@@ -1004,7 +1004,7 @@ func suiteAnalogs(t *testing.T, factory configFactory) {
 		Analogs: &[]AnalogInput{{Designation: "НЕТ123"}},
 	}
 	_, err := svc.Upsert(ctx, mp39)
-	wantDomainError(t, err, domain.CodeNotFound, "analog «НЕТ123» not found in kind transistor")
+	wantDomainError(t, err, domain.CodeUnknownAnalog, "analog «НЕТ123» not found in kind transistor")
 
 	mp39.Analogs = &[]AnalogInput{{Designation: "мп39"}}
 	_, err = svc.Upsert(ctx, mp39)
@@ -1017,7 +1017,7 @@ func suiteAnalogs(t *testing.T, factory configFactory) {
 	// Аналог из другого класса не разрешается (в пределах класса).
 	mp39.Analogs = &[]AnalogInput{{Designation: "К10-17Б"}}
 	_, err = svc.Upsert(ctx, mp39)
-	wantDomainError(t, err, domain.CodeNotFound, "analog «К10-17Б» not found in kind transistor")
+	wantDomainError(t, err, domain.CodeUnknownAnalog, "analog «К10-17Б» not found in kind transistor")
 }
 
 // suiteSynonyms — исторические названия записи (план 03 §9): применение
@@ -1733,6 +1733,20 @@ func suiteSearchValidation(t *testing.T, factory configFactory) {
 	})
 	wantDomainError(t, err, domain.CodeAttributeNotApplicable,
 		"attribute «polarized» is not applicable to kind transistor")
+
+	// Логический атрибут в фильтре — ошибка валидации сервисом
+	// (num_value у bool всегда NULL — фильтр молча давал бы пустой
+	// результат), в любой форме значения.
+	_, err = svc.Search(ctx, SearchQuery{
+		Attributes: []AttributeFilter{{Attribute: "polarized", Num: 1, HasNum: true}},
+	})
+	wantDomainError(t, err, domain.CodeValidationFailed,
+		"attribute filter «polarized»: boolean attributes are not supported in filters")
+	_, err = svc.Search(ctx, SearchQuery{
+		Attributes: []AttributeFilter{{Attribute: "esdSensitive", Text: "true"}},
+	})
+	wantDomainError(t, err, domain.CodeValidationFailed,
+		"attribute filter «esdSensitive»: boolean attributes are not supported in filters")
 
 	_, err = svc.Search(ctx, SearchQuery{Kind: domain.Kind("thyristor")})
 	wantDomainError(t, err, domain.CodeValidationFailed, "unknown device kind «thyristor»")

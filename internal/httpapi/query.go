@@ -176,7 +176,7 @@ func parseSearchQuery(values url.Values, snap *catalog.Snapshot) (service.Search
 				Field: name, Num: f, HasNum: true, Op: service.OpEq,
 			})
 		case strings.HasPrefix(name, "attr."):
-			f, err := parseAttrFilter(snap, strings.TrimPrefix(name, "attr."), v)
+			f, err := parseAttrFilter(strings.TrimPrefix(name, "attr."), v)
 			if err != nil {
 				return q, err
 			}
@@ -298,15 +298,12 @@ func parseSort(spec string, snap *catalog.Snapshot) ([]service.SortField, error)
 	return out, nil
 }
 
-// parseAttrFilter — фильтр атрибута: значение разбирается по типу
-// атрибута каталога (текст/число; логические атрибуты в фильтрах не
-// поддерживаются хранилищем). Согласованность типа с каталогом и
+// parseAttrFilter — фильтр атрибута: значение разбирается по форме
+// (число либо текст). Согласованность типа с каталогом (включая
+// логические атрибуты — фильтры по ним не поддерживаются) и
 // применимость к классу проверяет сервис.
-func parseAttrFilter(snap *catalog.Snapshot, code, value string) (service.AttributeFilter, error) {
+func parseAttrFilter(code, value string) (service.AttributeFilter, error) {
 	f := service.AttributeFilter{Attribute: code}
-	if def, ok := snap.Attribute(code); ok && def.Type == catalog.AttrBool {
-		return f, domain.NewErrorf(domain.CodeValidationFailed, domain.MsgApiBoolAttrFilter, code)
-	}
 	if n, err := strconv.ParseFloat(value, 64); err == nil {
 		f.Num, f.HasNum = n, true
 		return f, nil
