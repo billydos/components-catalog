@@ -1,0 +1,13 @@
+# Конфигурация Redocly CLI для локализации контракта REST.
+# Каноническая спецификация — api/openapi.yaml (en); русская локаль —
+# оверлей api/overlays/ru.yaml (OpenAPI Overlay 1.1), генерация артефакта
+# api/dist/openapi.ru.yaml. Команда регенерации (из корня репозитория;
+# единственное место с ней — при смене версии пина обновлять здесь):
+#   docker run --rm -v "$PWD/api:/spec" -w /spec redocly/cli:2.78.0 bundle ru
+# Свежесть артефакта против canonical+оверлея проверяет api/openapi_test.go.
+apis:
+  ru:
+    root: openapi.yaml
+    output: dist/openapi.ru.yaml
+    overlays:
+      - overlays/ru.yaml

@@ -1,0 +1,605 @@
+# Русская локализация канонической (en) спецификации api/openapi.yaml.
+# Формат — OpenAPI Overlay Specification 1.1 (spec.openapis.org/overlay):
+# target — JSONPath к узлу канонического документа, update — русский текст.
+# Каждый узел прозы (summary/description) канонического файла обязан иметь
+# действие здесь (полноту проверяет api/openapi_test.go); тексты вне прозы
+# (примеры-данные, коды) не локализуются.
+#
+# Регенерация api/dist/openapi.ru.yaml — команда в api/redocly.yaml
+# (единственное место с ней). Несовпадение таргета узлу Redocly
+# игнорирует молча — рассинхрон ловит api/openapi_test.go.
+overlay: 1.1.0
+info:
+  title: Русская локализация components-catalog REST API
+  version: 0.1.0
+actions:
+  - target: $.info.description
+    update: |
+      Встраиваемый справочник электронных компонентов: REST /api/v1 — тонкий
+      транспорт над сервисным слоем Go-библиотеки. Аутентификация,
+      авторизация и лимитирование — на стороне сайта, монтирующего хендлер
+      (защищённые маршруты — на усмотрение сайта). Транспорт: JSON, UTF-8.
+
+      Ошибки — модель `{"code", "message"}`: `code` —
+      машиночитаемый латиницей snake_case, `message` — текст сообщения
+      из каталога модуля по локали запроса (en — канонический, ru — бандл;
+      Accept-Language). Статусы: 400 (неверный запрос),
+      404 (не найдено), 405 (метод не поддерживается путём; заголовок Allow
+      перечисляет допустимые), 409 (конфликт), 422 (семантика записи),
+      500 (внутренняя ошибка). Неизвестный путь — 404 api_route_not_found
+      той же модели ошибок.
+
+      Локализация (D9): база модуля языконезависима — кодовые поля ответов
+      (kind, system, unit, parameter, attribute, section) всегда канонические.
+      Отображаемые поля (`name`, `kind_name`, `system_name`, описания, имена
+      и символы единиц в /catalog) заполняются по локали запроса из бандлов
+      модуля; локаль — заголовок Accept-Language (q-значения, базовый подтег),
+      по умолчанию и при неподдерживаемом языке — en (поддерживаются en, ru).
+
+      Семантика секций тела записи (attributes, секции групп, manufacturers,
+      variants, analogs, synonyms, sources): отсутствует/null — не менять
+      (для POST — не задано), задана — заменить целиком, `[]`/`{}` — очистить,
+      ошибка в любом значении — запись не применяется вовсе. Ссылки sources
+      адресуют коды глобального реестра источников файла наполнения
+      (план 03 §13); определения реестра задаёт корневая секция sources
+      импорта, не тело записи.
+  - target: $.tags[?@['name']=='catalog'].description
+    update: Справочники модуля (классы, каталог).
+  - target: $.tags[?@['name']=='components'].description
+    update: "Записи приборов: поиск, карточка, запись, удаление."
+  - target: $.tags[?@['name']=='service'].description
+    update: Служебные данные (статистика, автодополнение).
+  - target: $.tags[?@['name']=='import'].description
+    update: "Импорт файлов наполнения: поток NDJSON."
+  - target: $.paths['/api/v1/kinds'].get.summary
+    update: Классы приборов
+  - target: $.paths['/api/v1/kinds'].get.responses['200'].description
+    update: Классы приборов (name — по локали запроса).
+  - target: $.paths['/api/v1/catalog'].get.summary
+    update: Снимок каталога
+  - target: $.paths['/api/v1/catalog'].get.description
+    update: |
+      Параметры, атрибуты, условия, единицы, группы, системы обозначений,
+      семейства и словари значений словарных полей обозначения
+      (material, subclass, adjustment, category) —
+      для построения форм и фильтров. Ключи полей повторяют
+      формат наполнения (snake_case по колонкам каталожных таблиц);
+      отображаемые строки (name, описания, имена и символы единиц) —
+      по локали запроса (D9).
+      ETag — по catalog_revision и локали представления (разные локали —
+      разные ETag, RFC 9110): снимок кэшируется до смены каталога.
+  - target: $.paths['/api/v1/catalog'].get.responses['200'].description
+    update: Снимок каталога.
+  - target: $.paths['/api/v1/catalog'].get.responses['200'].headers.ETag.description
+    update: 'Сильный ETag вида "catalog-<catalog_revision>-<локаль>".'
+  - target: $.paths['/api/v1/catalog'].get.responses['304'].description
+    update: Снимок не менялся (If-None-Match).
+  - target: $.paths['/api/v1/stats'].get.summary
+    update: Количество записей, версия схемы, ревизии; при kind — агрегаты параметров класса
+  - target: $.paths['/api/v1/stats'].get.description
+    update: |
+      Без kind — агрегаты модуля: количества записей по классам, версия
+      схемы, ревизии. С kind — фасетные агрегаты значений параметров
+      класса: min/max численных параметров для
+      слайдеров параметрических фильтров (границы — по семантике
+      фильтров поиска: value_min/value_max и value_exact; at_least
+      задаёт только min, at_most — только max, limits — min и/или
+      max по заданным границам) и частоты текстовых/
+      enum значений — число записей класса со значением (значение
+      в данных типа и нескольких исполнениях одной записи считается
+      один раз). В агрегаты входят данные типа в целом и исполнений —
+      как у фильтров поиска; параметры без данных в классе и
+      неприменимые к классу (D7; в том числе с данными, оставшимися
+      после изменения применимости каталогом) в ответ не входят,
+      порядок параметров — алфавит кодов (как /catalog),
+      значения — по убыванию частоты, затем по тексту. Повтор
+      разбираемого параметра и посторонний ключ запроса — 400
+      validation_failed; неизвестный класс — 400 validation_failed.
+  - target: $.paths['/api/v1/stats'].get.parameters[?@['name']=='kind'].description
+    update: "Код класса: ответ — фасетные агрегаты значений параметров этого класса (без параметра и с пустым значением — агрегаты модуля)."
+  - target: $.paths['/api/v1/stats'].get.responses['200'].description
+    update: Агрегаты модуля (без kind) либо фасетные агрегаты
+      класса (с kind); name — по локали запроса, unit — канонический код.
+  - target: $.paths['/api/v1/stats'].get.responses['200'].headers.Vary.description
+    update: Accept-Language — на ответе с kind (представление
+      локализуется); на агрегатах модуля без kind не отдаётся.
+  - target: $.paths['/api/v1/changes'].get.summary
+    update: Поток событий изменений записей (change feed)
+  - target: $.paths['/api/v1/changes'].get.description
+    update: |
+      Инкрементальная синхронизация производных индексов сайта: события
+      применённых операций над записями (created/updated/deleted, класс,
+      обозначение, стабильный id записи) в порядке возрастания id
+      события. События записываются той же транзакцией, что меняет
+      данные: событие и изменение атомарны, исход Skipped событий
+      не оставляет (включая компенсационные удаления импортёра —
+      штатный deleted).
+
+      Курсор — параметр after: id последнего полученного события
+      (after=0 — с начала фида); ревизия курсором быть не может: её
+      связь с событиями — деталь пути записи (возможны несколько
+      событий в одной транзакции либо инкремент мимо фида), id
+      присваивается вставкой и остаётся плотным монотонным курсором.
+      Ответ содержит текущую data_revision (согласована со страницей
+      событий). Фид покрывает только изменения данных (data_revision);
+      изменения каталога (catalog_revision) в фид не входят — для них
+      ETag GET /catalog. Актёров и состояний before/after нет — это
+      не аудит (история изменений — зона сайта). Автоматической
+      ретенции нет: рост ограничен редакционным масштабом, очистка —
+      вручную (SQL), REST-пути очистки нет. Повтор разбираемого
+      параметра и посторонний ключ запроса — 400 validation_failed.
+  - target: $.paths['/api/v1/changes'].get.parameters[?@['name']=='after'].description
+    update: "Курсор: id последнего полученного события (0 — с начала фида)."
+  - target: $.paths['/api/v1/changes'].get.parameters[?@['name']=='limit'].description
+    update: "Число событий страницы (≤ 1000)."
+  - target: $.paths['/api/v1/changes'].get.responses['200'].description
+    update: Страница событий и текущая data_revision.
+  - target: $.paths['/api/v1/components'].get.summary
+    update: Поиск записей
+  - target: $.paths['/api/v1/components'].get.description
+    update: |
+      Подстрока обозначения, система, фильтр по набору стабильных id,
+      фильтры полей/атрибутов/параметров, сортировка, пагинация. Ответ —
+      список с обозначением, классом, системой и ключевыми полями;
+      ETag — по data_revision, канонической строке запроса и локали
+      представления (разные фильтры/сортировки или локали — разные
+      ETag, RFC 9110). Повтор любого параметра
+      запроса — 400 validation_failed; исключения — намеренно
+      повторяемые id (набор фильтра, до 200 значений), словарные
+      фильтры material/subclass/adjustment/category (мультивыбор —
+      семантика ИЛИ внутри поля) и values (колонки значений строк выдачи).
+
+      Помимо перечисленных параметров допустимы:
+
+      * фильтры полей обозначения — код поля как имя параметра:
+        текстовые `material`, `subclass`, `letters`, `construction`,
+        `prefix`, `family`, `series`, `adjustment`, `category`, `base`
+        (тип — базовое обозначение записи, значение канонизируется как
+        обозначение); числовые `junctions`, `group`, `dev_number`,
+        `assembly`, `feature`, `modification`, `chip` (равенство);
+        значения словарных полей `material` (`si`, `ge`, `ga`, `in`,
+        `sic`, `other`, `gaas`), `subclass` (`bjt`, `zener`, …),
+        `adjustment` (`fixed`, `variable`, `preset`) и `category` (коды
+        словаря каталога — секция `dictionaries` GET /catalog) —
+        стабильный код словаря либо отображаемое название локали
+        (канонизируется; D9); словарные поля повторяемы: каждое значение
+        канонизируется отдельно, набор — семантика ИЛИ, дубликат
+        канонического кода — 400 validation_failed; прочие текстовые
+        поля — нормативные элементы обозначения (для записей `other`
+        поле `series` задаётся секцией `fields`);
+      * `attr.<код>=<значение>` — фильтр по атрибуту (текст либо число
+        по типу атрибута; логические атрибуты не фильтруются; текстовый
+        фильтр атрибута text_list — равенство любому элементу списка);
+      * `par.<код>.min=`, `par.<код>.max=`, `par.<код>.exact=` — границы
+        численного параметра; `par.<код>.text=` либо `par.<код>=<текст>` —
+        текст/enum.
+
+      Вариантные параметрические фильтры применяются в пределах одного
+      исполнения. Фильтр по параметру/атрибуту, неприменимому к классу
+      запроса, — 400 parameter_not_applicable/attribute_not_applicable.
+      Неизвестный параметр запроса — 400 validation_failed.
+  - target: $.paths['/api/v1/components'].get.parameters[?@['name']=='kind'].description
+    update: "Класс приборов (transistor, diode, resistor, capacitor, relay)."
+  - target: $.paths['/api/v1/components'].get.parameters[?@['name']=='system'].description
+    update: "Система обозначений (gost, ost, pro, jedec, jis, other)."
+  - target: $.paths['/api/v1/components'].get.parameters[?@['name']=='q'].description
+    update: "Подстрока обозначения либо исторического названия записи — синонима (регистр не важен)."
+  - target: $.paths['/api/v1/components'].get.parameters[?@['name']=='id'].description
+    update: |
+      Фильтр по набору стабильных id записей — намеренно повторяемый
+      параметр (одно из исключений строгости запроса — второе,
+      словарные фильтры мультивыбора, описано выше): до 200 значений,
+      каждое — целое положительное, дубликат значения — 400
+      validation_failed. Семантика — пересечение с прочими фильтрами;
+      id без записи либо отсечённые прочими фильтрами — отсутствие
+      строки в выдаче (отдельной ошибки нет). Без sort порядок
+      выдачи — порядок передачи id (с sort — заданная сортировка).
+      Сценарий: составной поиск «внешний отбор сайта × параметрика
+      модуля» без дублирования каталога.
+  - target: $.paths['/api/v1/components'].get.parameters[?@['name']=='values'].description
+    update: |
+      Колонки значений строк выдачи — намеренно повторяемый
+      параметр: код параметра каталога либо attr.<код атрибута>,
+      до 16 кодов, дубликат — 400 validation_failed. Значение —
+      элемент формы CardValue по каждому коду, присутствующему
+      у записи (нет значения — нет элемента), в порядке запроса:
+      name — локаль запроса, unit — канонический код единицы,
+      conditions — только у параметров. Правило выбора значения
+      при нескольких строках у записи (данные типа + исполнения):
+      численные — агрегат границ MIN/MAX (одиночная строка
+      сохраняет форму exact/at_least/at_most/limits), текстовые/enum —
+      данные типа поверх исполнений. Логические атрибуты —
+      400 validation_failed; неизвестный код — 400
+      unknown_parameter/unknown_attribute, неприменимый к классу
+      запроса — 400 parameter_not_applicable/
+      attribute_not_applicable (как у фильтров).
+  - target: $.paths['/api/v1/components'].get.parameters[?@['name']=='sort'].description
+    update: |
+      Ключи сортировки через запятую, «-» — убывание: designation,
+      id, код поля разбора либо код числового параметра каталога,
+      применимого к классу запроса. Параметры text/enum и
+      неприменимые к классу — 400 (validation_failed/
+      parameter_not_applicable). Значение записи по параметру —
+      по направлению: возрастание — нижняя граница (value_min,
+      точное либо единственная верхняя), убывание — верхняя
+      (value_max, точное либо единственная нижняя); учитываются
+      значения типа и исполнений (как в фильтрах), записи без
+      значения — в конце независимо от направления. К любому
+      порядку добавляется финальный (kind, designation).
+  - target: $.paths['/api/v1/components'].get.parameters[?@['name']=='limit'].description
+    update: "Размер страницы (≤ 200)."
+  - target: $.paths['/api/v1/components'].get.parameters[?@['name']=='offset'].description
+    update: Смещение страницы.
+  - target: $.paths['/api/v1/components'].get.responses['200'].description
+    update: Страница результатов.
+  - target: $.paths['/api/v1/components'].get.responses['200'].headers.ETag.description
+    update: |
+      Сильный ETag вида "data-<data_revision>-<hash>-<локаль>":
+      hash — хэш канонической строки запроса (имена параметров
+      отсортированы, пары name=value через «&»; повторяемый id
+      входит каждым значением — порядок значим).
+  - target: $.paths['/api/v1/components'].get.responses['304'].description
+    update: Данные не менялись (If-None-Match).
+  - target: $.paths['/api/v1/components'].post.summary
+    update: Создание записи
+  - target: $.paths['/api/v1/components'].post.description
+    update: |
+      Тело — запись наполнения: строка-обозначение либо объект
+      «name/system + секции». Класс определяется автодетектом по
+      обозначению; для системы other создание адресуется PUT с классом
+      в пути. Существующий (kind, designation) — 409 already_exists
+      без изменения записи (создание атомарно, гонка параллельных
+      POST не применяет секции к чужой записи).
+  - target: $.paths['/api/v1/components'].post.responses['201'].description
+    update: Запись создана.
+  - target: $.paths['/api/v1/components'].post.responses['404'].description
+    update: Редкая гонка — запись удалена между применением
+      и чтением карточки для ответа.
+  - target: $.paths['/api/v1/components/id/{id}'].get.summary
+    update: Карточка по стабильному id
+  - target: $.paths['/api/v1/components/id/{id}'].get.description
+    update: Обозначения, содержащие «/» (MIL-имена), адресуются
+      этим путём или поиском — прямой путь для них не гарантируется.
+  - target: $.paths['/api/v1/components/id/{id}'].get.responses['200'].description
+    update: Карточка записи.
+  - target: $.paths['/api/v1/components/{kind}/{designation}'].get.summary
+    update: Карточка записи
+  - target: $.paths['/api/v1/components/{kind}/{designation}'].get.description
+    update: |
+      Обозначение + система + поля разбора, атрибуты, значения параметров
+      по группам с условиями, исполнения-варианты (матрица «номинал ×
+      напряжение → габариты/масса»), аналоги (исходящие и встречные),
+      производители. Обозначение в пути URL-кодируется.
+  - target: $.paths['/api/v1/components/{kind}/{designation}'].get.responses['200'].description
+    update: Карточка записи.
+  - target: $.paths['/api/v1/components/{kind}/{designation}'].put.summary
+    update: Upsert записи с семантикой секций
+  - target: $.paths['/api/v1/components/{kind}/{designation}'].put.description
+    update: |
+      Тело — запись наполнения (name/system + секции); name обязан
+      совпадать с designation пути (иначе 422 designation_mismatch).
+      Класс задаётся путём (переопределяет автодетект — способ создания
+      записей системы other). Исходы: Added (создана),
+      UpdatedExisting (обновлена), Skipped (слитое состояние совпадает —
+      записи в БД и инкремента ревизий нет).
+  - target: $.paths['/api/v1/components/{kind}/{designation}'].put.responses['200'].description
+    update: Запись применена.
+  - target: $.paths['/api/v1/components/{kind}/{designation}'].put.responses['404'].description
+    update: Редкая гонка — запись удалена между применением
+      и чтением карточки для ответа.
+  - target: $.paths['/api/v1/components/{kind}/{designation}'].delete.summary
+    update: Удаление записи (каскад)
+  - target: $.paths['/api/v1/components/{kind}/{designation}'].delete.responses['204'].description
+    update: Запись удалена.
+  - target: $.paths['/api/v1/suggest'].get.summary
+    update: Автодополнение по префиксу обозначения
+  - target: $.paths['/api/v1/suggest'].get.description
+    update: Отключаем конфигурацией модуля — хендлер не монтируется
+      (404 при отключении). Повтор разбираемого параметра и посторонний
+      ключ запроса — 400 validation_failed (опечатки не молчат).
+  - target: $.paths['/api/v1/suggest'].get.parameters[?@['name']=='q'].description
+    update: "Префикс обозначения либо исторического названия записи — синонима."
+  - target: $.paths['/api/v1/suggest'].get.parameters[?@['name']=='kind'].description
+    update: Класс приборов.
+  - target: $.paths['/api/v1/suggest'].get.responses['200'].description
+    update: Подсказки.
+  - target: $.paths['/api/v1/parse'].get.summary
+    update: Разбор обозначения
+  - target: $.paths['/api/v1/parse'].get.description
+    update: |
+      Разбор обозначения теми же строгими грамматиками, что и CLI parse:
+      без system — автодетект (фиксированный порядок: полупроводник
+      gost → pro → jedec → jis → резистор gost/ost → конденсатор gost);
+      с system — разбор в явной системе (для other класс kind обязателен,
+      иначе 400 kind_ambiguous). Обозначение канонизируется (регистр,
+      пробелы, типографские дефисы не важны); system/kind переопределяют
+      автодетект, противоречие — 400 designation_mismatch. Ответ — класс,
+      система, каноническое обозначение, поля разбора и кандидаты: все
+      успешные строгие разборы в порядке автодетекта без дублей пары
+      класс/система (первый кандидат при автодетекте совпадает
+      с основным результатом). Числового «конфиденса» у строгих
+      грамматик нет — перечень кандидатов и есть эквивалент. Повтор
+      любого разбираемого параметра запроса и посторонний ключ запроса —
+      400 validation_failed (опечатки не молчат).
+  - target: $.paths['/api/v1/parse'].get.parameters[?@['name']=='designation'].description
+    update: "Обозначение (канонизируется)."
+  - target: $.paths['/api/v1/parse'].get.parameters[?@['name']=='system'].description
+    update: "Система обозначений; без параметра — автодетект."
+  - target: $.paths['/api/v1/parse'].get.parameters[?@['name']=='kind'].description
+    update: "Класс приборов (переопределяет автодетект; обязателен для system=other)."
+  - target: $.paths['/api/v1/parse'].get.responses['200'].description
+    update: Разбор обозначения с кандидатами строгих систем.
+  - target: $.paths['/api/v1/import'].post.summary
+    update: Импорт файла наполнения (NDJSON, jsonc, yaml)
+  - target: $.paths['/api/v1/import'].post.description
+    update: |
+      Тело — файл наполнения; формат задаётся обязательным заголовком
+      Content-Type: application/x-ndjson — поток NDJSON (одна JSON-строка —
+      одна сущность: строки-обёртки `{"<класс>": <запись>}`, блок catalog —
+      строками-подразделами до записей; план 04 §4) читается потоково,
+      без загрузки тела целиком и без потолка размера запроса — память
+      ограничена потолком одной строки (16 МиБ); application/json (jsonc,
+      комментарии допустимы) и application/yaml — документ читается
+      целиком с потолком тела 16 МиБ (превышение — 400
+      invalid_import_file; для больших объёмов — NDJSON). Отсутствующий
+      и неподдерживаемый Content-Type — 400 validation_failed;
+      параметры Content-Type (charset) допускаются и игнорируются.
+      Ответ — синхронный отчёт после EOF: счётчики исходов и полный
+      список проблем прогона (Issues-модель: корректные записи
+      применяются, ошибочные — нет, запись не применяется вовсе);
+      200 возвращается и для прогонов с проблемами. Жёсткая ошибка —
+      только синтаксис формата и чтение потока (400 invalid_import_file).
+      Единственный параметр запроса — dry_run=true: контрольный прогон
+      того же конвейера проверок без записи в БД (отчёт помечается
+      dry_run); значение строго true либо false (иное и повтор параметра —
+      400 validation_failed), прочие ключи — 400. Прогресс по REST
+      не отдаётся — запрос синхронный (наблюдение прогона — хук метрик
+      сайта); запись монтируется сайтом только в защищённые маршруты.
+  - target: $.paths['/api/v1/import'].post.parameters[?@['name']=='dry_run'].description
+    update: "Контрольный прогон без записи в БД (значение строго true либо false)."
+  - target: $.paths['/api/v1/import'].post.requestBody.content['application/x-ndjson'].schema.description
+    update: Поток NDJSON — по одной JSON-строке на сущность;
+      без потолка размера запроса.
+  - target: $.paths['/api/v1/import'].post.requestBody.content['application/json'].schema.description
+    update: Документ jsonc (комментарии // допустимы); тело
+      читается целиком, потолок 16 МиБ.
+  - target: $.paths['/api/v1/import'].post.requestBody.content['application/yaml'].schema.description
+    update: Документ yaml; тело читается целиком,
+      потолок 16 МиБ.
+  - target: $.paths['/api/v1/import'].post.responses['200'].description
+    update: Отчёт прогона импорта (message проблем — по локали
+      запроса).
+  - target: $.components.headers.VaryLanguage.description
+    update: Всегда Accept-Language — представление ответа выбирается
+      по локали запроса (D9); кэш обязан различать представления
+      разных локалей (RFC 9110/9111).
+  - target: $.components.parameters.Kind.description
+    update: Код класса приборов.
+  - target: $.components.parameters.Designation.description
+    update: URL-кодированное обозначение.
+  - target: $.components.parameters.AcceptLanguage.description
+    update: "Локаль отображаемых строк ответа (D9): q-значения, базовый подтег; поддерживаются en, ru; по умолчанию en."
+  - target: $.components.responses.BadRequest.description
+    update: Неверный запрос (параметры/путь/синтаксис тела).
+  - target: $.components.responses.NotFound.description
+    update: Не найдено.
+  - target: $.components.responses.Conflict.description
+    update: Конфликт (запись уже существует).
+  - target: $.components.responses.MethodNotAllowed.description
+    update: Метод не поддерживается путём (заголовок Allow
+      перечисляет допустимые методы пути).
+  - target: $.components.responses.MethodNotAllowed.headers.Allow.description
+    update: Разделённый запятыми список допустимых методов пути.
+  - target: $.components.responses.Unprocessable.description
+    update: Семантическая ошибка записи/обозначения.
+  - target: $.components.responses.InternalError.description
+    update: Внутренняя ошибка.
+  - target: $.components.schemas['Error'].properties['code'].description
+    update: Машиночитаемый код (латиница snake_case).
+  - target: $.components.schemas['Error'].properties['message'].description
+    update: Текст сообщения по локали запроса (Accept-Language;
+      en — канонический).
+  - target: $.components.schemas['FieldValueDef'].description
+    update: Значение словарного поля обозначения — стабильный код
+      (значение фильтров и секции fields) и отображаемое название
+      по локали запроса (D9).
+  - target: $.components.schemas['FieldDictionaries'].description
+    update: |
+      Словари значений словарных полей обозначения —
+      состав мультивыборных фильтров: material/subclass/adjustment —
+      константные реестры домена, category — словарь данных каталога
+      (расширяется импортом; расширения без записи в бандле отображаются
+      кодом). Порядок значений стабилен (реестры домена и строки снимка).
+  - target: $.components.schemas['Condition'].properties['condition'].description
+    update: Код условия измерения.
+  - target: $.components.schemas['CardAttribute'].properties['texts'].description
+    update: Список заметок атрибута типа text_list (порядок —
+      порядок наполнения); опущен у скалярных атрибутов.
+  - target: $.components.schemas['CardValue'].properties['unit'].description
+    update: Код канонической единицы.
+  - target: $.components.schemas['CardGroup'].properties['section'].description
+    update: Имя секции файла наполнения.
+  - target: $.components.schemas['CardGroup'].properties['values'].description
+    update: Значения в каноническом порядке каталога (sort_order
+      параметра); одноимённые строки одного параметра — в порядке
+      наполнения.
+  - target: $.components.schemas['CardVariant'].properties['attributes'].description
+    update: Атрибуты исполнения — конструктивные признаки.
+  - target: $.components.schemas['CardTypeValue'].properties['designation'].description
+    update: Обозначение записи группы типа.
+  - target: $.components.schemas['CardTypeDiff'].properties['unit'].description
+    update: Код канонической единицы.
+  - target: $.components.schemas['CardTypeDiff'].properties['values'].description
+    update: Значения по записям группы (у записи без значения
+      параметра ячейки нет).
+  - target: $.components.schemas['CardTypeGroup'].properties['base'].description
+    update: Базовое обозначение (тип) — обозначение без буквы классификации и хвостовых элементов.
+  - target: $.components.schemas['CardTypeGroup'].properties['siblings'].description
+    update: Соседние записи того же класса с тем же типом.
+  - target: $.components.schemas['CardTypeGroup'].properties['diffs'].description
+    update: Мини-матрица различий — параметры, значения которых
+      различаются между записями группы (данные типа в целом).
+  - target: $.components.schemas['CardSynonym'].description
+    update: |
+      Историческое название записи (синоним): обозначение,
+      под которым компонент выпускался в другие годы (С5-35 = ПЭВ);
+      заметка — происхождение имени, годы — период его употребления.
+  - target: $.components.schemas['CardSource'].description
+    update: Источник данных записи (план 03 §13) — книга,
+      справочник, даташит, стандарт, ТУ, статья либо веб-страница;
+      библиографические тексты — не локализуемые данные, type_name —
+      отображаемое название типа по локали (sourcetype.<код>).
+  - target: $.components.schemas['CardSource'].properties['authors'].description
+    update: Авторы, порядок значим.
+  - target: $.components.schemas['CardSource'].properties['editors'].description
+    update: Редакторы/составители, порядок значим.
+  - target: $.components.schemas['CardSource'].properties['urls'].description
+    update: Ссылки на документацию (оригинал, зеркала,
+      архивные копии; первый элемент предпочитаемый).
+  - target: $.components.schemas['CardSource'].properties['note'].description
+    update: 'Место в источнике («таблица 5.3», «с. 214»).'
+  - target: $.components.schemas['Card'].properties['type_group'].description
+    update: Группа типа (опущено, когда соседних записей того же
+      базового обозначения нет).
+  - target: $.components.schemas['Card'].properties['sources'].description
+    update: Источники данных записи (план 03 §13) — полное
+      библиографическое определение и заметка места в источнике;
+      порядок канонический, по коду.
+  - target: $.components.schemas['SearchItem'].properties['values'].description
+    update: Значения запрошенных колонок (параметр values)
+      в порядке запроса; элемент формы CardValue по каждому
+      коду, присутствующему у записи (нет значения — нет элемента).
+  - target: $.components.schemas['SearchPage'].properties['total'].description
+    update: Общее число записей под фильтрами.
+  - target: $.components.schemas['ParseCandidate'].description
+    update: Строгая система, принявшая обозначение.
+  - target: $.components.schemas['ParseResponse'].properties['designation'].description
+    update: Каноническое обозначение.
+  - target: $.components.schemas['ParseResponse'].properties['candidates'].description
+    update: |
+      Все успешные строгие разборы в фиксированном порядке
+      автодетекта без дублей пары класс/система; первый элемент
+      при автодетекте совпадает с основным результатом. Числового
+      «конфиденса» у строгих грамматик нет — перечень кандидатов
+      и есть эквивалент. Пуст для записей вне строгих грамматик
+      (явная система other).
+  - target: $.components.schemas['Stats'].properties['kinds'].description
+    update: Количество записей по кодам классов.
+  - target: $.components.schemas['ParameterStats'].description
+    update: Фасетные агрегаты значений параметров класса.
+  - target: $.components.schemas['ParameterStats'].properties['data_revision'].description
+    update: "Ревизия данных, согласованная с агрегатами."
+  - target: $.components.schemas['ParameterStats'].properties['parameters'].description
+    update: Параметры класса с данными в алфавите кодов;
+      численные — min/max, текстовые/enum — частоты значений.
+  - target: $.components.schemas['ParameterStat'].properties['name'].description
+    update: Отображаемое имя по локали запроса.
+  - target: $.components.schemas['ParameterStat'].properties['unit'].description
+    update: Код канонической единицы.
+  - target: $.components.schemas['ParameterStat'].properties['min'].description
+    update: Нижняя граница значений параметра в классе (нет — опущено).
+  - target: $.components.schemas['ParameterStat'].properties['max'].description
+    update: Верхняя граница значений параметра в классе (нет — опущено).
+  - target: $.components.schemas['ParameterStat'].properties['values'].description
+    update: Частоты текстовых/enum значений (численные параметры
+      не дают); по убыванию частоты, затем по тексту.
+  - target: $.components.schemas['ParameterValueFreq'].properties['count'].description
+    update: Число записей класса со значением.
+  - target: $.components.schemas['ChangeEvent'].description
+    update: Событие применённой операции над записью устройства.
+  - target: $.components.schemas['ChangeEvent'].properties['id'].description
+    update: Монотонный id события — курсор потребителя.
+  - target: $.components.schemas['ChangeEvent'].properties['revision'].description
+    update: data_revision транзакции события (после инкремента).
+  - target: $.components.schemas['ChangeEvent'].properties['kind'].description
+    update: Код класса записи.
+  - target: $.components.schemas['ChangeEvent'].properties['designation'].description
+    update: Каноническое обозначение.
+  - target: $.components.schemas['ChangeEvent'].properties['device_id'].description
+    update: Стабильный id записи.
+  - target: $.components.schemas['ChangesResponse'].properties['events'].description
+    update: События в порядке возрастания id (может быть пустым).
+  - target: $.components.schemas['ChangesResponse'].properties['data_revision'].description
+    update: Текущая ревизия данных (согласована со страницей).
+  - target: $.components.schemas['ImportIssue'].description
+    update: Проблема прогона импорта (позиция — когда определена).
+  - target: $.components.schemas['ImportIssue'].properties['record'].description
+    update: Обозначение записи (опущено для проблем корневого уровня).
+  - target: $.components.schemas['ImportIssue'].properties['line'].description
+    update: Номер строки NDJSON (опущено — не определён).
+  - target: $.components.schemas['ImportIssue'].properties['no'].description
+    update: Порядковый номер записи в секции документа (опущено — не задан).
+  - target: $.components.schemas['ImportIssue'].properties['code'].description
+    update: Машиночитаемый код проблемы.
+  - target: $.components.schemas['ImportIssue'].properties['message'].description
+    update: Текст сообщения по локали запроса.
+  - target: $.components.schemas['ImportReport'].description
+    update: Синхронный отчёт прогона импорта POST /api/v1/import.
+  - target: $.components.schemas['ImportReport'].properties['dry_run'].description
+    update: Контрольный прогон без записи в БД.
+  - target: $.components.schemas['ImportReport'].properties['records'].description
+    update: Записей в теле (включая отвергнутые).
+  - target: $.components.schemas['ImportReport'].properties['skipped'].description
+    update: Слитое состояние совпадает с текущим — без записи в БД и без инкремента ревизий.
+  - target: $.components.schemas['ImportReport'].properties['rejected'].description
+    update: "Записи, не применённые из-за проблем."
+  - target: $.components.schemas['ImportReport'].properties['catalog_applied'].description
+    update: "Секция catalog применена с фактическим изменением (повторный импорт идентичного каталога — false, catalog_revision не инкрементируется)."
+  - target: $.components.schemas['ImportReport'].properties['sources_applied'].description
+    update: "Реестр источников изменён корневой секцией sources (инкремент data_revision без событий change_events; повторный импорт без изменений — false)."
+  - target: $.components.schemas['ImportReport'].properties['issues'].description
+    update: Полный список проблем прогона (может быть пустым).
+  - target: $.components.schemas['DeviceRecord'].description
+    update: |
+      Запись наполнения: строка-обозначение либо объект «name/system +
+      секции». Секции групп — единые списки объектов {parameter, значение,
+      условия}; условия — соседние ключи по кодам. Отсутствует/null —
+      не менять, задана — заменить целиком, []/{} — очистить.
+  - target: $.components.schemas['DeviceRecord'].oneOf[1].properties['name'].description
+    update: Обозначение.
+  - target: $.components.schemas['DeviceRecord'].oneOf[1].properties['system'].description
+    update: "Система обозначений; обязателен для other."
+  - target: $.components.schemas['DeviceRecord'].oneOf[1].properties['fields'].description
+    update: |
+      Явные классификационные поля (D10): объект «код поля →
+      значение словаря» (`assembly` — число 0/1). Задаёт только
+      поля, которые парсер системы обозначений записи не
+      устанавливает сам, и только применимые к классу
+      (docs/fill-format.md §5.1); заменяется целиком.
+  - target: $.components.schemas['DeviceRecord'].oneOf[1].properties['attributes'].description
+    update: "Код атрибута → значение (строка / массив строк
+      для атрибутов типа text_list / число / логическое;
+      null — атрибут не задаётся)."
+  - target: $.components.schemas['DeviceRecord'].oneOf[1].properties['analogs'].description
+    update: |
+      Исходящие направленные ссылки на аналоги (план 03 §8, D8):
+      обозначения того же класса либо объекты с заметкой
+      характера замены. Семантика секции — общая (замена
+      целиком); обозначение канонизируется и обязано
+      существовать в том же классе, иначе — 422 unknown_analog.
+  - target: $.components.schemas['DeviceRecord'].oneOf[1].properties['synonyms'].description
+    update: |
+      Исторические названия записи (D11): обозначение-синоним
+      не является записью — find и поиск (q=) разрешают его
+      в запись-владельца. Уникальны в пределах класса; создание
+      записи с обозначением, занятым синонимом другой записи, —
+      конфликт (409). Годы — целые 1949–2100, yearFrom раньше
+      yearTo.
+  - target: $.components.schemas['DeviceRecord'].oneOf[1].properties['sources'].description
+    update: |
+      Ссылки на источники данных записи (план 03 §13, D13):
+      строки-коды реестра либо объекты с кодом и заметкой
+      места в источнике. Семантика секции — общая (заменяются
+      целиком); код обязан существовать в реестре (определения
+      задаёт корневая секция sources файла импорта), иначе —
+      422 unknown_source.
+  - target: $.components.schemas['DeviceVariant'].properties['attributes'].description
+    update: "Код атрибута → значение исполнения (конструктивные
+      признаки, различающиеся по исполнениям — docs/fill-format.md §6):
+      строка / массив строк для атрибутов типа text_list / число /
+      логическое; форма значений как у attributes записи, null — атрибут
+      не задаётся; заменяются вместе с набором variants."
+  - target: $.components.schemas['ParameterDef'].properties['kinds'].description
+    update: Пусто — применим ко всем классам.
+  - target: $.components.schemas['CatalogSnapshot'].properties['revision'].description
+    update: catalog_revision.

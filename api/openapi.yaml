@@ -4,55 +4,59 @@ info:
   title: components-catalog REST API
   version: 0.1.0
   description: |
-    Встраиваемый справочник электронных компонентов: REST /api/v1 — тонкий
-    транспорт над сервисным слоем Go-библиотеки. Аутентификация,
-    авторизация и лимитирование — на стороне сайта, монтирующего хендлер
-    (защищённые маршруты — на усмотрение сайта). Транспорт: JSON, UTF-8.
+    Embedded electronic components reference: REST /api/v1 — a thin
+    transport over the service layer of a Go library. Authentication,
+    authorization and rate limiting belong to the hosting site
+    (protected routes are up to it). Transport: JSON, UTF-8.
 
-    Ошибки — модель `{"code", "message"}`: `code` —
-    машиночитаемый латиницей snake_case, `message` — текст сообщения
-    из каталога модуля по локали запроса (en — канонический, ru — бандл;
-    Accept-Language). Статусы: 400 (неверный запрос),
-    404 (не найдено), 405 (метод не поддерживается путём; заголовок Allow
-    перечисляет допустимые), 409 (конфликт), 422 (семантика записи),
-    500 (внутренняя ошибка). Неизвестный путь — 404 api_route_not_found
-    той же модели ошибок.
+    Errors use the `{"code", "message"}` model: `code` is a
+    machine-readable snake_case Latin string, `message` is the message
+    text from the module's message catalog in the request locale
+    (en is canonical, ru is a bundle; Accept-Language). Statuses:
+    400 (bad request), 404 (not found), 405 (method not supported
+    for the path; the Allow header lists the allowed ones),
+    409 (conflict), 422 (record semantics), 500 (internal error).
+    An unknown path yields 404 api_route_not_found in the same
+    error model.
 
-    Локализация (D9): база модуля языконезависима — кодовые поля ответов
-    (kind, system, unit, parameter, attribute, section) всегда канонические.
-    Отображаемые поля (`name`, `kind_name`, `system_name`, описания, имена
-    и символы единиц в /catalog) заполняются по локали запроса из бандлов
-    модуля; локаль — заголовок Accept-Language (q-значения, базовый подтег),
-    по умолчанию и при неподдерживаемом языке — en (поддерживаются en, ru).
+    Localization (D9): the module's database is language-neutral —
+    code fields of responses (kind, system, unit, parameter,
+    attribute, section) are always canonical. Display fields (`name`,
+    `kind_name`, `system_name`, descriptions, unit names and symbols
+    in /catalog) are filled per the request locale from the module's
+    bundles; the locale comes from the Accept-Language header
+    (q-values, basic subtag), defaulting to en for unsupported
+    languages (en and ru are supported).
 
-    Семантика секций тела записи (attributes, секции групп, manufacturers,
-    variants, analogs, synonyms, sources): отсутствует/null — не менять
-    (для POST — не задано), задана — заменить целиком, `[]`/`{}` — очистить,
-    ошибка в любом значении — запись не применяется вовсе. Ссылки sources
-    адресуют коды глобального реестра источников файла наполнения
-    (план 03 §13); определения реестра задаёт корневая секция sources
-    импорта, не тело записи.
+    Section semantics of record body sections (attributes, group
+    sections, manufacturers, variants, analogs, synonyms, sources):
+    absent/null — leave unchanged (for POST — not set), present —
+    replace entirely, `[]`/`{}` — clear, an error in any value — the
+    record is not applied at all. Source references address codes of
+    the global source registry of the fill file (plan 03 §13);
+    registry definitions come from the root sources section of the
+    import file, not from the record body.
 servers: []
 tags:
   - name: catalog
-    description: Справочники модуля (классы, каталог).
+    description: Module reference dictionaries (kinds, catalog snapshot).
   - name: components
-    description: "Записи приборов: поиск, карточка, запись, удаление."
+    description: "Device records: search, card, write, delete."
   - name: service
-    description: Служебные данные (статистика, автодополнение).
+    description: Service endpoints (statistics, autocomplete).
   - name: import
-    description: "Импорт файлов наполнения: поток NDJSON."
+    description: "Fill file import: NDJSON stream."
 paths:
   /api/v1/kinds:
     get:
       tags: [catalog]
       operationId: kinds
-      summary: Классы приборов
+      summary: Device kinds
       parameters:
         - $ref: "#/components/parameters/AcceptLanguage"
       responses:
         "200":
-          description: Классы приборов (name — по локали запроса).
+          description: Device kinds (name is per the request locale).
           headers:
             Vary:
               $ref: "#/components/headers/VaryLanguage"
@@ -67,25 +71,26 @@ paths:
     get:
       tags: [catalog]
       operationId: catalog
-      summary: Снимок каталога
+      summary: Catalog snapshot
       description: |
-        Параметры, атрибуты, условия, единицы, группы, системы обозначений,
-        семейства и словари значений словарных полей обозначения
-        (material, subclass, adjustment, category) —
-        для построения форм и фильтров. Ключи полей повторяют
-        формат наполнения (snake_case по колонкам каталожных таблиц);
-        отображаемые строки (name, описания, имена и символы единиц) —
-        по локали запроса (D9).
-        ETag — по catalog_revision и локали представления (разные локали —
-        разные ETag, RFC 9110): снимок кэшируется до смены каталога.
+        Parameters, attributes, measurement conditions, units, groups,
+        designation systems, families, and value dictionaries of
+        designation dictionary fields (material, subclass, adjustment,
+        category) — for building forms and filters. Field keys mirror
+        the fill format (snake_case over catalog table columns);
+        display strings (name, descriptions, unit names and symbols)
+        follow the request locale (D9). ETag is derived from
+        catalog_revision and the representation locale (different
+        locales — different ETags, RFC 9110): the snapshot is cached
+        until the catalog changes.
       parameters:
         - $ref: "#/components/parameters/AcceptLanguage"
       responses:
         "200":
-          description: Снимок каталога.
+          description: Catalog snapshot.
           headers:
             ETag:
-              description: Сильный ETag вида "catalog-<catalog_revision>-<локаль>".
+              description: 'Strong ETag of the form "catalog-<catalog_revision>-<locale>".'
               schema: {type: string}
             Vary:
               $ref: "#/components/headers/VaryLanguage"
@@ -93,7 +98,7 @@ paths:
             application/json:
               schema: {$ref: "#/components/schemas/CatalogSnapshot"}
         "304":
-          description: Снимок не менялся (If-None-Match).
+          description: Snapshot unchanged (If-None-Match).
           headers:
             ETag:
               schema: {type: string}
@@ -107,36 +112,38 @@ paths:
     get:
       tags: [service]
       operationId: stats
-      summary: Количество записей, версия схемы, ревизии; при kind — агрегаты параметров класса
+      summary: Record counts, schema version, revisions; with kind — parameter aggregates of the kind
       description: |
-        Без kind — агрегаты модуля: количества записей по классам, версия
-        схемы, ревизии. С kind — фасетные агрегаты значений параметров
-        класса: min/max численных параметров для
-        слайдеров параметрических фильтров (границы — по семантике
-        фильтров поиска: value_min/value_max и value_exact; at_least
-        задаёт только min, at_most — только max, limits — min и/или
-        max по заданным границам) и частоты текстовых/
-        enum значений — число записей класса со значением (значение
-        в данных типа и нескольких исполнениях одной записи считается
-        один раз). В агрегаты входят данные типа в целом и исполнений —
-        как у фильтров поиска; параметры без данных в классе и
-        неприменимые к классу (D7; в том числе с данными, оставшимися
-        после изменения применимости каталогом) в ответ не входят,
-        порядок параметров — алфавит кодов (как /catalog),
-        значения — по убыванию частоты, затем по тексту. Повтор
-        разбираемого параметра и посторонний ключ запроса — 400
-        validation_failed; неизвестный класс — 400 validation_failed.
+        Without kind — module aggregates: record counts per kind,
+        schema version, revisions. With kind — facet aggregates of the
+        kind's parameter values: min/max of numeric parameters for
+        parametric filter sliders (bounds follow search filter
+        semantics: value_min/value_max and value_exact; at_least sets
+        only min, at_most — only max, limits — min and/or max for the
+        given bounds) and frequencies of text/enum values — the number
+        of records in the kind having the value (a value in type-wide
+        data and in several variants of one record counts once).
+        Aggregates include type-wide data and variant data — same as
+        search filters; parameters without data in the kind and ones
+        not applicable to the kind (D7; including data left over
+        after the catalog changed applicability) are absent from the
+        response; parameters are ordered alphabetically by code (like
+        /catalog), values — by descending frequency, then by text.
+        A repeated recognized parameter or an unknown query key —
+        400 validation_failed; unknown kind — 400 validation_failed.
       parameters:
         - $ref: "#/components/parameters/AcceptLanguage"
-        - {name: kind, in: query, schema: {type: string}, description: "Код класса: ответ — фасетные агрегаты значений параметров этого класса (без параметра и с пустым значением — агрегаты модуля)."}
+        - {name: kind, in: query, schema: {type: string}, description: "Kind code: the response holds facet aggregates of the kind's parameter values (without the parameter or with an empty value — module aggregates)."}
       responses:
         "200":
-          description: Агрегаты модуля (без kind) либо фасетные агрегаты
-            класса (с kind); name — по локали запроса, unit — канонический код.
+          description: Module aggregates (without kind) or kind facet
+            aggregates (with kind); name follows the request locale,
+            unit is the canonical code.
           headers:
             Vary:
-              description: Accept-Language — на ответе с kind (представление
-                локализуется); на агрегатах модуля без kind не отдаётся.
+              description: Accept-Language on kind responses (the
+                representation is localized); not sent on module
+                aggregates without kind.
               schema: {type: string, const: Accept-Language}
           content:
             application/json:
@@ -154,35 +161,37 @@ paths:
     get:
       tags: [service]
       operationId: changes
-      summary: Поток событий изменений записей (change feed)
+      summary: Record change event feed
       description: |
-        Инкрементальная синхронизация производных индексов сайта: события
-        применённых операций над записями (created/updated/deleted, класс,
-        обозначение, стабильный id записи) в порядке возрастания id
-        события. События записываются той же транзакцией, что меняет
-        данные: событие и изменение атомарны, исход Skipped событий
-        не оставляет (включая компенсационные удаления импортёра —
-        штатный deleted).
+        Incremental synchronization of the site's derived indexes:
+        events of applied operations over records (created/updated/
+        deleted, kind, designation, stable record id) in ascending
+        event id order. Events are written by the same transaction
+        that changes the data: the event and the change are atomic;
+        a Skipped outcome leaves no event (including importer
+        compensating deletions — a regular deleted).
 
-        Курсор — параметр after: id последнего полученного события
-        (after=0 — с начала фида); ревизия курсором быть не может: её
-        связь с событиями — деталь пути записи (возможны несколько
-        событий в одной транзакции либо инкремент мимо фида), id
-        присваивается вставкой и остаётся плотным монотонным курсором.
-        Ответ содержит текущую data_revision (согласована со страницей
-        событий). Фид покрывает только изменения данных (data_revision);
-        изменения каталога (catalog_revision) в фид не входят — для них
-        ETag GET /catalog. Актёров и состояний before/after нет — это
-        не аудит (история изменений — зона сайта). Автоматической
-        ретенции нет: рост ограничен редакционным масштабом, очистка —
-        вручную (SQL), REST-пути очистки нет. Повтор разбираемого
-        параметра и посторонний ключ запроса — 400 validation_failed.
+        The cursor is the after parameter: the id of the last received
+        event (after=0 — from the feed start); a revision cannot be
+        a cursor: its relation to events is a write-path detail
+        (several events may share one transaction, or the increment
+        bypasses the feed); the id is assigned on insert and stays
+        a dense monotonic cursor. The response carries the current
+        data_revision (consistent with the event page). The feed
+        covers only data changes (data_revision); catalog changes
+        (catalog_revision) are not in the feed — for those, use the
+        ETag of GET /catalog. There are no actors or before/after
+        states — this is not an audit log (change history belongs to
+        the site). There is no automatic retention: growth is bounded
+        by editorial scale; cleanup is manual (SQL), there is no REST
+        cleanup route. A repeated recognized parameter or an unknown
+        query key — 400 validation_failed.
       parameters:
-        - {name: after, in: query, schema: {type: integer, format: int64, minimum: 0, default: 0}, description: "Курсор: id последнего полученного события (0 — с начала фида)."}
-        - {name: limit, in: query, schema: {type: integer, minimum: 1, maximum: 1000, default: 100}, description: "Число событий страницы (≤ 1000)."}
+        - {name: after, in: query, schema: {type: integer, format: int64, minimum: 0, default: 0}, description: "Cursor: the id of the last received event (0 — from the feed start)."}
+        - {name: limit, in: query, schema: {type: integer, minimum: 1, maximum: 1000, default: 100}, description: "Number of events per page (≤ 1000)."}
       responses:
         "200":
-          description: Страница событий и текущая data_revision.
+          description: Event page and the current data_revision.
           content:
             application/json:
               schema: {$ref: "#/components/schemas/ChangesResponse"}
@@ -196,65 +205,72 @@ paths:
     get:
       tags: [components]
       operationId: components_list
-      summary: Поиск записей
+      summary: Record search
       description: |
-        Подстрока обозначения, система, фильтр по набору стабильных id,
-        фильтры полей/атрибутов/параметров, сортировка, пагинация. Ответ —
-        список с обозначением, классом, системой и ключевыми полями;
-        ETag — по data_revision, канонической строке запроса и локали
-        представления (разные фильтры/сортировки или локали — разные
-        ETag, RFC 9110). Повтор любого параметра
-        запроса — 400 validation_failed; исключения — намеренно
-        повторяемые id (набор фильтра, до 200 значений), словарные
-        фильтры material/subclass/adjustment/category (мультивыбор —
-        семантика ИЛИ внутри поля) и values (колонки значений строк выдачи).
+        Designation substring, system, stable-id set filter, field/
+        attribute/parameter filters, sorting, pagination. The
+        response is a list with designation, kind, system and key
+        fields; ETag is derived from data_revision, the canonical
+        query string, and the representation locale (different
+        filters/sorting or locales — different ETags, RFC 9110).
+        Repeating any query parameter — 400 validation_failed; the
+        exceptions are deliberately repeatable id (a filter set, up
+        to 200 values), dictionary filters material/subclass/
+        adjustment/category (multi-select — OR semantics within a
+        field) and values (value columns of result rows).
 
-        Помимо перечисленных параметров допустимы:
+        Besides the listed parameters the following are allowed:
 
-        * фильтры полей обозначения — код поля как имя параметра:
-          текстовые `material`, `subclass`, `letters`, `construction`,
-          `prefix`, `family`, `series`, `adjustment`, `category`, `base`
-          (тип — базовое обозначение записи, значение канонизируется как
-          обозначение); числовые `junctions`, `group`, `dev_number`,
-          `assembly`, `feature`, `modification`, `chip` (равенство);
-          значения словарных полей `material` (`si`, `ge`, `ga`, `in`,
+        * designation field filters — field code as the parameter
+          name: textual `material`, `subclass`, `letters`,
+          `construction`, `prefix`, `family`, `series`, `adjustment`,
+          `category`, `base` (the type is the record's base
+          designation, the value is canonicalized as a designation);
+          numeric `junctions`, `group`, `dev_number`, `assembly`,
+          `feature`, `modification`, `chip` (equality); values of
+          dictionary fields `material` (`si`, `ge`, `ga`, `in`,
           `sic`, `other`, `gaas`), `subclass` (`bjt`, `zener`, …),
-          `adjustment` (`fixed`, `variable`, `preset`) и `category` (коды
-          словаря каталога — секция `dictionaries` GET /catalog) —
-          стабильный код словаря либо отображаемое название локали
-          (канонизируется; D9); словарные поля повторяемы: каждое значение
-          канонизируется отдельно, набор — семантика ИЛИ, дубликат
-          канонического кода — 400 validation_failed; прочие текстовые
-          поля — нормативные элементы обозначения (для записей `other`
-          поле `series` задаётся секцией `fields`);
-        * `attr.<код>=<значение>` — фильтр по атрибуту (текст либо число
-          по типу атрибута; логические атрибуты не фильтруются; текстовый
-          фильтр атрибута text_list — равенство любому элементу списка);
-        * `par.<код>.min=`, `par.<код>.max=`, `par.<код>.exact=` — границы
-          численного параметра; `par.<код>.text=` либо `par.<код>=<текст>` —
-          текст/enum.
+          `adjustment` (`fixed`, `variable`, `preset`) and `category`
+          (codes of the catalog dictionary — the `dictionaries`
+          section of GET /catalog) — a stable dictionary code or a
+          display name in the locale (canonicalized; D9); dictionary
+          fields are repeatable: each value is canonicalized
+          separately, the set has OR semantics, a duplicate canonical
+          code — 400 validation_failed; other textual fields are
+          normative designation elements (for `other` records the
+          `series` field is set by the `fields` section);
+        * `attr.<code>=<value>` — attribute filter (text or number by
+          the attribute type; boolean attributes are not filterable;
+          a textual filter of a text_list attribute is equality to
+          any element of the list);
+        * `par.<code>.min=`, `par.<code>.max=`, `par.<code>.exact=` —
+          bounds of a numeric parameter; `par.<code>.text=` or
+          `par.<code>=<text>` — text/enum.
 
-        Вариантные параметрические фильтры применяются в пределах одного
-        исполнения. Фильтр по параметру/атрибуту, неприменимому к классу
-        запроса, — 400 parameter_not_applicable/attribute_not_applicable.
-        Неизвестный параметр запроса — 400 validation_failed.
+        Variant parametric filters apply within a single variant.
+        A filter by a parameter/attribute not applicable to the
+        query kind — 400 parameter_not_applicable/
+        attribute_not_applicable. An unknown query parameter — 400
+        validation_failed.
       parameters:
-        - {name: kind, in: query, schema: {type: string}, description: "Класс приборов (transistor, diode, resistor, capacitor, relay)."}
-        - {name: system, in: query, schema: {type: string}, description: "Система обозначений (gost, ost, pro, jedec, jis, other)."}
-        - {name: q, in: query, schema: {type: string}, description: "Подстрока обозначения либо исторического названия записи — синонима (регистр не важен)."}
+        - {name: kind, in: query, schema: {type: string}, description: "Device kind (transistor, diode, resistor, capacitor, relay)."}
+        - {name: system, in: query, schema: {type: string}, description: "Designation system (gost, ost, pro, jedec, jis, other)."}
+        - {name: q, in: query, schema: {type: string}, description: "Substring of a designation or of a record's historical name — synonym (case-insensitive)."}
         - name: id
           in: query
           description: |
-            Фильтр по набору стабильных id записей — намеренно повторяемый
-            параметр (одно из исключений строгости запроса — второе,
-            словарные фильтры мультивыбора, описано выше): до 200 значений,
-            каждое — целое положительное, дубликат значения — 400
-            validation_failed. Семантика — пересечение с прочими фильтрами;
-            id без записи либо отсечённые прочими фильтрами — отсутствие
-            строки в выдаче (отдельной ошибки нет). Без sort порядок
-            выдачи — порядок передачи id (с sort — заданная сортировка).
-            Сценарий: составной поиск «внешний отбор сайта × параметрика
-            модуля» без дублирования каталога.
+            Filter by a set of stable record ids — a deliberately
+            repeatable parameter (one of the query strictness
+            exceptions — the other one, multi-select dictionary
+            filters, is described above): up to 200 values, each a
+            positive integer, a duplicate value — 400
+            validation_failed. Semantics — intersection with other
+            filters; an id without a record or one cut off by other
+            filters — the row is absent from results (no dedicated
+            error). Without sort, result order follows the id order
+            (with sort — the requested sorting). Use case: composite
+            search "site-side preselection × module parametrics"
+            without duplicating the catalog.
           schema:
             type: array
             items: {type: integer, format: int64, minimum: 1}
@@ -266,21 +282,22 @@ paths:
         - name: values
           in: query
           description: |
-            Колонки значений строк выдачи — намеренно повторяемый
-            параметр: код параметра каталога либо attr.<код атрибута>,
-            до 16 кодов, дубликат — 400 validation_failed. Значение —
-            элемент формы CardValue по каждому коду, присутствующему
-            у записи (нет значения — нет элемента), в порядке запроса:
-            name — локаль запроса, unit — канонический код единицы,
-            conditions — только у параметров. Правило выбора значения
-            при нескольких строках у записи (данные типа + исполнения):
-            численные — агрегат границ MIN/MAX (одиночная строка
-            сохраняет форму exact/at_least/at_most/limits), текстовые/enum —
-            данные типа поверх исполнений. Логические атрибуты —
-            400 validation_failed; неизвестный код — 400
-            unknown_parameter/unknown_attribute, неприменимый к классу
-            запроса — 400 parameter_not_applicable/
-            attribute_not_applicable (как у фильтров).
+            Value columns of result rows — a deliberately repeatable
+            parameter: a catalog parameter code or attr.<attribute
+            code>, up to 16 codes, a duplicate — 400
+            validation_failed. The value is a CardValue-shaped
+            element for each code present on the record (no value —
+            no element), in request order: name is the request
+            locale, unit is the canonical unit code, conditions —
+            only on parameters. Value selection rule when a record
+            has several rows (type data + variants): numeric — a
+            MIN/MAX bounds aggregate (a single row keeps the exact/
+            at_least/at_most/limits shape), text/enum — type data
+            over variants. Boolean attributes — 400
+            validation_failed; an unknown code — 400
+            unknown_parameter/unknown_attribute, one not applicable
+            to the query kind — 400 parameter_not_applicable/
+            attribute_not_applicable (same as filters).
           schema:
             type: array
             items: {type: string, minLength: 1}
@@ -292,29 +309,31 @@ paths:
           in: query
           schema: {type: string}
           description: |
-            Ключи сортировки через запятую, «-» — убывание: designation,
-            id, код поля разбора либо код числового параметра каталога,
-            применимого к классу запроса. Параметры text/enum и
-            неприменимые к классу — 400 (validation_failed/
-            parameter_not_applicable). Значение записи по параметру —
-            по направлению: возрастание — нижняя граница (value_min,
-            точное либо единственная верхняя), убывание — верхняя
-            (value_max, точное либо единственная нижняя); учитываются
-            значения типа и исполнений (как в фильтрах), записи без
-            значения — в конце независимо от направления. К любому
-            порядку добавляется финальный (kind, designation).
-        - {name: limit, in: query, schema: {type: integer, minimum: 1, maximum: 200, default: 50}, description: "Размер страницы (≤ 200)."}
-        - {name: offset, in: query, schema: {type: integer, minimum: 0, default: 0}, description: "Смещение страницы."}
+            Comma-separated sort keys, "-" for descending:
+            designation, id, a parse field code, or a numeric catalog
+            parameter code applicable to the query kind. Text/enum
+            parameters and ones not applicable to the kind — 400
+            (validation_failed/parameter_not_applicable). The
+            record's value for a parameter follows the direction:
+            ascending — the lower bound (value_min, exact, or the
+            single upper one), descending — the upper (value_max,
+            exact, or the single lower one); type and variant values
+            are considered (as in filters), records without a value
+            go last regardless of direction. A final (kind,
+            designation) ordering is appended to any sort.
+        - {name: limit, in: query, schema: {type: integer, minimum: 1, maximum: 200, default: 50}, description: "Page size (≤ 200)."}
+        - {name: offset, in: query, schema: {type: integer, minimum: 0, default: 0}, description: "Page offset."}
       responses:
         "200":
-          description: Страница результатов.
+          description: Result page.
           headers:
             ETag:
               description: |
-                Сильный ETag вида "data-<data_revision>-<hash>-<локаль>":
-                hash — хэш канонической строки запроса (имена параметров
-                отсортированы, пары name=value через «&»; повторяемый id
-                входит каждым значением — порядок значим).
+                Strong ETag of the form
+                "data-<data_revision>-<hash>-<locale>": hash is the
+                hash of the canonical query string (parameter names
+                sorted, name=value pairs joined with "&"; the
+                repeatable id enters once per value — order matters).
               schema: {type: string}
             Vary:
               $ref: "#/components/headers/VaryLanguage"
@@ -322,7 +341,7 @@ paths:
             application/json:
               schema: {$ref: "#/components/schemas/SearchPage"}
         "304":
-          description: Данные не менялись (If-None-Match).
+          description: Data unchanged (If-None-Match).
           headers:
             ETag:
               schema: {type: string}
@@ -337,14 +356,15 @@ paths:
     post:
       tags: [components]
       operationId: components_create
-      summary: Создание записи
+      summary: Create a record
       description: |
-        Тело — запись наполнения: строка-обозначение либо объект
-        «name/system + секции». Класс определяется автодетектом по
-        обозначению; для системы other создание адресуется PUT с классом
-        в пути. Существующий (kind, designation) — 409 already_exists
-        без изменения записи (создание атомарно, гонка параллельных
-        POST не применяет секции к чужой записи).
+        The body is a fill record: a designation string or a
+        "name/system + sections" object. The kind is auto-detected
+        from the designation; for the other system, creation is
+        addressed by PUT with the kind in the path. An existing
+        (kind, designation) — 409 already_exists without modifying
+        the record (creation is atomic; a race of concurrent POSTs
+        does not apply sections to someone else's record).
       parameters:
         - $ref: "#/components/parameters/AcceptLanguage"
       requestBody:
@@ -354,15 +374,15 @@ paths:
             schema: {$ref: "#/components/schemas/DeviceRecord"}
       responses:
         "201":
-          description: Запись создана.
+          description: Record created.
           content:
             application/json:
               schema: {$ref: "#/components/schemas/UpsertResponse"}
         "400":
           $ref: "#/components/responses/BadRequest"
         "404":
-          description: Редкая гонка — запись удалена между применением
-            и чтением карточки для ответа.
+          description: A rare race — the record was deleted between
+            applying and reading the card for the response.
           headers:
             Vary:
               $ref: "#/components/headers/VaryLanguage"
@@ -381,15 +401,16 @@ paths:
     get:
       tags: [components]
       operationId: components_by_id
-      summary: Карточка по стабильному id
-      description: Обозначения, содержащие «/» (MIL-имена), адресуются
-        этим путём или поиском — прямой путь для них не гарантируется.
+      summary: Card by stable id
+      description: 'Designations containing "/" (MIL names) are addressed
+        by this path or by search — the direct path is not guaranteed
+        for them.'
       parameters:
         - {name: id, in: path, required: true, schema: {type: integer, format: int64}}
         - $ref: "#/components/parameters/AcceptLanguage"
       responses:
         "200":
-          description: Карточка записи.
+          description: Record card.
           headers:
             Vary:
               $ref: "#/components/headers/VaryLanguage"
@@ -408,19 +429,20 @@ paths:
     get:
       tags: [components]
       operationId: components_get
-      summary: Карточка записи
+      summary: Record card
       description: |
-        Обозначение + система + поля разбора, атрибуты, значения параметров
-        по группам с условиями, исполнения-варианты (матрица «номинал ×
-        напряжение → габариты/масса»), аналоги (исходящие и встречные),
-        производители. Обозначение в пути URL-кодируется.
+        Designation + system + parsed fields, attributes, parameter
+        values by groups with conditions, variant executions
+        (a "rating × voltage → dimensions/mass" matrix), analogs
+        (outgoing and backlinks), manufacturers. The designation in
+        the path is URL-encoded.
       parameters:
         - {$ref: "#/components/parameters/Kind"}
         - {$ref: "#/components/parameters/Designation"}
         - $ref: "#/components/parameters/AcceptLanguage"
       responses:
         "200":
-          description: Карточка записи.
+          description: Record card.
           headers:
             Vary:
               $ref: "#/components/headers/VaryLanguage"
@@ -438,14 +460,15 @@ paths:
     put:
       tags: [components]
       operationId: components_put
-      summary: Upsert записи с семантикой секций
+      summary: Upsert a record with section semantics
       description: |
-        Тело — запись наполнения (name/system + секции); name обязан
-        совпадать с designation пути (иначе 422 designation_mismatch).
-        Класс задаётся путём (переопределяет автодетект — способ создания
-        записей системы other). Исходы: Added (создана),
-        UpdatedExisting (обновлена), Skipped (слитое состояние совпадает —
-        записи в БД и инкремента ревизий нет).
+        The body is a fill record (name/system + sections); name must
+        match the path designation (otherwise 422
+        designation_mismatch). The kind is set by the path (overrides
+        auto-detection — the way to create other-system records).
+        Outcomes: Added (created), UpdatedExisting (updated), Skipped
+        (merged state matches — no database write and no revision
+        increment).
       parameters:
         - {$ref: "#/components/parameters/Kind"}
         - {$ref: "#/components/parameters/Designation"}
@@ -457,15 +480,15 @@ paths:
             schema: {$ref: "#/components/schemas/DeviceRecord"}
       responses:
         "200":
-          description: Запись применена.
+          description: Record applied.
           content:
             application/json:
               schema: {$ref: "#/components/schemas/UpsertResponse"}
         "400":
           $ref: "#/components/responses/BadRequest"
         "404":
-          description: Редкая гонка — запись удалена между применением
-            и чтением карточки для ответа.
+          description: A rare race — the record was deleted between
+            applying and reading the card for the response.
           headers:
             Vary:
               $ref: "#/components/headers/VaryLanguage"
@@ -481,14 +504,14 @@ paths:
     delete:
       tags: [components]
       operationId: components_delete
-      summary: Удаление записи (каскад)
+      summary: Delete a record (cascade)
       parameters:
         - {$ref: "#/components/parameters/Kind"}
         - {$ref: "#/components/parameters/Designation"}
         - $ref: "#/components/parameters/AcceptLanguage"
       responses:
         "204":
-          description: Запись удалена.
+          description: Record deleted.
         "400":
           $ref: "#/components/responses/BadRequest"
         "404":
@@ -501,17 +524,18 @@ paths:
     get:
       tags: [service]
       operationId: suggest
-      summary: Автодополнение по префиксу обозначения
-      description: Отключаем конфигурацией модуля — хендлер не монтируется
-        (404 при отключении). Повтор разбираемого параметра и посторонний
-        ключ запроса — 400 validation_failed (опечатки не молчат).
+      summary: Designation prefix autocomplete
+      description: 'Disabled by module configuration — the handler is not
+        mounted (404 when disabled). A repeated recognized parameter
+        or an unknown query key — 400 validation_failed (typos do not
+        pass silently).'
       parameters:
-        - {name: q, in: query, required: true, schema: {type: string}, description: "Префикс обозначения либо исторического названия записи — синонима."}
-        - {name: kind, in: query, schema: {type: string}, description: "Класс приборов."}
+        - {name: q, in: query, required: true, schema: {type: string}, description: "Prefix of a designation or of a record's historical name — synonym."}
+        - {name: kind, in: query, schema: {type: string}, description: "Device kind."}
         - {name: limit, in: query, schema: {type: integer, minimum: 1, maximum: 50, default: 10}}
       responses:
         "200":
-          description: Подсказки.
+          description: Suggestions.
           content:
             application/json:
               schema: {$ref: "#/components/schemas/SuggestResponse"}
@@ -525,30 +549,32 @@ paths:
     get:
       tags: [service]
       operationId: parse
-      summary: Разбор обозначения
+      summary: Parse a designation
       description: |
-        Разбор обозначения теми же строгими грамматиками, что и CLI parse:
-        без system — автодетект (фиксированный порядок: полупроводник
-        gost → pro → jedec → jis → резистор gost/ost → конденсатор gost);
-        с system — разбор в явной системе (для other класс kind обязателен,
-        иначе 400 kind_ambiguous). Обозначение канонизируется (регистр,
-        пробелы, типографские дефисы не важны); system/kind переопределяют
-        автодетект, противоречие — 400 designation_mismatch. Ответ — класс,
-        система, каноническое обозначение, поля разбора и кандидаты: все
-        успешные строгие разборы в порядке автодетекта без дублей пары
-        класс/система (первый кандидат при автодетекте совпадает
-        с основным результатом). Числового «конфиденса» у строгих
-        грамматик нет — перечень кандидатов и есть эквивалент. Повтор
-        любого разбираемого параметра запроса и посторонний ключ запроса —
-        400 validation_failed (опечатки не молчат).
+        Parses a designation with the same strict grammars as CLI
+        parse: without system — auto-detection (fixed order:
+        semiconductor gost → pro → jedec → jis → resistor gost/ost →
+        capacitor gost); with system — parsing in the explicit system
+        (for other the kind is required, otherwise 400
+        kind_ambiguous). The designation is canonicalized (case,
+        whitespace, and typographic hyphens do not matter); system/
+        kind override auto-detection, a contradiction — 400
+        designation_mismatch. The response is kind, system, canonical
+        designation, parsed fields and candidates: all successful
+        strict parses in auto-detection order without kind/system
+        pair duplicates (the first candidate under auto-detection
+        equals the main result). Strict grammars have no numeric
+        "confidence" — the candidate list is the equivalent. A
+        repeated recognized query parameter or an unknown query key —
+        400 validation_failed (typos do not pass silently).
       parameters:
-        - {name: designation, in: query, required: true, schema: {type: string}, description: "Обозначение (канонизируется)."}
-        - {name: system, in: query, schema: {type: string, enum: [gost, ost, pro, jedec, jis, other]}, description: "Система обозначений; без параметра — автодетект."}
-        - {name: kind, in: query, schema: {type: string}, description: "Класс приборов (переопределяет автодетект; обязателен для system=other)."}
+        - {name: designation, in: query, required: true, schema: {type: string}, description: "Designation (canonicalized)."}
+        - {name: system, in: query, schema: {type: string, enum: [gost, ost, pro, jedec, jis, other]}, description: "Designation system; without the parameter — auto-detection."}
+        - {name: kind, in: query, schema: {type: string}, description: "Device kind (overrides auto-detection; required for system=other)."}
         - $ref: "#/components/parameters/AcceptLanguage"
       responses:
         "200":
-          description: Разбор обозначения с кандидатами строгих систем.
+          description: Designation parse with strict-system candidates.
           content:
             application/json:
               schema: {$ref: "#/components/schemas/ParseResponse"}
@@ -562,55 +588,58 @@ paths:
     post:
       tags: [import]
       operationId: import
-      summary: Импорт файла наполнения (NDJSON, jsonc, yaml)
+      summary: Fill file import (NDJSON, jsonc, yaml)
       description: |
-        Тело — файл наполнения; формат задаётся обязательным заголовком
-        Content-Type: application/x-ndjson — поток NDJSON (одна JSON-строка —
-        одна сущность: строки-обёртки `{"<класс>": <запись>}`, блок catalog —
-        строками-подразделами до записей; план 04 §4) читается потоково,
-        без загрузки тела целиком и без потолка размера запроса — память
-        ограничена потолком одной строки (16 МиБ); application/json (jsonc,
-        комментарии допустимы) и application/yaml — документ читается
-        целиком с потолком тела 16 МиБ (превышение — 400
-        invalid_import_file; для больших объёмов — NDJSON). Отсутствующий
-        и неподдерживаемый Content-Type — 400 validation_failed;
-        параметры Content-Type (charset) допускаются и игнорируются.
-        Ответ — синхронный отчёт после EOF: счётчики исходов и полный
-        список проблем прогона (Issues-модель: корректные записи
-        применяются, ошибочные — нет, запись не применяется вовсе);
-        200 возвращается и для прогонов с проблемами. Жёсткая ошибка —
-        только синтаксис формата и чтение потока (400 invalid_import_file).
-        Единственный параметр запроса — dry_run=true: контрольный прогон
-        того же конвейера проверок без записи в БД (отчёт помечается
-        dry_run); значение строго true либо false (иное и повтор параметра —
-        400 validation_failed), прочие ключи — 400. Прогресс по REST
-        не отдаётся — запрос синхронный (наблюдение прогона — хук метрик
-        сайта); запись монтируется сайтом только в защищённые маршруты.
+        The body is a fill file; the format is set by the mandatory
+        Content-Type header: application/x-ndjson — an NDJSON stream
+        (one JSON line per entity: wrapper lines `{"<kind>":
+        <record>}`, the catalog block — sub-section lines up to the
+        records; plan 04 §4) is read streaming, without loading the
+        whole body and without a request size cap — memory is bounded
+        by the single-line cap (16 MiB); application/json (jsonc,
+        comments allowed) and application/yaml — the document is read
+        whole with a 16 MiB body cap (exceeding — 400
+        invalid_import_file; for larger volumes use NDJSON). A
+        missing or unsupported Content-Type — 400 validation_failed;
+        Content-Type parameters (charset) are allowed and ignored.
+        The response is a synchronous report after EOF: outcome
+        counters and the full list of run issues (Issues model:
+        valid records are applied, invalid ones are not, a record is
+        not applied at all); 200 is returned for runs with issues
+        too. A hard failure is only format syntax and stream reading
+        (400 invalid_import_file). The only query parameter is
+        dry_run=true: a trial run of the same validation pipeline
+        without writing to the database (the report is marked
+        dry_run); the value is strictly true or false (anything else
+        and a repeated parameter — 400 validation_failed), other
+        keys — 400. Progress is not streamed over REST — the request
+        is synchronous (run observation is the site's metrics hook);
+        writing is mounted by the site only on protected routes.
       parameters:
         - $ref: "#/components/parameters/AcceptLanguage"
-        - {name: dry_run, in: query, schema: {type: boolean, enum: [true, false], default: false}, description: "Контрольный прогон без записи в БД (значение строго true либо false)."}
+        - {name: dry_run, in: query, schema: {type: boolean, enum: [true, false], default: false}, description: "Trial run without writing to the database (the value is strictly true or false)."}
       requestBody:
         required: true
         content:
           application/x-ndjson:
             schema:
               type: string
-              description: Поток NDJSON — по одной JSON-строке на сущность;
-                без потолка размера запроса.
+              description: An NDJSON stream — one JSON line per
+                entity; no request size cap.
           application/json:
             schema:
               type: string
-              description: Документ jsonc (комментарии // допустимы); тело
-                читается целиком, потолок 16 МиБ.
+              description: A jsonc document (// comments allowed);
+                the body is read whole, cap 16 MiB.
           application/yaml:
             schema:
               type: string
-              description: Документ yaml; тело читается целиком,
-                потолок 16 МиБ.
+              description: A yaml document; the body is read whole,
+                cap 16 MiB.
       responses:
         "200":
-          description: Отчёт прогона импорта (message проблем — по локали
-            запроса).
+          description: Import run report (issue messages follow the
+            request locale).
           content:
             application/json:
               schema: {$ref: "#/components/schemas/ImportReport"}
@@ -623,32 +652,33 @@ paths:
 components:
   headers:
     VaryLanguage:
-      description: Всегда Accept-Language — представление ответа выбирается
-        по локали запроса (D9); кэш обязан различать представления
-        разных локалей (RFC 9110/9111).
+      description: Always Accept-Language — the response representation
+        is selected by the request locale (D9); a cache must
+        distinguish representations of different locales
+        (RFC 9110/9111).
       schema: {type: string, const: Accept-Language}
   parameters:
     Kind:
       name: kind
       in: path
       required: true
-      description: Код класса приборов.
+      description: Device kind code.
       schema: {type: string}
     Designation:
       name: designation
       in: path
       required: true
-      description: URL-кодированное обозначение.
+      description: URL-encoded designation.
       schema: {type: string}
     AcceptLanguage:
       name: Accept-Language
       in: header
       required: false
-      description: "Локаль отображаемых строк ответа (D9): q-значения, базовый подтег; поддерживаются en, ru; по умолчанию en."
+      description: "Locale of the response display strings (D9): q-values, basic subtag; en and ru are supported; default en."
       schema: {type: string, examples: ["ru", "en-US,en;q=0.8"]}
   responses:
     BadRequest:
-      description: Неверный запрос (параметры/путь/синтаксис тела).
+      description: Bad request (parameters/path/body syntax).
       headers:
         Vary:
           $ref: "#/components/headers/VaryLanguage"
@@ -656,7 +686,7 @@ components:
         application/json:
           schema: {$ref: "#/components/schemas/Error"}
     NotFound:
-      description: Не найдено.
+      description: Not found.
       headers:
         Vary:
           $ref: "#/components/headers/VaryLanguage"
@@ -664,7 +694,7 @@ components:
         application/json:
           schema: {$ref: "#/components/schemas/Error"}
     Conflict:
-      description: Конфликт (запись уже существует).
+      description: Conflict (the record already exists).
       headers:
         Vary:
           $ref: "#/components/headers/VaryLanguage"
@@ -672,11 +702,12 @@ components:
         application/json:
           schema: {$ref: "#/components/schemas/Error"}
     MethodNotAllowed:
-      description: Метод не поддерживается путём (заголовок Allow
-        перечисляет допустимые методы пути).
+      description: Method not supported for the path (the Allow header
+        lists the allowed methods).
       headers:
         Allow:
-          description: Разделённый запятыми список допустимых методов пути.
+          description: Comma-separated list of the methods allowed for
+            the path.
           schema: {type: string}
         Vary:
           $ref: "#/components/headers/VaryLanguage"
@@ -684,7 +715,7 @@ components:
         application/json:
           schema: {$ref: "#/components/schemas/Error"}
     Unprocessable:
-      description: Семантическая ошибка записи/обозначения.
+      description: Semantic error of the record/designation.
       headers:
         Vary:
           $ref: "#/components/headers/VaryLanguage"
@@ -692,7 +723,7 @@ components:
         application/json:
           schema: {$ref: "#/components/schemas/Error"}
     InternalError:
-      description: Внутренняя ошибка.
+      description: Internal error.
       headers:
         Vary:
           $ref: "#/components/headers/VaryLanguage"
@@ -706,12 +737,12 @@ components:
       properties:
         code:
           type: string
-          description: Машиночитаемый код (латиница snake_case).
+          description: Machine-readable code (Latin snake_case).
           examples: [validation_failed]
         message:
           type: string
-          description: Текст сообщения по локали запроса (Accept-Language;
-            en — канонический).
+          description: Message text in the request locale
+            (Accept-Language; en is canonical).
     KindDef:
       type: object
       required: [code, name]
@@ -734,9 +765,9 @@ components:
         num: {type: number}
     FieldValueDef:
       type: object
-      description: Значение словарного поля обозначения — стабильный код
-        (значение фильтров и секции fields) и отображаемое название
-        по локали запроса (D9).
+      description: A designation dictionary field value — a stable code
+        (the value of filters and of the fields section) and a
+        display name in the request locale (D9).
       required: [code, name]
       properties:
         code: {type: string}
@@ -744,11 +775,12 @@ components:
     FieldDictionaries:
       type: object
       description: |
-        Словари значений словарных полей обозначения —
-        состав мультивыборных фильтров: material/subclass/adjustment —
-        константные реестры домена, category — словарь данных каталога
-        (расширяется импортом; расширения без записи в бандле отображаются
-        кодом). Порядок значений стабилен (реестры домена и строки снимка).
+        Value dictionaries of designation dictionary fields — the
+        contents of multi-select filters: material/subclass/
+        adjustment are constant domain registries, category is a
+        catalog data dictionary (extended by import; extensions
+        without a bundle entry are displayed by code). Value order
+        is stable (domain registries and snapshot rows).
       required: [material, subclass, adjustment, category]
       properties:
         material:
@@ -767,7 +799,7 @@ components:
       type: object
       required: [condition, value]
       properties:
-        condition: {type: string, description: Код условия измерения.}
+        condition: {type: string, description: Measurement condition code.}
         value: {type: number}
     CardAttribute:
       type: object
@@ -778,8 +810,8 @@ components:
         text: {type: string}
         texts:
           type: array
-          description: Список заметок атрибута типа text_list (порядок —
-            порядок наполнения); опущен у скалярных атрибутов.
+          description: Note list of a text_list attribute (order follows
+            the fill order); omitted on scalar attributes.
           items: {type: string}
         num: {type: number}
         bool: {type: boolean}
@@ -789,7 +821,7 @@ components:
       properties:
         parameter: {type: string}
         name: {type: string}
-        unit: {type: string, description: Код канонической единицы.}
+        unit: {type: string, description: Canonical unit code.}
         exact: {type: number}
         min: {type: number}
         max: {type: number}
@@ -802,13 +834,13 @@ components:
       required: [code, section, name, values]
       properties:
         code: {type: string}
-        section: {type: string, description: Имя секции файла наполнения.}
+        section: {type: string, description: Fill file section name.}
         name: {type: string}
         values:
           type: array
-          description: Значения в каноническом порядке каталога (sort_order
-            параметра); одноимённые строки одного параметра — в порядке
-            наполнения.
+          description: Values in the catalog's canonical order (the
+            parameter's sort_order); same-named rows of one parameter
+            follow the fill order.
           items: {$ref: "#/components/schemas/CardValue"}
     CardVariant:
       type: object
@@ -817,7 +849,7 @@ components:
         label: {type: string}
         attributes:
           type: array
-          description: Атрибуты исполнения — конструктивные признаки.
+          description: Variant attributes — construction traits.
           items: {$ref: "#/components/schemas/CardAttribute"}
         groups:
           type: array
@@ -833,7 +865,7 @@ components:
       type: object
       required: [designation]
       properties:
-        designation: {type: string, description: Обозначение записи группы типа.}
+        designation: {type: string, description: Designation of a type-group record.}
         exact: {type: number}
         min: {type: number}
         max: {type: number}
@@ -847,25 +879,26 @@ components:
       properties:
         parameter: {type: string}
         name: {type: string}
-        unit: {type: string, description: Код канонической единицы.}
+        unit: {type: string, description: Canonical unit code.}
         values:
           type: array
-          description: Значения по записям группы (у записи без значения
-            параметра ячейки нет).
+          description: Values per type-group record (a record without a
+            parameter value has no cell).
           items: {$ref: "#/components/schemas/CardTypeValue"}
     CardTypeGroup:
       type: object
       required: [base, siblings, diffs]
       properties:
-        base: {type: string, description: Базовое обозначение (тип) — обозначение без буквы классификации и хвостовых элементов.}
+        base: {type: string, description: Base designation (the type) — the designation without the classification letter and trailing elements.}
         siblings:
           type: array
-          description: Соседние записи того же класса с тем же типом.
+          description: Sibling records of the same kind with the same
+            type.
           items: {$ref: "#/components/schemas/CardTypeSibling"}
         diffs:
           type: array
-          description: Мини-матрица различий — параметры, значения которых
-            различаются между записями группы (данные типа в целом).
+          description: Mini-matrix of differences — parameters whose
+            values differ across the group records (type-wide data).
           items: {$ref: "#/components/schemas/CardTypeDiff"}
     CardLink:
       type: object
@@ -879,19 +912,20 @@ components:
       type: object
       required: [designation]
       description: |
-        Историческое название записи (синоним): обозначение,
-        под которым компонент выпускался в другие годы (С5-35 = ПЭВ);
-        заметка — происхождение имени, годы — период его употребления.
+        A record's historical name (synonym): the designation under
+        which the component was produced in other years (С5-35 = ПЭВ);
+        the note is the name's origin, the years are its usage period.
       properties:
         designation: {type: string}
         note: {type: string}
         year_from: {type: integer}
         year_to: {type: integer}
     CardSource:
-      description: Источник данных записи (план 03 §13) — книга,
-        справочник, даташит, стандарт, ТУ, статья либо веб-страница;
-        библиографические тексты — не локализуемые данные, type_name —
-        отображаемое название типа по локали (sourcetype.<код>).
+      description: A record data source (plan 03 §13) — a book,
+        reference, datasheet, standard, specification, article, or a
+        web page; bibliographic texts are non-localizable data,
+        type_name is the localized display name of the type
+        (sourcetype.<code>).
       type: object
       required: [code, title, type, type_name, authors, editors, urls]
       properties:
@@ -900,11 +934,11 @@ components:
         type: {type: string}
         type_name: {type: string}
         authors:
-          description: Авторы, порядок значим.
+          description: Authors, order matters.
           type: array
           items: {type: string}
         editors:
-          description: Редакторы/составители, порядок значим.
+          description: Editors/compilers, order matters.
           type: array
           items: {type: string}
         year: {type: integer}
@@ -912,12 +946,12 @@ components:
         edition: {type: string}
         isbn: {type: string}
         urls:
-          description: Ссылки на документацию (оригинал, зеркала,
-            архивные копии; первый элемент предпочитаемый).
+          description: Documentation links (original, mirrors, archived
+            copies; the first element is preferred).
           type: array
           items: {type: string}
         note:
-          description: Место в источнике («таблица 5.3», «с. 214»).
+          description: 'Location in the source ("table 5.3", "p. 214").'
           type: string
     Card:
       type: object
@@ -942,8 +976,8 @@ components:
           type: array
           items: {$ref: "#/components/schemas/CardVariant"}
         type_group:
-          description: Группа типа (опущено, когда соседних записей того же
-            базового обозначения нет).
+          description: Type group (omitted when there are no sibling
+            records with the same base designation).
           allOf: [{$ref: "#/components/schemas/CardTypeGroup"}]
         manufacturers:
           type: array
@@ -958,9 +992,9 @@ components:
           type: array
           items: {$ref: "#/components/schemas/CardSynonym"}
         sources:
-          description: Источники данных записи (план 03 §13) — полное
-            библиографическое определение и заметка места в источнике;
-            порядок канонический, по коду.
+          description: Record data sources (plan 03 §13) — the full
+            bibliographic definition and the location note in the
+            source; canonical order, by code.
           type: array
           items: {$ref: "#/components/schemas/CardSource"}
     Outcome:
@@ -985,9 +1019,9 @@ components:
           items: {$ref: "#/components/schemas/Field"}
         values:
           type: array
-          description: Значения запрошенных колонок (параметр values)
-            в порядке запроса; элемент формы CardValue по каждому
-            коду, присутствующему у записи (нет значения — нет элемента).
+          description: Values of the requested columns (the values
+            parameter) in request order; a CardValue-shaped element
+            per code present on the record (no value — no element).
           items: {$ref: "#/components/schemas/CardValue"}
     SearchPage:
       type: object
@@ -996,7 +1030,7 @@ components:
         items:
           type: array
           items: {$ref: "#/components/schemas/SearchItem"}
-        total: {type: integer, description: Общее число записей под фильтрами.}
+        total: {type: integer, description: Total number of records under the filters.}
         limit: {type: integer}
         offset: {type: integer}
     Suggestion:
@@ -1016,7 +1050,7 @@ components:
     ParseCandidate:
       type: object
       required: [kind, system]
-      description: Строгая система, принявшая обозначение.
+      description: A strict system that accepted the designation.
       properties:
         kind: {type: string}
         system: {type: string}
@@ -1026,19 +1060,19 @@ components:
       properties:
         kind: {type: string}
         system: {type: string}
-        designation: {type: string, description: Каноническое обозначение.}
+        designation: {type: string, description: Canonical designation.}
         fields:
           type: array
           items: {$ref: "#/components/schemas/Field"}
         candidates:
           type: array
           description: |
-            Все успешные строгие разборы в фиксированном порядке
-            автодетекта без дублей пары класс/система; первый элемент
-            при автодетекте совпадает с основным результатом. Числового
-            «конфиденса» у строгих грамматик нет — перечень кандидатов
-            и есть эквивалент. Пуст для записей вне строгих грамматик
-            (явная система other).
+            All successful strict parses in the fixed auto-detection
+            order without kind/system pair duplicates; under
+            auto-detection the first element equals the main result.
+            Strict grammars have no numeric "confidence" — the
+            candidate list is the equivalent. Empty for records
+            outside strict grammars (explicit other system).
           items: {$ref: "#/components/schemas/ParseCandidate"}
     Stats:
       type: object
@@ -1051,113 +1085,117 @@ components:
         kinds:
           type: object
           additionalProperties: {type: integer}
-          description: Количество записей по кодам классов.
+          description: Record counts by kind codes.
     ParameterStats:
       type: object
-      description: Фасетные агрегаты значений параметров класса.
+      description: Facet aggregates of a kind's parameter values.
       required: [kind, data_revision, parameters]
       properties:
         kind: {type: string}
-        data_revision: {type: integer, format: int64, description: "Ревизия данных, согласованная с агрегатами."}
+        data_revision: {type: integer, format: int64, description: "Data revision consistent with the aggregates."}
         parameters:
           type: array
-          description: Параметры класса с данными в алфавите кодов;
-            численные — min/max, текстовые/enum — частоты значений.
+          description: The kind's parameters with data alphabetically
+            by code; numeric ones — min/max, text/enum — value
+            frequencies.
           items: {$ref: "#/components/schemas/ParameterStat"}
     ParameterStat:
       type: object
       required: [parameter, name]
       properties:
         parameter: {type: string}
-        name: {type: string, description: Отображаемое имя по локали запроса.}
-        unit: {type: string, description: Код канонической единицы.}
-        min: {type: number, description: Нижняя граница значений параметра в классе (нет — опущено).}
-        max: {type: number, description: Верхняя граница значений параметра в классе (нет — опущено).}
+        name: {type: string, description: Display name in the request locale.}
+        unit: {type: string, description: Canonical unit code.}
+        min: {type: number, description: "Lower bound of the parameter's values in the kind (omitted when absent)."}
+        max: {type: number, description: "Upper bound of the parameter's values in the kind (omitted when absent)."}
         values:
           type: array
-          description: Частоты текстовых/enum значений (численные параметры
-            не дают); по убыванию частоты, затем по тексту.
+          description: Frequencies of text/enum values (numeric
+            parameters yield none); by descending frequency, then by
+            text.
           items: {$ref: "#/components/schemas/ParameterValueFreq"}
     ParameterValueFreq:
       type: object
       required: [text, count]
       properties:
         text: {type: string}
-        count: {type: integer, description: Число записей класса со значением.}
+        count: {type: integer, description: Number of records in the kind having the value.}
     ChangeEvent:
       type: object
-      description: Событие применённой операции над записью устройства.
+      description: An event of an applied operation over a device record.
       required: [id, revision, op, kind, designation, device_id]
       properties:
-        id: {type: integer, format: int64, description: Монотонный id события — курсор потребителя.}
-        revision: {type: integer, format: int64, description: data_revision транзакции события (после инкремента).}
+        id: {type: integer, format: int64, description: "Monotonic event id — the consumer's cursor."}
+        revision: {type: integer, format: int64, description: The event transaction's data_revision (after the increment).}
         op: {type: string, enum: [created, updated, deleted]}
-        kind: {type: string, description: Код класса записи.}
-        designation: {type: string, description: Каноническое обозначение.}
-        device_id: {type: integer, format: int64, description: Стабильный id записи.}
+        kind: {type: string, description: Record kind code.}
+        designation: {type: string, description: Canonical designation.}
+        device_id: {type: integer, format: int64, description: Stable record id.}
     ChangesResponse:
       type: object
       required: [events, data_revision]
       properties:
         events:
           type: array
-          description: События в порядке возрастания id (может быть пустым).
+          description: Events in ascending id order (may be empty).
           items: {$ref: "#/components/schemas/ChangeEvent"}
-        data_revision: {type: integer, format: int64, description: Текущая ревизия данных (согласована со страницей).}
+        data_revision: {type: integer, format: int64, description: "Current data revision (consistent with the page)."}
     ImportIssue:
       type: object
-      description: Проблема прогона импорта (позиция — когда определена).
+      description: An import run issue (position — when defined).
       required: [code, message]
       properties:
-        record: {type: string, description: Обозначение записи (опущено для проблем корневого уровня).}
-        line: {type: integer, description: Номер строки NDJSON (опущено — не определён).}
-        no: {type: integer, description: Порядковый номер записи в секции документа (опущено — не задан).}
-        code: {type: string, description: Машиночитаемый код проблемы.}
-        message: {type: string, description: Текст сообщения по локали запроса.}
+        record: {type: string, description: "Record designation (omitted for root-level issues)."}
+        line: {type: integer, description: NDJSON line number (omitted when undefined).}
+        no: {type: integer, description: Ordinal number of the record in the document section (omitted when not set).}
+        code: {type: string, description: Machine-readable issue code.}
+        message: {type: string, description: Message text in the request locale.}
     ImportReport:
       type: object
-      description: Синхронный отчёт прогона импорта POST /api/v1/import.
+      description: Synchronous report of the POST /api/v1/import run.
       required: [dry_run, records, added, updated, skipped, rejected, catalog_applied, sources_applied, issues]
       properties:
-        dry_run: {type: boolean, description: Контрольный прогон без записи в БД.}
-        records: {type: integer, description: Записей в теле (включая отвергнутые).}
+        dry_run: {type: boolean, description: Trial run without writing to the database.}
+        records: {type: integer, description: "Records in the body (including rejected)."}
         added: {type: integer}
         updated: {type: integer}
-        skipped: {type: integer, description: Слитое состояние совпадает с текущим — без записи в БД и без инкремента ревизий.}
-        rejected: {type: integer, description: "Записи, не применённые из-за проблем."}
-        catalog_applied: {type: boolean, description: "Секция catalog применена с фактическим изменением (повторный импорт идентичного каталога — false, catalog_revision не инкрементируется)."}
-        sources_applied: {type: boolean, description: Реестр источников изменён корневой секцией sources (инкремент data_revision без событий change_events; повторный импорт без изменений — false).}
+        skipped: {type: integer, description: The merged state matches the current one — no database write and no revision increment.}
+        rejected: {type: integer, description: "Records not applied due to issues."}
+        catalog_applied: {type: boolean, description: "The catalog section was applied with an actual change (re-importing an identical catalog — false, catalog_revision is not incremented)."}
+        sources_applied: {type: boolean, description: "The source registry was changed by the root sources section (data_revision increments without change_events; a re-import without changes — false)."}
         issues:
           type: array
-          description: Полный список проблем прогона (может быть пустым).
+          description: The full list of run issues (may be empty).
           items: {$ref: "#/components/schemas/ImportIssue"}
     DeviceRecord:
       description: |
-        Запись наполнения: строка-обозначение либо объект «name/system +
-        секции». Секции групп — единые списки объектов {parameter, значение,
-        условия}; условия — соседние ключи по кодам. Отсутствует/null —
-        не менять, задана — заменить целиком, []/{} — очистить.
+        A fill record: a designation string or a "name/system +
+        sections" object. Group sections are flat lists of {parameter,
+        value, conditions} objects; conditions are adjacent keys by
+        codes. Absent/null — leave unchanged, present — replace
+        entirely, []/{} — clear.
       oneOf:
         - type: string
         - type: object
           required: [name]
           properties:
-            name: {type: string, description: Обозначение.}
-            system: {type: string, description: "Система обозначений; обязателен для other."}
+            name: {type: string, description: Designation.}
+            system: {type: string, description: "Designation system; required for other."}
             fields:
               type: object
               description: |
-                Явные классификационные поля (D10): объект «код поля →
-                значение словаря» (`assembly` — число 0/1). Задаёт только
-                поля, которые парсер системы обозначений записи не
-                устанавливает сам, и только применимые к классу
-                (docs/fill-format.md §5.1); заменяется целиком.
+                Explicit classification fields (D10): a "field code →
+                dictionary value" object (`assembly` is the number
+                0/1). Sets only fields that the record's
+                designation-system parser does not set itself, and
+                only ones applicable to the kind
+                (docs/fill-format.md §5.1); replaced entirely.
               additionalProperties: {oneOf: [{type: string}, {type: number}]}
             attributes:
               type: object
-              description: "Код атрибута → значение (строка / массив строк
-                для атрибутов типа text_list / число / логическое;
-                null — атрибут не задаётся)."
+              description: "Attribute code → value (string / string array
+                for text_list attributes / number / boolean; null —
+                the attribute is not set)."
             manufacturers:
               type: array
               items: {type: string}
@@ -1167,11 +1205,12 @@ components:
             analogs:
               type: array
               description: |
-                Исходящие направленные ссылки на аналоги (план 03 §8, D8):
-                обозначения того же класса либо объекты с заметкой
-                характера замены. Семантика секции — общая (замена
-                целиком); обозначение канонизируется и обязано
-                существовать в том же классе, иначе — 422 unknown_analog.
+                Outgoing directed analog links (plan 03 §8, D8):
+                designations of the same kind or objects with a
+                replacement-nature note. Section semantics are common
+                (replace entirely); the designation is canonicalized
+                and must exist in the same kind, otherwise — 422
+                unknown_analog.
               items:
                 oneOf:
                   - type: string
@@ -1183,12 +1222,12 @@ components:
             synonyms:
               type: array
               description: |
-                Исторические названия записи (D11): обозначение-синоним
-                не является записью — find и поиск (q=) разрешают его
-                в запись-владельца. Уникальны в пределах класса; создание
-                записи с обозначением, занятым синонимом другой записи, —
-                конфликт (409). Годы — целые 1949–2100, yearFrom раньше
-                yearTo.
+                The record's historical names (D11): a synonym
+                designation is not a record — find and search (q=)
+                resolve it to the owning record. Unique within a kind;
+                creating a record with a designation occupied by
+                another record's synonym is a conflict (409). Years
+                are integers 1949–2100, yearFrom precedes yearTo.
               items:
                 oneOf:
                   - type: string
@@ -1202,11 +1241,12 @@ components:
             sources:
               type: array
               description: |
-                Ссылки на источники данных записи (план 03 §13, D13):
-                строки-коды реестра либо объекты с кодом и заметкой
-                места в источнике. Семантика секции — общая (заменяются
-                целиком); код обязан существовать в реестре (определения
-                задаёт корневая секция sources файла импорта), иначе —
+                References to the record's data sources (plan 03
+                §13, D13): registry code strings or objects with a
+                code and a location note in the source. Section
+                semantics are common (replaced entirely); the code
+                must exist in the registry (definitions are set by the
+                root sources section of the import file), otherwise —
                 422 unknown_source.
               items:
                 oneOf:
@@ -1222,11 +1262,12 @@ components:
         label: {type: string}
         attributes:
           type: object
-          description: "Код атрибута → значение исполнения (конструктивные
-            признаки, различающиеся по исполнениям — docs/fill-format.md §6):
-            строка / массив строк для атрибутов типа text_list / число /
-            логическое; форма значений как у attributes записи, null — атрибут
-            не задаётся; заменяются вместе с набором variants."
+          description: "Attribute code → variant value (construction
+            traits differing across variants — docs/fill-format.md
+            §6): string / string array for text_list attributes /
+            number / boolean; the value shape is as in record
+            attributes, null — the attribute is not set; replaced
+            together with the variants set."
     UnitDef:
       type: object
       required: [code, name, symbol]
@@ -1282,7 +1323,7 @@ components:
         kinds:
           type: array
           items: {type: string}
-          description: Пусто — применим ко всем классам.
+          description: Empty — applicable to all kinds.
         enum_values:
           type: array
           items: {type: string}
