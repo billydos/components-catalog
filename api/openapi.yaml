@@ -1058,7 +1058,7 @@ components:
       required: [kind, data_revision, parameters]
       properties:
         kind: {type: string}
-        data_revision: {type: integer, format: int64, description: Ревизия данных, согласованная с агрегатами.}
+        data_revision: {type: integer, format: int64, description: "Ревизия данных, согласованная с агрегатами."}
         parameters:
           type: array
           description: Параметры класса с данными в алфавите кодов;
@@ -1124,8 +1124,8 @@ components:
         added: {type: integer}
         updated: {type: integer}
         skipped: {type: integer, description: Слитое состояние совпадает с текущим — без записи в БД и без инкремента ревизий.}
-        rejected: {type: integer, description: Записи, не применённые из-за проблем.}
-        catalog_applied: {type: boolean, description: Секция catalog применена с фактическим изменением (повторный импорт идентичного каталога — false, catalog_revision не инкрементируется).}
+        rejected: {type: integer, description: "Записи, не применённые из-за проблем."}
+        catalog_applied: {type: boolean, description: "Секция catalog применена с фактическим изменением (повторный импорт идентичного каталога — false, catalog_revision не инкрементируется)."}
         sources_applied: {type: boolean, description: Реестр источников изменён корневой секцией sources (инкремент data_revision без событий change_events; повторный импорт без изменений — false).}
         issues:
           type: array
