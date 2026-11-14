@@ -55,6 +55,45 @@ func appDialect(opts *options) string {
 	return dialect
 }
 
+// runMigrate — миграция схемы базы к версии модуля (план 09): применение
+// шагов либо (с --dry-run) план без записи. Открытие — в режиме миграции
+// (прежняя версия базы допустима), сида не наводятся: миграция — явное
+// действие над схемой существующей базы. Страховка отката — внешний
+// бэкап до миграции (рекомендация в описании команды).
+func runMigrate(ctx context.Context, opts *options, pos []string, stdout, stderr io.Writer) int {
+	cfg, err := appConfig(opts, false, true)
+	if err != nil {
+		return fail(stderr, opts.langOf(), err)
+	}
+	app, err := service.Open(ctx, cfg)
+	if err != nil {
+		return fail(stderr, opts.langOf(), err)
+	}
+	defer app.Close() //nolint:errcheck — закрытие при выходе
+	lang := opts.langOf()
+	if opts.dryRun {
+		plan, err := app.MigrationPlan(ctx)
+		if err != nil {
+			return fail(stderr, lang, err)
+		}
+		fmt.Fprintf(stdout, "%s\n", i18n.Message(lang, string(domain.MsgCliMigratePlan), plan.Current))
+		for _, s := range plan.Steps {
+			fmt.Fprintf(stdout, "%s\n", i18n.Message(lang, string(domain.MsgCliMigrateStep), s.To, s.Desc))
+		}
+		return 0
+	}
+	rep, err := app.Migrate(ctx)
+	if err != nil {
+		return fail(stderr, lang, err)
+	}
+	if rep.From == rep.To {
+		fmt.Fprintf(stdout, "%s\n", i18n.Message(lang, string(domain.MsgCliMigrateUptodate), rep.To))
+		return 0
+	}
+	fmt.Fprintf(stdout, "%s\n", i18n.Message(lang, string(domain.MsgCliMigrateDone), rep.From, rep.To, rep.Steps))
+	return 0
+}
+
 // runParse — разбор обозначений с автодетектом класса и системы;
 // без --db/--dsn работает над реестрами домена, с базой — над каталогом.
 func runParse(ctx context.Context, opts *options, pos []string, stdout, stderr io.Writer) int {

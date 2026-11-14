@@ -47,6 +47,7 @@ type usageCmdSpec struct {
 // (вне реестра: справка его читает). Полнота против commands — тестом.
 var usageCmds = map[string]usageCmdSpec{
 	"init":           {syn: domain.MsgCliUsageCmdInit, desc: domain.MsgCliUsageCmdInitDesc},
+	"migrate":        {syn: domain.MsgCliUsageCmdMigrate, desc: domain.MsgCliUsageCmdMigrateDesc},
 	"parse":          {syn: domain.MsgCliUsageCmdParse, desc: domain.MsgCliUsageCmdParseDesc},
 	"add":            {syn: domain.MsgCliUsageCmdAdd, desc: domain.MsgCliUsageCmdAddDesc},
 	"import":         {syn: domain.MsgCliUsageCmdImport, desc: domain.MsgCliUsageCmdImportDesc},

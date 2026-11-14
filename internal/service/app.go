@@ -14,13 +14,20 @@ import (
 // пул, логгер). EnsureCreated выполняет DDL и применяет сиды каталога на
 // пустую базу — только у команд записи (init/import/add); по умолчанию
 // выключено: чтение требует инициализированную базу
-// (database_not_initialized иначе).
+// (database_not_initialized иначе). Migrate открывает прежнюю версию
+// базы для явной миграции (App.Migrate/App.MigrationPlan до прочих
+// операций): без флага такое открытие отказывает schema_version_mismatch.
+// Взаимно независимо от EnsureCreated (план 09 §8): EnsureCreated
+// выполняется первым и существующую прежнюю версию всё равно отвергает —
+// Migrate осмыслен для базы без EnsureCreated (для свежей базы,
+// созданной сразу актуальной, миграция — no-op).
 type Config struct {
 	Dialect       string // "sqlite" | "postgres"
 	DSN           string // путь файла sqlite / DSN postgres
 	Pool          PoolConfig
 	Log           *slog.Logger
 	EnsureCreated bool
+	Migrate       bool
 }
 
 // PoolConfig — параметры пулов соединений.
@@ -84,7 +91,15 @@ func Open(ctx context.Context, cfg Config) (*App, error) {
 			return nil, err
 		}
 	}
-	if err := db.CheckSchema(ctx); err != nil {
+	if cfg.Migrate {
+		// Открытие для явной миграции: прежняя версия базы не отвергается
+		// (подъём выполнит App.Migrate/App.MigrationPlan по своим отказам),
+		// состояния меты вне диапазона поддержки — отказ как у CheckSchema.
+		if err := checkSchemaMigratable(ctx, db); err != nil {
+			db.Close()
+			return nil, err
+		}
+	} else if err := db.CheckSchema(ctx); err != nil {
 		db.Close()
 		return nil, err
 	}
@@ -129,6 +144,19 @@ func (a *App) Revisions(ctx context.Context) (catalogRev, dataRev int64, err err
 // ведут массовую запись и помимо импортёра.
 func (a *App) MaintainStats(ctx context.Context) error {
 	return a.db.MaintainStats(ctx)
+}
+
+// checkSchemaMigratable — проверка схемы для открытия в режиме миграции:
+// отказы вне диапазона поддержки теми же ошибками, что и Migrate; прежняя
+// версия в [SchemaBaseline, SchemaVersion) — не отказ, её поднимет
+// App.Migrate (без него сервисы над старой схемой не открываются —
+// обычное открытие отвергает её CheckSchema).
+func checkSchemaMigratable(ctx context.Context, db *storage.DB) error {
+	v, err := db.SchemaVersion(ctx)
+	if err != nil {
+		return err
+	}
+	return storage.ClassifySchemaVersion(v)
 }
 
 // seedIfEmpty применяет сиды каталога на пустую базу (kinds пуста) —

@@ -122,3 +122,11 @@ type (
 	ParameterStat      = service.ParameterStat
 	ParameterValueFreq = service.ParameterValueFreq
 )
+
+// Миграции схемы (docs/plan/09-schema-migrations.md).
+
+type (
+	MigrateReport = service.MigrateReport
+	MigrationPlan = service.MigrationPlan
+	MigrationInfo = service.MigrationInfo
+)

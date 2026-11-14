@@ -34,14 +34,18 @@ import (
 
 // Config — конфигурация открытия приложения (план 04 §1): хранилище
 // (Dialect/DSN/Pool), журнал, EnsureCreated (DDL и сиды каталога на пустую
-// базу) и опции REST-транспорта Handler(): DisableSuggest (не монтировать
-// GET /suggest) и Metrics (хук счётчиков сайта).
+// базу), Migrate (открытие прежней версии базы для явной миграции —
+// app.Migrate до прочих операций; независимо от EnsureCreated: для свежей
+// базы миграция — no-op; план 09) и опции REST-транспорта Handler():
+// DisableSuggest (не монтировать GET /suggest) и Metrics (хук счётчиков
+// сайта).
 type Config struct {
 	Dialect        string // "sqlite" | "postgres"
 	DSN            string // путь файла sqlite / DSN postgres
 	Pool           PoolConfig
 	Log            *slog.Logger
 	EnsureCreated  bool
+	Migrate        bool
 	DisableSuggest bool
 	Metrics        Metrics
 }
@@ -74,6 +78,7 @@ func Open(ctx context.Context, cfg Config) (*App, error) {
 		Pool:          cfg.Pool,
 		Log:           cfg.Log,
 		EnsureCreated: cfg.EnsureCreated,
+		Migrate:       cfg.Migrate,
 	})
 	if err != nil {
 		return nil, err
@@ -114,3 +119,15 @@ func (a *App) Stats(ctx context.Context) (Stats, error) { return a.svc.Stats(ctx
 // индексы вариантных параметрических фильтров выбираются планами по
 // актуальной статистике.
 func (a *App) MaintainStats(ctx context.Context) error { return a.svc.MaintainStats(ctx) }
+
+// Migrate доводит схему базы до версии модуля (план 09): шаги применяются
+// каждая одной транзакцией, повторный запуск на актуальной базе — отчёт
+// «без изменений». Точка входа деплоя сайта: Open с Config.Migrate
+// открывает прежнюю версию базы, этот метод поднимает её до модуля.
+func (a *App) Migrate(ctx context.Context) (MigrateReport, error) { return a.svc.Migrate(ctx) }
+
+// MigrationPlan возвращает план миграции: текущая версия схемы базы
+// и неприменённые шаги (без записи — контроль перед применением).
+func (a *App) MigrationPlan(ctx context.Context) (MigrationPlan, error) {
+	return a.svc.MigrationPlan(ctx)
+}

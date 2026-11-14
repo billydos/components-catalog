@@ -315,6 +315,8 @@ var (
 var commands = map[string]*command{
 	"init": {use: domain.MsgCliUseInit,
 		flags: dbFlags, minArgs: 0, maxArgs: 0, run: runInit},
+	"migrate": {use: domain.MsgCliUseMigrate,
+		flags: append([]flagSpec{dryRunFlag}, dbFlags...), minArgs: 0, maxArgs: 0, run: runMigrate},
 	"parse": {use: domain.MsgCliUseParse,
 		flags: append([]flagSpec{kindFlag, systemFlag}, dbFlags...), minArgs: 1, maxArgs: -1, run: runParse},
 	"add": {use: domain.MsgCliUseAdd,
@@ -391,17 +393,28 @@ func (o *options) hasDB() bool { return o.db != "" || o.dsn != "" || o.dialect !
 // (создание схемы и сиды на пустую базу), команды чтения требуют
 // инициализированную базу.
 func openApp(ctx context.Context, o *options, ensure bool) (*service.App, error) {
-	dialect, dsn, err := o.dsnOf()
+	cfg, err := appConfig(o, ensure, false)
 	if err != nil {
 		return nil, err
 	}
+	return service.Open(ctx, cfg)
+}
+
+// appConfig собирает конфигурацию приложения из опций подключения:
+// разбор --dsn/--db/--dialect и проверка кода диалекта (общая точка
+// для всех команд).
+func appConfig(o *options, ensureCreated, migrate bool) (service.Config, error) {
+	dialect, dsn, err := o.dsnOf()
+	if err != nil {
+		return service.Config{}, err
+	}
 	if dialect != "sqlite" && dialect != "postgres" {
-		return nil, domain.NewErrorf(domain.CodeValidationFailed,
+		return service.Config{}, domain.NewErrorf(domain.CodeValidationFailed,
 			domain.MsgCliDialectUnknown, dialect)
 	}
-	return service.Open(ctx, service.Config{
-		Dialect: dialect, DSN: dsn, EnsureCreated: ensure,
-	})
+	return service.Config{
+		Dialect: dialect, DSN: dsn, EnsureCreated: ensureCreated, Migrate: migrate,
+	}, nil
 }
 
 // kindFlagOf — значение --kind (пустое — не задано).
