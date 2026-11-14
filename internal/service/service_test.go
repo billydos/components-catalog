@@ -43,6 +43,33 @@ func TestIntegrationSQLiteMemory(t *testing.T) { runSuite(t, memoryConfig) }
 func TestIntegrationSQLiteFile(t *testing.T)   { runSuite(t, fileConfig) }
 func TestIntegrationPostgres(t *testing.T)     { runSuite(t, postgresConfig) }
 
+// migratedPostgresConfig — фабрика интеграционного набора против базы,
+// поднятой миграцией фикстуры, а не EnsureCreated (план 09 §9): схема
+// версии SchemaBaseline замороженным срезом DDL (CreateFixture) →
+// Migrate; сиды применяет штатное открытие набора (EnsureCreated на
+// пустом каталоге). Инвариант «мигрированная база неотличима для
+// сервисов» прогоняется полным набором, а не точечной эквивалентностью
+// схемы.
+func migratedPostgresConfig(t *testing.T) Config {
+	t.Helper()
+	dsn := testutil.PostgresDSN(t)
+	testutil.DropAllTables(t, dsn)
+	db, err := storage.Open(context.Background(), storage.Config{Dialect: "postgres", DSN: dsn})
+	if err != nil {
+		t.Fatalf("open: %v", err)
+	}
+	defer db.Close() //nolint:errcheck — подключение только подъёма базы
+	if err := db.CreateFixture(context.Background(), storage.SchemaBaseline); err != nil {
+		t.Fatalf("CreateFixture: %v", err)
+	}
+	if _, err := db.Migrate(context.Background()); err != nil {
+		t.Fatalf("Migrate: %v", err)
+	}
+	return Config{Dialect: "postgres", DSN: dsn, EnsureCreated: true}
+}
+
+func TestIntegrationPostgresMigrated(t *testing.T) { runSuite(t, migratedPostgresConfig) }
+
 // Помощники построения данных.
 
 func ptr[T any](v T) *T { return &v }

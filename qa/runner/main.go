@@ -225,6 +225,13 @@ func runLegs(ctx context.Context, r *report, ctl, srv, root, tmp string, opts ru
 		if cancelled(ctx, r) {
 			return
 		}
+		// Фаза migrate идёт первой: нога postgres после сброса получает
+		// базу-фикстуру, поверх которой работают сценарии cli/rest
+		// (sqlite-нога гоняет фазу на отдельной копии фикстуры).
+		migrateSuite(ctx, r, ctl, srv, root, tmp, l, opts.resetPostgres)
+		if cancelled(ctx, r) {
+			return
+		}
 		cliSuite(ctx, r, ctl, root, tmp, l)
 		if cancelled(ctx, r) {
 			return

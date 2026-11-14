@@ -22,37 +22,47 @@ import (
 // (порт выбирает сам хост при --addr=127.0.0.1:0).
 var restsrvReadyRE = regexp.MustCompile(`restsrv: ready http://(\S+)/api/v1`)
 
-// restSuite прогоняет сценарии REST на ноге (база — та же, что у CLI-ноги).
-func restSuite(ctx context.Context, r *report, srv, tmp string, l leg) {
-	r.section("phase: rest " + l.name)
+// restSrv — поднятый хост /api/v1: фактический адрес и остановка.
+type restSrv struct {
+	addr    string
+	logPath string
+	stop    func()
+	stopped chan struct{}
+}
 
-	logPath := filepath.Join(tmp, "restsrv-"+l.name+".log")
+// startAPISrv поднимает qa/restsrv на свободном порту против заданной
+// базы (dbArgs ноги или отдельная база фазы) и ждёт строку готовности
+// с фактическим адресом. Отказ — проверка rest/addr-ветки вызывающего.
+func startAPISrv(ctx context.Context, r *report, srv, tmp, logName string, dbArgs []string) (*restSrv, bool) {
+	logPath := filepath.Join(tmp, logName)
 	logFile, err := os.Create(logPath)
 	if err != nil {
 		r.check("rest/ready", "restsrv: лог хоста", false, err.Error())
-		return
+		return nil, false
 	}
-	defer logFile.Close() //nolint:errcheck — лог прогона живёт до конца ноги
-
-	srvCmd := exec.Command(srv, append([]string{"--addr=127.0.0.1:0"}, l.dbArgs...)...)
+	srvCmd := exec.Command(srv, append([]string{"--addr=127.0.0.1:0"}, dbArgs...)...)
 	srvCmd.Stderr = logFile
 	srvCmd.WaitDelay = waitDelay
 	if err := srvCmd.Start(); err != nil {
+		logFile.Close() //nolint:errcheck — уже отказ запуска
 		r.check("rest/ready", "restsrv: запуск хоста", false, err.Error())
-		return
+		return nil, false
 	}
 	stopped := make(chan struct{})
 	go func() { _ = srvCmd.Wait(); close(stopped) }()
-	defer func() {
-		_ = srvCmd.Process.Kill()
-		<-stopped
-	}()
+	h := &restSrv{
+		logPath: logPath,
+		stopped: stopped,
+		stop: func() {
+			_ = srvCmd.Process.Kill()
+			logFile.Close() //nolint:errcheck — лог прочитан до остановки
+		},
+	}
 
 	// Порт выбирает сам restsrv и печатает фактический адрес строкой
 	// готовности — порт никем не освобождается до слушания. Успешный
 	// разбор выходит сразу, ранний выход — отмена прогона или падение
 	// хоста (маскировку DSN в деталях выполняет граница отчёта — mask.go).
-	addr := ""
 	readyLine := false
 	deadline := time.Now().Add(20 * time.Second)
 	for !readyLine && time.Now().Before(deadline) {
@@ -62,7 +72,7 @@ func restSuite(ctx context.Context, r *report, srv, tmp string, l leg) {
 		case <-time.After(100 * time.Millisecond):
 			if data, err := os.ReadFile(logPath); err == nil {
 				if m := restsrvReadyRE.FindStringSubmatch(string(data)); m != nil {
-					addr, readyLine = m[1], true
+					h.addr, readyLine = m[1], true
 				}
 			}
 			continue
@@ -71,21 +81,43 @@ func restSuite(ctx context.Context, r *report, srv, tmp string, l leg) {
 	}
 	if !r.check("rest/addr", "restsrv: строка готовности — фактический адрес",
 		readyLine, tailFile(logPath, 15)...) {
+		h.stop()
+		<-h.stopped
+		return nil, false
+	}
+	return h, true
+}
+
+// shutdown останавливает хост и ждёт выхода процесса: единая точка —
+// ждать stopped до Kill нельзя (канал закрывается только после смерти
+// процесса).
+func (h *restSrv) shutdown() {
+	h.stop()
+	<-h.stopped
+}
+
+// restSuite прогоняет сценарии REST на ноге (база — та же, что у CLI-ноги).
+func restSuite(ctx context.Context, r *report, srv, tmp string, l leg) {
+	r.section("phase: rest " + l.name)
+
+	h, ok := startAPISrv(ctx, r, srv, tmp, "restsrv-"+l.name+".log", l.dbArgs)
+	if !ok {
 		return
 	}
+	defer h.shutdown()
 
 	client := &http.Client{Timeout: requestTimeout}
-	cl := restClient{base: "http://" + addr + "/api/v1", client: client}
+	cl := restClient{base: "http://" + h.addr + "/api/v1", client: client}
 
 	// Готовность: /kinds отвечает 200 (до 20 с — холодный старт postgres);
 	// успешный запрос выходит сразу, ранний выход — отмена прогона или
 	// падение хоста.
 	ready := false
-	deadline = time.Now().Add(20 * time.Second)
+	deadline := time.Now().Add(20 * time.Second)
 	for !ready && time.Now().Before(deadline) {
 		select {
 		case <-ctx.Done():
-		case <-stopped:
+		case <-h.stopped:
 		case <-time.After(100 * time.Millisecond):
 			if status, _, _ := cl.do(ctx, http.MethodGet, "/kinds", "", nil); status == http.StatusOK {
 				ready = true
@@ -94,7 +126,7 @@ func restSuite(ctx context.Context, r *report, srv, tmp string, l leg) {
 		}
 		break
 	}
-	if !r.check("rest/ready", "restsrv: готовность", ready, tailFile(logPath, 15)...) {
+	if !r.check("rest/ready", "restsrv: готовность", ready, tailFile(h.logPath, 15)...) {
 		return
 	}
 

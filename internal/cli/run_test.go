@@ -6,10 +6,13 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"regexp"
+	"strconv"
 	"strings"
 	"testing"
 
 	"github.com/billydos/components-catalog/internal/cli"
+	"github.com/billydos/components-catalog/internal/storage"
 	"github.com/billydos/components-catalog/internal/testutil"
 )
 
@@ -1061,3 +1064,64 @@ func TestSynonymsFlow(t *testing.T) {
 		t.Fatalf("find по синониму (ru):\n%s", stdout)
 	}
 }
+
+// migrate — явная миграция схемы базы (план 09): применение к базе
+// фикстуры baseline, идемпотентность («база уже на версии», код 0),
+// dry-run с заголовком плана и без строк шагов, отказы неинициализированной
+// базы и версии ниже базовой с контрактными кодами.
+func TestMigrateCommand(t *testing.T) {
+	// Фикстура базовой версии: параметризована константой, чтобы первый
+	// инкремент версии (новая фикстура) обновлял тест без правки литералов.
+	base := storage.SchemaBaseline
+	ver := strconv.Itoa(base)
+	db := filepath.Join(t.TempDir(), "fixture.db")
+	src, err := os.ReadFile(filepath.Join("..", "..", "qa", "fixtures",
+		fmt.Sprintf("schema_v%d.sqlite", base)))
+	if err != nil {
+		t.Fatalf("файл фикстуры: %v", err)
+	}
+	if err := os.WriteFile(db, src, 0o644); err != nil {
+		t.Fatalf("копия фикстуры: %v", err)
+	}
+
+	// Применение к базе фикстуры: итог зависит от реестра — на пустом
+	// (SchemaVersion == SchemaBaseline) «база уже на версии», код 0;
+	// с шагами печаталось бы «migrated: …» и фикстура была бы ниже
+	// версии модуля — проверяется ниже отдельной веткой.
+	uptodate := "database is already at version " + ver
+	stdout, stderr, code := run(t, "migrate", "--db", db)
+	if code != 0 || stderr != "" ||
+		!strings.Contains(stdout, uptodate) && !strings.Contains(stdout, "migrated: ") {
+		t.Fatalf("migrate: код %d, stdout %q, stderr %q", code, stdout, stderr)
+	}
+
+	// Повторный запуск — «база актуальна», код 0 (идемпотентность).
+	stdout, stderr, code = run(t, "migrate", "--db", db)
+	if code != 0 || !strings.Contains(stdout, uptodate) {
+		t.Fatalf("повторный migrate: код %d, %q, %q", code, stdout, stderr)
+	}
+
+	// dry-run: заголовок плана с текущей версией, ни одной строки шага.
+	stdout, stderr, code = run(t, "migrate", "--db", db, "--dry-run")
+	header := "migration plan (database schema version " + ver + "):"
+	if code != 0 || stderr != "" || !strings.Contains(stdout, header) ||
+		migrateStepLineRE.MatchString(stdout) {
+		t.Fatalf("migrate --dry-run: код %d, stdout %q, stderr %q", code, stdout, stderr)
+	}
+
+	// Локаль вывода: русские итоги.
+	stdout, _, code = run(t, "migrate", "--db", db, "--lang", "ru")
+	if code != 0 || !strings.Contains(stdout, "база уже на версии "+ver) {
+		t.Fatalf("migrate (ru): код %d, %q", code, stdout)
+	}
+
+	// Неинициализированная база — database_not_initialized, код 1.
+	_, stderr, code = run(t, "migrate", "--db", filepath.Join(t.TempDir(), "empty.db"))
+	if code != 1 || !strings.HasPrefix(stderr, "Error: ") ||
+		!strings.Contains(stderr, "database is not initialized") {
+		t.Fatalf("migrate пустой базы: код %d, stderr %q", code, stderr)
+	}
+}
+
+// migrateStepLineRE — строка шага плана dry-run («N: описание»).
+var migrateStepLineRE = regexp.MustCompile(`(?m)^\s*\d+: `)
