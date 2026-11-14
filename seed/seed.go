@@ -66,7 +66,7 @@ func units() []catalog.UnitDef {
 		"ohm", "mA_per_V", "uS", "pF", "uH", "ps", "ns", "us", "ms", "s",
 		"degC", "degC_per_W", "ppm_per_degC", "pct_per_degC",
 		"g", "mm", "nm", "mcd",
-		"deg", "h", "mN_m", "yr",
+		"deg", "h", "mN_m", "yr", "V_per_us",
 	}
 	out := make([]catalog.UnitDef, 0, len(codes))
 	for _, c := range codes {
@@ -84,6 +84,7 @@ func categories() []catalog.CategoryDef {
 	codes := []string{
 		"general_purpose", "power", "high_voltage", "switching", "pulse",
 		"rf", "audio", "lownoise", "fast", "precision", "composite",
+		"emi_suppression",
 	}
 	out := make([]catalog.CategoryDef, 0, len(codes))
 	for _, c := range codes {
@@ -187,6 +188,7 @@ func parameters() []catalog.ParameterDef {
 	trDiReRl := []domain.Kind{domain.KindTransistor, domain.KindDiode, domain.KindResistor, domain.KindRelay}
 	reCa := []domain.Kind{domain.KindResistor, domain.KindCapacitor}
 	reCaRl := []domain.Kind{domain.KindResistor, domain.KindCapacitor, domain.KindRelay}
+	trDiReCa := []domain.Kind{domain.KindTransistor, domain.KindDiode, domain.KindResistor, domain.KindCapacitor}
 	ruleDims := catalog.RuleCapDimensionsForm
 
 	return []catalog.ParameterDef{
@@ -373,7 +375,9 @@ func parameters() []catalog.ParameterDef {
 		{Code: "Vnoise", Group: "electrical",
 			ValueType: catalog.ValueAtMost, SortOrder: 380, Active: true, Kinds: re},
 		{Code: "Rins", Group: "electrical", Unit: "ohm",
-			ValueType: catalog.ValueAtLeast, SortOrder: 390, Active: true, Kinds: reCaRl},
+			ValueType: catalog.ValueAtLeast, SortOrder: 390, Active: true, Kinds: reCaRl,
+			// Опц. Vnom — нормирование по классам номинального напряжения (WIMA).
+			ConditionSets: []catalog.ConditionSet{set(1, opt("Vnom"))}},
 
 		// Конденсаторы — характеристики (§6.8).
 		{Code: "Cnom", Group: "electrical", Unit: "pF",
@@ -399,7 +403,11 @@ func parameters() []catalog.ParameterDef {
 			ValueType: catalog.ValueExact, SortOrder: 420, Active: true, Kinds: []domain.Kind{domain.KindCapacitor}},
 		{Code: "DF", Group: "electrical", Unit: "pct",
 			ValueType: catalog.ValueLimits, SortOrder: 430, Active: true, Kinds: []domain.Kind{domain.KindCapacitor},
-			ConditionSets: []catalog.ConditionSet{set(1, opt("temp"))}},
+			// Набор 2 — нормирование на заданной частоте (WIMA: 1/10/100 кГц).
+			ConditionSets: []catalog.ConditionSet{
+				set(1, opt("temp")),
+				set(2, req("freq"), opt("temp")),
+			}},
 		{Code: "Ileak", Group: "electrical", Unit: "uA",
 			ValueType: catalog.ValueAtMost, SortOrder: 440, Active: true, Kinds: []domain.Kind{domain.KindCapacitor},
 			ConditionSets: []catalog.ConditionSet{set(1, req("Vnom"), opt("temp"))}},
@@ -426,7 +434,9 @@ func parameters() []catalog.ParameterDef {
 			ValueType: catalog.ValueAtMost, SortOrder: 720, Active: true, Kinds: []domain.Kind{domain.KindCapacitor},
 			ConditionSets: []catalog.ConditionSet{set(1, req("freq"))}},
 		{Code: "TauIns", Group: "electrical", Unit: "s",
-			ValueType: catalog.ValueAtLeast, SortOrder: 730, Active: true, Kinds: []domain.Kind{domain.KindCapacitor}},
+			ValueType: catalog.ValueAtLeast, SortOrder: 730, Active: true, Kinds: []domain.Kind{domain.KindCapacitor},
+			// Опц. Vnom — нормирование по классам напряжения (WIMA).
+			ConditionSets: []catalog.ConditionSet{set(1, opt("Vnom"))}},
 		{Code: "Vpeak", Group: "electrical", Unit: "V",
 			ValueType: catalog.ValueExact, SortOrder: 740, Active: true, Kinds: []domain.Kind{domain.KindCapacitor}},
 		{Code: "fPulse", Group: "electrical", Unit: "Hz",
@@ -502,6 +512,13 @@ func parameters() []catalog.ParameterDef {
 		{Code: "Zratio", Group: "electrical",
 			ValueType: catalog.ValueAtMost, SortOrder: 725, Active: true, Kinds: []domain.Kind{domain.KindCapacitor},
 			ConditionSets: []catalog.ConditionSet{set(1, req("temp"), opt("freq"))}},
+
+		// Конденсаторы — скорость нарастания напряжения в импульсном
+		// режиме плёночных по каталогу WIMA Main Catalogue 2026
+		// (work/catalog-extension/part3): допустимое dV/dt, вариантная
+		// (зависит от Vnom и Cnom исполнения).
+		{Code: "dVdt", Group: "electrical", Unit: "V_per_us",
+			ValueType: catalog.ValueAtMost, SortOrder: 765, Active: true, Kinds: []domain.Kind{domain.KindCapacitor}},
 
 		// Полевые транзисторы — электрические параметры (§6.1): собственные
 		// коды, величины биполярных не дублируются — пересечений с разделом
@@ -604,7 +621,7 @@ func parameters() []catalog.ParameterDef {
 		{Code: "TempJunctionMax", Group: "limiting", Unit: "degC",
 			ValueType: catalog.ValueExact, SortOrder: 170, Active: true, Kinds: trDiRe},
 		{Code: "Rth", Group: "limiting", Unit: "degC_per_W",
-			ValueType: catalog.ValueExact, SortOrder: 180, Active: true, Kinds: trDiRe},
+			ValueType: catalog.ValueExact, SortOrder: 180, Active: true, Kinds: trDiReCa},
 
 		// Диоды — предельные эксплуатационные данные (§6.4).
 		{Code: "VrMax", Group: "limiting", Unit: "V",
@@ -811,5 +828,10 @@ func attributes() []catalog.AttributeDef {
 			// типа — уровни записи/исполнения; входит в ключ
 			// уникальности ячейки cap_variant_matrix.
 			Kinds: []domain.Kind{domain.KindCapacitor, domain.KindResistor}},
+		{Code: "orderCode", Type: catalog.AttrText, SortOrder: 230, Active: true,
+			// Заказной код производителя для исполнения (WIMA; уровень
+			// исполнения — 03 §7/§10). Отображение и экспорт; поиск по
+			// атрибутам — вне текущего релиза.
+			Kinds: []domain.Kind{domain.KindCapacitor}},
 	}
 }

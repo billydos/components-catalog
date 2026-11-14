@@ -19,8 +19,8 @@ func TestSeedAppliesCleanly(t *testing.T) {
 		}
 		t.Fatal("стартовый каталог не проходит метасхему")
 	}
-	if len(snap.Parameters) != 154 || len(snap.Attributes) != 21 ||
-		len(snap.Units) != 34 || len(snap.Conditions) != 20 {
+	if len(snap.Parameters) != 155 || len(snap.Attributes) != 22 ||
+		len(snap.Units) != 35 || len(snap.Conditions) != 20 {
 		t.Fatalf("состав каталога: параметры %d, атрибуты %d, единицы %d, условия %d",
 			len(snap.Parameters), len(snap.Attributes), len(snap.Units), len(snap.Conditions))
 	}
@@ -173,6 +173,12 @@ func TestSeedSpotChecks(t *testing.T) {
 	if df := check("DF"); df.ValueType != catalog.ValueLimits {
 		t.Errorf("DF: тип %s — ожидался limits", string(df.ValueType))
 	}
+	if df := check("DF"); len(df.ConditionSets) != 2 ||
+		len(df.ConditionSets[1].Items) != 2 ||
+		df.ConditionSets[1].Items[0].Condition != "freq" || df.ConditionSets[1].Items[0].Mode != catalog.ModeRequired ||
+		df.ConditionSets[1].Items[1].Condition != "temp" || df.ConditionSets[1].Items[1].Mode != catalog.ModeOptional {
+		t.Errorf("DF: наборы %+v — ожидался второй с freq и опц. temp", df.ConditionSets)
+	}
 	if tcr := check("TCR"); tcr.ValueType != catalog.ValueLimits || !tcr.AllowNegative {
 		t.Errorf("TCR: тип %s, отрицательные %v — ожидался limits с allow_negative",
 			string(tcr.ValueType), tcr.AllowNegative)
@@ -242,6 +248,27 @@ func TestSeedSpotChecks(t *testing.T) {
 		zr.ConditionSets[0].Items[1].Condition != "freq" || zr.ConditionSets[0].Items[1].Mode != catalog.ModeOptional {
 		t.Errorf("Zratio: единица %q, тип %s, наборы %+v — ожидался безразмерный at_most с temp+опц. freq",
 			zr.Unit, string(zr.ValueType), zr.ConditionSets)
+	}
+	// Импульсный режим плёночных (part3): dVdt — В/мкс, без условий;
+	// Rins/TauIns — опц. Vnom; Rth — применимость расширена на конденсаторы.
+	dv := check("dVdt")
+	if dv.Unit != "V_per_us" || dv.ValueType != catalog.ValueAtMost || len(dv.ConditionSets) != 0 ||
+		!dv.AppliesTo(domain.KindCapacitor) || dv.AppliesTo(domain.KindResistor) {
+		t.Errorf("dVdt: единица %q, тип %s, наборы %+v, применимость %v",
+			dv.Unit, string(dv.ValueType), dv.ConditionSets, dv.Kinds)
+	}
+	for _, code := range []string{"Rins", "TauIns"} {
+		p := check(code)
+		if len(p.ConditionSets) != 1 || len(p.ConditionSets[0].Items) != 1 ||
+			p.ConditionSets[0].Items[0].Condition != "Vnom" ||
+			p.ConditionSets[0].Items[0].Mode != catalog.ModeOptional {
+			t.Errorf("%s: набор условий %+v — ожидался один с опциональным Vnom", code, p.ConditionSets)
+		}
+	}
+	rth := check("Rth")
+	if !rth.AppliesTo(domain.KindCapacitor) || !rth.AppliesTo(domain.KindTransistor) ||
+		rth.AppliesTo(domain.KindRelay) || rth.Group != "limiting" {
+		t.Errorf("Rth: группа %q, применимость %v", rth.Group, rth.Kinds)
 	}
 	pulse := check("IcPulseMax")
 	if len(pulse.ConditionSets) != 1 || len(pulse.ConditionSets[0].Items) != 1 ||

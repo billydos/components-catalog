@@ -1,0 +1,77 @@
+// catalog-extension.jsonc — расширение каталога components-catalog (партия 3:
+// WIMA Main Catalogue 2026). Встроено в стартовый сид (seed/seed.go); файл
+// сохранён как исходник расширения. Новые коды отсутствуют в сидах
+// (class-keys.md / fill-format.md); сид-коды DF/Rins/TauIns/Rth переопределены
+// целиком (механизм upsert секции catalog), их дублирование новыми кодами запрещено.
+{
+  "catalog": {
+    // Единицы
+    "units": [
+      // скорость нарастания напряжения dV/dt (В/мкс) — для импульсных характеристик плёночных конденсаторов WIMA
+      { "code": "V_per_us" }
+    ],
+    // Категории (поле category)
+    "categories": [
+      // помехоподавляющие (RFI/EMI) конденсаторы классов X1/X2/Y2
+      { "code": "emi_suppression" }
+    ],
+    // Параметры
+    "parameters": [
+      {
+        // переопределение сида: добавлен набор условий с частотой
+        // (тангенс потерь WIMA нормируется на 1/10/100 кГц)
+        "code": "DF", "group": "electrical", "unit": "pct", "value_type": "limits",
+        "kinds": ["capacitor"],
+        "condition_sets": [
+          { "items": [ { "condition": "temp", "mode": "optional" } ] },
+          { "items": [ { "condition": "freq", "mode": "required" }, { "condition": "temp", "mode": "optional" } ] }
+        ],
+        "sort_order": 430, "is_active": true
+      },
+      {
+        // переопределение сида: добавлен необязательный Vnom
+        // (сопротивление изоляции WIMA нормируется по классам номинального напряжения)
+        "code": "Rins", "group": "electrical", "unit": "ohm", "value_type": "at_least",
+        "kinds": ["capacitor", "relay", "resistor"],
+        "condition_sets": [
+          { "items": [ { "condition": "Vnom", "mode": "optional" } ] }
+        ],
+        "sort_order": 390, "is_active": true
+      },
+      {
+        // переопределение сида: добавлен необязательный Vnom
+        // (постоянная времени изоляции WIMA нормируется по классам напряжения)
+        "code": "TauIns", "group": "electrical", "unit": "s", "value_type": "at_least",
+        "kinds": ["capacitor"],
+        "condition_sets": [
+          { "items": [ { "condition": "Vnom", "mode": "optional" } ] }
+        ],
+        "sort_order": 730, "is_active": true
+      },
+      {
+        // переопределение сида: расширена применимость на конденсаторы
+        // (тепловое сопротивление DC-LINK/Snubber/GTO конденсаторов WIMA)
+        "code": "Rth", "group": "limiting", "unit": "degC_per_W", "value_type": "exact",
+        "kinds": ["capacitor", "diode", "resistor", "transistor"],
+        "sort_order": 180, "is_active": true
+      },
+      {
+        // новый параметр: максимальная скорость нарастания напряжения
+        // (max. pulse rise time V/µs, таблицы WIMA); значение на уровне исполнения (Vnom, Cnom);
+        // sort_order 765 — внутри импульсного семейства сида (fPulse 750 … endurancePulse 840)
+        "code": "dVdt", "group": "electrical", "unit": "V_per_us", "value_type": "at_most",
+        "kinds": ["capacitor"],
+        "sort_order": 765, "is_active": true
+      }
+    ],
+    // Атрибуты
+    "attributes": [
+      {
+        // заказной код производителя для исполнения (часть номера заказа WIMA);
+        // отображение и экспорт; полнотекстовый поиск по атрибутам — вне текущего релиза
+        "code": "orderCode", "type": "text", "kinds": ["capacitor"],
+        "sort_order": 230
+      }
+    ]
+  }
+}

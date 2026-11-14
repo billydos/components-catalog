@@ -774,7 +774,7 @@ func TestSearch(t *testing.T) {
 		"unknown subclass «bogus» (allowed: bjt, fet, ujt, avalanche, thyristor, triac, rectifier, zener, varicap, tunnel, gunn, generator, led, detector, signal, multiplier, magnetic, photo or a localized display name)")
 	status, body, eb = do(t, srv, http.MethodGet, apiPrefix+"/components?category=bogus", "")
 	wantError(t, status, eb, http.StatusBadRequest, "validation_failed",
-		"unknown category «bogus» (allowed: audio, composite, fast, general_purpose, high_voltage, lownoise, power, precision, pulse, rf, switching)")
+		"unknown category «bogus» (allowed: audio, composite, emi_suppression, fast, general_purpose, high_voltage, lownoise, power, precision, pulse, rf, switching)")
 	_ = body
 
 	// вариантный параметрический фильтр — в пределах одного исполнения:

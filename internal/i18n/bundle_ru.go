@@ -95,6 +95,8 @@ var bundleRu = map[string]string{
 	"unit.mN_m.symbol":         "мН·м",
 	"unit.yr.name":             "год",
 	"unit.yr.symbol":           "г.",
+	"unit.V_per_us.name":       "вольт на микросекунду",
+	"unit.V_per_us.symbol":     "В/мкс",
 
 	// Материалы полупроводников (domain.Materials).
 	"material.ge":    "германий",
@@ -143,6 +145,7 @@ var bundleRu = map[string]string{
 	"category.fast":            "быстрый",
 	"category.precision":       "прецизионный",
 	"category.composite":       "составной (Дарлингтон)",
+	"category.emi_suppression": "помехоподавляющий",
 
 	// Типы источников данных записи (словарь source_types — данные
 	// каталога, план 03 §13; расширения без записи в бандле отображаются
@@ -290,6 +293,10 @@ var bundleRu = map[string]string{
 	"param.EsrShelf":   "эквивалентное последовательное сопротивление после испытания на сохраняемость, % от исходного",
 	"param.Zratio":     "отношение модулей полного сопротивления при низкой температуре к значению при +20 °C",
 
+	// Параметры: конденсаторы — импульсный режим плёночных (WIMA Main
+	// Catalogue 2026, work/catalog-extension/part3).
+	"param.dVdt": "максимальная скорость нарастания напряжения (dV/dt)",
+
 	// Параметры: реле — electrical.
 	"param.VcoilNom":      "номинальное напряжение обмотки",
 	"param.Rcoil":         "сопротивление обмотки",
@@ -393,6 +400,7 @@ var bundleRu = map[string]string{
 	"attr.sections":          "число секций",
 	"attr.shaftEnd":          "вид конца вала",
 	"attr.caseVariant":       "вариант исполнения (конструктивного, по ТУ)",
+	"attr.orderCode":         "заказной код производителя (исполнение)",
 
 	// Именованные правила (validation_rules).
 	"rule.year_range":             "годы выпуска: yearFrom < yearTo; диапазон 1949–2100",

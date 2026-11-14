@@ -2681,7 +2681,7 @@ func suiteClassificationFields(t *testing.T, factory configFactory) {
 	bad = []domain.Field{domain.TextField("category", "bogus")}
 	_, err = svc.Upsert(ctx, DeviceInput{Name: "MJE340", System: domain.SystemOther, Kind: domain.KindTransistor, Fields: &bad})
 	wantDomainError(t, err, domain.CodeValidationFailed,
-		"unknown category «bogus» (allowed: audio, composite, fast, general_purpose, high_voltage, lownoise, power, precision, pulse, rf, switching)")
+		"unknown category «bogus» (allowed: audio, composite, emi_suppression, fast, general_purpose, high_voltage, lownoise, power, precision, pulse, rf, switching)")
 	bad = []domain.Field{domain.NumField("assembly", 2)}
 	_, err = svc.Upsert(ctx, DeviceInput{Name: "MJE340", System: domain.SystemOther, Kind: domain.KindTransistor, Fields: &bad})
 	wantDomainError(t, err, domain.CodeValidationFailed,

@@ -97,6 +97,8 @@ var bundleEn = map[string]string{
 	"unit.mN_m.symbol":         "mN·m",
 	"unit.yr.name":             "year",
 	"unit.yr.symbol":           "yr",
+	"unit.V_per_us.name":       "volt per microsecond",
+	"unit.V_per_us.symbol":     "V/µs",
 
 	// Материалы полупроводников (domain.Materials).
 	"material.ge":    "germanium",
@@ -145,6 +147,7 @@ var bundleEn = map[string]string{
 	"category.fast":            "fast",
 	"category.precision":       "precision",
 	"category.composite":       "composite (Darlington)",
+	"category.emi_suppression": "EMI suppression",
 
 	// Типы источников данных записи (словарь source_types — данные
 	// каталога, план 03 §13; расширения без записи в бандле отображаются
@@ -292,6 +295,10 @@ var bundleEn = map[string]string{
 	"param.EsrShelf":   "equivalent series resistance (ESR) after shelf-life test, % of initial",
 	"param.Zratio":     "impedance ratio at low temperature to +20 °C",
 
+	// Параметры: конденсаторы — импульсный режим плёночных (WIMA Main
+	// Catalogue 2026, work/catalog-extension/part3).
+	"param.dVdt": "maximum voltage slew rate (dV/dt)",
+
 	// Параметры: реле — electrical.
 	"param.VcoilNom":      "rated coil voltage",
 	"param.Rcoil":         "coil resistance (DC)",
@@ -395,6 +402,7 @@ var bundleEn = map[string]string{
 	"attr.sections":          "sections (gang count)",
 	"attr.shaftEnd":          "shaft end type",
 	"attr.caseVariant":       "case variant (construction, as per specification)",
+	"attr.orderCode":         "manufacturer order code (variant)",
 
 	// Именованные правила (validation_rules).
 	"rule.year_range":             "production years: yearFrom < yearTo; range 1949–2100",
