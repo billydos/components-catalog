@@ -19,13 +19,15 @@ import (
 type MsgID string
 
 const (
-	MsgSchemaVersionMismatch  MsgID = "schema_version_mismatch"
-	MsgDatabaseNotInitialized MsgID = "database_not_initialized"
-	MsgKindNotSupported       MsgID = "kind_not_supported"
-	MsgSubclassDictSync       MsgID = "subclass_dict_sync"
-	MsgKindAmbiguous          MsgID = "kind_ambiguous"
-	MsgKindAmbiguousMismatch  MsgID = "kind_ambiguous_mismatch"
-	MsgKindRequired           MsgID = "kind_required"
+	MsgSchemaVersionMismatch    MsgID = "schema_version_mismatch"
+	MsgSchemaVersionUnsupported MsgID = "schema_version_unsupported"
+	MsgSchemaMigrationFailed    MsgID = "schema_migration_failed"
+	MsgDatabaseNotInitialized   MsgID = "database_not_initialized"
+	MsgKindNotSupported         MsgID = "kind_not_supported"
+	MsgSubclassDictSync         MsgID = "subclass_dict_sync"
+	MsgKindAmbiguous            MsgID = "kind_ambiguous"
+	MsgKindAmbiguousMismatch    MsgID = "kind_ambiguous_mismatch"
+	MsgKindRequired             MsgID = "kind_required"
 
 	MsgEmptyDesignation MsgID = "empty_designation"
 
@@ -452,6 +454,10 @@ const (
 	MsgCliErrPrefix         MsgID = "cli_err_prefix"
 	MsgCliUnexpectedPrefix  MsgID = "cli_unexpected_prefix"
 	MsgCliDbInitialized     MsgID = "cli_db_initialized"
+	MsgCliMigrateDone       MsgID = "cli_migrate_done"
+	MsgCliMigrateUptodate   MsgID = "cli_migrate_uptodate"
+	MsgCliMigratePlan       MsgID = "cli_migrate_plan"
+	MsgCliMigrateStep       MsgID = "cli_migrate_step"
 	MsgCliOutcomeAdded      MsgID = "cli_outcome_added"
 	MsgCliOutcomeUpdated    MsgID = "cli_outcome_updated"
 	MsgCliOutcomeSkipped    MsgID = "cli_outcome_skipped"
@@ -505,6 +511,8 @@ const (
 	// Команды: синопсис и описание (list — с перечнем фильтров реестра).
 	MsgCliUsageCmdInit              MsgID = "cli_usage_cmd_init"
 	MsgCliUsageCmdInitDesc          MsgID = "cli_usage_cmd_init_desc"
+	MsgCliUsageCmdMigrate           MsgID = "cli_usage_cmd_migrate"
+	MsgCliUsageCmdMigrateDesc       MsgID = "cli_usage_cmd_migrate_desc"
 	MsgCliUsageCmdParse             MsgID = "cli_usage_cmd_parse"
 	MsgCliUsageCmdParseDesc         MsgID = "cli_usage_cmd_parse_desc"
 	MsgCliUsageCmdAdd               MsgID = "cli_usage_cmd_add"
@@ -554,6 +562,7 @@ const (
 	// числа аргументов): путь и позиционные аргументы, %[1]s — полный
 	// перечень флагов реестра команды («[--имя] …», генерируется).
 	MsgCliUseInit          MsgID = "cli_use_init"
+	MsgCliUseMigrate       MsgID = "cli_use_migrate"
 	MsgCliUseParse         MsgID = "cli_use_parse"
 	MsgCliUseAdd           MsgID = "cli_use_add"
 	MsgCliUseImport        MsgID = "cli_use_import"
@@ -619,13 +628,15 @@ const (
 
 // msgRegistry — реестр MsgID (полнота против каталога — тест).
 var msgRegistry = map[MsgID]struct{}{
-	MsgSchemaVersionMismatch:  {},
-	MsgDatabaseNotInitialized: {},
-	MsgKindNotSupported:       {},
-	MsgSubclassDictSync:       {},
-	MsgKindAmbiguous:          {},
-	MsgKindAmbiguousMismatch:  {},
-	MsgKindRequired:           {},
+	MsgSchemaVersionMismatch:    {},
+	MsgSchemaVersionUnsupported: {},
+	MsgSchemaMigrationFailed:    {},
+	MsgDatabaseNotInitialized:   {},
+	MsgKindNotSupported:         {},
+	MsgSubclassDictSync:         {},
+	MsgKindAmbiguous:            {},
+	MsgKindAmbiguousMismatch:    {},
+	MsgKindRequired:             {},
 
 	MsgEmptyDesignation: {},
 
@@ -1037,6 +1048,10 @@ var msgRegistry = map[MsgID]struct{}{
 	MsgCliErrPrefix:                   {},
 	MsgCliUnexpectedPrefix:            {},
 	MsgCliDbInitialized:               {},
+	MsgCliMigrateDone:                 {},
+	MsgCliMigrateUptodate:             {},
+	MsgCliMigratePlan:                 {},
+	MsgCliMigrateStep:                 {},
 	MsgCliOutcomeAdded:                {},
 	MsgCliOutcomeUpdated:              {},
 	MsgCliOutcomeSkipped:              {},
@@ -1082,6 +1097,8 @@ var msgRegistry = map[MsgID]struct{}{
 	MsgCliUsageFooter:                 {},
 	MsgCliUsageCmdInit:                {},
 	MsgCliUsageCmdInitDesc:            {},
+	MsgCliUsageCmdMigrate:             {},
+	MsgCliUsageCmdMigrateDesc:         {},
 	MsgCliUsageCmdParse:               {},
 	MsgCliUsageCmdParseDesc:           {},
 	MsgCliUsageCmdAdd:                 {},
@@ -1125,6 +1142,7 @@ var msgRegistry = map[MsgID]struct{}{
 	MsgCliUsageOptFormat:              {},
 	MsgCliUsageOptFormatDesc:          {},
 	MsgCliUseInit:                     {},
+	MsgCliUseMigrate:                  {},
 	MsgCliUseParse:                    {},
 	MsgCliUseAdd:                      {},
 	MsgCliUseImport:                   {},

@@ -86,7 +86,8 @@ func TestEnsureCreatedSQLiteFile(t *testing.T) {
 }
 
 // Несовпадение версии схемы — schema_version_mismatch с дословным текстом
-// (тихая порча данных исключена — D5).
+// (совет — выполнить migrate либо обновить модуль; тихая порча данных
+// исключена).
 func TestSchemaVersionMismatch(t *testing.T) {
 	// Пин фактической версии: документация плана (02-database.md §5)
 	// называет текущую версию — рассинхрон константы заметен тестом,
@@ -137,8 +138,8 @@ func TestSchemaVersionMismatch(t *testing.T) {
 	}
 
 	// EnsureCreated над базой прежней версии — отказ до DDL, база
-	// не мутируется (D5: отказ без изменений, а не после частичного
-	// применения новой схемы).
+	// не мутируется (подъём — только явный migrate, план 09): версия
+	// ниже базовой — schema_version_unsupported (пересоздание импортом).
 	tx, err = db2.Begin(ctx)
 	if err != nil {
 		t.Fatalf("begin: %v", err)
@@ -154,8 +155,8 @@ func TestSchemaVersionMismatch(t *testing.T) {
 		t.Fatalf("commit: %v", err)
 	}
 	if _, err := db2.EnsureCreated(ctx); err == nil {
-		t.Fatal("ожидался отказ schema_version_mismatch")
-	} else if de, ok := domain.AsError(err); !ok || de.Code != domain.CodeSchemaVersionMismatch {
+		t.Fatal("ожидался отказ схемы прежней версии")
+	} else if de, ok := domain.AsError(err); !ok || de.Code != domain.CodeSchemaVersionUnsupported {
 		t.Fatalf("код отказа: %v", err)
 	}
 	tx, err = db2.Begin(ctx)

@@ -80,6 +80,20 @@ type Dialect interface {
 	// SQLite — no-op: единственное соединение записи исполняет
 	// транзакции писателя целиком последовательно.
 	LockDesignations(ctx context.Context, tx *sql.Tx, kind string, designations []string) error
+
+	// PreMigrate готовит выделенное соединение записи к применению шагов
+	// миграции схемы (план 09 §4) и выполняется вне транзакций: sqlite
+	// отключает внешние ключи — PRAGMA foreign_keys внутри транзакции
+	// no-op, а шагам пересоздания таблиц нужен DROP родителя; postgres —
+	// no-op. RestoreMigrate восстанавливает режим соединения (sqlite:
+	// PRAGMA foreign_keys=ON) без обслуживания статистики — вызывается и
+	// на отказе цепочки: сбой шага не должен оставлять пул записи без
+	// внешних ключей до конца жизни DB. PostMigrate — восстановление
+	// (RestoreMigrate) и обслуживание статистики планировщика
+	// (MaintainStats) по образцу массовой записи.
+	PreMigrate(ctx context.Context, db *sql.DB) error
+	RestoreMigrate(ctx context.Context, db *sql.DB) error
+	PostMigrate(ctx context.Context, db *sql.DB) error
 }
 
 // pools — соединения хранилища: пул чтения и соединение записи.

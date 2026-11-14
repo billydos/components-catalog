@@ -13,55 +13,59 @@ type Code string
 // изменение кода — несовместимое изменение. Исходный перечень —
 // docs/plan/01-architecture.md §2.1, расширяется по мере этапов плана.
 const (
-	CodeAlreadyExists          Code = "already_exists"
-	CodeAttributeNotApplicable Code = "attribute_not_applicable"
-	CodeDatabaseNotInitialized Code = "database_not_initialized"
-	CodeDesignationMismatch    Code = "designation_mismatch"
-	CodeInvalidDesignation     Code = "invalid_designation"
-	CodeInvalidImportFile      Code = "invalid_import_file"
-	CodeInternal               Code = "internal_error"
-	CodeKindAmbiguous          Code = "kind_ambiguous"
-	CodeKindNotSupported       Code = "kind_not_supported"
-	CodeMethodNotAllowed       Code = "method_not_allowed"
-	CodeNotFound               Code = "not_found"
-	CodeParameterNotApplicable Code = "parameter_not_applicable"
-	CodePowerSuffix            Code = "power_suffix_not_supported"
-	CodeSchemaVersionMismatch  Code = "schema_version_mismatch"
-	CodeSeedFailed             Code = "seed_failed"
-	CodeStorageDDLFailed       Code = "storage_ddl_failed"
-	CodeStorageOpenFailed      Code = "storage_open_failed"
-	CodeUnknownAnalog          Code = "unknown_analog"
-	CodeUnknownAttribute       Code = "unknown_attribute"
-	CodeUnknownCondition       Code = "unknown_condition"
-	CodeUnknownParameter       Code = "unknown_parameter"
-	CodeUnknownSource          Code = "unknown_source"
-	CodeValidationFailed       Code = "validation_failed"
+	CodeAlreadyExists            Code = "already_exists"
+	CodeAttributeNotApplicable   Code = "attribute_not_applicable"
+	CodeDatabaseNotInitialized   Code = "database_not_initialized"
+	CodeDesignationMismatch      Code = "designation_mismatch"
+	CodeInvalidDesignation       Code = "invalid_designation"
+	CodeInvalidImportFile        Code = "invalid_import_file"
+	CodeInternal                 Code = "internal_error"
+	CodeKindAmbiguous            Code = "kind_ambiguous"
+	CodeKindNotSupported         Code = "kind_not_supported"
+	CodeMethodNotAllowed         Code = "method_not_allowed"
+	CodeNotFound                 Code = "not_found"
+	CodeParameterNotApplicable   Code = "parameter_not_applicable"
+	CodePowerSuffix              Code = "power_suffix_not_supported"
+	CodeSchemaMigrationFailed    Code = "schema_migration_failed"
+	CodeSchemaVersionMismatch    Code = "schema_version_mismatch"
+	CodeSchemaVersionUnsupported Code = "schema_version_unsupported"
+	CodeSeedFailed               Code = "seed_failed"
+	CodeStorageDDLFailed         Code = "storage_ddl_failed"
+	CodeStorageOpenFailed        Code = "storage_open_failed"
+	CodeUnknownAnalog            Code = "unknown_analog"
+	CodeUnknownAttribute         Code = "unknown_attribute"
+	CodeUnknownCondition         Code = "unknown_condition"
+	CodeUnknownParameter         Code = "unknown_parameter"
+	CodeUnknownSource            Code = "unknown_source"
+	CodeValidationFailed         Code = "validation_failed"
 )
 
 var codeRegistry = map[Code]struct{}{
-	CodeAlreadyExists:          {},
-	CodeAttributeNotApplicable: {},
-	CodeDatabaseNotInitialized: {},
-	CodeDesignationMismatch:    {},
-	CodeInvalidDesignation:     {},
-	CodeInvalidImportFile:      {},
-	CodeInternal:               {},
-	CodeKindAmbiguous:          {},
-	CodeKindNotSupported:       {},
-	CodeMethodNotAllowed:       {},
-	CodeNotFound:               {},
-	CodeParameterNotApplicable: {},
-	CodePowerSuffix:            {},
-	CodeSchemaVersionMismatch:  {},
-	CodeSeedFailed:             {},
-	CodeStorageDDLFailed:       {},
-	CodeStorageOpenFailed:      {},
-	CodeUnknownAnalog:          {},
-	CodeUnknownAttribute:       {},
-	CodeUnknownCondition:       {},
-	CodeUnknownParameter:       {},
-	CodeUnknownSource:          {},
-	CodeValidationFailed:       {},
+	CodeAlreadyExists:            {},
+	CodeAttributeNotApplicable:   {},
+	CodeDatabaseNotInitialized:   {},
+	CodeDesignationMismatch:      {},
+	CodeInvalidDesignation:       {},
+	CodeInvalidImportFile:        {},
+	CodeInternal:                 {},
+	CodeKindAmbiguous:            {},
+	CodeKindNotSupported:         {},
+	CodeMethodNotAllowed:         {},
+	CodeNotFound:                 {},
+	CodeParameterNotApplicable:   {},
+	CodePowerSuffix:              {},
+	CodeSchemaMigrationFailed:    {},
+	CodeSchemaVersionMismatch:    {},
+	CodeSchemaVersionUnsupported: {},
+	CodeSeedFailed:               {},
+	CodeStorageDDLFailed:         {},
+	CodeStorageOpenFailed:        {},
+	CodeUnknownAnalog:            {},
+	CodeUnknownAttribute:         {},
+	CodeUnknownCondition:         {},
+	CodeUnknownParameter:         {},
+	CodeUnknownSource:            {},
+	CodeValidationFailed:         {},
 }
 
 // IsKnown сообщает, зарегистрирован ли код в реестре.
@@ -114,9 +118,24 @@ func AsError(err error) (*Error, bool) {
 // (docs/plan/02-database.md §5, docs/plan/03-data-model.md §2.4).
 
 // SchemaVersionMismatch — версия схемы базы (dbVersion) не совпадает
-// с версией модуля (moduleVersion); продолжение работы запрещено.
+// с версией модуля (moduleVersion); продолжение работы запрещено:
+// база старее — выполнить migrate, новее — обновить модуль.
 func SchemaVersionMismatch(dbVersion, moduleVersion int) *Error {
 	return NewErrorf(CodeSchemaVersionMismatch, MsgSchemaVersionMismatch, dbVersion, moduleVersion)
+}
+
+// SchemaVersionUnsupported — версия схемы базы (dbVersion) ниже
+// минимально поддерживаемой (baseline): ни DDL, ни шагов миграции для
+// неё в модуле нет — база пересоздаётся импортом файлов наполнения.
+func SchemaVersionUnsupported(dbVersion, baseline int) *Error {
+	return NewErrorf(CodeSchemaVersionUnsupported, MsgSchemaVersionUnsupported, dbVersion, baseline)
+}
+
+// SchemaMigrationFailed — шаг миграции схемы from → to не выполнен
+// (detail — деталь отказа); база остаётся на версии from, повторный
+// запуск migrate продолжает цепочку с неё.
+func SchemaMigrationFailed(from, to int, detail string) *Error {
+	return NewErrorf(CodeSchemaMigrationFailed, MsgSchemaMigrationFailed, from, to, detail)
 }
 
 // DatabaseNotInitialized — в базе нет таблицы schema_meta: база не

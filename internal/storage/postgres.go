@@ -200,6 +200,22 @@ func (postgresDialect) LockDesignations(ctx context.Context, tx *sql.Tx, kind st
 	return nil
 }
 
+// PreMigrate — no-op: внешние ключи postgres следят за DDL сами, подготовка
+// соединения не нужна (план 09 §4). RestoreMigrate — no-op по той же
+// причине: восстанавливать нечего.
+func (postgresDialect) PreMigrate(ctx context.Context, db *sql.DB) error { return nil }
+
+// RestoreMigrate — no-op: режим соединения postgres миграцией не меняется.
+func (postgresDialect) RestoreMigrate(ctx context.Context, db *sql.DB) error { return nil }
+
+// PostMigrate — обслуживание статистики планировщика по образцу массовой
+// записи (план 09 §4): шаги могли пересоздавать таблицы и переносить
+// строки; autovacuum догонит, вызов снимает окно усталой статистики
+// сразу после миграции.
+func (d postgresDialect) PostMigrate(ctx context.Context, db *sql.DB) error {
+	return d.MaintainStats(ctx, db)
+}
+
 // appendDSNParam дописывает параметр к DSN в его форме: URL
 // (postgres://…) — в строку запроса через net/url (позиция после
 // фрагмента и специальные символы учтены разбором, а не конкатенацией),

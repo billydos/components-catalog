@@ -161,3 +161,29 @@ func (sqliteDialect) MaintainStats(ctx context.Context, db *sql.DB) error {
 func (sqliteDialect) LockDesignations(ctx context.Context, tx *sql.Tx, kind string, designations []string) error {
 	return nil
 }
+
+// PreMigrate отключает внешние ключи на выделенном соединении записи
+// (план 09 §4): PRAGMA foreign_keys — no-op внутри транзакции, поэтому
+// хук выполняется вне транзакций; шагам миграции, пересоздающим таблицы,
+// нужен DROP родителя при включённых FK-ссылках детей.
+func (sqliteDialect) PreMigrate(ctx context.Context, db *sql.DB) error {
+	_, err := db.ExecContext(ctx, `PRAGMA foreign_keys = OFF`)
+	return err
+}
+
+// RestoreMigrate возвращает внешние ключи — в том числе на отказе цепочки
+// шагов: пул записи не остаётся без FK-проверок и каскадов до конца
+// жизни DB.
+func (sqliteDialect) RestoreMigrate(ctx context.Context, db *sql.DB) error {
+	_, err := db.ExecContext(ctx, `PRAGMA foreign_keys = ON`)
+	return err
+}
+
+// PostMigrate — восстановление режима соединения и обслуживание статистики
+// планировщика (анализ после возможных пересозданий таблиц).
+func (d sqliteDialect) PostMigrate(ctx context.Context, db *sql.DB) error {
+	if err := d.RestoreMigrate(ctx, db); err != nil {
+		return err
+	}
+	return d.MaintainStats(ctx, db)
+}

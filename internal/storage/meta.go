@@ -99,8 +99,30 @@ func (d *DB) refuseForeignSchema(ctx context.Context) error {
 	if convErr != nil {
 		return nil
 	}
-	if v != SchemaVersion {
+	if v == SchemaVersion {
+		return nil
+	}
+	if err := ClassifySchemaVersion(v); err != nil {
+		return err
+	}
+	// База прежней версии поддерживаемого диапазона: DDL не выполняется,
+	// подъём — явный migrate (совет — в тексте mismatch).
+	return domain.SchemaVersionMismatch(v, SchemaVersion)
+}
+
+// ClassifySchemaVersion — отказ для версии схемы вне поддерживаемого
+// диапазона (план 09 §1): новее модуля — schema_version_mismatch
+// (обновить модуль), старее SchemaBaseline — schema_version_unsupported
+// (пересоздание импортом). Версия в [SchemaBaseline, SchemaVersion)
+// — nil: решение о ней за вызывающим (EnsureCreated/CheckSchema
+// отказывают mismatch с советом выполнить migrate, Migrate поднимает
+// базу шагами). Единая точка правила для storage и service.
+func ClassifySchemaVersion(v int) error {
+	switch {
+	case v > SchemaVersion:
 		return domain.SchemaVersionMismatch(v, SchemaVersion)
+	case v < SchemaBaseline:
+		return domain.SchemaVersionUnsupported(v, SchemaBaseline)
 	}
 	return nil
 }
@@ -108,7 +130,9 @@ func (d *DB) refuseForeignSchema(ctx context.Context) error {
 // CheckSchema читает schema_meta.schema_version и сверяет с версией модуля
 // (docs/plan/02-database.md §5.2): отсутствие таблицы — database_not_initialized
 // (не инициализирована, чужая или повреждённая база), несовпадение версии —
-// schema_version_mismatch; продолжение работы запрещено.
+// schema_version_mismatch (база старее — выполнить migrate, новее —
+// обновить модуль), версия ниже SchemaBaseline — schema_version_unsupported
+// (пересоздание импортом; план 09); продолжение работы запрещено.
 func (d *DB) CheckSchema(ctx context.Context) error {
 	var version string
 	err := d.queryRow(ctx, `SELECT value FROM schema_meta WHERE key = @key`,
@@ -126,10 +150,15 @@ func (d *DB) CheckSchema(ctx context.Context) error {
 	if convErr != nil {
 		return domain.DatabaseNotInitialized()
 	}
-	if v != SchemaVersion {
-		return domain.SchemaVersionMismatch(v, SchemaVersion)
+	if v == SchemaVersion {
+		return nil
 	}
-	return nil
+	if err := ClassifySchemaVersion(v); err != nil {
+		return err
+	}
+	// Прежняя версия в поддерживаемом диапазоне: подъём — явный migrate,
+	// работа без него запрещена (совет — в тексте mismatch).
+	return domain.SchemaVersionMismatch(v, SchemaVersion)
 }
 
 // isNoTableError распознаёт отсутствие таблицы в обоих диалектах:

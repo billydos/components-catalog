@@ -27,7 +27,9 @@ func TestKnownCodes(t *testing.T) {
 		"not_found",
 		"parameter_not_applicable",
 		"power_suffix_not_supported",
+		"schema_migration_failed",
 		"schema_version_mismatch",
+		"schema_version_unsupported",
 		"seed_failed",
 		"storage_ddl_failed",
 		"storage_open_failed",
@@ -70,7 +72,17 @@ func TestContractMessages(t *testing.T) {
 		{
 			"schema_version_mismatch",
 			domain.SchemaVersionMismatch(3, 7),
-			"database was created by another module version (3 ≠ 7); recreate it: delete the file/database and run import",
+			"database schema version 3 does not match module version 7; if the database is older, run migrate; if newer, update the module",
+		},
+		{
+			"schema_version_unsupported",
+			domain.SchemaVersionUnsupported(8, 15),
+			"database schema version 8 is below the minimum supported 15; recreate the database: delete the database and import fill files with the current module",
+		},
+		{
+			"schema_migration_failed",
+			domain.SchemaMigrationFailed(15, 16, "boom"),
+			"schema migration step 15 → 16 failed: boom; the database remains at version 15; fix the cause and run migrate again",
 		},
 		{
 			"database_not_initialized",
