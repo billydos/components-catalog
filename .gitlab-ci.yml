@@ -1,0 +1,288 @@
+# GitLab CI/CD для components-catalog.
+#
+# QA — на каждый пуш, merge request и тег: gofmt/vet (lint), go test (test),
+# кроссплатформенная сборка (crossbuild), проверка уязвимостей (vuln) и
+# кроссплатформенный QA-прогонщик `go run ./qa/runner` на SQLite и на
+# PostgreSQL с нагрузочной прикидкой 10⁴ (qa-sqlite/qa-postgres).
+#
+# Релиз — только на тег `vX.Y.Z`, указывающий на коммит в истории основной
+# ветки: verify-tag (тег на main, build, vet, gofmt, test) → build
+# (кросс-сборка `catalogctl` для 6 целей, архивы tar.gz/zip) → publish
+# (контрольные суммы и GitLab Release с заметками из CHANGELOG.md).
+#
+# Порт `.github/workflows/{ci,release}.yml`: те же проверки и те же
+# переменные QA (CATALOG_QA_SCALE, CATALOG_QA_DIALECT,
+# CATALOG_TEST_POSTGRES_DSN). Файлы GitHub Actions оставлены в репозитории
+# как справка.
+#
+# Отличия от GitHub-версии:
+# - нога QA на Windows не выполняется: в инсталляции только Linux-раннеры
+#   с docker-исполнителем, а Windows-раннера нет. Компиляцию под
+#   windows/darwin проверяет crossbuild (сборка, но не прогон сценариев) —
+#   чтобы зарегистрировать Windows-раннер и вернуть полную матрицу, нужно
+#   добавить джобу с `tags: [windows]` и shell-исполнителем;
+# - джоба skip-check не нужна: тег в GitLab — отдельный пайплайн, и QA на
+#   теге идёт полным контуром (строгий гейт релиза вместо поиска зелёного
+#   прогона того же SHA по API);
+# - релиз публикуется в GitLab Releases, а не в GitHub Release.
+
+workflow:
+  rules:
+    # каждая ветка и каждый MR получают ровно один пайплайн:
+    # при открытом MR ветку покрывает пайплайн MR
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    # пайплайн тега — только для релизных тегов vX.Y.Z (как `tags: ['v*']`
+    # в GitHub-версии); прочие теги пайплайна не создают
+    - if: $CI_COMMIT_TAG =~ /^v[0-9]+\.[0-9]+\.[0-9]+/
+    - if: $CI_COMMIT_BRANCH && $CI_OPEN_MERGE_REQUESTS
+      when: never
+    - if: $CI_COMMIT_BRANCH
+    - when: never
+
+stages:
+  - lint
+  - test
+  - vuln
+  - qa
+  - verify
+  - build
+  - publish
+
+variables:
+  GOFLAGS: "-mod=readonly"
+  # кэш модулей и сборки живёт внутри каталога проекта — только так его
+  # можно объявить в cache.paths
+  GOPATH: "$CI_PROJECT_DIR/.go"
+  GOCACHE: "$CI_PROJECT_DIR/.go/build"
+
+default:
+  # Debian-вариант образа: нужны bash (/dev/tcp в ожидании службы), git, apt
+  image: golang:1.26
+  interruptible: true
+  cache:
+    key:
+      files:
+        - go.sum
+    paths:
+      - .go/pkg/mod/
+      - .go/bin/
+      - .go/build/
+
+# --- QA -------------------------------------------------------------------
+
+lint:
+  stage: lint
+  script:
+    - |
+      fmt="$(gofmt -l .)"
+      if [ -n "$fmt" ]; then
+        echo "gofmt требует правки в файлах:"
+        echo "$fmt"
+        exit 1
+      fi
+      echo "gofmt: чисто"
+    - go vet ./...
+
+test:
+  stage: test
+  script:
+    - go test ./...
+
+crossbuild:
+  stage: test
+  variables:
+    CGO_ENABLED: "0"
+  script:
+    - |
+      for target in windows/amd64 windows/arm64 darwin/amd64 darwin/arm64 linux/arm64; do
+        goos="${target%/*}"
+        goarch="${target#*/}"
+        echo "сборка GOOS=${goos} GOARCH=${goarch}"
+        GOOS="$goos" GOARCH="$goarch" go build ./... || exit 1
+      done
+
+vuln:
+  stage: vuln
+  script:
+    # версия не пиннится: govulncheck должен понимать текущую версию Go
+    - go install golang.org/x/vuln/cmd/govulncheck@latest
+    - export PATH="$GOPATH/bin:$PATH" && govulncheck ./...
+
+# Общий контур QA-прогонщика: отчёт текущего прогона выгружается артефактом
+# и при отказе тоже. Путь отчёта задаётся явно (-report) — в артефакт
+# попадает только он, закоммиченные исторические отчёты не участвуют.
+.qa-run:
+  stage: qa
+  timeout: 60m
+  script:
+    - |
+      set +e
+      go run ./qa/runner -report qa-artifact/qa-report.log
+      rc=$?
+      set -e
+      if [ -f qa-artifact/qa-report.log ]; then
+        echo "отчёт прогона: qa-artifact/qa-report.log"
+      else
+        echo "предупреждение: отчёт qa-artifact/qa-report.log не создан"
+      fi
+      exit "$rc"
+  artifacts:
+    when: always
+    expire_in: 1 week
+    paths:
+      - qa-artifact/
+
+qa-sqlite:
+  extends: .qa-run
+  variables:
+    CATALOG_QA_SCALE: "10000"
+    CATALOG_QA_DIALECT: sqlite
+
+qa-postgres:
+  extends: .qa-run
+  services:
+    - name: postgres:16-alpine
+      alias: postgres
+  variables:
+    POSTGRES_USER: postgres
+    POSTGRES_PASSWORD: postgres
+    POSTGRES_DB: catalog_test
+    CATALOG_TEST_POSTGRES_DSN: "postgres://postgres:postgres@postgres:5432/catalog_test"
+    CATALOG_QA_SCALE: "10000"
+    CATALOG_QA_DIALECT: postgres
+  before_script:
+    # служба стартует асинхронно: ждём открытия порта, а не только контейнера
+    - |
+      echo "ожидание PostgreSQL…"
+      for i in $(seq 1 60); do
+        if (echo > /dev/tcp/postgres/5432) >/dev/null 2>&1; then
+          echo "PostgreSQL готов (попытка $i)"
+          exit 0
+        fi
+        sleep 1
+      done
+      echo "PostgreSQL не поднялся за 60 с"
+      exit 1
+
+# --- Релиз ----------------------------------------------------------------
+
+# Тег обязан указывать на коммит в истории основной ветки: иначе релиз
+# собирается из непроверенного коммита.
+verify-tag:
+  stage: verify
+  interruptible: false
+  variables:
+    GIT_DEPTH: "0"
+  rules:
+    - if: $CI_COMMIT_TAG =~ /^v[0-9]+\.[0-9]+\.[0-9]+/
+  script:
+    - |
+      git fetch --no-tags origin \
+        "+refs/heads/${CI_DEFAULT_BRANCH}:refs/remotes/origin/${CI_DEFAULT_BRANCH}"
+    - |
+      if git merge-base --is-ancestor "$CI_COMMIT_SHA" "origin/${CI_DEFAULT_BRANCH}"; then
+        echo "тег указывает на коммит в истории ${CI_DEFAULT_BRANCH}"
+      else
+        echo "тег указывает на коммит вне ${CI_DEFAULT_BRANCH} — релиз запрещён"
+        exit 1
+      fi
+    - go build ./... && go vet ./...
+    - |
+      fmt="$(gofmt -l .)"
+      if [ -n "$fmt" ]; then
+        echo "gofmt требует правки в файлах:"
+        echo "$fmt"
+        exit 1
+      fi
+    - go test ./...
+
+build:
+  stage: build
+  interruptible: false
+  # релиз не собирается, пока не зелёный полный QA-контур того же коммита
+  needs:
+    - verify-tag
+    - lint
+    - test
+    - crossbuild
+    - vuln
+    - qa-sqlite
+    - qa-postgres
+  rules:
+    - if: $CI_COMMIT_TAG =~ /^v[0-9]+\.[0-9]+\.[0-9]+/
+  parallel:
+    matrix:
+      - GOOS: [linux, windows, darwin]
+        GOARCH: [amd64, arm64]
+  variables:
+    CGO_ENABLED: "0"
+  script:
+    - mkdir -p dist
+    - |
+      bin=catalogctl
+      if [ "$GOOS" = windows ]; then
+        bin=catalogctl.exe
+      fi
+      go build -trimpath \
+        -ldflags "-s -w -X github.com/billydos/components-catalog/internal/cli.Version=${CI_COMMIT_TAG}" \
+        -o "dist/${bin}" ./cmd/catalogctl
+      ls -l "dist/${bin}"
+    - |
+      if [ "$GOOS" = windows ]; then
+        apt-get update -qq
+        apt-get install -y -qq --no-install-recommends zip >/dev/null
+        cd dist && zip -q "catalogctl-${GOOS}-${GOARCH}.zip" catalogctl.exe
+      else
+        tar -czf "dist/catalogctl-${GOOS}-${GOARCH}.tar.gz" -C dist catalogctl
+      fi
+  artifacts:
+    name: "catalogctl-${GOOS}-${GOARCH}"
+    paths:
+      - dist/catalogctl-*
+    expire_in: 1 week
+
+publish:
+  stage: publish
+  interruptible: false
+  # два одновременных релиза не должны перетирать заметки и ассеты
+  resource_group: release
+  needs: [build]
+  rules:
+    - if: $CI_COMMIT_TAG =~ /^v[0-9]+\.[0-9]+\.[0-9]+/
+  image: registry.gitlab.com/gitlab-org/release-cli:latest
+  cache: {}
+  script:
+    - |
+      cd dist && sha256sum catalogctl-* > checksums.txt && cd ..
+      cat dist/checksums.txt
+    # заметки — раздел CHANGELOG.md, заголовок которого совпадает с тегом
+    - |
+      notes="$(awk -v tag="$CI_COMMIT_TAG" \
+        'index($0, "## " tag) == 1 {inside = 1; next} inside && /^## / {exit} inside' \
+        CHANGELOG.md)"
+      if [ -z "$notes" ]; then
+        notes="Полный список изменений — CHANGELOG.md в репозитории."
+      fi
+      description="$(printf 'Релиз %s.\n\n%s' "$CI_COMMIT_TAG" "$notes")"
+      printf '%s\n' "$description"
+    - |
+      set --
+      for f in dist/catalogctl-*.tar.gz dist/catalogctl-*.zip dist/checksums.txt; do
+        [ -e "$f" ] || continue
+        name="${f##*/}"
+        url="${CI_PROJECT_URL}/-/jobs/artifacts/${CI_COMMIT_TAG}/raw/dist/${name}?job=publish"
+        set -- "$@" --assets-link "{\"name\":\"${name}\",\"url\":\"${url}\"}"
+      done
+      release-cli create \
+        --name "$CI_COMMIT_TAG" \
+        --tag-name "$CI_COMMIT_TAG" \
+        --description "$description" \
+        "$@"
+  artifacts:
+    # на эти артефакты ссылаются assets релиза — они не должны истекать.
+    # Если инсталляция запрещает бессрочные артефакты (настройка
+    # «Keep artifacts from expiring» выключена), замените на срок вроде
+    # `1 year` — тогда ссылки релиза перестанут работать по его истечении.
+    expire_in: never
+    paths:
+      - dist/
