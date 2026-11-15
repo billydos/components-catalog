@@ -55,10 +55,10 @@ stages:
 
 variables:
   GOFLAGS: "-mod=readonly"
-  # кэш модулей и сборки живёт внутри каталога проекта — только так его
-  # можно объявить в cache.paths
-  GOPATH: "$CI_PROJECT_DIR/.go"
-  GOCACHE: "$CI_PROJECT_DIR/.go/build"
+  # Go-кэши — вне дерева репозитория (умолчания образа: GOPATH=/go,
+  # GOCACHE=/root/.cache/go-build). Внутрь дерева их класть нельзя: и
+  # QA-прогонщик, и проверка Go делают `gofmt -l .` — по кэшу модулей
+  # gofmt уходит разбирать чужие testdata (падал с exit=2 на x/tools).
 
 default:
   # Debian-вариант образа: нужны bash (/dev/tcp в ожидании службы), git, apt
@@ -68,14 +68,6 @@ default:
   tags:
     - docker
   interruptible: true
-  cache:
-    key:
-      files:
-        - go.sum
-    paths:
-      - .go/pkg/mod/
-      - .go/bin/
-      - .go/build/
 
 # --- QA -------------------------------------------------------------------
 
@@ -115,7 +107,7 @@ vuln:
   script:
     # версия не пиннится: govulncheck должен понимать текущую версию Go
     - go install golang.org/x/vuln/cmd/govulncheck@latest
-    - export PATH="$GOPATH/bin:$PATH" && govulncheck ./...
+    - export PATH="$(go env GOPATH)/bin:$PATH" && govulncheck ./...
 
 # Общий контур QA-прогонщика: отчёт текущего прогона выгружается артефактом
 # и при отказе тоже. Путь отчёта задаётся явно (-report) — в артефакт
@@ -259,7 +251,6 @@ publish:
   rules:
     - if: $CI_COMMIT_TAG =~ /^v[0-9]+\.[0-9]+\.[0-9]+/
   image: registry.gitlab.com/gitlab-org/release-cli:latest
-  cache: {}
   script:
     - |
       cd dist && sha256sum catalogctl-* > checksums.txt && cd ..

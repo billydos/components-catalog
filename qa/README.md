@@ -66,6 +66,11 @@ Linux-раннера) и `vuln` (`govulncheck`): ноги QA на Windows нет
 (`qa-artifact/qa-report.log`), поэтому закоммиченные исторические отчёты
 `qa/reports/*.log` в артефакт не попадают.
 
+Go-кэши в CI лежат вне дерева репозитория (умолчания образа: `GOPATH=/go`,
+`GOCACHE=/root/.cache/go-build`): фаза `static` и проверка Go делают
+`gofmt -l .`, и по кэшу модулей внутри дерева gofmt уходит разбирать чужие
+`testdata` — прогон падал с `exit=2` на `x/tools`.
+
 Релиз — по тегу `vX.Y.Z`, указывающему на коммит в истории основной ветки:
 `verify-tag` (тег на ветке + build/vet/gofmt/test) → `build` (сборка
 `catalogctl` для шести целей, архивы tar.gz/zip) → `publish` (контрольные
