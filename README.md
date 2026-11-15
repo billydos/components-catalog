@@ -148,8 +148,11 @@ go run ./qa/runner     # кроссплатформенный QA: статика
 
 Прогонщик QA работает на Linux, macOS и Windows (SQLite всегда;
 PostgreSQL — через `CATALOG_TEST_POSTGRES_DSN`; нагрузочная прикидка —
-`-scale`/`CATALOG_QA_SCALE`). CI (`.github/workflows/ci.yml`) выполняет
-его на Linux со службой PostgreSQL и прикидкой 10⁴ и на Windows.
+`-scale`/`CATALOG_QA_SCALE`). CI (`.gitlab-ci.yml`) выполняет его на Linux
+двумя джобами — SQLite и PostgreSQL со службой 16, прикидка 10⁴ в каждой;
+рядом идут `gofmt`/`vet`, `go test`, кроссплатформенная сборка и
+`govulncheck`. Ноги QA на Windows в CI нет (Windows-раннера в инсталляции
+нет) — windows-совместимость проверяется сборкой.
 
 ## Производительность
 
