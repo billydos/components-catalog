@@ -175,16 +175,59 @@ func staticPhase(ctx context.Context, r *report, root string, opts runOptions) {
 		res.code == 0, envDetails(res, 60)...)
 }
 
-// gofmtCheck — gofmt -l . обязан быть пуст (путь к gofmt — из GOROOT).
+// gofmtCheck — gofmt -l по файлам репозитория обязан быть пуст (путь к
+// gofmt — из GOROOT). Обход дерева целиком (`.`) неверен: внутри
+// репозитория может лежать кэш модулей (GOPATH=$CI_PROJECT_DIR/.go —
+// конвенция GitLab-джоб), и gofmt уходил бы разбирать чужие testdata,
+// возвращая exit=2. Поэтому проверяются файлы под контролем git: и
+// отслеживаемые, и новые неигнорируемые (до `git add`). Вне git-репозитория
+// (архив исходников) — прежний обход дерева целиком.
 func gofmtCheck(ctx context.Context, r *report, root string) {
 	bin := filepath.Join(runtime.GOROOT(), "bin", "gofmt"+exeSuffix())
 	if _, err := os.Stat(bin); err != nil {
 		bin = "gofmt"
 	}
-	res := runCmd(ctx, root, cmdTimeout, bin, "-l", ".")
+	args := []string{"-l"}
+	what := "gofmt -l ."
+	if files := repoGoFiles(ctx, root); files != nil {
+		if len(files) == 0 {
+			r.check("static/gofmt", "gofmt -l: .go-файлов в репозитории нет", true)
+			return
+		}
+		args = append(args, files...)
+		what = "gofmt -l (файлы репозитория)"
+	} else {
+		args = append(args, ".")
+	}
+	res := runCmd(ctx, root, cmdTimeout, bin, args...)
 	files := trimSpaceLines(res.output)
-	r.check("static/gofmt", "gofmt -l . — без изменений", res.code == 0 && len(files) == 0,
+	r.check("static/gofmt", what+" — без изменений", res.code == 0 && len(files) == 0,
 		envDetails(res, 30)...)
+}
+
+// repoGoFiles — .go-файлы репозитория (относительно root): отслеживаемые
+// git и новые неигнорируемые (кэш модулей и прочие игнорируемые пути в
+// список не попадают). nil — git недоступен или root не репозиторий:
+// вызывающий обходит дерево целиком.
+func repoGoFiles(ctx context.Context, root string) []string {
+	res := runCmd(ctx, root, cmdTimeout, "git", "ls-files", "-z",
+		"--cached", "--others", "--exclude-standard", "--", "*.go")
+	if res.code != 0 {
+		return nil
+	}
+	files := make([]string, 0, 64)
+	for _, name := range strings.Split(res.output, "\x00") {
+		if name == "" {
+			continue
+		}
+		// Удалённый, но ещё не закоммиченный файл: gofmt на нём упал бы
+		// «no such file».
+		if _, err := os.Stat(filepath.Join(root, name)); err != nil {
+			continue
+		}
+		files = append(files, name)
+	}
+	return files
 }
 
 // loadPhase — нагрузочная прикидка (qa/load_test.go): запуск боевым

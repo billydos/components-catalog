@@ -142,7 +142,8 @@ mux.Handle("/api/v1/", app.Handler())
 ## Сборка и проверка
 
 ```bash
-go build ./... && go vet ./... && gofmt -l . && go test ./...
+go build ./... && go vet ./... && go test ./...
+git ls-files -z --cached --others --exclude-standard -- '*.go' | xargs -0 gofmt -l   # пусто
 go run ./qa/runner     # кроссплатформенный QA: статика + сценарии CLI/REST, отчёт qa/reports/*.log
 ```
 
