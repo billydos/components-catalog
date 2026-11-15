@@ -25,6 +25,11 @@
 #   теге идёт полным контуром (строгий гейт релиза вместо поиска зелёного
 #   прогона того же SHA по API);
 # - релиз публикуется в GitLab Releases, а не в GitHub Release.
+#
+# Требования к раннеру: docker-исполнитель с тегом `docker` (тег задан в
+# `default`, поэтому джобы не зависят от настройки «Run untagged jobs»),
+# а инстанс-раннеры должны быть включены для проекта
+# (Settings → CI/CD → Runners → «Turn on instance runners for this project»).
 
 workflow:
   rules:
@@ -58,6 +63,10 @@ variables:
 default:
   # Debian-вариант образа: нужны bash (/dev/tcp в ожидании службы), git, apt
   image: golang:1.26
+  # Инстанс-раннер не берёт джобы без тегов (Run untagged jobs выключен),
+  # поэтому тег задаётся явно: docker-исполнитель с этим тегом.
+  tags:
+    - docker
   interruptible: true
   cache:
     key:
