@@ -66,10 +66,9 @@ Linux-раннера) и `vuln` (`govulncheck`): ноги QA на Windows нет
 (`qa-artifact/qa-report.log`), поэтому закоммиченные исторические отчёты
 `qa/reports/*.log` в артефакт не попадают.
 
-Go-кэши в CI лежат вне дерева репозитория (умолчания образа: `GOPATH=/go`,
-`GOCACHE=/root/.cache/go-build`): фаза `static` и проверка Go делают
-`gofmt -l .`, и по кэшу модулей внутри дерева gofmt уходит разбирать чужие
-`testdata` — прогон падал с `exit=2` на `x/tools`.
+Go-кэш в CI лежит внутри каталога проекта (`GOPATH=$CI_PROJECT_DIR/.go`) —
+так его кэширует GitLab; на проверки это не влияет: `static/gofmt` считает
+файлы репозитория (`git ls-files`), а `.go/` внесён в `.gitignore`.
 
 Релиз — по тегу `vX.Y.Z`, указывающему на коммит в истории основной ветки:
 `verify-tag` (тег на ветке + build/vet/gofmt/test) → `build` (сборка

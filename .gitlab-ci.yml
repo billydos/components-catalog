@@ -55,10 +55,14 @@ stages:
 
 variables:
   GOFLAGS: "-mod=readonly"
-  # Go-кэши — вне дерева репозитория (умолчания образа: GOPATH=/go,
-  # GOCACHE=/root/.cache/go-build). Внутрь дерева их класть нельзя: и
-  # QA-прогонщик, и проверка Go делают `gofmt -l .` — по кэшу модулей
-  # gofmt уходит разбирать чужие testdata (падал с exit=2 на x/tools).
+  # Go-кэш — внутри каталога проекта: GitLab кэширует только пути внутри
+  # $CI_PROJECT_DIR. На проверки это не влияет: gofmt считается по файлам
+  # репозитория (стадия static прогонщика и джобы lint/verify-tag), а `.go/`
+  # внесён в .gitignore — в список файлов кэш не попадает.
+
+  GOPATH: "$CI_PROJECT_DIR/.go"
+  GOMODCACHE: "$CI_PROJECT_DIR/.go/pkg/mod"
+  GOCACHE: "$CI_PROJECT_DIR/.go/build"
 
 default:
   # Debian-вариант образа: нужны bash (/dev/tcp в ожидании службы), git, apt
@@ -68,6 +72,14 @@ default:
   tags:
     - docker
   interruptible: true
+  cache:
+    key:
+      files:
+        - go.sum
+    paths:
+      - .go/pkg/mod/
+      - .go/bin/
+      - .go/build/
 
 # --- QA -------------------------------------------------------------------
 
@@ -75,7 +87,7 @@ lint:
   stage: lint
   script:
     - |
-      fmt="$(gofmt -l .)"
+      fmt="$(git ls-files -z --cached --others --exclude-standard -- '*.go' | xargs -0 -r gofmt -l)"
       if [ -n "$fmt" ]; then
         echo "gofmt требует правки в файлах:"
         echo "$fmt"
@@ -189,7 +201,7 @@ verify-tag:
       fi
     - go build ./... && go vet ./...
     - |
-      fmt="$(gofmt -l .)"
+      fmt="$(git ls-files -z --cached --others --exclude-standard -- '*.go' | xargs -0 -r gofmt -l)"
       if [ -n "$fmt" ]; then
         echo "gofmt требует правки в файлах:"
         echo "$fmt"
@@ -251,6 +263,8 @@ publish:
   rules:
     - if: $CI_COMMIT_TAG =~ /^v[0-9]+\.[0-9]+\.[0-9]+/
   image: registry.gitlab.com/gitlab-org/release-cli:latest
+  # кэш Go этой джобе не нужен — образ без Go
+  cache: {}
   script:
     - |
       cd dist && sha256sum catalogctl-* > checksums.txt && cd ..
