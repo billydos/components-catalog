@@ -182,6 +182,13 @@ func ParameterName(l Language, code string) string {
 	return resolve(l, "param."+code, code)
 }
 
+// PriorityName возвращает отображаемое название градации значимости
+// параметра (код реестра catalog.Priority; пустая строка нормализуется
+// вызывающим слоем — i18n зависит только от кодов-строк).
+func PriorityName(l Language, code string) string {
+	return resolve(l, "parampriority."+code, code)
+}
+
 // AttributeName возвращает отображаемое название атрибута.
 func AttributeName(l Language, code string) string {
 	return resolve(l, "attr."+code, code)

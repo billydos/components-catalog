@@ -185,6 +185,7 @@ const (
 	MsgMetaParamEnumOnly              MsgID = "meta_param_enum_only"
 	MsgMetaParamCeiling               MsgID = "meta_param_ceiling"
 	MsgMetaParamSortNegative          MsgID = "meta_param_sort_negative"
+	MsgMetaParamPriorityUnknown       MsgID = "meta_param_priority_unknown"
 	MsgMetaParamKindMissing           MsgID = "meta_param_kind_missing"
 	MsgMetaParamRuleRowMissing        MsgID = "meta_param_rule_row_missing"
 	MsgMetaParamRuleWrongLevel        MsgID = "meta_param_rule_wrong_level"
@@ -496,6 +497,9 @@ const (
 	MsgCliGroupLine         MsgID = "cli_group_line"
 	MsgCliParamLine         MsgID = "cli_param_line"
 	MsgCliAttrListLine      MsgID = "cli_attr_list_line"
+	MsgCliPrioPrimary       MsgID = "cli_prio_primary"
+	MsgCliPrioSecondary     MsgID = "cli_prio_secondary"
+	MsgCliPrioTertiary      MsgID = "cli_prio_tertiary"
 	MsgCliUsageWord         MsgID = "cli_usage_word"
 
 	// Фрагменты общей справки (catalogctl help и вызов без аргументов):
@@ -791,6 +795,7 @@ var msgRegistry = map[MsgID]struct{}{
 	MsgMetaParamEnumOnly:              {},
 	MsgMetaParamCeiling:               {},
 	MsgMetaParamSortNegative:          {},
+	MsgMetaParamPriorityUnknown:       {},
 	MsgMetaParamKindMissing:           {},
 	MsgMetaParamRuleRowMissing:        {},
 	MsgMetaParamRuleWrongLevel:        {},
@@ -1090,6 +1095,9 @@ var msgRegistry = map[MsgID]struct{}{
 	MsgCliGroupLine:                   {},
 	MsgCliParamLine:                   {},
 	MsgCliAttrListLine:                {},
+	MsgCliPrioPrimary:                 {},
+	MsgCliPrioSecondary:               {},
+	MsgCliPrioTertiary:                {},
 	MsgCliUsageWord:                   {},
 	MsgCliUsageHeader:                 {},
 	MsgCliUsageCommands:               {},

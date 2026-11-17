@@ -1277,7 +1277,13 @@ components:
         ceiling: {type: number}
         allow_negative: {type: boolean}
         validation_rule: {type: string}
-        sort_order: {type: integer}
+        priority:
+          type: string
+          enum: [primary, secondary, tertiary]
+          description: Градация значимости параметра; отсутствует — не задана
+            (ранжируется как secondary, у существующей строки при импорте
+            сохраняется действующая).
+        sort_order: {type: integer, description: Порядок внутри градации значимости.}
         is_active: {type: boolean}
         kinds:
           type: array

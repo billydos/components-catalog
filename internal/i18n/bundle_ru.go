@@ -185,6 +185,11 @@ var bundleRu = map[string]string{
 	"group.limiting":    "Предельные эксплуатационные данные",
 	"group.dimensional": "Массогабаритные данные",
 
+	// Градации значимости параметров (parameters.priority).
+	"parampriority.primary":   "основной",
+	"parampriority.secondary": "дополнительный",
+	"parampriority.tertiary":  "побочный",
+
 	// Параметры (parameters): транзисторы — electrical.
 	"param.hfe":       "статический коэффициент передачи тока h21э",
 	"param.hfb":       "коэффициент передачи тока в схеме с общей базой h21б",

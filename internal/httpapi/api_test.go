@@ -333,6 +333,25 @@ func TestCatalogAndETag(t *testing.T) {
 		t.Fatalf("снимок каталога пуст: revision=%d params=%d systems=%d",
 			snap.Revision, len(snap.Parameters), len(snap.Systems))
 	}
+	// Градации значимости сидов: якорные primary/tertiary коды и код
+	// без явной градации (secondary по умолчанию, поле опущено).
+	for i := range snap.Parameters {
+		p := &snap.Parameters[i]
+		var want string
+		switch p.Code {
+		case "Cnom", "hfe":
+			want = "primary"
+		case "EsrLife", "Zratio":
+			want = "tertiary"
+		case "DF", "Icbo":
+			want = ""
+		default:
+			continue
+		}
+		if p.Priority != want {
+			t.Errorf("%s: градация %q, ожидалась %q", p.Code, p.Priority, want)
+		}
+	}
 
 	// If-None-Match → 304 с тем же ETag.
 	req2, _ := http.NewRequest(http.MethodGet, srv.URL+apiPrefix+"/catalog", nil)

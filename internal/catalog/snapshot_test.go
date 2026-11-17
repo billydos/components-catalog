@@ -210,3 +210,32 @@ func TestRowsEqual(t *testing.T) {
 		t.Fatal("потолок «не задано» равен нулю")
 	}
 }
+
+// Канонический порядок определений параметров (план 03 §5.1): градация
+// значимости, внутри градации sort_order, при равенстве — код; «не задано»
+// ранжируется как secondary. Единая реализация для service и cli —
+// порядок слияния/карточки и справки не расходится.
+func TestCompareParameterDefs(t *testing.T) {
+	def := func(code string, prio catalog.Priority, sort int) catalog.ParameterDef {
+		return catalog.ParameterDef{Code: code, Priority: prio, SortOrder: sort}
+	}
+	cases := []struct {
+		name string
+		a, b catalog.ParameterDef
+		want int
+	}{
+		{"primary перед secondary независимо от порядка", def("z", catalog.PriorityPrimary, 900), def("a", catalog.PrioritySecondary, 10), -1},
+		{"не задано ранжируется как secondary", def("a", "", 10), def("b", catalog.PrioritySecondary, 20), -1},
+		{"не задано перед tertiary", def("z", "", 900), def("a", catalog.PriorityTertiary, 10), -1},
+		{"внутри градации sort_order", def("z", catalog.PriorityPrimary, 10), def("a", catalog.PriorityPrimary, 20), -1},
+		{"при равенстве — код", def("b", catalog.PriorityPrimary, 10), def("a", catalog.PriorityPrimary, 10), 1},
+		{"равные строки", def("a", "", 5), def("a", "", 5), 0},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := catalog.CompareParameterDefs(tc.a, tc.b); got != tc.want {
+				t.Fatalf("CompareParameterDefs = %d, ожидался %d", got, tc.want)
+			}
+		})
+	}
+}

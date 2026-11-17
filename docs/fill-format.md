@@ -113,7 +113,7 @@ jsonc/yaml читаются целиком с потолком тела 16 Ми�
 Форма едина для всех групп (`parameters`, `ratings`, `dimensions`) — список
 объектов; порядок строк — порядок однотипных значений одного параметра и
 исполнений на карточке (параметры внутри секции упорядочены каталогом —
-`sort_order`, §8):
+градация значимости `priority`, внутри неё `sort_order`, §8):
 
 ```jsonc
 { "parameter": "hfe", "min": 50, "max": 350, "Vce": 10, "Ic": 1 }
@@ -384,7 +384,7 @@ jsonc/yaml читаются целиком с потолком тела 16 Ми�
 | `source_types` | словарь типов источников данных (§7.2) | `code` |
 | `conditions` | условия | `code`, `unit`, `allow_negative` |
 | `parameter_groups` | группы | `code`, `section` (`parameters` / `ratings` / `dimensions`), `sort_order` |
-| `parameters` | параметры | `code`, `group`, `unit`, `value_type`, `kinds`, `enum_values`, `condition_sets`, `ceiling`, `allow_negative`, `rule`, `sort_order`, `is_active` |
+| `parameters` | параметры | `code`, `group`, `unit`, `value_type`, `kinds`, `enum_values`, `condition_sets`, `ceiling`, `allow_negative`, `rule`, `priority`, `sort_order`, `is_active` |
 | `attributes` | атрибуты | `code`, `group`, `type`, `unit`, `kinds`, `enum_values`, `rule`, `sort_order`, `is_active` |
 | `validation_rules` | именованные правила | `code` — только коды реализаций реестра |
 | `kind_validation_rules` | привязка правил к классам | `kind`, `rule` |
@@ -447,6 +447,12 @@ jsonc/yaml читаются целиком с потолком тела 16 Ми�
   действующей строки сохраняется (экспорт опускает нулевой `sort_order`,
   поэтому 0 — «не задан», а не «первая позиция»); новое значение задаётся
   явно, у новой строки 0 — позиция по умолчанию;
+- `priority` — градация значимости параметра: `primary` (основной),
+  `secondary` (дополнительный), `tertiary` (побочный); отсутствует либо
+  `null` у строки с существующим кодом — действующая градация сохраняется
+  (экспорт опускает не заданную), у новой строки «не задано» ранжируется
+  как `secondary`; `sort_order` упорядочивает параметры **внутри**
+  градации;
 - удалений нет — только деактивация `"is_active": false`; деактивация — не
   удаление: изменённый импорт записи, чьи незатронутые секции ссылаются
   на деактивированные параметры, отвергается целиком — сначала замените

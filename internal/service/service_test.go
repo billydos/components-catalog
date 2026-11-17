@@ -2517,14 +2517,16 @@ func suiteCatalogImport(t *testing.T, factory configFactory) {
 		t.Fatalf("поле category: %+v", f)
 	}
 
-	// Краткая строка расширения без sort_order: порядок действующей строки
-	// сохраняется и в БД — запись получает доопределённый вход (FillSortOrders).
-	// Ненулевой сид-порядок — пред-постулат: при нуле проверка вакуантна.
+	// Краткая строка расширения без sort_order и priority: порядок и
+	// градация действующей строки сохраняются и в БД — запись получает
+	// доопределённый вход (FillDefaults). Ненулевой сид-порядок и явная
+	// градация — пред-постулаты: при нуле/пустоте проверка вакантна.
 	hfeSeed, ok := snap.Parameter("hfe")
-	if !ok || hfeSeed.SortOrder == 0 {
-		t.Fatal("сид hfe без sort_order — проверка сохранения стала бы вакуантной")
+	if !ok || hfeSeed.SortOrder == 0 || hfeSeed.Priority == "" {
+		t.Fatal("сид hfe без sort_order/priority — проверка сохранения стала бы вакантной")
 	}
 	wantOrder := hfeSeed.SortOrder
+	wantPriority := hfeSeed.Priority
 	_, err = cat.Import(ctx, catalog.Input{
 		Parameters: []catalog.ParameterDef{{
 			Code: "hfe", Group: "electrical", ValueType: catalog.ValueLimits,
@@ -2538,8 +2540,34 @@ func suiteCatalogImport(t *testing.T, factory configFactory) {
 	if err != nil {
 		t.Fatalf("снимок: %v", err)
 	}
-	if p, ok := snap.Parameter("hfe"); !ok || p.SortOrder != wantOrder {
-		t.Fatalf("sort_order hfe после краткого расширения: %+v, ожидался %d", p, wantOrder)
+	if p, ok := snap.Parameter("hfe"); !ok || p.SortOrder != wantOrder || p.Priority != wantPriority {
+		t.Fatalf("hfe после краткого расширения: sort_order=%d priority=%q, ожидались %d/%q",
+			p.SortOrder, string(p.Priority), wantOrder, string(wantPriority))
+	}
+
+	// Изменение одной только градации у существующего кода — значимое
+	// изменение каталога (путь курирования баз после миграции v16):
+	// RowsEqual обязан видеть разницу, запись и catalog_revision
+	// выполняются, «без изменений» не сообщается.
+	hfeCur, ok := snap.Parameter("hfe")
+	if !ok {
+		t.Fatal("hfe отсутствует")
+	}
+	row := *hfeCur
+	row.Priority = catalog.PriorityTertiary
+	changed, err := cat.Import(ctx, catalog.Input{Parameters: []catalog.ParameterDef{row}})
+	if err != nil {
+		t.Fatalf("импорт градации: %v", err)
+	}
+	if !changed {
+		t.Fatal("priority-only изменение отброшено как «без изменений» — RowsEqual не видит градацию")
+	}
+	snap, err = cat.Snapshot(ctx)
+	if err != nil {
+		t.Fatalf("снимок: %v", err)
+	}
+	if p, ok := snap.Parameter("hfe"); !ok || p.Priority != catalog.PriorityTertiary {
+		t.Fatalf("градация hfe после импорта: %q, ожидалась tertiary", string(p.Priority))
 	}
 
 	// Неверный каталог — проблемы метасхемы, применение целиком отменено.

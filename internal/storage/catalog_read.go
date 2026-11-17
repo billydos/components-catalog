@@ -271,7 +271,7 @@ ORDER BY kind_code, validation_rule`)
 func loadParameters(ctx context.Context, q queryer) ([]catalog.ParameterDef, error) {
 	rows, err := q.QueryContext(ctx, `
 SELECT code, group_code, unit_code, value_type,
-       value_ceiling, allow_negative, validation_rule, sort_order, is_active
+       value_ceiling, allow_negative, validation_rule, priority, sort_order, is_active
 FROM parameters ORDER BY code`)
 	if err != nil {
 		return nil, err
@@ -280,17 +280,18 @@ FROM parameters ORDER BY code`)
 	var out []catalog.ParameterDef
 	for rows.Next() {
 		var r catalog.ParameterDef
-		var unit, rule sql.NullString
+		var unit, rule, prio sql.NullString
 		var ceiling sql.NullFloat64
 		var allow, active int
 		if err := rows.Scan(&r.Code, &r.Group, &unit, &r.ValueType,
-			&ceiling, &allow, &rule, &r.SortOrder, &active); err != nil {
+			&ceiling, &allow, &rule, &prio, &r.SortOrder, &active); err != nil {
 			return nil, err
 		}
 		r.Unit = nullableStr(unit)
 		r.Ceiling = nullableFloat(ceiling)
 		r.AllowNegative = allow != 0
 		r.ValidationRule = nullableStr(rule)
+		r.Priority = catalog.Priority(nullableStr(prio))
 		r.Active = active != 0
 		out = append(out, r)
 	}

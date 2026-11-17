@@ -145,6 +145,74 @@ func TestSeedNominalRowEnum(t *testing.T) {
 	}
 }
 
+// Пин курирования градаций значимости (план 03 §5): точное множество
+// кодов primary/tertiary сида (70 кодов; остальные 85 — secondary по
+// умолчанию, без явного значения) и валидность всех значений. Осознанное
+// изменение курирования — правка этого пина тем же изменением.
+func TestSeedPriorityPin(t *testing.T) {
+	snap, probs := catalog.ApplyCatalog(nil, seed.Catalog())
+	if len(probs) != 0 {
+		t.Fatalf("проблемы применения сидов: %v", probs)
+	}
+	primary := map[string]bool{
+		// Транзисторы биполярные.
+		"hfe": true, "fT": true, "Pout": true, "VceSat": true,
+		// Полевые.
+		"Idss": true, "gfs": true, "VgsOff": true, "VgsTh": true, "RdsOn": true,
+		// Диоды.
+		"Vf": true, "Ir": true, "trr": true, "Cratio": true,
+		"Vz": true, "Iv": true, "Lambda": true,
+		// Резисторы.
+		"Rnom": true, "Tolerance": true, "Pnom": true,
+		// Конденсаторы.
+		"Cnom": true, "Vnom": true, "Ileak": true, "Esr": true, "VnomAc": true,
+		// Реле.
+		"VcoilNom": true, "VswitchMax": true, "IswitchMax": true,
+		// Предельные данные первой необходимости.
+		"VceoMax": true, "VcbMax": true, "IcMax": true, "IdMax": true,
+		"PcMax": true, "PdMax": true, "VdsMax": true, "VrMax": true, "IfMax": true,
+		// Климатический диапазон — фильтр первой очереди.
+		"Temp": true, "opTemp": true,
+	}
+	tertiary := map[string]bool{
+		// Пост-тестовые деградационные (…Life/…Shelf-класс).
+		"DFLife": true, "DFShelf": true, "EsrLife": true, "EsrShelf": true,
+		"IleakLife": true, "IleakShelf": true, "DeltaClife": true, "DeltaCshelf": true,
+		// Импульсный режим и узкоспециальные величины конденсаторов.
+		"fPulse": true, "IPulseMax": true, "tWork": true, "tPause": true,
+		"tHold": true, "tCharge": true, "tDischarge": true, "DeltaV": true,
+		"endurancePulse": true, "dVdt": true, "Rdis": true,
+		"Zratio": true, "Z0": true, "Rcoupling": true, "RinsCase": true, "Lnom": true,
+		// Транзисторы: редко нормируемые.
+		"Icer": true, "VcbPulseMax": true, "VcePulseMax": true, "VebPulseMax": true,
+		// Резисторы: узкоспециальные.
+		"Vnoise": true, "imbalance": true, "staticFrictionTorque": true, "switchAngle": true,
+	}
+	for _, p := range snap.Parameters {
+		if p.Priority != "" && !p.Priority.Valid() {
+			t.Errorf("%s: некорректная градация %q", p.Code, string(p.Priority))
+		}
+		if p.Priority == catalog.PriorityPrimary {
+			if !primary[p.Code] {
+				t.Errorf("%s: unexpected primary", p.Code)
+			}
+			delete(primary, p.Code)
+		}
+		if p.Priority == catalog.PriorityTertiary {
+			if !tertiary[p.Code] {
+				t.Errorf("%s: unexpected tertiary", p.Code)
+			}
+			delete(tertiary, p.Code)
+		}
+	}
+	for code := range primary {
+		t.Errorf("%s: ожидалась градация primary", code)
+	}
+	for code := range tertiary {
+		t.Errorf("%s: ожидалась градация tertiary", code)
+	}
+}
+
 // Выборочные сверки параметров и атрибутов по 03 §6, §10.
 func TestSeedSpotChecks(t *testing.T) {
 	snap, probs := catalog.ApplyCatalog(nil, seed.Catalog())
@@ -472,9 +540,10 @@ func TestSeedSpotChecks(t *testing.T) {
 
 // expectedBundleKeys — полное ожидаемое множество ключей бандлов i18n:
 // коды сидов (классы, системы+описания, единицы имя+символ, условия,
-// группы, параметры, атрибуты, правила), материалы domain.Materials
-// и поля разбора domain.DesignationFieldCodes. Новая группа ключей
-// бандла обязана расширять это множество тем же изменением.
+// группы, параметры, атрибуты, правила), градации значимости параметров
+// (реестр catalog.Priority), материалы domain.Materials и поля разбора
+// domain.DesignationFieldCodes. Новая группа ключей бандла обязана
+// расширять это множество тем же изменением.
 func expectedBundleKeys(t *testing.T) map[string]bool {
 	t.Helper()
 	snap, probs := catalog.ApplyCatalog(nil, seed.Catalog())
@@ -482,6 +551,9 @@ func expectedBundleKeys(t *testing.T) map[string]bool {
 		t.Fatalf("проблемы применения сидов: %v", probs)
 	}
 	want := make(map[string]bool, 300)
+	for _, p := range []catalog.Priority{catalog.PriorityPrimary, catalog.PrioritySecondary, catalog.PriorityTertiary} {
+		want["parampriority."+string(p)] = true
+	}
 	for _, k := range snap.Kinds {
 		want["kind."+string(k.Code)] = true
 	}

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"slices"
 	"strconv"
 	"strings"
 	"text/tabwriter"
@@ -270,10 +271,16 @@ func runCatalogList(ctx context.Context, opts *options, stdout, stderr io.Writer
 		fmt.Fprintln(stdout, i18n.Message(lang, string(domain.MsgCliGroupLine), g.SectionName, i18n.GroupName(lang, g.Code), g.Code))
 	}
 	fmt.Fprintln(stdout, i18n.Message(lang, string(domain.MsgCliHParams)))
-	for _, p := range snap.Parameters {
+	// Порядок справки — канонический порядок каталога (единая реализация
+	// с карточкой — catalog.CompareParameterDefs); снимок из БД упорядочен
+	// по коду — сортируется копия.
+	params := append([]catalog.ParameterDef(nil), snap.Parameters...)
+	slices.SortFunc(params, catalog.CompareParameterDefs)
+	for _, p := range params {
 		unit := cmp.Or(p.Unit, "—")
 		fmt.Fprintln(stdout, i18n.Message(lang, string(domain.MsgCliParamLine),
-			p.Code, i18n.ParameterName(lang, p.Code), sectionOf(snap, p.Group), string(p.ValueType), unit))
+			p.Code, i18n.ParameterName(lang, p.Code), sectionOf(snap, p.Group), string(p.ValueType), unit,
+			i18n.PriorityName(lang, string(p.Priority.OrDefault()))))
 	}
 	fmt.Fprintln(stdout, i18n.Message(lang, string(domain.MsgCliHAttrs)))
 	for _, a := range snap.Attributes {

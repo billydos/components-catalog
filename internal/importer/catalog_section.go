@@ -359,7 +359,7 @@ func (r *catReader) readParameters(v value) {
 		code, _ := r.str(row, "parameters", "", "code", false)
 		if !r.checkKeys("parameters", row, code,
 			"code", "group", "unit", "value_type", "kinds", "enum_values",
-			"condition_sets", "ceiling", "allow_negative", "rule", "sort_order", "is_active") {
+			"condition_sets", "ceiling", "allow_negative", "rule", "priority", "sort_order", "is_active") {
 			continue
 		}
 		p := catalog.ParameterDef{Code: code}
@@ -405,6 +405,14 @@ func (r *catReader) readParameters(v value) {
 			continue
 		}
 		p.ValidationRule = rule
+		// Градация значимости: отсутствует либо null — не задана (у
+		// существующей строки сохраняется действующая, FillDefaults);
+		// код словаря валидируется метасхемой (ApplyCatalog).
+		prio, ok := r.str(row, "parameters", code, "priority", false)
+		if !ok {
+			continue
+		}
+		p.Priority = catalog.Priority(prio)
 		if sortOrder, ok := r.integer(row, "parameters", code, "sort_order"); ok {
 			p.SortOrder = sortOrder
 		} else {

@@ -127,16 +127,17 @@ func (t *Tx) writeParameters(ctx context.Context, rows []catalog.ParameterDef) e
 		if err := t.upsert(ctx, `
 UPDATE parameters SET group_code = @group, unit_code = @unit,
        value_type = @vtype, value_ceiling = @ceiling, allow_negative = @neg,
-       validation_rule = @rule, sort_order = @sort, is_active = @active
+       validation_rule = @rule, priority = @prio, sort_order = @sort, is_active = @active
 WHERE code = @code`,
 			`INSERT INTO parameters(code, group_code, unit_code, value_type,
-    value_ceiling, allow_negative, validation_rule, sort_order, is_active)
-VALUES (@code, @group, @unit, @vtype, @ceiling, @neg, @rule, @sort, @active)`,
+    value_ceiling, allow_negative, validation_rule, priority, sort_order, is_active)
+VALUES (@code, @group, @unit, @vtype, @ceiling, @neg, @rule, @prio, @sort, @active)`,
 			map[string]any{
 				"code": r.Code, "group": r.Group,
 				"unit": nilIfEmpty(r.Unit), "vtype": string(r.ValueType),
 				"ceiling": r.Ceiling, "neg": boolInt(r.AllowNegative),
-				"rule": nilIfEmpty(r.ValidationRule), "sort": r.SortOrder,
+				"rule": nilIfEmpty(r.ValidationRule), "prio": nilIfEmpty(string(r.Priority)),
+				"sort":   r.SortOrder,
 				"active": boolInt(r.Active),
 			}); err != nil {
 			return err

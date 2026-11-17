@@ -1,6 +1,7 @@
 package catalog
 
 import (
+	"cmp"
 	"slices"
 	"sync"
 
@@ -79,6 +80,63 @@ const (
 // Valid сообщает, входит ли режим в реестр.
 func (m ConditionMode) Valid() bool {
 	return m == ModeRequired || m == ModeOptional
+}
+
+// Priority — градация значимости параметра каталога (docs/plan/03-data-model.md
+// §5): primary (основной — параметр первой необходимости при выборе
+// компонента), secondary (дополнительный — градация по умолчанию), tertiary
+// (побочный — пост-тестовые и узкоспециальные характеристики). Пустая строка —
+// не задано, ранжируется как secondary. Отображаемое название градации —
+// бандлы internal/i18n: parampriority.<код> (D9).
+type Priority string
+
+// Реестр градаций значимости параметров (DB-значения колонки priority).
+const (
+	PriorityPrimary   Priority = "primary"
+	PrioritySecondary Priority = "secondary"
+	PriorityTertiary  Priority = "tertiary"
+)
+
+// Valid сообщает, входит ли градация в реестр.
+func (p Priority) Valid() bool {
+	return p == PriorityPrimary || p == PrioritySecondary || p == PriorityTertiary
+}
+
+// OrDefault возвращает градацию для отображения и канонического порядка:
+// не задано (пустая строка) трактуется как secondary.
+func (p Priority) OrDefault() Priority {
+	if p == "" {
+		return PrioritySecondary
+	}
+	return p
+}
+
+// Rank — ранг градации в каноническом порядке параметров: меньше — значимее;
+// не задано (пустая строка) ранжируется как secondary.
+func (p Priority) Rank() int {
+	switch p {
+	case PriorityPrimary:
+		return 1
+	case PriorityTertiary:
+		return 3
+	default:
+		return 2
+	}
+}
+
+// CompareParameterDefs — канонический порядок определений параметров
+// (план 03 §5.1/§7): градация значимости (не задано ранжируется как
+// secondary), внутри градации SortOrder, при равенстве — код. Единая
+// реализация для слияния значений и карточки (service) и справки
+// catalog list (cli) — порядок не расходится между слоями.
+func CompareParameterDefs(a, b ParameterDef) int {
+	if c := cmp.Compare(a.Priority.OrDefault().Rank(), b.Priority.OrDefault().Rank()); c != 0 {
+		return c
+	}
+	if c := cmp.Compare(a.SortOrder, b.SortOrder); c != 0 {
+		return c
+	}
+	return cmp.Compare(a.Code, b.Code)
 }
 
 // KindDef — строка таблицы kinds: класс приборов. Отображаемое название —
@@ -173,6 +231,7 @@ type ParameterDef struct {
 	Ceiling        *float64
 	AllowNegative  bool
 	ValidationRule string
+	Priority       Priority
 	SortOrder      int
 	Active         bool
 	Kinds          []domain.Kind
@@ -560,8 +619,8 @@ func rowsEqual[T any, K comparable](a, b []T, key func(T) K, eq func(T, T) bool)
 func parametersEqual(a, b ParameterDef) bool {
 	return a.Code == b.Code && a.Group == b.Group && a.Unit == b.Unit &&
 		a.ValueType == b.ValueType && a.AllowNegative == b.AllowNegative &&
-		a.ValidationRule == b.ValidationRule && a.SortOrder == b.SortOrder &&
-		a.Active == b.Active &&
+		a.ValidationRule == b.ValidationRule && a.Priority == b.Priority &&
+		a.SortOrder == b.SortOrder && a.Active == b.Active &&
 		floatPtrEqual(a.Ceiling, b.Ceiling) &&
 		setsEqual(a.Kinds, b.Kinds) &&
 		setsEqual(a.EnumValues, b.EnumValues) &&

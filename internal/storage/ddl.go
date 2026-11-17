@@ -72,7 +72,12 @@ import "strings"
 // сериализация заявок обозначений одного класса (создание записи против
 // заявки синонима) — метод диалекта LockDesignations; базы прежних версий
 // пересоздаются импортом (D5).
-const SchemaVersion = 15
+// Версия 16 — колонка priority таблицы parameters: градация значимости
+// параметра (primary/secondary/tertiary, NULL — не задано, ранжируется
+// как secondary; план 03 §5) — порядок параметров внутри секции карточки
+// становится композитным (priority, sort_order). Первый шаг реестра
+// миграций: базы версии 15 поднимаются migrate (план 09).
+const SchemaVersion = 16
 
 // SchemaBaseline — минимальная поддерживаемая версия схемы базы
 // (docs/plan/09-schema-migrations.md §2): база старее не открывается
@@ -150,8 +155,13 @@ var ddlStatements = []string{
     allow_negative  INTEGER NOT NULL DEFAULT 0,
     validation_rule TEXT NULL REFERENCES validation_rules(code),
     sort_order      INTEGER NOT NULL,
-    is_active       INTEGER NOT NULL DEFAULT 1
+    is_active       INTEGER NOT NULL DEFAULT 1,
+    priority        TEXT NULL
 )`,
+	// priority — последняя колонка таблицы: ALTER TABLE … ADD COLUMN
+	// дописывает колонку в конец, и позиция в свежем DDL обязана
+	// совпадать с путём миграции — иначе нарушается инвариант
+	// эквивалентности «свежая ≡ мигрированная» (план 09 §9).
 
 	`CREATE TABLE IF NOT EXISTS parameter_kinds (
     parameter_code TEXT NOT NULL REFERENCES parameters(code) ON DELETE CASCADE,

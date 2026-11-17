@@ -187,6 +187,11 @@ var bundleEn = map[string]string{
 	"group.limiting":    "Absolute maximum ratings",
 	"group.dimensional": "Mass and dimensions",
 
+	// Градации значимости параметров (parameters.priority).
+	"parampriority.primary":   "main",
+	"parampriority.secondary": "additional",
+	"parampriority.tertiary":  "peripheral",
+
 	// Параметры (parameters): транзисторы — electrical.
 	"param.hfe":       "static current transfer ratio h21E",
 	"param.hfb":       "common-base current transfer ratio hFB",

@@ -584,6 +584,9 @@ func parameterTree(p *catalog.ParameterDef) value {
 	if p.ValidationRule != "" {
 		members = append(members, pair("rule", str(p.ValidationRule)))
 	}
+	if p.Priority != "" {
+		members = append(members, pair("priority", str(string(p.Priority))))
+	}
 	if p.SortOrder != 0 {
 		members = append(members, pair("sort_order", num(float64(p.SortOrder))))
 	}

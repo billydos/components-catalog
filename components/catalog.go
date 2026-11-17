@@ -75,3 +75,16 @@ const (
 	ModeRequired = catalog.ModeRequired
 	ModeOptional = catalog.ModeOptional
 )
+
+// Градации значимости параметров (колонка priority параметров каталога,
+// docs/plan/03-data-model.md §5): порядок параметров внутри секции —
+// (градация, sort_order); пустая градация — не задана, ранжируется
+// как secondary.
+
+type Priority = catalog.Priority
+
+const (
+	PriorityPrimary   = catalog.PriorityPrimary
+	PrioritySecondary = catalog.PrioritySecondary
+	PriorityTertiary  = catalog.PriorityTertiary
+)

@@ -10,20 +10,21 @@ import (
 // метасхему результата (план работ 2.4). Применение — upsert по коду
 // (docs/plan/02-database.md §5.4): вставка новой строки либо обновление полей
 // существующей; enum-значения, наборы условий и применимость к классам
-// замещаются целиком; незаданные (нулевые) sort_order существующих строк
-// сохраняются из снимка (FillSortOrders); удаление строк каталога входом не
-// поддерживается — только деактивация (is_active = 0). При пустом списке
-// Problem результат пригоден к записи; непустой — вход отвергается целиком
-// (частичное применение запрещено): проблемы самопроверки входа исключают и
-// перенос строк в снимок, и проверку метасхемы — вердикт (непустой список
-// проблем) от этого не меняется. base = nil означает пустой каталог (сидирование).
+// замещаются целиком; незаданные (нулевые) sort_order и пустые градации
+// priority существующих строк сохраняются из снимка (FillDefaults); удаление
+// строк каталога входом не поддерживается — только деактивация
+// (is_active = 0). При пустом списке Problem результат пригоден к записи;
+// непустой — вход отвергается целиком (частичное применение запрещено):
+// проблемы самопроверки входа исключают и перенос строк в снимок, и проверку
+// метасхемы — вердикт (непустой список проблем) от этого не меняется.
+// base = nil означает пустой каталог (сидирование).
 func ApplyCatalog(base *Snapshot, in Input) (*Snapshot, []Problem) {
 	out := base.Clone()
 	probs := validateInputSelf(in)
 	if len(probs) > 0 {
 		return out, probs
 	}
-	in = FillSortOrders(base, in)
+	in = FillDefaults(base, in)
 	applyInput(out, in)
 	return out, append(probs, validateMetaschema(out)...)
 }
@@ -82,6 +83,9 @@ func validateInputSelf(in Input) []Problem {
 		}
 		if !p.ValueType.Valid() {
 			probs = append(probs, metaProblem(domain.MsgMetaParamValueType, p.Code, string(p.ValueType)))
+		}
+		if p.Priority != "" && !p.Priority.Valid() {
+			probs = append(probs, metaProblem(domain.MsgMetaParamPriorityUnknown, p.Code, string(p.Priority)))
 		}
 		if p.ValidationRule != "" {
 			if _, ok := RuleByCode(p.ValidationRule); !ok {
@@ -195,14 +199,16 @@ func indexRows[K comparable, V any](rows []V, key func(V) K) map[K]int {
 	return idx
 }
 
-// FillSortOrders возвращает вход, в котором незаданные (нулевые) sort_order
-// строк с кодом, уже существующим в снимке base (parameter_groups,
-// parameters, attributes), заполнены значениями снимка. Экспорт опускает
-// нулевой sort_order, поэтому 0 во входе — «не задан», а не «первая
-// позиция»: краткая строка расширения не сбивает порядок действующих строк
-// каталога. Явно заданные значения и новые строки не затрагиваются; вход не
-// мутируется — копируются только изменённые срезы.
-func FillSortOrders(base *Snapshot, in Input) Input {
+// FillDefaults возвращает вход, в котором незаданные значения строк каталога
+// (нулевой sort_order, пустая градация priority у parameters) с кодом, уже
+// существующим в снимке base (parameter_groups, parameters, attributes),
+// заполнены значениями снимка. Экспорт опускает нулевой sort_order и пустую
+// градацию, поэтому «не задано» во входе — не «первая позиция» и не
+// «secondary», а «сохранить действующее»: краткая строка расширения не
+// сбивает порядок и градацию действующих строк каталога. Явно заданные
+// значения и новые строки не затрагиваются; вход не мутируется — копируются
+// только изменённые срезы.
+func FillDefaults(base *Snapshot, in Input) Input {
 	if len(in.Groups) > 0 {
 		groups := append([]GroupDef(nil), in.Groups...)
 		for i := range groups {
@@ -217,9 +223,14 @@ func FillSortOrders(base *Snapshot, in Input) Input {
 	if len(in.Parameters) > 0 {
 		parameters := append([]ParameterDef(nil), in.Parameters...)
 		for i := range parameters {
-			if parameters[i].SortOrder == 0 {
+			if parameters[i].SortOrder == 0 || parameters[i].Priority == "" {
 				if cur, ok := base.Parameter(parameters[i].Code); ok {
-					parameters[i].SortOrder = cur.SortOrder
+					if parameters[i].SortOrder == 0 {
+						parameters[i].SortOrder = cur.SortOrder
+					}
+					if parameters[i].Priority == "" {
+						parameters[i].Priority = cur.Priority
+					}
 				}
 			}
 		}
@@ -490,6 +501,9 @@ func validateMetaschema(out *Snapshot) []Problem {
 			if p.ValueType != ValueEnum && len(p.EnumValues) > 0 {
 				probs = append(probs, metaProblem(domain.MsgMetaParamEnumOnly, p.Code))
 			}
+		}
+		if p.Priority != "" && !p.Priority.Valid() {
+			probs = append(probs, metaProblem(domain.MsgMetaParamPriorityUnknown, p.Code, string(p.Priority)))
 		}
 		if p.Ceiling != nil && *p.Ceiling <= 0 {
 			probs = append(probs, metaProblem(domain.MsgMetaParamCeiling, p.Code))

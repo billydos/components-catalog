@@ -424,11 +424,12 @@ func groupCardValues(snap *catalog.Snapshot, values []storage.ValueRow) map[vari
 
 // cardGroups собирает значения параметров по группам каталога из
 // предгруппировки. Порядок групп — каталог; порядок параметров внутри
-// группы — каталог (SortOrder параметра, при равенстве — код,
-// docs/fill-format.md §4), относительный порядок одноимённых строк
-// одного параметра — порядок строк (sort_order) — канонизация на чтении
-// покрывает и базы, записанные до канонизации слияния. variantID = nil —
-// данные типа в целом, иначе — значения исполнения.
+// группы — каталог (градация значимости priority, внутри градации
+// SortOrder параметра, при равенстве — код, docs/fill-format.md §4),
+// относительный порядок одноимённых строк одного параметра — порядок
+// строк (sort_order) — канонизация на чтении покрывает и базы,
+// записанные до канонизации слияния. variantID = nil — данные типа
+// в целом, иначе — значения исполнения.
 func cardGroups(snap *catalog.Snapshot, grouped map[variantKey]map[string][]CardValue, variantID *int64) []CardGroup {
 	byGroup := grouped[variantKeyOf(variantID)]
 	if len(byGroup) == 0 {

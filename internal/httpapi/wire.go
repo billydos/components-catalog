@@ -646,6 +646,7 @@ type parameterDefJSON struct {
 	Ceiling        *float64           `json:"ceiling,omitempty"`
 	AllowNegative  bool               `json:"allow_negative"`
 	ValidationRule string             `json:"validation_rule,omitempty"`
+	Priority       string             `json:"priority,omitempty"`
 	SortOrder      int                `json:"sort_order"`
 	IsActive       bool               `json:"is_active"`
 	Kinds          []string           `json:"kinds"`
@@ -733,7 +734,8 @@ func catalogToJSON(lang i18n.Language, s *catalog.Snapshot) catalogSnapshotJSON 
 		pj := parameterDefJSON{
 			Code: p.Code, Group: p.Group, Name: i18n.ParameterName(lang, p.Code), Unit: p.Unit,
 			ValueType: string(p.ValueType), Ceiling: p.Ceiling, AllowNegative: p.AllowNegative,
-			ValidationRule: p.ValidationRule, SortOrder: p.SortOrder, IsActive: p.Active,
+			ValidationRule: p.ValidationRule, Priority: string(p.Priority), SortOrder: p.SortOrder,
+			IsActive:   p.Active,
 			Kinds:      kindsToJSON(p.Kinds),
 			EnumValues: make([]string, 0, len(p.EnumValues)),
 		}

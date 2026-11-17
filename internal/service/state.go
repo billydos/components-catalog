@@ -378,14 +378,15 @@ func (s *stateMerger) sectionRank(section string) int {
 }
 
 // canonicalValues — копия значений секции в каноническом порядке
-// параметров каталога: SortOrder параметра, при равенстве — код
-// (детерминированный порядок). Порядок разных параметров внутри секции
-// значимостью не обладает — параметры внутри секции упорядочены каталогом
-// (docs/fill-format.md §4); относительный порядок одноимённых строк
-// одного параметра сохраняется (стабильная сортировка) — он значим и
-// задаёт sort_order. Неизвестный каталогу параметр отвергается движком
-// до записи (хранение защищено FK); до валидации он детерминированно
-// ставится последним (MaxInt в compareParameterCodes).
+// параметров каталога: градация значимости, внутри градации SortOrder,
+// при равенстве — код (детерминированный порядок). Порядок разных
+// параметров внутри секции значимостью не обладает — параметры внутри
+// секции упорядочены каталогом (docs/fill-format.md §4); относительный
+// порядок одноимённых строк одного параметра сохраняется (стабильная
+// сортировка) — он значим и задаёт sort_order. Неизвестный каталогу
+// параметр отвергается движком до записи (хранение защищено FK);
+// до валидации он детерминированно ставится последним
+// (compareParameterCodes).
 func (s *stateMerger) canonicalValues(vals []stateValue) []stateValue {
 	out := append([]stateValue(nil), vals...)
 	slices.SortStableFunc(out, func(a, b stateValue) int {
@@ -395,25 +396,27 @@ func (s *stateMerger) canonicalValues(vals []stateValue) []stateValue {
 }
 
 // compareParameterCodes — канонический порядок параметров каталога:
-// SortOrder параметра, при равенстве — код. Единая точка для слияния
-// (canonicalValues — сохраняемый sort_order) и карточки (cardGroups —
-// порядок отображения и экспорта): смена порядка в одном месте
-// оставляет хранение, карточку и экспорт согласованными.
+// градация значимости priority (primary → secondary/не задано → tertiary),
+// внутри градации SortOrder параметра, при равенстве — код (план 03 §7);
+// порядок — единая реализация catalog.CompareParameterDefs. Единая точка
+// для слияния (canonicalValues — сохраняемый sort_order) и карточки
+// (cardGroups — порядок отображения и экспорта): смена порядка в одном
+// месте оставляет хранение, карточку и экспорт согласованными.
 func compareParameterCodes(snap *catalog.Snapshot, a, b string) int {
-	if ar, br := paramRank(snap, a), paramRank(snap, b); ar != br {
-		return cmp.Compare(ar, br)
+	pa, knownA := snap.Parameter(a)
+	pb, knownB := snap.Parameter(b)
+	switch {
+	case knownA && knownB:
+		return catalog.CompareParameterDefs(*pa, *pb)
+	case knownA != knownB:
+		// Неизвестный каталогу параметр — детерминированно последний
+		// (движок отвергает его до записи; хранение защищено FK).
+		if knownA {
+			return -1
+		}
+		return 1
 	}
 	return cmp.Compare(a, b)
-}
-
-// paramRank — позиция параметра в каноническом порядке каталога
-// (неизвестный каталогу — последний).
-func paramRank(snap *catalog.Snapshot, code string) int {
-	p, ok := snap.Parameter(code)
-	if !ok {
-		return math.MaxInt
-	}
-	return p.SortOrder
 }
 
 func normalizeAttrs(vals []catalog.AttributeValue) []catalog.AttributeValue {

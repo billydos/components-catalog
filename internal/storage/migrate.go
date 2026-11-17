@@ -33,14 +33,27 @@ type Migration struct {
 	Data func(ctx context.Context, tx *Tx) error
 }
 
-// migrations — реестр шагов (план 09 §3). Пуст, пока
-// SchemaVersion == SchemaBaseline; каждый инкремент версии выше базовой
-// обязан сопровождаться шагом с To == SchemaVersion — непрерывность
-// цепочки SchemaBaseline+1 … SchemaVersion закреплена пин-тестом
-// migrations_test.go. Содержимое шага неизменяемо после релиза, его
-// включившего: правка шага — правка истории (RB-5), исправление
+// migrations — реестр шагов (план 09 §3). Каждый инкремент версии выше
+// SchemaBaseline обязан сопровождаться шагом с To == SchemaVersion —
+// непрерывность цепочки SchemaBaseline+1 … SchemaVersion закреплена
+// пин-тестом migrations_test.go. Содержимое шага неизменяемо после релиза,
+// его включившего: правка шага — правка истории (RB-5), исправление
 // ошибочного шага — новым шагом.
-var migrations = []Migration{}
+var migrations = []Migration{
+	// Версия 16 — градация значимости параметров (план 03 §5): колонка
+	// priority таблицы parameters. Бэкфилла нет — NULL («не задано»)
+	// легален и ранжируется как secondary; курирование — данными (сид на
+	// свежей базе, секция catalog файла наполнения — на существующей).
+	// BumpCatalogRevision обязателен (план 09 §6): меняется состав чтения
+	// снимка каталога — кэш и ETag обязаны увидеть новую колонку.
+	{To: 16, Desc: "parameters: колонка priority (primary/secondary/tertiary)",
+		DDL: []string{
+			`ALTER TABLE parameters ADD COLUMN priority TEXT NULL`,
+		},
+		Data: func(ctx context.Context, tx *Tx) error {
+			return tx.BumpCatalogRevision(ctx)
+		}},
+}
 
 // MigrationInfo — шаг реестра для планов и отчётов: тела шага (DDL,
 // Data-хук) не покидают слой применения.

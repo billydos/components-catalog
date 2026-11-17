@@ -115,10 +115,7 @@ func printCard(w io.Writer, lang i18n.Language, c *service.Card, snap *catalog.S
 	for _, g := range c.Groups {
 		section()
 		fmt.Fprintf(w, "%s:\n", i18n.GroupName(lang, g.Code))
-		for _, v := range g.Values {
-			fmt.Fprintf(w, "  %s%s\n", i18n.ParameterName(lang, v.Parameter),
-				valueWithConditions(lang, v, snap))
-		}
+		printParamLines(w, lang, g.Values, snap, "  ")
 	}
 	for _, v := range c.Variants {
 		section()
@@ -130,10 +127,7 @@ func printCard(w io.Writer, lang i18n.Language, c *service.Card, snap *catalog.S
 		}
 		for _, g := range v.Groups {
 			fmt.Fprintf(w, "  %s:\n", i18n.GroupName(lang, g.Code))
-			for _, val := range g.Values {
-				fmt.Fprintf(w, "    %s%s\n", i18n.ParameterName(lang, val.Parameter),
-					valueWithConditions(lang, val, snap))
-			}
+			printParamLines(w, lang, g.Values, snap, "    ")
 		}
 	}
 	if tg := c.TypeGroup; tg != nil {
@@ -182,6 +176,60 @@ func printCard(w io.Writer, lang i18n.Language, c *service.Card, snap *catalog.S
 			parts = append(parts, b.Designation)
 		}
 		fmt.Fprintln(w, i18n.Message(lang, string(domain.MsgCliBacklinks), joinParts(parts)))
+	}
+}
+
+// printParamLines выводит значения параметров группы карточки с базовым
+// отступом indent. Значения уже в каноническом порядке каталога
+// (cardGroups): градации значимости идут компактными блоками. Группа,
+// охватывающая несколько градаций, делится подзаголовками градаций,
+// значения блока — вложенным отступом; группа одной градации выводится
+// без подзаголовка (компактность простых карточек).
+func printParamLines(w io.Writer, lang i18n.Language, values []service.CardValue, snap *catalog.Snapshot, indent string) {
+	tiers := make([]catalog.Priority, len(values))
+	for i, v := range values {
+		tiers[i] = paramPriorityOf(snap, v.Parameter)
+	}
+	multiTier := false
+	for i := 1; i < len(tiers); i++ {
+		if tiers[i] != tiers[i-1] {
+			multiTier = true
+			break
+		}
+	}
+	nested := indent + "  "
+	for i, v := range values {
+		if multiTier && (i == 0 || tiers[i] != tiers[i-1]) {
+			fmt.Fprintf(w, "%s%s\n", indent, i18n.Message(lang, string(priorityHeadMsg(tiers[i]))))
+		}
+		pad := indent
+		if multiTier {
+			pad = nested
+		}
+		fmt.Fprintf(w, "%s%s%s\n", pad, i18n.ParameterName(lang, v.Parameter),
+			valueWithConditions(lang, v, snap))
+	}
+}
+
+// paramPriorityOf — действующая градация значимости параметра по снимку
+// каталога (неизвестный каталогу параметр в карточку не попадает —
+// groupCardValues его пропускает; отсутствие градации — secondary).
+func paramPriorityOf(snap *catalog.Snapshot, code string) catalog.Priority {
+	if def, ok := snap.Parameter(code); ok {
+		return def.Priority.OrDefault()
+	}
+	return catalog.PrioritySecondary
+}
+
+// priorityHeadMsg — сообщение-подзаголовок градации значимости.
+func priorityHeadMsg(p catalog.Priority) domain.MsgID {
+	switch p {
+	case catalog.PriorityPrimary:
+		return domain.MsgCliPrioPrimary
+	case catalog.PriorityTertiary:
+		return domain.MsgCliPrioTertiary
+	default:
+		return domain.MsgCliPrioSecondary
 	}
 }
 

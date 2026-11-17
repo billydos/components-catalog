@@ -493,6 +493,72 @@ func TestNotesTextListCard(t *testing.T) {
 	}
 }
 
+// TestCardPriorityTiers — градации значимости параметров: карточка info
+// упорядочивает значения по (priority, sort_order) и делит группы
+// нескольких градаций подзаголовками; catalog list показывает градацию
+// каждой строки параметра.
+func TestCardPriorityTiers(t *testing.T) {
+	db := testDB(t)
+	run(t, "init", "--db", db)
+	file := filepath.Join(t.TempDir(), "prio.jsonc")
+	body := `{
+	"capacitors": [
+		{ "name": "К10-17",
+			"parameters": [
+				{ "parameter": "EsrLife", "max": 200 },
+				{ "parameter": "DF", "max": 0.15 },
+				{ "parameter": "Cnom", "min": 22, "max": 68000 }
+			] }
+	]
+}
+`
+	if err := os.WriteFile(file, []byte(body), 0o600); err != nil {
+		t.Fatalf("запись файла: %v", err)
+	}
+	stdout, stderr, code := run(t, "import", file, "--db", db)
+	if code != 0 || stderr != "" || !strings.Contains(stdout, "added: 1") {
+		t.Fatalf("import: код %d, %q, %q", code, stdout, stderr)
+	}
+
+	// Карточка: значения группируются подзаголовками градаций в порядке
+	// primary → secondary → tertiary (входной порядок строк не важен).
+	stdout, stderr, code = run(t, "info", "К10-17", "--db", db)
+	if code != 0 || stderr != "" {
+		t.Fatalf("info: код %d, %q, %q", code, stdout, stderr)
+	}
+	main := strings.Index(stdout, "  Main:\n    nominal capacitance")
+	additional := strings.Index(stdout, "  Additional:\n    dissipation factor")
+	peripheral := strings.Index(stdout, "  Peripheral:\n    equivalent series resistance (ESR) after life test")
+	if main < 0 || additional < 0 || peripheral < 0 ||
+		!(main < additional && additional < peripheral) {
+		t.Fatalf("градации карточки (main=%d additional=%d peripheral=%d):\n%s",
+			main, additional, peripheral, stdout)
+	}
+
+	// Локаль ru — русские подзаголовки.
+	stdout, _, code = run(t, "info", "К10-17", "--lang", "ru", "--db", db)
+	if code != 0 || !strings.Contains(stdout, "  Основные:") ||
+		!strings.Contains(stdout, "  Дополнительные:") ||
+		!strings.Contains(stdout, "  Побочные:") {
+		t.Fatalf("info (ru):\n%s", stdout)
+	}
+
+	// Справка catalog list: градация в строке параметра, порядок списка
+	// зеркалит карточку (main раньше peripheral).
+	stdout, stderr, code = run(t, "catalog", "list", "--db", db)
+	if code != 0 || stderr != "" {
+		t.Fatalf("catalog list: код %d, %q, %q", code, stdout, stderr)
+	}
+	mainLine := strings.Index(stdout, "priority: main")
+	periphLine := strings.Index(stdout, "priority: peripheral")
+	if mainLine < 0 || periphLine < 0 || mainLine > periphLine {
+		t.Fatalf("catalog list: main=%d peripheral=%d\n%s", mainLine, periphLine, stdout)
+	}
+	if !strings.Contains(stdout, "Cnom —") || !strings.Contains(stdout, "EsrLife —") {
+		t.Fatalf("catalog list без строк параметров:\n%s", stdout)
+	}
+}
+
 // TestVariantAttributesCard — атрибуты исполнений: импорт, карточка info
 // выводит их внутри блока исполнения, повторный импорт — идемпотентность.
 func TestVariantAttributesCard(t *testing.T) {
@@ -1086,16 +1152,18 @@ func TestMigrateCommand(t *testing.T) {
 
 	// Применение к базе фикстуры: итог зависит от реестра — на пустом
 	// (SchemaVersion == SchemaBaseline) «база уже на версии», код 0;
-	// с шагами печаталось бы «migrated: …» и фикстура была бы ниже
-	// версии модуля — проверяется ниже отдельной веткой.
-	uptodate := "database is already at version " + ver
+	// с шагами печатается «migrated: …» и база поднимается до версии
+	// модуля (фикстура baseline ниже версии модуля).
 	stdout, stderr, code := run(t, "migrate", "--db", db)
 	if code != 0 || stderr != "" ||
-		!strings.Contains(stdout, uptodate) && !strings.Contains(stdout, "migrated: ") {
+		!strings.Contains(stdout, "database is already at version "+ver) &&
+			!strings.Contains(stdout, "migrated: ") {
 		t.Fatalf("migrate: код %d, stdout %q, stderr %q", code, stdout, stderr)
 	}
 
-	// Повторный запуск — «база актуальна», код 0 (идемпотентность).
+	// Повторный запуск — «база актуальна» на версии модуля, код 0
+	// (идемпотентность).
+	uptodate := "database is already at version " + strconv.Itoa(storage.SchemaVersion)
 	stdout, stderr, code = run(t, "migrate", "--db", db)
 	if code != 0 || !strings.Contains(stdout, uptodate) {
 		t.Fatalf("повторный migrate: код %d, %q, %q", code, stdout, stderr)
@@ -1103,7 +1171,7 @@ func TestMigrateCommand(t *testing.T) {
 
 	// dry-run: заголовок плана с текущей версией, ни одной строки шага.
 	stdout, stderr, code = run(t, "migrate", "--db", db, "--dry-run")
-	header := "migration plan (database schema version " + ver + "):"
+	header := "migration plan (database schema version " + strconv.Itoa(storage.SchemaVersion) + "):"
 	if code != 0 || stderr != "" || !strings.Contains(stdout, header) ||
 		migrateStepLineRE.MatchString(stdout) {
 		t.Fatalf("migrate --dry-run: код %d, stdout %q, stderr %q", code, stdout, stderr)
@@ -1111,7 +1179,7 @@ func TestMigrateCommand(t *testing.T) {
 
 	// Локаль вывода: русские итоги.
 	stdout, _, code = run(t, "migrate", "--db", db, "--lang", "ru")
-	if code != 0 || !strings.Contains(stdout, "база уже на версии "+ver) {
+	if code != 0 || !strings.Contains(stdout, "база уже на версии "+strconv.Itoa(storage.SchemaVersion)) {
 		t.Fatalf("migrate (ru): код %d, %q", code, stdout)
 	}
 

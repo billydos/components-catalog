@@ -184,20 +184,19 @@ func TestMigrationStepApplyAndRaceSQLite(t *testing.T) {
 	}
 
 	t.Run("CAS не находит чужую версию", func(t *testing.T) {
-		// Версия уже ушла вперёд: applyStep с устаревшим from обязан
-		// вернуть сигнал гонки, а не применять повторно.
-		setSchemaVersion(t, db, "16")
-		step := Migration{To: 16, Desc: "test: гонка", DDL: []string{
+		// Версия базы уже ушла вперёд относительно from шага (база после
+		// EnsureCreated — на версии модуля): applyStep с устаревшим from
+		// обязан вернуть сигнал гонки, а не применять повторно.
+		step := Migration{To: SchemaVersion + 1, Desc: "test: гонка", DDL: []string{
 			`CREATE TABLE migration_probe (id INTEGER PRIMARY KEY)`,
 		}}
-		err := db.applyStep(ctx, step, 15)
+		err := db.applyStep(ctx, step, SchemaVersion-1)
 		if !errors.Is(err, errStepRace) {
 			t.Fatalf("ожидался сигнал гонки, получено %v", err)
 		}
 		if n := countTables(t, db, "migration_probe"); n != 0 {
 			t.Fatal("транзакция проигравшего гонку шага не откатилась")
 		}
-		setSchemaVersion(t, db, "15")
 	})
 
 	t.Run("применение с инкрементом ревизии", func(t *testing.T) {
@@ -226,7 +225,7 @@ func TestMigrationStepApplyAndRaceSQLite(t *testing.T) {
 		// Восстановление версии: тестовая база одноразовая, но версия выше
 		// модуля ломает Close-независимые проверки других тестов пакета
 		// только через этот файл — возвращаем каноническое значение.
-		setSchemaVersion(t, db, "15")
+		setSchemaVersion(t, db, strconv.Itoa(SchemaVersion))
 	})
 }
 

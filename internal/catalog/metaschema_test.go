@@ -103,6 +103,9 @@ func TestMetaschemaViolations(t *testing.T) {
 		{"отрицательный порядок", catalog.Input{Parameters: []catalog.ParameterDef{
 			p(func(r *catalog.ParameterDef) { r.SortOrder = -1 }),
 		}}, "catalog: parameter «Eta»: sort order must be non-negative"},
+		{"неизвестная градация значимости", catalog.Input{Parameters: []catalog.ParameterDef{
+			p(func(r *catalog.ParameterDef) { r.Priority = "critical" }),
+		}}, "catalog: parameter «Eta»: priority «critical» is unknown"},
 		{"неизвестный класс применимости", catalog.Input{Parameters: []catalog.ParameterDef{
 			p(func(r *catalog.ParameterDef) { r.Kinds = []domain.Kind{"thyristor"} }),
 		}}, "catalog: parameter «Eta»: applicability kind «thyristor» does not exist"},
