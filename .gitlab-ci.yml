@@ -166,8 +166,10 @@ full-qa:
 
 # Ручной пуш основной ветки и тегов в зеркало github.com/billydos/
 # components-catalog. Джоба существует только в пайплайнах основной
-# ветки и запускается кнопкой (manual, allow_failure по умолчанию —
-# пайплайн не блокирует). Сначала пушится ветка, затем теги:
+# ветки и запускается кнопкой (manual + allow_failure: true —
+# пайплайн не блокирует: у manual-джоб в rules allow_failure по
+# умолчанию false, и без явного true пайплайн висел бы в blocked).
+# Сначала пушится ветка, затем теги:
 # релизный воркфлоу GitHub (release.yml) срабатывает по тегу vX.Y.Z и
 # его verify требует тег в истории origin/main — ветка должна оказаться
 # в зеркале раньше тегов.
@@ -185,6 +187,7 @@ full-qa:
 github-mirror:
   stage: mirror
   interruptible: false
+  allow_failure: true
   rules:
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
       when: manual
