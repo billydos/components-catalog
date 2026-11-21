@@ -7,9 +7,10 @@
 #
 # Тег `vX.Y.Z`, указывающий на коммит в истории основной ветки, получает
 # verify-tag (тег на main, build, vet, gofmt, test) и полный QA-контур того
-# же коммита. Кросс-сборка и публикация GitLab Release отключены
-# (build/publish — `when: never`): релизные артефакты и GitHub Release
-# выпускает GitHub Actions (`.github/workflows/release.yml`).
+# же коммита. Кросс-сборка — ручная кнопка build в теговом пайплайне
+# (needs держит QA-гейт), publish стартует автоматически после её успеха;
+# публикация без нажатия кнопки не происходит: релизные артефакты и
+# GitHub Release выпускает GitHub Actions (`.github/workflows/release.yml`).
 #
 # Переменные QA — те же, что в GitHub-воркфлоу `.github/workflows/`
 # (CATALOG_QA_SCALE, CATALOG_QA_DIALECT, CATALOG_TEST_POSTGRES_DSN).
@@ -29,7 +30,8 @@
 #   контур запускается вручную (workflow_dispatch) и на теге релиза
 #   (workflow_call) — джоба skip-check (поиск зелёного прогона того же
 #   SHA по Actions API) упразднена вместе с автоматическим QA;
-# - релизная сборка и публикация отключены (build/publish — `when: never`):
+# - релизная сборка в теговом пайплайне ручная (build — manual, publish
+#   стартует после неё автоматически): без кнопки ничего не публикуется,
 #   артефакты и GitHub Release выпускает GitHub Actions (release.yml).
 #
 # Требования к раннеру: docker-исполнитель с тегом `docker` (тег задан в
@@ -229,10 +231,12 @@ build:
     - qa-sqlite
     - qa-postgres
   rules:
-    # отключено: кросс-сборку релизных артефактов выполняет GitHub Actions
-    # (.github/workflows/release.yml). Вернуть — заменить правило на
-    # `- if: $CI_COMMIT_TAG =~ /^v[0-9]+\.[0-9]+\.[0-9]+/`
-    - when: never
+    # ручная сборка: кнопка появляется в теговом пайплайне, needs держит
+    # тот же QA-гейт; автоматического запуска нет — артефакты и GitHub
+    # Release выпускает GitHub Actions (.github/workflows/release.yml)
+    # через зеркало
+    - if: $CI_COMMIT_TAG =~ /^v[0-9]+\.[0-9]+\.[0-9]+/
+      when: manual
   parallel:
     matrix:
       - GOOS: [linux, windows, darwin]
@@ -271,11 +275,11 @@ publish:
   resource_group: release
   needs: [build]
   rules:
-    # отключено вместе с build: publish потребляет его артефакты и без
-    # него в пайплайн не попадает (needs) — GitLab Release выпускает
-    # GitHub Actions (.github/workflows/release.yml). Вернуть —
-    # восстановить правило тега в build и здесь
-    - when: never
+    # своего рубильника нет: стартует автоматически после успеха build
+    # (needs). Правило тега обязательно: без него джоба попала бы и в
+    # пайплайны веток, где build отсутствует — needs на несуществующую
+    # джобу ломает создание пайплайна
+    - if: $CI_COMMIT_TAG =~ /^v[0-9]+\.[0-9]+\.[0-9]+/
   image: registry.gitlab.com/gitlab-org/release-cli:latest
   # кэш Go этой джобе не нужен — образ без Go
   cache: {}
