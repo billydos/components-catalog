@@ -133,18 +133,25 @@ qa-postgres:
     CATALOG_QA_SCALE: "0"
     CATALOG_QA_DIALECT: postgres
   before_script:
-    # служба стартует асинхронно: ждём открытия порта, а не только контейнера
+    # служба стартует асинхронно: ждём открытия порта, а не только
+    # контейнера. exit здесь запрещён: before_script и script крутятся
+    # в одной оболочке — exit 0 завершал джобу «успехом» ещё до
+    # запуска QA (отчёта нет, артефакт пуст, script молчит)
     - |
       echo "ожидание PostgreSQL…"
+      ready=0
       for i in $(seq 1 60); do
         if (echo > /dev/tcp/postgres/5432) >/dev/null 2>&1; then
           echo "PostgreSQL готов (попытка $i)"
-          exit 0
+          ready=1
+          break
         fi
         sleep 1
       done
-      echo "PostgreSQL не поднялся за 60 с"
-      exit 1
+      if [ "$ready" -ne 1 ]; then
+        echo "PostgreSQL не поднялся за 60 с"
+      fi
+      [ "$ready" -eq 1 ]
 
 # --- 2. Полный QA (вручную, дочерний пайплайн) ------------------------------
 
