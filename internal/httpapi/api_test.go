@@ -1934,3 +1934,225 @@ func TestCardSources(t *testing.T) {
 	wantError(t, status, eb, http.StatusUnprocessableEntity, "unknown_source",
 		"source «nowhere» not found (define it in the root sources section)")
 }
+
+// Реестр источников (CC-17): REST-пути sources — страница с поиском
+// и ETag, применение (идемпотентность, валидация), чтение по коду,
+// удаление с отказом source_in_use на связанные.
+func TestSourcesRegistry(t *testing.T) {
+	_, srv := newTestAPI(t, Config{})
+
+	// Применение определений: фактическое изменение и идемпотентный
+	// повтор.
+	defs := `[{"code":"ba8082","title":"Полупроводниковые приборы","type":"handbook","year":1982},
+	          {"code":"ti_2n3904","title":"2N3904 datasheet","type":"datasheet","urls":["https://example.com/2n3904"]}]`
+	status, body, _ := do(t, srv, http.MethodPost, apiPrefix+"/sources", defs)
+	if status != http.StatusOK || !strings.Contains(body, `"applied":true`) {
+		t.Fatalf("применение: %d %s", status, body)
+	}
+	status, body, _ = do(t, srv, http.MethodPost, apiPrefix+"/sources", defs)
+	if status != http.StatusOK || !strings.Contains(body, `"applied":false`) {
+		t.Fatalf("повторное применение: %d %s", status, body)
+	}
+
+	// Страница: порядок по коду, total, пагинация.
+	status, body, _ = do(t, srv, http.MethodGet, apiPrefix+"/sources?limit=1", "")
+	if status != http.StatusOK {
+		t.Fatalf("страница: %d %s", status, body)
+	}
+	page := decode[sourcesPageJSON](t, body)
+	if page.Total != 2 || len(page.Items) != 1 ||
+		page.Items[0].Code != "ba8082" || page.Limit != 1 || page.Offset != 0 {
+		t.Fatalf("страница: %+v", page)
+	}
+	if page.Items[0].TypeName != "reference book (handbook)" ||
+		page.Items[0].Authors == nil || page.Items[0].URLs == nil {
+		t.Fatalf("элемент страницы: %+v", page.Items[0])
+	}
+
+	// Поиск по коду и названию (латиница — регистронезависимо).
+	for _, q := range []string{"datasheet", "DATASHEET", "ti_", "2n3904"} {
+		status, body, _ = do(t, srv, http.MethodGet,
+			apiPrefix+"/sources?q="+url.QueryEscape(q), "")
+		if status != http.StatusOK {
+			t.Fatalf("поиск %q: %d %s", q, status, body)
+		}
+		page = decode[sourcesPageJSON](t, body)
+		if page.Total != 1 || len(page.Items) != 1 || page.Items[0].Code != "ti_2n3904" {
+			t.Fatalf("поиск %q: %+v", q, page)
+		}
+	}
+
+	// Локализация type_name страницы (D9).
+	req, _ := http.NewRequest(http.MethodGet, srv.URL+apiPrefix+"/sources", nil)
+	req.Header.Set("Accept-Language", "ru")
+	resp, err := srv.Client().Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ruBody, _ := io.ReadAll(resp.Body)
+	resp.Body.Close()
+	ruPage := decode[sourcesPageJSON](t, string(ruBody))
+	if len(ruPage.Items) == 0 || ruPage.Items[0].TypeName != "справочник" {
+		t.Fatalf("страница по-русски: %+v", ruPage.Items)
+	}
+
+	// ETag страницы: 304 на If-None-Match, смена после изменения реестра.
+	req, _ = http.NewRequest(http.MethodGet, srv.URL+apiPrefix+"/sources?limit=1", nil)
+	resp, err = srv.Client().Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	etag := resp.Header.Get("Etag")
+	resp.Body.Close()
+	if etag == "" {
+		t.Fatal("страница без ETag")
+	}
+	req, _ = http.NewRequest(http.MethodGet, srv.URL+apiPrefix+"/sources?limit=1", nil)
+	req.Header.Set("If-None-Match", etag)
+	resp, err = srv.Client().Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	resp.Body.Close()
+	if resp.StatusCode != http.StatusNotModified {
+		t.Fatalf("If-None-Match: %d (ETag %s)", resp.StatusCode, etag)
+	}
+	if status, body, _ := do(t, srv, http.MethodPost, apiPrefix+"/sources",
+		`[{"code":"gost10862","title":"ГОСТ 10862","type":"standard"}]`); status != http.StatusOK {
+		t.Fatalf("расширение реестра: %d %s", status, body)
+	}
+	req, _ = http.NewRequest(http.MethodGet, srv.URL+apiPrefix+"/sources?limit=1", nil)
+	req.Header.Set("If-None-Match", etag)
+	resp, err = srv.Client().Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("ETag не сменился после изменения реестра: %d", resp.StatusCode)
+	}
+
+	// Строгий разбор параметров: посторонний ключ, повтор, пределы.
+	var eb errorBody
+	status, _, eb = do(t, srv, http.MethodGet, apiPrefix+"/sources?bogus=1", "")
+	wantError(t, status, eb, http.StatusBadRequest, "validation_failed",
+		"unknown query parameter «bogus»")
+	status, _, eb = do(t, srv, http.MethodGet, apiPrefix+"/sources?q=a&q=b", "")
+	wantError(t, status, eb, http.StatusBadRequest, "validation_failed",
+		`query parameter «q» is set more than once`)
+	status, _, eb = do(t, srv, http.MethodGet, apiPrefix+"/sources?limit=0", "")
+	wantError(t, status, eb, http.StatusBadRequest, "validation_failed",
+		"parameter limit: an integer from 1 to 200 is expected")
+	status, _, eb = do(t, srv, http.MethodGet, apiPrefix+"/sources?offset=-1", "")
+	wantError(t, status, eb, http.StatusBadRequest, "validation_failed",
+		"parameter offset: a non-negative integer is expected")
+
+	// Чтение по коду: 200, локаль type_name, 404 с текстом контракта.
+	status, body, _ = do(t, srv, http.MethodGet, apiPrefix+"/sources/ba8082", "")
+	if status != http.StatusOK {
+		t.Fatalf("чтение по коду: %d %s", status, body)
+	}
+	def := decode[sourceJSON](t, body)
+	if def.Code != "ba8082" || def.Title != "Полупроводниковые приборы" ||
+		def.Year == nil || *def.Year != 1982 {
+		t.Fatalf("определение: %+v", def)
+	}
+	status, _, eb = do(t, srv, http.MethodGet, apiPrefix+"/sources/nowhere", "")
+	wantError(t, status, eb, http.StatusNotFound, "not_found", "source «nowhere» not found")
+
+	// Валидация тела применения: charset кода и неизвестный тип — 422,
+	// синтаксис и форма — 400 invalid_import_file.
+	status, _, eb = do(t, srv, http.MethodPost, apiPrefix+"/sources",
+		`[{"code":"Bad-Code","title":"T","type":"book"}]`)
+	wantError(t, status, eb, http.StatusUnprocessableEntity, "validation_failed",
+		"source code «Bad-Code»: only lowercase Latin letters, digits and underscore are allowed")
+	status, _, eb = do(t, srv, http.MethodPost, apiPrefix+"/sources",
+		`[{"code":"ok1","title":"T","type":"nope"}]`)
+	wantError(t, status, eb, http.StatusUnprocessableEntity, "unknown_source",
+		"source «ok1»: unknown source type «nope» (allowed: book, datasheet, handbook, journal, spec, standard, web)")
+	status, _, eb = do(t, srv, http.MethodPost, apiPrefix+"/sources", `[{"code":`)
+	wantError(t, status, eb, http.StatusBadRequest, "invalid_import_file",
+		"the file is not valid JSONC: hujson: line 1, column 10: parsing value: unexpected EOF")
+	status, _, eb = do(t, srv, http.MethodPost, apiPrefix+"/sources", `{"sources": []}`)
+	wantError(t, status, eb, http.StatusBadRequest, "invalid_import_file",
+		`"sources" must be an array of source definitions (objects {code, title, type, …})`)
+
+	// Удаление: связанный — 409 source_in_use, сирота — 204,
+	// после — 404; неизвестный код — 404.
+	status, _, _ = do(t, srv, http.MethodPut, apiPrefix+"/components/transistor/"+esc("КТ315Б"),
+		`{"name": "КТ315Б", "sources": ["ba8082"]}`)
+	status, _, eb = do(t, srv, http.MethodDelete, apiPrefix+"/sources/ba8082", "")
+	wantError(t, status, eb, http.StatusConflict, "source_in_use",
+		"source «ba8082» is referenced by records (remove the links first)")
+	status, _, _ = do(t, srv, http.MethodDelete, apiPrefix+"/sources/gost10862", "")
+	if status != http.StatusNoContent {
+		t.Fatalf("удаление сироты: %d", status)
+	}
+	status, _, eb = do(t, srv, http.MethodDelete, apiPrefix+"/sources/gost10862", "")
+	wantError(t, status, eb, http.StatusNotFound, "not_found", "source «gost10862» not found")
+}
+
+// Фасетные агрегаты GET /stats?kind= кэшируются: сильный ETag
+// (ревизии каталога и данных, класс, локаль) и 304 на If-None-Match
+// до агрегатного чтения; запись данных меняет ETag.
+func TestStatsKindETag(t *testing.T) {
+	_, srv := newTestAPI(t, Config{})
+
+	get := func(ifNoneMatch string) *http.Response {
+		t.Helper()
+		req, _ := http.NewRequest(http.MethodGet, srv.URL+apiPrefix+"/stats?kind=transistor", nil)
+		if ifNoneMatch != "" {
+			req.Header.Set("If-None-Match", ifNoneMatch)
+		}
+		resp, err := srv.Client().Do(req)
+		if err != nil {
+			t.Fatal(err)
+		}
+		resp.Body.Close()
+		return resp
+	}
+	resp := get("")
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("статус: %d", resp.StatusCode)
+	}
+	etag := resp.Header.Get("Etag")
+	if etag == "" || !strings.Contains(etag, "stats-") {
+		t.Fatalf("ETag фасетов: %q", etag)
+	}
+	if !slices.Contains(resp.Header.Values("Vary"), "Accept-Language") {
+		t.Fatalf("Vary: %v", resp.Header.Values("Vary"))
+	}
+	if resp = get(etag); resp.StatusCode != http.StatusNotModified {
+		t.Fatalf("If-None-Match: %d (ETag %s)", resp.StatusCode, etag)
+	}
+	// Запись данных меняет data_revision — прежний ETag не совпадает.
+	if status, body, _ := do(t, srv, http.MethodPost, apiPrefix+"/components",
+		`{"name":"2N9014"}`); status != http.StatusCreated {
+		t.Fatalf("запись: %d %s", status, body)
+	}
+	if resp = get(etag); resp.StatusCode != http.StatusOK {
+		t.Fatalf("после записи: %d (ETag %s)", resp.StatusCode, etag)
+	}
+	// Валидация класса приоритетнее 304: невалидный kind с
+	// If-None-Match: * — 400, не 304 (контракт handleSearch).
+	req, _ := http.NewRequest(http.MethodGet, srv.URL+apiPrefix+"/stats?kind=bogus", nil)
+	req.Header.Set("If-None-Match", "*")
+	resp, err := srv.Client().Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	resp.Body.Close()
+	if resp.StatusCode != http.StatusBadRequest {
+		t.Fatalf("невалидный kind с If-None-Match: *: %d (ожидался 400)", resp.StatusCode)
+	}
+	// Без kind — агрегаты модуля без ETag (дешёвый подсчёт).
+	req, _ = http.NewRequest(http.MethodGet, srv.URL+apiPrefix+"/stats", nil)
+	resp, err = srv.Client().Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	resp.Body.Close()
+	if resp.StatusCode != http.StatusOK || resp.Header.Get("Etag") != "" {
+		t.Fatalf("агрегаты модуля: %d, ETag %q", resp.StatusCode, resp.Header.Get("Etag"))
+	}
+}

@@ -141,9 +141,33 @@ type synonymJSON struct {
 }
 
 // cardSourceJSON — источник данных записи: полное библиографическое
-// определение и заметка места в источнике (type_name — отображаемое
-// название типа по локали, sourcetype.<код> — D9).
+// определение и заметка места в источнике. Определение — та же
+// wire-форма, что реестр (sourceJSON, конструктор sourceToJSON):
+// единая точка json-полей и локализации типа (type_name — sourcetype.
+// <код> — D9), карточка добавляет только заметку.
 type cardSourceJSON struct {
+	sourceJSON
+	Note string `json:"note,omitempty"`
+}
+
+// cardSourceToJSON — источник карточки: общее wire-представление
+// реестра плюс заметка места (type_name — по локали запроса).
+func cardSourceToJSON(lang i18n.Language, src service.CardSource) cardSourceJSON {
+	return cardSourceJSON{
+		sourceJSON: sourceToJSON(lang, service.SourceInput{
+			Code: src.Code, Title: src.Title, Type: src.Type,
+			Year: src.Year, Publisher: src.Publisher, Edition: src.Edition,
+			ISBN: src.ISBN, Authors: src.Authors, Editors: src.Editors,
+			URLs: src.URLs,
+		}),
+		Note: src.Note,
+	}
+}
+
+// sourceJSON — определение источника реестра (GET /sources,
+// GET /sources/{code}): поля SourceInput; type_name — отображаемое
+// название типа по локали, sourcetype.<код> — D9 (как cardSourceJSON).
+type sourceJSON struct {
 	Code      string   `json:"code"`
 	Title     string   `json:"title"`
 	Type      string   `json:"type"`
@@ -155,7 +179,42 @@ type cardSourceJSON struct {
 	Edition   string   `json:"edition,omitempty"`
 	ISBN      string   `json:"isbn,omitempty"`
 	URLs      []string `json:"urls"`
-	Note      string   `json:"note,omitempty"`
+}
+
+func sourceToJSON(lang i18n.Language, s service.SourceInput) sourceJSON {
+	return sourceJSON{
+		Code: s.Code, Title: s.Title, Type: s.Type,
+		TypeName: i18n.SourceTypeName(lang, s.Type),
+		Authors:  nonNilStrings(s.Authors), Editors: nonNilStrings(s.Editors),
+		Year: s.Year, Publisher: s.Publisher, Edition: s.Edition, ISBN: s.ISBN,
+		URLs: nonNilStrings(s.URLs),
+	}
+}
+
+// sourcesPageJSON — страница реестра источников с общим числом под
+// фильтром q (GET /sources).
+type sourcesPageJSON struct {
+	Items  []sourceJSON `json:"items"`
+	Total  int          `json:"total"`
+	Limit  int          `json:"limit"`
+	Offset int          `json:"offset"`
+}
+
+func sourcesPageToJSON(lang i18n.Language, p service.SourcesPage) sourcesPageJSON {
+	out := sourcesPageJSON{
+		Items: make([]sourceJSON, 0, len(p.Items)),
+		Total: p.Total, Limit: p.Limit, Offset: p.Offset,
+	}
+	for _, s := range p.Items {
+		out.Items = append(out.Items, sourceToJSON(lang, s))
+	}
+	return out
+}
+
+// sourcesApplyJSON — итог применения POST /sources: фактическое
+// изменение реестра (повторное применение без изменений — false).
+type sourcesApplyJSON struct {
+	Applied bool `json:"applied"`
 }
 
 // cardJSON — карточка записи (docs/plan/04-module-functionality.md §2).
@@ -245,14 +304,7 @@ func cardToJSON(lang i18n.Language, c *service.Card) cardJSON {
 		})
 	}
 	for _, src := range c.Sources {
-		out.Sources = append(out.Sources, cardSourceJSON{
-			Code: src.Code, Title: src.Title, Type: src.Type,
-			TypeName: i18n.SourceTypeName(lang, src.Type),
-			Authors:  nonNilStrings(src.Authors), Editors: nonNilStrings(src.Editors),
-			Year:      src.Year,
-			Publisher: src.Publisher, Edition: src.Edition, ISBN: src.ISBN,
-			URLs: nonNilStrings(src.URLs), Note: src.Note,
-		})
+		out.Sources = append(out.Sources, cardSourceToJSON(lang, src))
 	}
 	return out
 }

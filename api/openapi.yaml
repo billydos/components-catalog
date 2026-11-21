@@ -29,15 +29,17 @@ info:
     variants, analogs, synonyms, sources): отсутствует/null — не менять
     (для POST — не задано), задана — заменить целиком, `[]`/`{}` — очистить,
     ошибка в любом значении — запись не применяется вовсе. Ссылки sources
-    адресуют коды глобального реестра источников файла наполнения
-    (план 03 §13); определения реестра задаёт корневая секция sources
-    импорта, не тело записи.
+    адресуют коды глобального реестра источников (план 03 §13);
+    определения реестра задают корневая секция sources файла импорта
+    и POST /api/v1/sources, не тело записи.
 servers: []
 tags:
   - name: catalog
     description: Справочники модуля (классы, каталог).
   - name: components
     description: "Записи приборов: поиск, карточка, запись, удаление."
+  - name: sources
+    description: "Реестр источников данных записей (D13): чтение, применение, удаление."
   - name: service
     description: Служебные данные (статистика, автодополнение).
   - name: import
@@ -123,7 +125,10 @@ paths:
         неприменимые к классу (D7; в том числе с данными, оставшимися
         после изменения применимости каталогом) в ответ не входят,
         порядок параметров — алфавит кодов (как /catalog),
-        значения — по убыванию частоты, затем по тексту. Повтор
+        значения — по убыванию частоты, затем по тексту. Фасетное
+        представление кэшируется: ETag — по catalog_revision
+        (применимость параметров), data_revision, классу и локали;
+        If-None-Match отсекается 304 до агрегатного чтения. Повтор
         разбираемого параметра и посторонний ключ запроса — 400
         validation_failed; неизвестный класс — 400 validation_failed.
       parameters:
@@ -131,19 +136,34 @@ paths:
         - {name: kind, in: query, schema: {type: string}, description: "Код класса: ответ — фасетные агрегаты значений параметров этого класса (без параметра и с пустым значением — агрегаты модуля)."}
       responses:
         "200":
-          description: Агрегаты модуля (без kind) либо фасетные агрегаты
-            класса (с kind); name — по локали запроса, unit — канонический код.
+          description: Агрегаты модуля (без kind; без ETag — дешёвый
+            подсчёт, ревизии — в самом ответе) либо фасетные агрегаты
+            класса (с kind; name — по локали запроса, unit —
+            канонический код, ответ с ETag).
           headers:
             Vary:
               description: Accept-Language — на ответе с kind (представление
                 локализуется); на агрегатах модуля без kind не отдаётся.
               schema: {type: string, const: Accept-Language}
+            ETag:
+              description: Сильный ETag вида
+                "stats-<catalog_revision>-<data_revision>-<kind>-<локаль>" —
+                только на фасетном ответе (с kind).
+              schema: {type: string}
           content:
             application/json:
               schema:
                 oneOf:
                   - $ref: "#/components/schemas/Stats"
                   - $ref: "#/components/schemas/ParameterStats"
+        "304":
+          description: Фасетные агрегаты не менялись (If-None-Match; только
+            ответ с kind).
+          headers:
+            ETag:
+              schema: {type: string}
+            Vary:
+              $ref: "#/components/headers/VaryLanguage"
         "400":
           $ref: "#/components/responses/BadRequest"
         "500":
@@ -493,6 +513,143 @@ paths:
           $ref: "#/components/responses/BadRequest"
         "404":
           $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+        "405":
+          $ref: "#/components/responses/MethodNotAllowed"
+  /api/v1/sources:
+    get:
+      tags: [sources]
+      operationId: sources_list
+      summary: Страница реестра источников
+      description: |
+        Реестр источников данных записей (план 03 §13, D13) в порядке
+        кода: пагинация и поиск подстрокой по коду/названию
+        (регистронезависимо; postgres сворачивает регистр всех алфавитов,
+        sqlite — только латиницу: кириллические названия на sqlite ищутся
+        в точном регистре). Лица (авторы/редакторы) и ссылки читаются
+        только по строкам страницы. ETag — по data_revision,
+        канонической строке запроса и локали представления (как у
+        GET /components; изменение реестра двигает data_revision).
+        Повтор разбираемого параметра и посторонний ключ запроса —
+        400 validation_failed. Полное чтение реестра — формат экспорта
+        (Go API ListSources), не REST.
+      parameters:
+        - $ref: "#/components/parameters/AcceptLanguage"
+        - {name: q, in: query, schema: {type: string}, description: "Подстрока по коду либо названию источника (без q — весь реестр постранично)."}
+        - {name: limit, in: query, schema: {type: integer, minimum: 1, maximum: 200, default: 50}, description: "Размер страницы (≤ 200)."}
+        - {name: offset, in: query, schema: {type: integer, minimum: 0, default: 0}, description: "Смещение страницы."}
+      responses:
+        "200":
+          description: Страница реестра (type_name — по локали запроса).
+          headers:
+            ETag:
+              description: |
+                Сильный ETag вида "data-<data_revision>-<hash>-<локаль>":
+                hash — хэш канонической строки запроса (как у поиска).
+              schema: {type: string}
+            Vary:
+              $ref: "#/components/headers/VaryLanguage"
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/SourcesPage"}
+        "304":
+          description: Данные не менялись (If-None-Match).
+          headers:
+            ETag:
+              schema: {type: string}
+            Vary:
+              $ref: "#/components/headers/VaryLanguage"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "500":
+          $ref: "#/components/responses/InternalError"
+        "405":
+          $ref: "#/components/responses/MethodNotAllowed"
+    post:
+      tags: [sources]
+      operationId: sources_apply
+      summary: Применение определений источников
+      description: |
+        Тело — массив определений в форме корневой секции sources файла
+        импорта (code/title/type обязательны; тот же читатель формата —
+        дубликаты ключей и неизвестные поля отвергаются). Применение —
+        upsert по коду: существующее определение обновляется, лица и
+        ссылки замещаются целиком; валидация значения (charset кода,
+        словарь типов source_types, границы года 1900–2100, повторы
+        списков) — сервисная. Ответ {applied} — фактическое изменение
+        реестра: повторное применение без изменений — false,
+        data_revision не двигается (идемпотентность, как у импорта).
+      parameters:
+        - $ref: "#/components/parameters/AcceptLanguage"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: array
+              minItems: 0
+              items: {$ref: "#/components/schemas/SourceDef"}
+      responses:
+        "200":
+          description: Итог применения (изменение или идемпотентный повтор).
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/SourcesApplyResponse"}
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "422":
+          $ref: "#/components/responses/Unprocessable"
+        "500":
+          $ref: "#/components/responses/InternalError"
+        "405":
+          $ref: "#/components/responses/MethodNotAllowed"
+  /api/v1/sources/{code}:
+    get:
+      tags: [sources]
+      operationId: sources_get
+      summary: Определение источника по коду
+      description: Полное библиографическое определение с локализуемым
+        type_name (как секция sources карточки, без заметки места).
+      parameters:
+        - {name: code, in: path, required: true, schema: {type: string}}
+        - $ref: "#/components/parameters/AcceptLanguage"
+      responses:
+        "200":
+          description: Определение источника (type_name — по локали запроса).
+          headers:
+            Vary:
+              $ref: "#/components/headers/VaryLanguage"
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/SourceDef"}
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+        "405":
+          $ref: "#/components/responses/MethodNotAllowed"
+    delete:
+      tags: [sources]
+      operationId: sources_delete
+      summary: Удаление источника без ссылок
+      description: |
+        Источник, на который ссылаются записи (секция sources записи),
+        не удаляется — 409 source_in_use: ссылки — данные записей,
+        каскада нет (снимите ссылки заменой секций записей; замена секции
+        и удаление записи чистят осиротевшие источники автоматически).
+        Удаление атомарно и инкрементирует data_revision без событий
+        потока — изменения реестра, как у применения определений.
+      parameters:
+        - {name: code, in: path, required: true, schema: {type: string}}
+        - $ref: "#/components/parameters/AcceptLanguage"
+      responses:
+        "204":
+          description: Источник удалён (лица и ссылки — каскадом).
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
         "500":
           $ref: "#/components/responses/InternalError"
         "405":
@@ -999,6 +1156,54 @@ components:
         total: {type: integer, description: Общее число записей под фильтрами.}
         limit: {type: integer}
         offset: {type: integer}
+    SourceDef:
+      type: object
+      required: [code, title, type, type_name, authors, editors, urls]
+      description: |
+        Определение источника реестра (план 03 §13): ответы GET /sources
+        и GET /sources/{code} (поля SourceDef ввода POST /sources те же,
+        кроме type_name — оно вычисляется по локали). Библиографические
+        тексты — не локализуемые данные (D9); локализуется только
+        type_name (бандл sourcetype.<код>).
+      properties:
+        code:
+          type: string
+          description: Строчная латиница/цифры/подчёркивание (ключ реестра).
+        title: {type: string}
+        type: {type: string, description: Код словаря source_types каталога.}
+        type_name: {type: string, description: Название типа по локали запроса (не входит в тело POST /sources).}
+        authors:
+          type: array
+          items: {type: string}
+        editors:
+          type: array
+          items: {type: string}
+        year: {type: integer, description: Год издания 1900–2100.}
+        publisher: {type: string}
+        edition: {type: string}
+        isbn: {type: string, description: Канонизируется (пробелы/дефисы убираются).}
+        urls:
+          type: array
+          items: {type: string}
+          description: Оригинал, зеркала, архивные копии; порядок значим.
+    SourcesPage:
+      type: object
+      required: [items, total, limit, offset]
+      properties:
+        items:
+          type: array
+          items: {$ref: "#/components/schemas/SourceDef"}
+        total: {type: integer, description: Общее число источников под фильтром q.}
+        limit: {type: integer}
+        offset: {type: integer}
+    SourcesApplyResponse:
+      type: object
+      required: [applied]
+      properties:
+        applied:
+          type: boolean
+          description: Реестр фактически изменён (false — идемпотентный
+            повтор без изменений; data_revision не двигается).
     Suggestion:
       type: object
       required: [kind, system, designation]

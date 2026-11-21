@@ -31,6 +31,7 @@ func TestKnownCodes(t *testing.T) {
 		"schema_version_mismatch",
 		"schema_version_unsupported",
 		"seed_failed",
+		"source_in_use",
 		"storage_ddl_failed",
 		"storage_open_failed",
 		"unknown_analog",

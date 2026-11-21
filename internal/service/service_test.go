@@ -212,6 +212,7 @@ func runSuite(t *testing.T, factory configFactory) {
 	t.Run("synonyms", func(t *testing.T) { suiteSynonyms(t, factory) })
 	t.Run("find", func(t *testing.T) { suiteFind(t, factory) })
 	t.Run("get by ids", func(t *testing.T) { suiteGetByIDs(t, factory) })
+	t.Run("sources registry", func(t *testing.T) { suiteSources(t, factory) })
 	t.Run("search", func(t *testing.T) { suiteSearch(t, factory) })
 	t.Run("search validation", func(t *testing.T) { suiteSearchValidation(t, factory) })
 	t.Run("search values", func(t *testing.T) { suiteSearchValues(t, factory) })
@@ -1486,6 +1487,133 @@ func suiteGetByIDs(t *testing.T, factory configFactory) {
 	}
 	if !reflect.DeepEqual(cards[0], dupSingle) {
 		t.Fatalf("карточка с повторяющимся id отличается от одиночной:\n%+v\n%+v", cards[0], dupSingle)
+	}
+}
+
+// suiteSources — реестр источников (CC-17): страница с поиском,
+// пакетное чтение по кодам, чтение по коду, удаление с отказом
+// на связанные источники; ListSources (экспорт) не меняется.
+func suiteSources(t *testing.T, factory configFactory) {
+	ctx := context.Background()
+	app := openSuiteApp(t, factory)
+	src := app.Services().Sources
+	snap, err := app.Snapshot(ctx)
+	if err != nil {
+		t.Fatalf("snapshot: %v", err)
+	}
+	defs := []SourceInput{
+		{Code: "ba8082", Title: "Полупроводниковые приборы", Type: "handbook",
+			Year: ptr(1981), Authors: []string{"А. В. Баюков"}},
+		{Code: "gost10862", Title: "ГОСТ 10862 обозначения", Type: "standard"},
+		{Code: "ti_2n3904", Title: "2N3904 datasheet", Type: "datasheet",
+			URLs: []string{"https://example.com/2n3904"}},
+	}
+	applied, err := src.Apply(ctx, defs, snap)
+	if err != nil || !applied {
+		t.Fatalf("apply: applied=%v err=%v", applied, err)
+	}
+	_, dataBefore, _ := app.Revisions(ctx)
+	applied, err = src.Apply(ctx, defs, snap)
+	if err != nil || applied {
+		t.Fatalf("повторное apply: applied=%v err=%v (идемпотентность)", applied, err)
+	}
+	if _, dataAfter, _ := app.Revisions(ctx); dataAfter != dataBefore {
+		t.Fatalf("повторное apply двигает ревизию: %d → %d", dataBefore, dataAfter)
+	}
+
+	// Страница: порядок по коду, total, пагинация, поиск по коду
+	// и названию (латиница — регистронезависимо в обеих СУБД;
+	// кириллица — точный регистр — общий знаменатель диалектов).
+	page, err := src.Page(ctx, SourcesQuery{Limit: 2})
+	if err != nil || page.Total != 3 || len(page.Items) != 2 ||
+		page.Items[0].Code != "ba8082" || page.Items[1].Code != "gost10862" ||
+		page.Limit != 2 || page.Offset != 0 {
+		t.Fatalf("страница 1: %+v err=%v", page, err)
+	}
+	page, err = src.Page(ctx, SourcesQuery{Limit: 2, Offset: 2})
+	if err != nil || len(page.Items) != 1 || page.Items[0].Code != "ti_2n3904" {
+		t.Fatalf("страница 2: %+v err=%v", page, err)
+	}
+	for _, q := range []string{"datasheet", "DATASHEET", "ti_"} {
+		page, err = src.Page(ctx, SourcesQuery{Q: q, Limit: SourcesLimitMax})
+		if err != nil || page.Total != 1 || len(page.Items) != 1 ||
+			page.Items[0].Code != "ti_2n3904" {
+			t.Fatalf("поиск %q: %+v err=%v", q, page, err)
+		}
+	}
+	page, err = src.Page(ctx, SourcesQuery{Q: "Полупроводниковые", Limit: SourcesLimitMax})
+	if err != nil || page.Total != 1 || page.Items[0].Code != "ba8082" {
+		t.Fatalf("поиск по кириллическому названию: %+v err=%v", page, err)
+	}
+	// Экранирование подстановки LIKE: запрос с % — литерал.
+	page, err = src.Page(ctx, SourcesQuery{Q: "100%", Limit: SourcesLimitMax})
+	if err != nil || page.Total != 0 || len(page.Items) != 0 {
+		t.Fatalf("поиск с %%: %+v err=%v", page, err)
+	}
+
+	// Валидация пагинации — тот же контракт, что у REST.
+	_, err = src.Page(ctx, SourcesQuery{Limit: 0})
+	wantDomainError(t, err, domain.CodeValidationFailed,
+		"parameter limit: an integer from 1 to 200 is expected")
+	_, err = src.Page(ctx, SourcesQuery{Limit: SourcesLimitMax + 1})
+	wantDomainError(t, err, domain.CodeValidationFailed,
+		"parameter limit: an integer from 1 to 200 is expected")
+	_, err = src.Page(ctx, SourcesQuery{Limit: 1, Offset: -1})
+	wantDomainError(t, err, domain.CodeValidationFailed,
+		"parameter offset: a non-negative integer is expected")
+
+	// Пакет по кодам: порядок входа, дырки, повторы; потолок пакета.
+	byCodes, err := src.ByCodes(ctx, []string{"ti_2n3904", "nope", "ba8082", "ti_2n3904"})
+	if err != nil || len(byCodes) != 2 ||
+		byCodes[0].Code != "ti_2n3904" || byCodes[1].Code != "ba8082" ||
+		byCodes[0].URLs[0] != "https://example.com/2n3904" {
+		t.Fatalf("by codes: %+v err=%v", byCodes, err)
+	}
+	big := make([]string, SourcesCodesMax+1)
+	for i := range big {
+		big[i] = "code"
+	}
+	_, err = src.ByCodes(ctx, big)
+	wantDomainError(t, err, domain.CodeValidationFailed,
+		"source codes: no more than 200 values are allowed")
+
+	// Чтение по коду.
+	def, err := src.GetByCode(ctx, "gost10862")
+	if err != nil || def == nil || def.Title != "ГОСТ 10862 обозначения" {
+		t.Fatalf("get by code: %+v err=%v", def, err)
+	}
+	if def, err = src.GetByCode(ctx, "nope"); err != nil || def != nil {
+		t.Fatalf("get by code (неизвестный): %+v err=%v", def, err)
+	}
+
+	// Удаление: связанный — source_in_use, сирота — удаляется с
+	// инкрементом ревизии, неизвестный — false без ошибки.
+	mustUpsert(t, app.Services().Devices, DeviceInput{
+		Name:    "КТ315Б",
+		Sources: &[]SourceRefInput{{Code: "ba8082", Note: "таблица 2"}},
+	})
+	_, err = src.Delete(ctx, "ba8082")
+	wantDomainError(t, err, domain.CodeSourceInUse,
+		"source «ba8082» is referenced by records (remove the links first)")
+	_, dataBefore, _ = app.Revisions(ctx)
+	deleted, derr := src.Delete(ctx, "gost10862")
+	if derr != nil || !deleted {
+		t.Fatalf("удаление сироты: deleted=%v err=%v", deleted, derr)
+	}
+	if _, dataAfter, _ := app.Revisions(ctx); dataAfter == dataBefore {
+		t.Fatalf("удаление не двигает ревизию: %d", dataAfter)
+	}
+	if deleted, derr := src.Delete(ctx, "gost10862"); derr != nil || deleted {
+		t.Fatalf("повторное удаление: deleted=%v err=%v", deleted, derr)
+	}
+	if def, derr := src.GetByCode(ctx, "gost10862"); derr != nil || def != nil {
+		t.Fatalf("удалённый источник читается: %+v err=%v", def, derr)
+	}
+
+	// ListSources — по-прежнему полный реестр (формат экспорта).
+	all, err := src.ListSources(ctx)
+	if err != nil || len(all) != 2 || all[0].Code != "ba8082" || all[1].Code != "ti_2n3904" {
+		t.Fatalf("list sources: %+v err=%v", all, err)
 	}
 }
 

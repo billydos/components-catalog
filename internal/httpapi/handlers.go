@@ -81,13 +81,35 @@ func (a *API) handleStats(w *responseWriter, r *http.Request, _ map[string]strin
 		}
 	}
 	if kind := values.Get("kind"); kind != "" {
+		// Валидация класса — до чтения ревизий и ETag: ошибки 400
+		// приоритетнее отсечения 304, в том числе для If-None-Match: *
+		// (как у handleSearch); заодно charset ETag гарантирован словарём
+		// классов каталога.
+		if err := checkKind(r, a.app, domain.Kind(kind)); err != nil {
+			a.writeDomainErr(w, r, err, true)
+			return
+		}
+		catalogRev, dataRev, err := a.app.Revisions(r.Context())
+		if err != nil {
+			a.writeErr(w, r, err)
+			return
+		}
+		// ETag до агрегатного чтения: повторные заходы дашборда
+		// отсекаются 304 до сканирования данных класса (состав агрегатов
+		// локализуется именами параметров — ETag и Vary с локалью).
+		lang := requestLang(r)
+		varyLanguage(w)
+		etag := statsETag(catalogRev, dataRev, kind, lang)
+		w.Header().Set("ETag", etag)
+		if etagMatch(r, etag) {
+			w.WriteHeader(http.StatusNotModified)
+			return
+		}
 		ps, err := a.app.Services().Devices.ParameterStats(r.Context(), domain.Kind(kind))
 		if err != nil {
 			a.writeDomainErr(w, r, err, true)
 			return
 		}
-		lang := requestLang(r)
-		varyLanguage(w)
 		writeJSON(w, http.StatusOK, parameterStatsToJSON(lang, ps))
 		return
 	}
@@ -587,6 +609,139 @@ func (a *API) readRecordBody(w *responseWriter, r *http.Request) (service.Device
 		return service.DeviceInput{}, err
 	}
 	return importer.ReadRecordJSON(data, snap)
+}
+
+// handleSourcesList — GET /api/v1/sources: страница реестра источников
+// в порядке кода (CC-17): q — подстрока по коду/названию
+// (регистронезависимо; кириллица — postgres), limit/offset — пагинация.
+// ETag — по data_revision, канонической строке запроса и локали
+// представления (searchETag): изменение реестра двигает ревизию,
+// повторные заходы отсекаются 304. Повтор разбираемого параметра и
+// посторонний ключ запроса — 400.
+func (a *API) handleSourcesList(w *responseWriter, r *http.Request, _ map[string]string) {
+	values, err := parseStrictQuery(r)
+	if err != nil {
+		a.writeDomainErr(w, r, err, true)
+		return
+	}
+	if err := rejectDuplicateParams(values, "q", "limit", "offset"); err != nil {
+		a.writeDomainErr(w, r, err, true)
+		return
+	}
+	for _, name := range slices.Sorted(maps.Keys(values)) {
+		if name != "q" && name != "limit" && name != "offset" {
+			a.writeError(w, r, http.StatusBadRequest, domain.CodeValidationFailed,
+				domain.MsgApiQueryParamUnknown, name)
+			return
+		}
+	}
+	q := service.SourcesQuery{Q: values.Get("q")}
+	limit, exists, err := queryLimit(values["limit"], service.SourcesLimitMax)
+	if err != nil {
+		a.writeDomainErr(w, r, err, true)
+		return
+	}
+	if !exists {
+		limit = service.SourcesDefaultLimit
+	}
+	q.Limit = limit
+	if vs := values["offset"]; len(vs) > 0 {
+		n, perr := strconv.Atoi(vs[0])
+		if perr != nil || n < 0 {
+			a.writeError(w, r, http.StatusBadRequest, domain.CodeValidationFailed,
+				domain.MsgApiOffsetNonNeg)
+			return
+		}
+		q.Offset = n
+	}
+	_, dataRev, err := a.app.Revisions(r.Context())
+	if err != nil {
+		a.writeErr(w, r, err)
+		return
+	}
+	lang := requestLang(r)
+	varyLanguage(w)
+	etag := searchETag(dataRev, values, lang)
+	w.Header().Set("ETag", etag)
+	if etagMatch(r, etag) {
+		w.WriteHeader(http.StatusNotModified)
+		return
+	}
+	page, err := a.app.Services().Sources.Page(r.Context(), q)
+	if err != nil {
+		a.writeDomainErr(w, r, err, true)
+		return
+	}
+	writeJSON(w, http.StatusOK, sourcesPageToJSON(lang, page))
+}
+
+// handleSourceGet — GET /api/v1/sources/{code}: определение источника
+// с локализуемым type_name; 404 — кода нет в реестре.
+func (a *API) handleSourceGet(w *responseWriter, r *http.Request, params map[string]string) {
+	def, err := a.app.Services().Sources.GetByCode(r.Context(), params["code"])
+	if err != nil {
+		a.writeDomainErr(w, r, err, true)
+		return
+	}
+	if def == nil {
+		a.writeError(w, r, http.StatusNotFound, domain.CodeNotFound,
+			domain.MsgApiSourceNotFound, params["code"])
+		return
+	}
+	varyLanguage(w)
+	writeJSON(w, http.StatusOK, sourceToJSON(requestLang(r), *def))
+}
+
+// handleSourcesApply — POST /api/v1/sources: применение определений
+// (тело — массив в форме корневой секции sources файла импорта, общим
+// читателем формата) существующим Apply: upsert по коду, валидация,
+// идемпотентность. Ответ {applied} — фактическое изменение реестра
+// (повторное применение без изменений — false, ревизию не двигает).
+func (a *API) handleSourcesApply(w *responseWriter, r *http.Request, _ map[string]string) {
+	data, err := io.ReadAll(http.MaxBytesReader(w.ResponseWriter, r.Body, maxBodyBytes))
+	if err != nil {
+		var tooLarge *http.MaxBytesError
+		if errors.As(err, &tooLarge) {
+			a.writeError(w, r, http.StatusBadRequest, domain.CodeInvalidImportFile, domain.MsgApiBodyTooLarge)
+			return
+		}
+		a.writeError(w, r, http.StatusBadRequest, domain.CodeInvalidImportFile, domain.MsgApiBodyRead)
+		return
+	}
+	defs, err := importer.ReadSourcesJSON(data)
+	if err != nil {
+		a.writeDomainErr(w, r, err, false)
+		return
+	}
+	snap, err := a.app.Snapshot(r.Context())
+	if err != nil {
+		a.writeDomainErr(w, r, err, true)
+		return
+	}
+	applied, err := a.app.Services().Sources.Apply(r.Context(), defs, snap)
+	if err != nil {
+		a.writeDomainErr(w, r, err, false)
+		return
+	}
+	writeJSON(w, http.StatusOK, sourcesApplyJSON{Applied: applied})
+}
+
+// handleSourceDelete — DELETE /api/v1/sources/{code}: удаление
+// источника без ссылок записей; связанный — 409 source_in_use
+// (ссылки записей — данные записей, каскада нет), неизвестный код —
+// 404.
+func (a *API) handleSourceDelete(w *responseWriter, r *http.Request, params map[string]string) {
+	deleted, err := a.app.Services().Sources.Delete(r.Context(), params["code"])
+	if err != nil {
+		a.writeDomainErr(w, r, err, true)
+		return
+	}
+	if !deleted {
+		a.writeError(w, r, http.StatusNotFound, domain.CodeNotFound,
+			domain.MsgApiSourceNotFound, params["code"])
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
 }
 
 // requestLang — локаль отображаемых строк ответа: Accept-Language

@@ -26,3 +26,25 @@ func ReadRecordJSON(data []byte, snap *catalog.Snapshot) (service.DeviceInput, e
 	}
 	return in, nil
 }
+
+// ReadSourcesJSON читает массив определений источников из тела
+// REST-запроса (POST /api/v1/sources — docs/plan/04-module-
+// functionality.md §2): форма — значение корневой секции sources
+// файла импорта (массив объектов; jsonc-комментарии допускаются).
+// Разбор — общим читателем формата (дубликаты ключей, известность
+// полей, тексты проблем); значения (charset кода, словарь типов,
+// границы года, повторы списков) проверяет сервисный слой — единая
+// точка валидации. Возвращается первая проблема (REST применяет массив
+// одним вызовом Apply, Issues-накопление прогона здесь нет).
+func ReadSourcesJSON(data []byte) ([]service.SourceInput, error) {
+	v, err := parseTree(data, FormatJSONC)
+	if err != nil {
+		return nil, err
+	}
+	defs, issues := ReadSourcesSection(v)
+	if len(issues) > 0 {
+		issue := issues[0]
+		return nil, domain.NewErrorf(issue.Code, issue.MsgID, issue.Args...)
+	}
+	return defs, nil
+}

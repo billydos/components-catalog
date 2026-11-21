@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"strings"
 
 	"github.com/billydos/components-catalog/internal/domain"
 )
@@ -100,6 +101,172 @@ func (d *DB) LoadSources(ctx context.Context) ([]SourceRow, error) {
 	return out, nil
 }
 
+// sourceSelectCols — колонки чтения определения источника (id, код
+// и скалярные поля; лица и ссылки читаются отдельно по id): порядок
+// колонок закреплён сканером scanSourceRow — все читатели реестра
+// собирают строку одной точкой.
+const sourceSelectCols = "id, code, title, type_code, year, publisher, edition, isbn"
+
+// scanSourceRow сканирует строку реестра в порядке sourceSelectCols:
+// Null-обработка года и текстовых полей — в одном месте; extra —
+// завершающие цели скана вызывающего (оконный total и т.п.).
+func scanSourceRow(sc interface{ Scan(dest ...any) error }, r *SourceRow, extra ...any) error {
+	var year sql.NullInt64
+	var publisher, edition, isbn sql.NullString
+	dest := []any{&r.ID, &r.Code, &r.Title, &r.Type,
+		&year, &publisher, &edition, &isbn}
+	if err := sc.Scan(append(dest, extra...)...); err != nil {
+		return err
+	}
+	if year.Valid {
+		y := int(year.Int64)
+		r.Year = &y
+	}
+	r.Publisher = nullableStr(publisher)
+	r.Edition = nullableStr(edition)
+	r.ISBN = nullableStr(isbn)
+	return nil
+}
+
+// LoadSourcePage читает страницу реестра источников в порядке кода
+// с общим числом строк под фильтром (по образцу поиска записей):
+// total и страница — один оператор с оконным COUNT(*) OVER(), пустая
+// страница (фильтр без строк либо страница за концом выдачи) добирается
+// отдельным COUNT-запросом того же фильтра. q — подстрока по коду либо
+// названию, регистронезависимо в пределах возможностей диалекта
+// (postgres — все алфавиты; sqlite — латиница, кириллица в точном
+// регистре запасной веткой). Символы подстановки LIKE в q
+// экранируются. Лица и ссылки читаются только по строкам страницы.
+func (d *DB) LoadSourcePage(ctx context.Context, q string, limit, offset int) ([]SourceRow, int, error) {
+	if limit < 0 || offset < 0 {
+		return nil, 0, domain.NewErrorf(domain.CodeValidationFailed,
+			domain.MsgStoragePageInvalid, limit, offset)
+	}
+	tx, err := d.BeginReadOnly(ctx)
+	if err != nil {
+		return nil, 0, err
+	}
+	defer tx.Rollback() //nolint:errcheck — чтение без побочных эффектов
+	args := map[string]any{"limit": limit, "offset": offset}
+	where := ""
+	if q != "" {
+		// Три ветки предиката: LOWER с обеих сторон даёт полную
+		// регистронезависимость на postgres (свёртка всех алфавитов)
+		// и латиницу на sqlite; точный регистр запасной веткой —
+		// кириллические названия на sqlite (LOWER сворачивает только
+		// латиницу) ищутся в точном регистре, а не пропадают вовсе.
+		args["pat"] = "%" + escapeLike(strings.ToLower(q)) + "%"
+		args["raw"] = "%" + escapeLike(q) + "%"
+		where = ` WHERE (LOWER(code) LIKE @pat ESCAPE '\' OR LOWER(title) LIKE @pat ESCAPE '\' OR title LIKE @raw ESCAPE '\')`
+	}
+	rows, err := tx.query(ctx, "SELECT "+sourceSelectCols+`, COUNT(*) OVER()
+FROM sources`+where+` ORDER BY code LIMIT @limit OFFSET @offset`, args)
+	if err != nil {
+		return nil, 0, err
+	}
+	var out []SourceRow
+	bySource := make(map[int64]*SourceRow)
+	total := 0
+	for rows.Next() {
+		var r SourceRow
+		if err := scanSourceRow(rows, &r, &total); err != nil {
+			rows.Close()
+			return nil, 0, err
+		}
+		// Независимая копия строки в map: списки дозаполняются в map,
+		// затем значения копируются обратно в out по id.
+		bySource[r.ID] = &r
+		out = append(out, r)
+	}
+	if err := rows.Err(); err != nil {
+		rows.Close()
+		return nil, 0, err
+	}
+	rows.Close()
+	if len(out) == 0 {
+		if err := tx.queryRow(ctx,
+			`SELECT COUNT(*) FROM sources`+where, args).Scan(&total); err != nil {
+			return nil, 0, err
+		}
+	}
+	if len(bySource) > 0 {
+		if err := tx.loadSourceLists(ctx, sourceIDsOf(bySource), bySource); err != nil {
+			return nil, 0, err
+		}
+		for i := range out {
+			out[i] = *bySource[out[i].ID]
+		}
+	}
+	return out, total, nil
+}
+
+// LoadSourcesByCodes читает определения источников по списку кодов
+// (пакетное чтение меток селекторов по образцу карточек по id):
+// повтор кода входа игнорируется (учитывается первое вхождение),
+// порядок результата — порядок кодов входа, неизвестный код — дырка
+// (пропуск). SELECT по чанкам списка (потолок аргументов одного
+// оператора), лица и ссылки — одним проходом по вовлечённым строкам.
+func (d *DB) LoadSourcesByCodes(ctx context.Context, codes []string) ([]SourceRow, error) {
+	if len(codes) == 0 {
+		return nil, nil
+	}
+	seen := make(map[string]bool, len(codes))
+	uniq := make([]string, 0, len(codes))
+	for _, code := range codes {
+		if seen[code] {
+			continue
+		}
+		seen[code] = true
+		uniq = append(uniq, code)
+	}
+	tx, err := d.BeginReadOnly(ctx)
+	if err != nil {
+		return nil, err
+	}
+	defer tx.Rollback() //nolint:errcheck — чтение без побочных эффектов
+	byCode := make(map[string]*SourceRow, len(uniq))
+	bySource := make(map[int64]*SourceRow, len(uniq))
+	for start := 0; start < len(uniq); start += maxInList {
+		end := min(start+maxInList, len(uniq))
+		chunk := uniq[start:end]
+		args := make(map[string]any, len(chunk))
+		rows, err := tx.query(ctx, "SELECT "+sourceSelectCols+`
+FROM sources WHERE code IN `+inTextList("code", chunk, args), args)
+		if err != nil {
+			return nil, err
+		}
+		for rows.Next() {
+			var r SourceRow
+			if err := scanSourceRow(rows, &r); err != nil {
+				rows.Close()
+				return nil, err
+			}
+			// Строка живёт в map как независимая копия (r — переменная
+			// итерации): списки дозаполняются в map, финальная сборка
+			// читает значения по кодам входа.
+			byCode[r.Code] = &r
+			bySource[r.ID] = &r
+		}
+		if err := rows.Err(); err != nil {
+			rows.Close()
+			return nil, err
+		}
+		rows.Close()
+	}
+	if len(bySource) > 0 {
+		if err := tx.loadSourceLists(ctx, sourceIDsOf(bySource), bySource); err != nil {
+			return nil, err
+		}
+	}
+	out := make([]SourceRow, 0, len(uniq))
+	for _, code := range uniq {
+		if r, ok := byCode[code]; ok {
+			out = append(out, *r)
+		}
+	}
+	return out, nil
+}
+
 // loadSourceRows читает скалярные поля источников по id и дозаполняет
 // списки (лица, ссылки).
 func (t *Tx) loadSourceRows(ctx context.Context, bySource map[int64]*SourceRow) error {
@@ -110,33 +277,22 @@ func (t *Tx) loadSourceRows(ctx context.Context, bySource map[int64]*SourceRow) 
 	err := eachIDChunk(ids, func(chunk []int64) error {
 		args := make(map[string]any, len(chunk))
 		rows, err := t.query(ctx, `
-SELECT id, title, type_code, year, publisher, edition, isbn
+SELECT id, code, title, type_code, year, publisher, edition, isbn
 FROM sources WHERE id IN `+inList("id", chunk, args), args)
 		if err != nil {
 			return err
 		}
 		defer rows.Close()
 		for rows.Next() {
-			var id int64
-			var year sql.NullInt64
-			var publisher, edition, isbn sql.NullString
-			var title, typ string
-			if err := rows.Scan(&id, &title, &typ, &year, &publisher, &edition, &isbn); err != nil {
+			var r SourceRow
+			if err := scanSourceRow(rows, &r); err != nil {
 				return err
 			}
-			r, ok := bySource[id]
-			if !ok {
-				continue
+			// Скалярные поля перезаписывают строку-владельца в map
+			// (Code — то же значение, что у владельца из LoadSources).
+			if dst, ok := bySource[r.ID]; ok {
+				*dst = r
 			}
-			r.Title = title
-			r.Type = typ
-			if year.Valid {
-				y := int(year.Int64)
-				r.Year = &y
-			}
-			r.Publisher = nullableStr(publisher)
-			r.Edition = nullableStr(edition)
-			r.ISBN = nullableStr(isbn)
 		}
 		return rows.Err()
 	})
@@ -166,27 +322,16 @@ func (t *Tx) FindSourceID(ctx context.Context, code string) (int64, bool, error)
 // LoadSourceByCode читает определение источника по коду с лицами
 // и ссылками; nil — код не найден.
 func (t *Tx) LoadSourceByCode(ctx context.Context, code string) (*SourceRow, error) {
-	row := t.queryRow(ctx, `
-SELECT id, code, title, type_code, year, publisher, edition, isbn
+	row := t.queryRow(ctx, "SELECT "+sourceSelectCols+`
 FROM sources WHERE code = @code`,
 		map[string]any{"code": code})
 	var r SourceRow
-	var year sql.NullInt64
-	var publisher, edition, isbn sql.NullString
-	if err := row.Scan(&r.ID, &r.Code, &r.Title, &r.Type, &year,
-		&publisher, &edition, &isbn); err != nil {
+	if err := scanSourceRow(row, &r); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, nil
 		}
 		return nil, err
 	}
-	if year.Valid {
-		y := int(year.Int64)
-		r.Year = &y
-	}
-	r.Publisher = nullableStr(publisher)
-	r.Edition = nullableStr(edition)
-	r.ISBN = nullableStr(isbn)
 	if err := t.loadSourceLists(ctx, []int64{r.ID}, map[int64]*SourceRow{r.ID: &r}); err != nil {
 		return nil, err
 	}
@@ -550,4 +695,66 @@ WHERE id = @id AND NOT EXISTS (
 		}
 	}
 	return nil
+}
+
+// DeleteSourceByCode удаляет строку реестра по коду, если на неё нет
+// ссылок записей: DELETE с NOT EXISTS атомарен — ссылка, добавленная
+// параллельным писателем между чтением и удалением, блокирует удаление
+// (как адресная чистка сирот). Классификация отказа проверяет сами
+// связи, а не существование строки: на postgres (READ COMMITTED)
+// каждый оператор видит свежий снимок — между DELETE и проверкой
+// параллельный писатель может закоммитить новый несвязанный источник,
+// и существование строки не доказывает связанности. Повтор DELETE
+// закрывает это окно; остаточный случай (строка появилась между
+// повтором и его проверкой связей) классифицируется как отсутствие —
+// безвредный 404, повтор запроса удаляет. Лица и ссылки уходят
+// каскадом FK. Контракт возврата: deleted — строка удалена;
+// deleted=false, inUse — источник связан записями (отказ вызывающего
+// уровня); deleted=false, !inUse — кода в реестре нет.
+func (t *Tx) DeleteSourceByCode(ctx context.Context, code string) (deleted, inUse bool, err error) {
+	for range 2 {
+		res, err := t.exec(ctx, `
+DELETE FROM sources
+WHERE code = @code AND NOT EXISTS (
+    SELECT 1 FROM device_sources ds WHERE ds.source_id = sources.id)`,
+			map[string]any{"code": code})
+		if err != nil {
+			return false, false, err
+		}
+		n, err := res.RowsAffected()
+		if err != nil {
+			return false, false, err
+		}
+		if n > 0 {
+			return true, false, nil
+		}
+		linked, err := t.sourceLinked(ctx, code)
+		if err != nil {
+			return false, false, err
+		}
+		if linked {
+			return false, true, nil
+		}
+		// Не удалён и не связан: строки либо нет, либо она появилась
+		// после DELETE (postgres) — повтор закрывает окно.
+	}
+	return false, false, nil
+}
+
+// sourceLinked — есть ли у источника с кодом хотя бы одна ссылка записи
+// (индекс device_sources(source_id) держит проверку точечной).
+func (t *Tx) sourceLinked(ctx context.Context, code string) (bool, error) {
+	var one int
+	err := t.queryRow(ctx, `
+SELECT 1 FROM sources s
+WHERE s.code = @code AND EXISTS (
+    SELECT 1 FROM device_sources ds WHERE ds.source_id = s.id)`,
+		map[string]any{"code": code}).Scan(&one)
+	if errors.Is(err, sql.ErrNoRows) {
+		return false, nil
+	}
+	if err != nil {
+		return false, err
+	}
+	return true, nil
 }

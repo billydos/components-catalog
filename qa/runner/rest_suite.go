@@ -164,6 +164,14 @@ func restSuite(ctx context.Context, r *report, srv, tmp string, l leg) {
 		status == http.StatusBadRequest && strings.Contains(body, "validation_failed"),
 		detail(status, body)...)
 
+	// GET /stats?kind=: фасетные агрегаты кэшируются — ETag по ревизиям,
+	// классу и локали; If-None-Match → 304 до агрегатного чтения.
+	_, _, hdr = cl.do(ctx, http.MethodGet, "/stats?kind=capacitor", "", nil)
+	status, _, _ = cl.do(ctx, http.MethodGet, "/stats?kind=capacitor", "",
+		map[string]string{"If-None-Match": hdr.Get("Etag")})
+	r.check("rest/stats-kind-etag", "GET /stats?kind=: ETag → 304",
+		status == http.StatusNotModified, detail(status, "")...)
+
 	// GET /components: поиск с фильтрами и ETag → 304.
 	status, body, _ = cl.do(ctx, http.MethodGet,
 		"/components?kind=capacitor&"+url.Values{"q": {"К50"}}.Encode(), "", nil)
@@ -354,6 +362,62 @@ func restSuite(ctx context.Context, r *report, srv, tmp string, l leg) {
 		status == http.StatusOK && strings.Contains(body, `"deleted"`) &&
 			strings.Contains(body, "2N9013"),
 		detail(status, body)...)
+
+	// Реестр источников (CC-17): применение определений (идемпотентность),
+	// страница с поиском и ETag, чтение по коду, удаление — связанный
+	// источник 409 source_in_use, снятие ссылки чистит сироту (адресная
+	// чистка секции), осиротевший заранее — 204.
+	status, body, _ = cl.do(ctx, http.MethodPost, "/sources",
+		`[{"code":"qa_ref","title":"Справочник QA","type":"handbook","year":1985},
+		  {"code":"qa_orphan","title":"Запасной источник","type":"book"}]`, nil)
+	r.check("rest/sources-apply", "POST /sources: применение определений — 200 applied",
+		status == http.StatusOK && strings.Contains(body, `"applied":true`),
+		detail(status, body)...)
+	status, body, _ = cl.do(ctx, http.MethodPost, "/sources",
+		`[{"code":"qa_ref","title":"Справочник QA","type":"handbook","year":1985}]`, nil)
+	r.check("rest/sources-apply-idempotent", "POST /sources: повторное применение — applied:false",
+		status == http.StatusOK && strings.Contains(body, `"applied":false`),
+		detail(status, body)...)
+	status, body, _ = cl.do(ctx, http.MethodGet, "/sources?q=qa", "", nil)
+	r.check("rest/sources-list", "GET /sources: страница реестра с поиском",
+		status == http.StatusOK && strings.Contains(body, `"code":"qa_ref"`) &&
+			strings.Contains(body, `"total":2`),
+		detail(status, body)...)
+	_, _, hdr = cl.do(ctx, http.MethodGet, "/sources?q=qa", "", nil)
+	status, _, _ = cl.do(ctx, http.MethodGet, "/sources?q=qa", "",
+		map[string]string{"If-None-Match": hdr.Get("Etag")})
+	r.check("rest/sources-etag", "GET /sources: ETag → 304",
+		status == http.StatusNotModified, detail(status, "")...)
+	status, body, _ = cl.do(ctx, http.MethodGet, "/sources/qa_ref", "", nil)
+	r.check("rest/sources-get", "GET /sources/{code}: определение источника",
+		status == http.StatusOK && strings.Contains(body, "Справочник QA") &&
+			strings.Contains(body, `"type_name"`),
+		detail(status, body)...)
+	status, body, _ = cl.do(ctx, http.MethodGet, "/sources/nope", "", nil)
+	r.check("rest/sources-get-404", "GET /sources/{code}: неизвестный код — 404",
+		status == http.StatusNotFound, detail(status, body)...)
+	status, body, _ = cl.do(ctx, http.MethodDelete, "/sources/qa_orphan", "", nil)
+	r.check("rest/sources-delete", "DELETE /sources/{code}: источник без ссылок — 204",
+		status == http.StatusNoContent, detail(status, body)...)
+	cl.do(ctx, http.MethodDelete, "/components/transistor/2N9014", "", nil) // остаток прошлого прогона
+	status, _, _ = cl.do(ctx, http.MethodPost, "/components",
+		`{"name":"2N9014","sources":["qa_ref"]}`, nil)
+	if !r.check("rest/sources-device", "POST /components со ссылкой на источник — 201",
+		status == http.StatusCreated, detail(status, "")...) {
+		return
+	}
+	status, body, _ = cl.do(ctx, http.MethodDelete, "/sources/qa_ref", "", nil)
+	r.check("rest/sources-delete-inuse", "DELETE /sources/{code}: связанный — 409 source_in_use",
+		status == http.StatusConflict && strings.Contains(body, "source_in_use"),
+		detail(status, body)...)
+	status, _, _ = cl.do(ctx, http.MethodPut, "/components/transistor/2N9014",
+		`{"name":"2N9014","sources":[]}`, nil)
+	r.check("rest/sources-unlink", "PUT /components: снятие ссылки — 200",
+		status == http.StatusOK, detail(status, "")...)
+	status, body, _ = cl.do(ctx, http.MethodDelete, "/sources/qa_ref", "", nil)
+	r.check("rest/sources-unlink-orphan", "снятие ссылки чистит сироту — повторный DELETE 404",
+		status == http.StatusNotFound, detail(status, body)...)
+	cl.do(ctx, http.MethodDelete, "/components/transistor/2N9014", "", nil)
 
 	// Потоковый импорт NDJSON: синхронный отчёт после EOF,
 	// повторный запрос — Skipped, синтаксис — 400 invalid_import_file,

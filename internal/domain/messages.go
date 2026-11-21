@@ -371,6 +371,8 @@ const (
 	MsgSvcSourceListElementBad  MsgID = "svc_source_list_element_bad"
 	MsgSvcSourceListDuplicate   MsgID = "svc_source_list_duplicate"
 	MsgSvcSourceDuplicateCode   MsgID = "svc_source_duplicate_code"
+	MsgSvcSourceInUse           MsgID = "svc_source_in_use"
+	MsgSvcSourceCodesMax        MsgID = "svc_source_codes_max"
 	MsgSvcDeviceSourceEmpty     MsgID = "svc_device_source_empty"
 	MsgSvcDeviceSourceDuplicate MsgID = "svc_device_source_duplicate"
 	MsgSvcDeviceSourceNotFound  MsgID = "svc_device_source_not_found"
@@ -411,6 +413,7 @@ const (
 	MsgApiImportCTUnknown     MsgID = "api_import_content_type_unknown"
 	MsgApiCardNotFound        MsgID = "api_card_not_found"
 	MsgApiIdNotFound          MsgID = "api_id_not_found"
+	MsgApiSourceNotFound      MsgID = "api_source_not_found"
 	MsgApiAlreadyExists       MsgID = "api_already_exists"
 	MsgApiDesignationMismatch MsgID = "api_designation_mismatch"
 	MsgApiBadID               MsgID = "api_bad_id"
@@ -973,6 +976,8 @@ var msgRegistry = map[MsgID]struct{}{
 	MsgSvcSourceListElementBad:        {},
 	MsgSvcSourceListDuplicate:         {},
 	MsgSvcSourceDuplicateCode:         {},
+	MsgSvcSourceInUse:                 {},
+	MsgSvcSourceCodesMax:              {},
 	MsgSvcDeviceSourceEmpty:           {},
 	MsgSvcDeviceSourceDuplicate:       {},
 	MsgSvcDeviceSourceNotFound:        {},
@@ -1011,6 +1016,7 @@ var msgRegistry = map[MsgID]struct{}{
 	MsgApiImportCTUnknown:             {},
 	MsgApiCardNotFound:                {},
 	MsgApiIdNotFound:                  {},
+	MsgApiSourceNotFound:              {},
 	MsgApiAlreadyExists:               {},
 	MsgApiDesignationMismatch:         {},
 	MsgApiBadID:                       {},

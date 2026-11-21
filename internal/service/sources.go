@@ -180,7 +180,8 @@ func (s *SourceService) Apply(ctx context.Context, defs []SourceInput, snap *cat
 // ListSources читает весь реестр источников в порядке кода: экспорт
 // пишет корневую секцию sources полного реестра — восстановление базы
 // из экспортов не теряет источники, на которые не ссылается ни одна
-// запись (в том числе при выгрузке одного класса).
+// запись (в том числе при выгрузке одного класса). Постраничное чтение
+// UI — Page; полное чтение остаётся форматом экспорта.
 func (s *SourceService) ListSources(ctx context.Context) ([]SourceInput, error) {
 	rows, err := s.app.db.LoadSources(ctx)
 	if err != nil {
@@ -188,14 +189,115 @@ func (s *SourceService) ListSources(ctx context.Context) ([]SourceInput, error) 
 	}
 	out := make([]SourceInput, len(rows))
 	for i := range rows {
-		out[i] = SourceInput{
-			Code: rows[i].Code, Title: rows[i].Title, Type: rows[i].Type,
-			Year: rows[i].Year, Publisher: rows[i].Publisher,
-			Edition: rows[i].Edition, ISBN: rows[i].ISBN,
-			Authors: rows[i].Authors, Editors: rows[i].Editors, URLs: rows[i].URLs,
-		}
+		out[i] = sourceInputOf(rows[i])
 	}
 	return out, nil
+}
+
+// Page возвращает страницу реестра источников в порядке кода с общим
+// числом строк под фильтром Q (подстрока по коду и названию,
+// регистронезависимо: postgres — все алфавиты, sqlite — латиница,
+// кириллица в точном регистре); лица и ссылки читаются только по
+// строкам страницы. Валидация — CodeValidationFailed:
+// 1 ≤ limit ≤ SourcesLimitMax, offset ≥ 0 (встраиваемым потребителям
+// Go API — тот же контракт, что у REST).
+func (s *SourceService) Page(ctx context.Context, q SourcesQuery) (SourcesPage, error) {
+	if q.Limit < 1 || q.Limit > SourcesLimitMax {
+		return SourcesPage{}, domain.NewErrorf(domain.CodeValidationFailed,
+			domain.MsgApiLimitRange, SourcesLimitMax)
+	}
+	if q.Offset < 0 {
+		return SourcesPage{}, domain.NewErrorf(domain.CodeValidationFailed,
+			domain.MsgApiOffsetNonNeg)
+	}
+	rows, total, err := s.app.db.LoadSourcePage(ctx,
+		strings.TrimSpace(q.Q), q.Limit, q.Offset)
+	if err != nil {
+		return SourcesPage{}, err
+	}
+	out := SourcesPage{Items: make([]SourceInput, len(rows)),
+		Total: total, Limit: q.Limit, Offset: q.Offset}
+	for i := range rows {
+		out.Items[i] = sourceInputOf(rows[i])
+	}
+	return out, nil
+}
+
+// ByCodes читает определения по списку кодов — метки уже выбранных
+// значений селекторов (CC-17): до SourcesCodesMax кодов, повтор кода —
+// первое вхождение, порядок результата — порядок кодов входа,
+// неизвестный код — дырка (пропуск, не ошибка: удалённый код не должен
+// ронять метки). Валидация потолка — CodeValidationFailed.
+func (s *SourceService) ByCodes(ctx context.Context, codes []string) ([]SourceInput, error) {
+	if len(codes) == 0 {
+		return nil, nil
+	}
+	if len(codes) > SourcesCodesMax {
+		return nil, domain.NewErrorf(domain.CodeValidationFailed,
+			domain.MsgSvcSourceCodesMax, SourcesCodesMax)
+	}
+	rows, err := s.app.db.LoadSourcesByCodes(ctx, codes)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]SourceInput, len(rows))
+	for i := range rows {
+		out[i] = sourceInputOf(rows[i])
+	}
+	return out, nil
+}
+
+// GetByCode читает определение источника по коду; nil — код не найден.
+func (s *SourceService) GetByCode(ctx context.Context, code string) (*SourceInput, error) {
+	tx, err := s.app.db.BeginReadOnly(ctx)
+	if err != nil {
+		return nil, err
+	}
+	defer tx.Rollback() //nolint:errcheck — чтение без побочных эффектов
+	row, err := tx.LoadSourceByCode(ctx, code)
+	if err != nil || row == nil {
+		return nil, err
+	}
+	def := sourceInputOf(*row)
+	return &def, nil
+}
+
+// Delete удаляет источник без ссылок записей: связанный — ошибка
+// source_in_use (семантика отказа, не каскада: ссылки записей — данные
+// этих записей), false без ошибки — кода в реестре нет. Удаление
+// атомарно (NOT EXISTS в самом DELETE — ссылка, добавленная параллельным
+// писателем, блокирует удаление) и инкрементирует data_revision без
+// событий потока — изменения реестра, как у Apply.
+func (s *SourceService) Delete(ctx context.Context, code string) (bool, error) {
+	tx, err := s.app.db.Begin(ctx)
+	if err != nil {
+		return false, err
+	}
+	defer tx.Rollback() //nolint:errcheck — откат нефиксированной транзакции
+	deleted, inUse, err := tx.DeleteSourceByCode(ctx, code)
+	if err != nil {
+		return false, err
+	}
+	if !deleted {
+		if inUse {
+			return false, domain.NewErrorf(domain.CodeSourceInUse,
+				domain.MsgSvcSourceInUse, code)
+		}
+		return false, nil
+	}
+	if err := tx.BumpDataRevision(ctx); err != nil {
+		return false, err
+	}
+	return true, tx.Commit()
+}
+
+// sourceInputOf — входное определение из строки хранилища.
+func sourceInputOf(r storage.SourceRow) SourceInput {
+	return SourceInput{
+		Code: r.Code, Title: r.Title, Type: r.Type,
+		Year: r.Year, Publisher: r.Publisher, Edition: r.Edition, ISBN: r.ISBN,
+		Authors: r.Authors, Editors: r.Editors, URLs: r.URLs,
+	}
 }
 
 // sourceRowOf — строка хранилища из входного определения.

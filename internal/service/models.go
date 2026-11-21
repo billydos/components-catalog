@@ -79,6 +79,26 @@ type SourceRefInput struct {
 	Note string
 }
 
+// SourcesQuery — запрос страницы реестра источников: Q — подстрока
+// поиска по коду и названию (регистронезависимо; на sqlite — латиница,
+// кириллические названия ищутся в точном регистре), пустая — весь
+// реестр; Limit/Offset — пагинация (валидация — SourceService.Page,
+// встраиваемым потребителям Go API тот же контракт, что у REST).
+type SourcesQuery struct {
+	Q      string
+	Limit  int
+	Offset int
+}
+
+// SourcesPage — страница реестра источников: Items — определения
+// в порядке кода, Total — общее число источников под фильтром Q.
+type SourcesPage struct {
+	Items  []SourceInput
+	Total  int
+	Limit  int
+	Offset int
+}
+
 // DeviceInput — запись наполнения для Upsert. Семантика секций
 // (docs/plan/01-architecture.md §2.4): отсутствует (nil) — не менять; задана —
 // заменить целиком; пустой непустой-nil срез/[] — очистить; ошибка в любом
@@ -403,6 +423,13 @@ const (
 	// Колонки значений строк поиска: до 16 кодов повторяемого
 	// параметра values (параметр либо attr.<атрибут>).
 	SearchValuesMax = 16
+	// Потолки чтения реестра источников по кодам (метки селекторов,
+	// по образцу фильтра id CC-8): до 200 кодов пакета.
+	SourcesCodesMax = 200
+	// Страница реестра источников (SourceService.Page): по умолчанию
+	// и потолок GET /api/v1/sources.
+	SourcesDefaultLimit = 50
+	SourcesLimitMax     = 200
 	// Поток изменений (change feed): страница по умолчанию и потолок
 	// GET /api/v1/changes.
 	ChangesDefaultLimit = 100

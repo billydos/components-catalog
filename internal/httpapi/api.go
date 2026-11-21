@@ -113,6 +113,10 @@ var routes = []route{
 	{method: http.MethodGet, pattern: apiPrefix + "/components/{kind}/{designation}", op: "components_get", handler: (*API).handleGet},
 	{method: http.MethodPut, pattern: apiPrefix + "/components/{kind}/{designation}", op: "components_put", handler: (*API).handlePut},
 	{method: http.MethodDelete, pattern: apiPrefix + "/components/{kind}/{designation}", op: "components_delete", handler: (*API).handleDelete},
+	{method: http.MethodGet, pattern: apiPrefix + "/sources", op: "sources_list", handler: (*API).handleSourcesList},
+	{method: http.MethodPost, pattern: apiPrefix + "/sources", op: "sources_apply", handler: (*API).handleSourcesApply},
+	{method: http.MethodGet, pattern: apiPrefix + "/sources/{code}", op: "sources_get", handler: (*API).handleSourceGet},
+	{method: http.MethodDelete, pattern: apiPrefix + "/sources/{code}", op: "sources_delete", handler: (*API).handleSourceDelete},
 	{method: http.MethodGet, pattern: apiPrefix + "/suggest", op: "suggest", handler: (*API).handleSuggest},
 	{method: http.MethodGet, pattern: apiPrefix + "/parse", op: "parse", handler: (*API).handleParse},
 	{method: http.MethodPost, pattern: apiPrefix + "/import", op: "import", handler: (*API).handleImport},
@@ -370,6 +374,8 @@ func statusFor(code domain.Code, inQuery bool) int {
 		return http.StatusNotFound
 	case domain.CodeAlreadyExists:
 		return http.StatusConflict
+	case domain.CodeSourceInUse:
+		return http.StatusConflict
 	case domain.CodeSchemaVersionMismatch, domain.CodeDatabaseNotInitialized,
 		domain.CodeInternal, domain.CodeStorageOpenFailed,
 		domain.CodeStorageDDLFailed, domain.CodeSeedFailed:
@@ -421,6 +427,18 @@ func searchETag(dataRev int64, values url.Values, lang i18n.Language) string {
 		}
 	}
 	return fmt.Sprintf(`"data-%d-%016x-%s"`, dataRev, h.Sum64(), lang)
+}
+
+// statsETag — сильный ETag фасетных агрегатов GET /stats?kind=:
+// catalog_revision и data_revision (состав агрегатов фильтруется
+// применимостью параметров каталога — двигается и каталожной
+// ревизией), класс и локаль представления («stats-<c>-<d>-<kind>-<lang>»).
+// Имена параметров агрегата не входят: ETag описывает всё представление
+// ответа одним значением, а не выборку строк выдачи (в отличие от
+// searchETag). Повторные заходы дашборда отсекаются 304 до
+// агрегатного сканирования данных класса.
+func statsETag(catalogRev, dataRev int64, kind string, lang i18n.Language) string {
+	return fmt.Sprintf(`"stats-%d-%d-%s-%s"`, catalogRev, dataRev, kind, lang)
 }
 
 // etagMatch — If-None-Match совпадает с ETag (точное значение либо «*»).

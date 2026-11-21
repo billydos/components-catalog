@@ -28,6 +28,8 @@ type (
 	SynonymInput        = service.SynonymInput
 	SourceInput         = service.SourceInput
 	SourceRefInput      = service.SourceRefInput
+	SourcesQuery        = service.SourcesQuery
+	SourcesPage         = service.SourcesPage
 	PendingDesignations = service.PendingDesignations
 )
 
@@ -92,6 +94,9 @@ const (
 	SuggestLimitMax     = service.SuggestLimitMax
 	ChangesDefaultLimit = service.ChangesDefaultLimit
 	ChangesLimitMax     = service.ChangesLimitMax
+	SourcesDefaultLimit = service.SourcesDefaultLimit
+	SourcesLimitMax     = service.SourcesLimitMax
+	SourcesCodesMax     = service.SourcesCodesMax
 )
 
 // Поток изменений записей (change feed).

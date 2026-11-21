@@ -30,6 +30,7 @@ const (
 	CodeSchemaVersionMismatch    Code = "schema_version_mismatch"
 	CodeSchemaVersionUnsupported Code = "schema_version_unsupported"
 	CodeSeedFailed               Code = "seed_failed"
+	CodeSourceInUse              Code = "source_in_use"
 	CodeStorageDDLFailed         Code = "storage_ddl_failed"
 	CodeStorageOpenFailed        Code = "storage_open_failed"
 	CodeUnknownAnalog            Code = "unknown_analog"
@@ -58,6 +59,7 @@ var codeRegistry = map[Code]struct{}{
 	CodeSchemaVersionMismatch:    {},
 	CodeSchemaVersionUnsupported: {},
 	CodeSeedFailed:               {},
+	CodeSourceInUse:              {},
 	CodeStorageDDLFailed:         {},
 	CodeStorageOpenFailed:        {},
 	CodeUnknownAnalog:            {},
