@@ -152,8 +152,12 @@ full-qa:
   stage: qa
   # needs: [] — кнопка доступна сразу, не дожидаясь коротких джоб;
   # strategy: depend — статус дочернего пайплайна виден в корневом
+  # allow_failure: true обязателен: у manual-триггеров (bridge-джоб)
+  # allow_failure по умолчанию false — без него пайплайн, оставшись
+  # с ненажатой кнопкой, висит в состоянии blocked
   when: manual
   needs: []
+  allow_failure: true
   trigger:
     include: .gitlab/ci/full-qa.yml
     strategy: depend
