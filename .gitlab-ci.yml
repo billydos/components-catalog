@@ -181,13 +181,18 @@ full-qa:
 # Ветка пушится с зеркальной семантикой --force-with-lease (lease —
 # фактическое состояние зеркала из ls-remote): зеркало обязано точно
 # повторять GitLab, история в нём могла разойтись после ребейза в
-# источнике; lease защищает от гонки, но не от перезаписи. Теги —
+# источнике; lease защищает от гонки, но не от перезаписи. Гарда кончика:
+# джоба отказывает, если её пайплайн не на кончике основной ветки, —
+# кнопка в старом пайплайне не откатывает зеркало в прошлое (окно гонки
+# с параллельным пуше не страхуется: следующий прогон выровняет). Теги —
 # обычным push: новые уходят, идентичные игнорируются, а расхождение
 # существующего тега — громкий отказ, а не перезапись.
 github-mirror:
   stage: mirror
   interruptible: false
   allow_failure: true
+  # сеть может висеть: держать раннера до проектного таймаута незачем
+  timeout: 10m
   rules:
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
       when: manual
@@ -196,9 +201,17 @@ github-mirror:
   # кэш Go не нужен — работает только git
   cache: []
   script:
+    # set -e обязателен: блок один, и без него отказ fetch/ls-remote
+    # не остановил бы пуш (ветка ушла бы, теги — нет)
     - |
+      set -e
       url="https://x-access-token:${GITHUB_MIRROR_TOKEN}@github.com/billydos/components-catalog.git"
-      git fetch --tags origin
+      git fetch --tags origin "$CI_DEFAULT_BRANCH"
+      tip="$(git rev-parse FETCH_HEAD)"
+      if [ "$CI_COMMIT_SHA" != "$tip" ]; then
+        echo "отказ: пайплайн не на кончике ${CI_DEFAULT_BRANCH} (${CI_COMMIT_SHA} != ${tip}) — зеркало откатилось бы в прошлое; запускайте кнопку в последнем пайплайне"
+        exit 1
+      fi
       remote_main="$(git ls-remote "$url" refs/heads/main | cut -f1)"
       if [ -n "$remote_main" ]; then
         git push --force-with-lease="refs/heads/main:${remote_main}" \
