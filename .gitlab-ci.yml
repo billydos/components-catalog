@@ -13,10 +13,11 @@
 #
 # Переменные QA — те же, что в GitHub-воркфлоу `.github/workflows/`
 # (CATALOG_QA_SCALE, CATALOG_QA_DIALECT, CATALOG_TEST_POSTGRES_DSN).
-# GitHub-воркфлоу — самостоятельный контур будущего зеркала репозитория
-# на GitHub (ci.yml — lint/test пул-реквестов, qa.yml — полный QA
-# вручную и как гейт релиза, release.yml — релиз по тегу); до включения
-# зеркалирования QA на каждый пуш выполняется только здесь.
+# GitHub-воркфлоу — контур зеркала репозитория на GitHub (ci.yml —
+# lint/test пул-реквестов, qa.yml — полный QA вручную и как гейт релиза,
+# release.yml — релиз по тегу). Зеркало обновляется вручную джобой
+# github-mirror (main и теги), поэтому QA на каждый пуш выполняется
+# только здесь.
 #
 # Отличия от GitHub-версии:
 # - нога QA на Windows не выполняется: в инсталляции только Linux-раннеры
@@ -57,6 +58,7 @@ stages:
   - verify
   - build
   - publish
+  - mirror
 
 variables:
   GOFLAGS: "-mod=readonly"
@@ -312,3 +314,46 @@ publish:
     expire_in: never
     paths:
       - dist/
+
+# --- Зеркало на GitHub ------------------------------------------------------
+
+# Ручной пуш основной ветки и тегов в зеркало github.com/billydos/
+# components-catalog. Джоба существует только в пайплайнах основной
+# ветки и запускается кнопкой (manual, allow_failure по умолчанию —
+# пайплайн не блокирует). Сначала пушится ветка, затем теги:
+# релизный воркфлоу GitHub (release.yml) срабатывает по тегу vX.Y.Z и
+# его verify требует тег в истории origin/main — ветка должна оказаться
+# в зеркале раньше тегов.
+#
+# Токен — CI/CD-переменная GITHUB_MIRROR_TOKEN (masked + protected,
+# fine-grained PAT с Contents: write на зеркало); основная ветка обязана
+# быть protected, иначе protected-переменная в джобу не попадёт.
+#
+# Ветка пушится с зеркальной семантикой --force-with-lease (lease —
+# фактическое состояние зеркала из ls-remote): зеркало обязано точно
+# повторять GitLab, история в нём могла разойтись после ребейза в
+# источнике; lease защищает от гонки, но не от перезаписи. Теги —
+# обычным push: новые уходят, идентичные игнорируются, а расхождение
+# существующего тега — громкий отказ, а не перезапись.
+github-mirror:
+  stage: mirror
+  interruptible: false
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+      when: manual
+  variables:
+    GIT_DEPTH: "0"
+  # кэш Go не нужен — работает только git
+  cache: []
+  script:
+    - |
+      url="https://x-access-token:${GITHUB_MIRROR_TOKEN}@github.com/billydos/components-catalog.git"
+      git fetch --tags origin
+      remote_main="$(git ls-remote "$url" refs/heads/main | cut -f1)"
+      if [ -n "$remote_main" ]; then
+        git push --force-with-lease="refs/heads/main:${remote_main}" \
+          "$url" "$CI_COMMIT_SHA:refs/heads/${CI_DEFAULT_BRANCH}"
+      else
+        git push "$url" "$CI_COMMIT_SHA:refs/heads/${CI_DEFAULT_BRANCH}"
+      fi
+      git push "$url" --tags
