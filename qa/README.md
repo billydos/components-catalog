@@ -55,16 +55,19 @@ env-конвенции `CATALOG_TEST_POSTGRES_DSN` — одноразовая п
 после первого завершает процесс немедленно (умолчание сигнала),
 не дожидаясь остановки команд фаз.
 
-CI (`.gitlab-ci.yml`, GitLab): две джобы прогонщика — Linux на SQLite и Linux
-со службой PostgreSQL 16, каждая с прикидкой 10⁴ (`CATALOG_QA_SCALE=10000`,
-`CATALOG_QA_DIALECT` задаёт единственную ногу джобы) — обе СУБД проверяются
-каждым пушем, merge request и тегом. Рядом идут джобы `lint` (gofmt, vet),
-`test` (`go test ./...`), `crossbuild` (сборка под windows/darwin/arm64 с
-Linux-раннера) и `vuln` (`govulncheck`): ноги QA на Windows нет — Windows-раннера
-в инсталляции нет, поэтому windows-совместимость проверяется только сборкой.
-Артефакт — отчёт текущего прогона: путь задаётся флагом `-report`
-(`qa-artifact/qa-report.log`), поэтому закоммиченные исторические отчёты
-`qa/reports/*.log` в артефакт не попадают.
+CI (`.gitlab-ci.yml`, GitLab) — три контура. Автоматически на каждый пуш и
+merge request: `lint` (gofmt, vet), `test` (`go test ./...`) и две джобы
+прогонщика — Linux на SQLite и Linux со службой PostgreSQL 16 — без
+нагрузочной прикидки (`CATALOG_QA_SCALE=0`, `CATALOG_QA_DIALECT` задаёт
+единственную ногу джобы). Полный контур — вручную кнопкой `full-qa`
+(дочерний пайплайн `.gitlab/ci/full-qa.yml`): то же плюс `crossbuild`
+(сборка под windows/darwin/arm64 с Linux-раннера), `vuln` (`govulncheck`)
+и прикидка 10⁴ (`CATALOG_QA_SCALE=10000`); ноги QA на Windows нет —
+Windows-раннера в инсталляции нет, поэтому windows-совместимость
+проверяется только сборкой. Артефакт — отчёт текущего прогона: путь
+задаётся флагом `-report` (`qa-artifact/qa-report.log`), поэтому
+закоммиченные исторические отчёты `qa/reports/*.log` в артефакт не
+попадают.
 
 Go-кэш в CI лежит внутри каталога проекта (`GOPATH=$CI_PROJECT_DIR/.go`) —
 так его кэширует GitLab; на проверки это не влияет: `static/gofmt` считает
