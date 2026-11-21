@@ -5,15 +5,18 @@
 # кроссплатформенный QA-прогонщик `go run ./qa/runner` на SQLite и на
 # PostgreSQL с нагрузочной прикидкой 10⁴ (qa-sqlite/qa-postgres).
 #
-# Релиз — только на тег `vX.Y.Z`, указывающий на коммит в истории основной
-# ветки: verify-tag (тег на main, build, vet, gofmt, test) → build
-# (кросс-сборка `catalogctl` для 6 целей, архивы tar.gz/zip) → publish
-# (контрольные суммы и GitLab Release с заметками из CHANGELOG.md).
+# Тег `vX.Y.Z`, указывающий на коммит в истории основной ветки, получает
+# verify-tag (тег на main, build, vet, gofmt, test) и полный QA-контур того
+# же коммита. Кросс-сборка и публикация GitLab Release отключены
+# (build/publish — `when: never`): релизные артефакты и GitHub Release
+# выпускает GitHub Actions (`.github/workflows/release.yml`).
 #
-# Порт `.github/workflows/{ci,release}.yml`: те же проверки и те же
-# переменные QA (CATALOG_QA_SCALE, CATALOG_QA_DIALECT,
-# CATALOG_TEST_POSTGRES_DSN). Файлы GitHub Actions оставлены в репозитории
-# как справка.
+# Переменные QA — те же, что в GitHub-воркфлоу `.github/workflows/`
+# (CATALOG_QA_SCALE, CATALOG_QA_DIALECT, CATALOG_TEST_POSTGRES_DSN).
+# GitHub-воркфлоу — самостоятельный контур будущего зеркала репозитория
+# на GitHub (ci.yml — lint/test пул-реквестов, qa.yml — полный QA
+# вручную и как гейт релиза, release.yml — релиз по тегу); до включения
+# зеркалирования QA на каждый пуш выполняется только здесь.
 #
 # Отличия от GitHub-версии:
 # - нога QA на Windows не выполняется: в инсталляции только Linux-раннеры
@@ -21,10 +24,12 @@
 #   windows/darwin проверяет crossbuild (сборка, но не прогон сценариев) —
 #   чтобы зарегистрировать Windows-раннер и вернуть полную матрицу, нужно
 #   добавить джобу с `tags: [windows]` и shell-исполнителем;
-# - джоба skip-check не нужна: тег в GitLab — отдельный пайплайн, и QA на
-#   теге идёт полным контуром (строгий гейт релиза вместо поиска зелёного
-#   прогона того же SHA по API);
-# - релиз публикуется в GitLab Releases, а не в GitHub Release.
+# - QA на каждый пуш выполняется только здесь: в GitHub-версии полный
+#   контур запускается вручную (workflow_dispatch) и на теге релиза
+#   (workflow_call) — джоба skip-check (поиск зелёного прогона того же
+#   SHA по Actions API) упразднена вместе с автоматическим QA;
+# - релизная сборка и публикация отключены (build/publish — `when: never`):
+#   артефакты и GitHub Release выпускает GitHub Actions (release.yml).
 #
 # Требования к раннеру: docker-исполнитель с тегом `docker` (тег задан в
 # `default`, поэтому джобы не зависят от настройки «Run untagged jobs»),
@@ -36,8 +41,8 @@ workflow:
     # каждая ветка и каждый MR получают ровно один пайплайн:
     # при открытом MR ветку покрывает пайплайн MR
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
-    # пайплайн тега — только для релизных тегов vX.Y.Z (как `tags: ['v*']`
-    # в GitHub-версии); прочие теги пайплайна не создают
+    # пайплайн тега — только для релизных тегов vX.Y.Z (маска та же, что в
+    # GitHub-версии); прочие теги пайплайна не создают
     - if: $CI_COMMIT_TAG =~ /^v[0-9]+\.[0-9]+\.[0-9]+/
     - if: $CI_COMMIT_BRANCH && $CI_OPEN_MERGE_REQUESTS
       when: never
@@ -222,7 +227,10 @@ build:
     - qa-sqlite
     - qa-postgres
   rules:
-    - if: $CI_COMMIT_TAG =~ /^v[0-9]+\.[0-9]+\.[0-9]+/
+    # отключено: кросс-сборку релизных артефактов выполняет GitHub Actions
+    # (.github/workflows/release.yml). Вернуть — заменить правило на
+    # `- if: $CI_COMMIT_TAG =~ /^v[0-9]+\.[0-9]+\.[0-9]+/`
+    - when: never
   parallel:
     matrix:
       - GOOS: [linux, windows, darwin]
@@ -261,7 +269,11 @@ publish:
   resource_group: release
   needs: [build]
   rules:
-    - if: $CI_COMMIT_TAG =~ /^v[0-9]+\.[0-9]+\.[0-9]+/
+    # отключено вместе с build: publish потребляет его артефакты и без
+    # него в пайплайн не попадает (needs) — GitLab Release выпускает
+    # GitHub Actions (.github/workflows/release.yml). Вернуть —
+    # восстановить правило тега в build и здесь
+    - when: never
   image: registry.gitlab.com/gitlab-org/release-cli:latest
   # кэш Go этой джобе не нужен — образ без Go
   cache: {}

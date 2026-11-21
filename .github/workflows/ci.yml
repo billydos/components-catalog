@@ -1,54 +1,50 @@
+# Дешёвые проверки пул-реквестов GitHub-зеркала: gofmt/vet (lint) и
+# go test (test). Полный QA-контур на каждый пуш не выполняется:
+# он запускается вручную (qa.yml, workflow_dispatch) и гейтит релиз
+# (release.yml, workflow_call). До включения зеркалирования QA на каждый
+# пуш идёт в GitLab (.gitlab-ci.yml) — этот воркфлоу закрывает только
+# сторону GitHub.
+#
+# gofmt считается по файлам репозитория (git ls-files), а не обходом
+# дерева: внутри дерева может лежать кэш модулей, и `gofmt -l .`
+# уходил бы разбирать чужие testdata.
+
 name: CI
 
 on:
-  push:
-    branches: [main]
-    tags: ['v*']
   pull_request:
 
 permissions:
   contents: read
-  actions: read
 
 jobs:
-  skip-check:
-    name: Skip QA if this commit is already green
-    if: github.event_name == 'push'
+  lint:
+    name: Lint (gofmt, vet)
     runs-on: ubuntu-latest
-    timeout-minutes: 5
-    outputs:
-      ci_done: ${{ steps.check.outputs.ci_done }}
+    timeout-minutes: 15
     steps:
       - name: Checkout
         uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
-      - name: Look up a successful CI run on the same commit
-        id: check
-        env:
-          GH_TOKEN: ${{ github.token }}
+      - name: Setup Go
+        uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6.5.0
+        with:
+          go-version-file: go.mod
+      - name: Gofmt
         run: |
-          sha="$(git rev-parse HEAD)"
-          n="$(
-            gh api --method GET \
-              -H 'Accept: application/vnd.github+json' \
-              "/repos/${GITHUB_REPOSITORY}/actions/workflows/ci.yml/runs?head_sha=${sha}&status=success&per_page=1" \
-              --jq '.total_count' 2>/dev/null || echo 0
-          )"
-          if [ "$n" -gt 0 ] 2>/dev/null; then
-            echo "ci_done=true" >> "$GITHUB_OUTPUT"
-            echo "Commit ${sha} already has a successful CI run; the QA jobs will be skipped."
-          else
-            echo "ci_done=false" >> "$GITHUB_OUTPUT"
+          fmt="$(git ls-files -z --cached --others --exclude-standard -- '*.go' | xargs -0 -r gofmt -l)"
+          if [ -n "$fmt" ]; then
+            echo "gofmt требует правки в файлах:"
+            echo "$fmt"
+            exit 1
           fi
+          echo "gofmt: чисто"
+      - name: Vet
+        run: go vet ./...
 
-  qa-linux-sqlite:
-    needs: [skip-check]
-    if: needs.skip-check.outputs.ci_done != 'true'
-    name: QA (linux, SQLite, load x10000)
+  test:
+    name: Test
     runs-on: ubuntu-latest
-    timeout-minutes: 60
-    env:
-      CATALOG_QA_SCALE: "10000"
-      CATALOG_QA_DIALECT: sqlite
+    timeout-minutes: 30
     steps:
       - name: Checkout
         uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
@@ -56,102 +52,5 @@ jobs:
         uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6.5.0
         with:
           go-version-file: go.mod
-      - name: QA report marker
-        run: touch "$RUNNER_TEMP/qa-report.marker"
-      - name: QA (build, vet, gofmt, test, scenarios, load)
-        run: go run ./qa/runner
-      - name: Collect current QA report
-        if: always()
-        run: |
-          mkdir -p qa-artifact
-          find qa/reports -maxdepth 1 -name '*.log' -newer "$RUNNER_TEMP/qa-report.marker" -exec cp -t qa-artifact/ {} +
-      - name: Upload QA report
-        if: always()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
-        with:
-          if-no-files-found: ignore
-          name: qa-report-linux-sqlite
-          path: qa-artifact/*.log
-
-  qa-linux-postgres:
-    name: QA (linux, PostgreSQL, load x10000)
-    needs: [skip-check]
-    if: needs.skip-check.outputs.ci_done != 'true'
-    runs-on: ubuntu-latest
-    timeout-minutes: 60
-    services:
-      postgres:
-        image: postgres:16-alpine
-        env:
-          POSTGRES_PASSWORD: postgres
-          POSTGRES_DB: catalog_test
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd "pg_isready -U postgres"
-          --health-interval 5s
-          --health-timeout 5s
-          --health-retries 10
-    env:
-      CATALOG_TEST_POSTGRES_DSN: postgres://postgres:postgres@localhost:5432/catalog_test
-      CATALOG_QA_SCALE: "10000"
-      CATALOG_QA_DIALECT: postgres
-    steps:
-      - name: Checkout
-        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
-      - name: Setup Go
-        uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6.5.0
-        with:
-          go-version-file: go.mod
-      - name: QA report marker
-        run: touch "$RUNNER_TEMP/qa-report.marker"
-      - name: QA (build, vet, gofmt, test, scenarios, load)
-        run: go run ./qa/runner
-      - name: Collect current QA report
-        if: always()
-        run: |
-          mkdir -p qa-artifact
-          find qa/reports -maxdepth 1 -name '*.log' -newer "$RUNNER_TEMP/qa-report.marker" -exec cp -t qa-artifact/ {} +
-      - name: Upload QA report
-        if: always()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
-        with:
-          if-no-files-found: ignore
-          name: qa-report-linux-postgres
-          path: qa-artifact/*.log
-
-  qa-windows:
-    name: QA (windows, SQLite, load x10000)
-    needs: [skip-check]
-    if: needs.skip-check.outputs.ci_done != 'true'
-    runs-on: windows-latest
-    timeout-minutes: 60
-    env:
-      CATALOG_QA_SCALE: "10000"
-      CATALOG_QA_DIALECT: sqlite
-    steps:
-      - name: Checkout
-        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
-      - name: Setup Go
-        uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6.5.0
-        with:
-          go-version-file: go.mod
-      - name: QA report marker
-        run: New-Item -Path "$env:RUNNER_TEMP/qa-report.marker" -ItemType File | Out-Null
-      - name: QA (build, vet, gofmt, test, scenarios, load)
-        run: go run ./qa/runner
-      - name: Collect current QA report
-        if: always()
-        run: |
-          New-Item -ItemType Directory -Force qa-artifact | Out-Null
-          $marker = Get-Item "$env:RUNNER_TEMP/qa-report.marker"
-          Get-ChildItem qa/reports -Filter *.log |
-            Where-Object { $_.LastWriteTime -gt $marker.LastWriteTime } |
-            Copy-Item -Destination qa-artifact
-      - name: Upload QA report
-        if: always()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
-        with:
-          if-no-files-found: ignore
-          name: qa-report-windows
-          path: qa-artifact/*.log
+      - name: Test
+        run: go test ./...
