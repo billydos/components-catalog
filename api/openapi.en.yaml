@@ -19,7 +19,7 @@ info:
     422 (record semantics), 500 (internal error). An unknown route —
     404 api_route_not_found in the same error model.
 
-    Localization (D9): the module's database is language-neutral — the
+    Localization: the module's database is language-neutral — the
     code fields of responses (kind, system, unit, parameter, attribute,
     section) are always canonical. Display fields (`name`, `kind_name`,
     `system_name`, descriptions, unit names and symbols in /catalog) are
@@ -33,7 +33,8 @@ info:
     leave unchanged (for POST — unset); present — replace wholesale;
     `[]`/`{}` — clear; an error in any value — the record is not applied
     at all. sources references address codes of the global source
-    registry (plan 03 §13); registry definitions come from the import
+    registry (a registry of bibliographic definitions shared by all
+    records); registry definitions come from the import
     file's root sources section and POST /api/v1/sources, not from the
     record body.
 servers: []
@@ -43,7 +44,7 @@ tags:
   - name: components
     description: "Device records: search, card, write, delete."
   - name: sources
-    description: "Record data source registry (D13): read, apply, delete."
+    description: "Record data source registry: read, apply, delete."
   - name: service
     description: Auxiliary data (stats, autocomplete).
   - name: import
@@ -80,8 +81,8 @@ paths:
         dictionary fields (material, subclass, adjustment, category) —
         for building forms and filters. Field keys mirror the fill format
         (snake_case after catalog table columns); display strings (name,
-        descriptions, unit names and symbols) follow the request locale
-        (D9). The ETag is derived from catalog_revision and the
+        descriptions, unit names and symbols) follow the request locale.
+        The ETag is derived from catalog_revision and the
         representation locale (different locales — different ETags,
         RFC 9110): the snapshot is cached until the catalog changes.
       parameters:
@@ -126,8 +127,9 @@ paths:
         several variants of one record counts once). The aggregates
         include type-level data and variant data — as in search filters;
         parameters without data in the kind and not applicable to the
-        kind (D7; including those with data left over after the catalog
-        changed applicability) are excluded from the response; the
+        kind (applicability is catalog data; this includes parameters
+        with data left over after the catalog changed applicability)
+        are excluded from the response; the
         parameter order is alphabetical by code (as in /catalog), values —
         by descending frequency, then by text. The facet representation
         is cacheable: the ETag is derived from catalog_revision
@@ -251,7 +253,7 @@ paths:
           (`bjt`, `zener`, …), `adjustment` (`fixed`, `variable`,
           `preset`), and `category` (catalog dictionary codes — the
           `dictionaries` section of GET /catalog) — a stable dictionary
-          code or a localized display name (canonicalized; D9);
+          code or a localized display name (canonicalized);
           dictionary fields are repeatable: each value is canonicalized
           separately, the set has OR semantics, a duplicate canonical
           code — 400 validation_failed; the other text fields are
@@ -538,7 +540,8 @@ paths:
       operationId: sources_list
       summary: Source registry page
       description: |
-        The record data source registry (plan 03 §13, D13) ordered by
+        The record data source registry (a global registry of
+        bibliographic definitions shared by all records) ordered by
         code: pagination and substring search over code/title
         (case-insensitive; PostgreSQL folds case across all alphabets,
         SQLite only Latin: Cyrillic titles on SQLite are matched with
@@ -743,8 +746,8 @@ paths:
         The body is a fill file; the format is set by the mandatory
         Content-Type header: application/x-ndjson — an NDJSON stream
         (one JSON line per entity: wrapper lines `{"<kind>": <record>}`,
-        the catalog block as subsection lines before the records;
-        plan 04 §4) is read streaming, without loading the whole body
+        the catalog block as subsection lines before the records)
+        is read streaming, without loading the whole body
         and with no request size cap — memory is bounded by the
         single-line cap (16 MiB); application/json (jsonc, comments
         allowed) and application/yaml — the document is read in full
@@ -803,7 +806,7 @@ components:
   headers:
     VaryLanguage:
       description: Always Accept-Language — the response representation is
-        selected by the request locale (D9); a cache must distinguish
+        selected by the request locale; a cache must distinguish
         representations of different locales (RFC 9110/9111).
       schema: {type: string, const: Accept-Language}
   parameters:
@@ -823,7 +826,7 @@ components:
       name: Accept-Language
       in: header
       required: false
-      description: "Locale of the response display strings (D9): q-values, base subtag; en and ru are supported; en by default."
+      description: "Locale of the response display strings: q-values, base subtag; en and ru are supported; en by default."
       schema: {type: string, examples: ["ru", "en-US,en;q=0.8"]}
   responses:
     BadRequest:
@@ -915,7 +918,7 @@ components:
       type: object
       description: A designation dictionary field value — the stable code
         (the value of filters and the fields section) and the display
-        name per the request locale (D9).
+        name per the request locale.
       required: [code, name]
       properties:
         code: {type: string}
@@ -1067,7 +1070,7 @@ components:
         year_from: {type: integer}
         year_to: {type: integer}
     CardSource:
-      description: A record data source (plan 03 §13) — a book, reference
+      description: A record data source — a book, reference
         book, datasheet, standard, specification (TU), article, or web
         page; bibliographic texts are non-localizable data, type_name is
         the localized display name of the type (sourcetype.<code>).
@@ -1137,7 +1140,7 @@ components:
           type: array
           items: {$ref: "#/components/schemas/CardSynonym"}
         sources:
-          description: Record data sources (plan 03 §13) — the full
+          description: Record data sources — the full
             bibliographic definition and the location note; the order is
             canonical, by code.
           type: array
@@ -1182,11 +1185,11 @@ components:
       type: object
       required: [code, title, type, type_name, authors, editors, urls]
       description: |
-        A registry source definition (plan 03 §13): the responses of
+        A registry source definition: the responses of
         GET /sources and GET /sources/{code} (the SourceDef fields of
         the POST /sources input are the same, except type_name — it is
         computed per the locale). Bibliographic texts are non-localizable
-        data (D9); only type_name is localized (the sourcetype.<code>
+        data; only type_name is localized (the sourcetype.<code>
         bundle).
       properties:
         code:
@@ -1376,11 +1379,11 @@ components:
             fields:
               type: object
               description: |
-                Explicit classification fields (D10): a “field code →
+                Explicit classification fields: a “field code →
                 dictionary value” object (`assembly` is a number 0/1).
                 Sets only the fields that the record's designation-system
                 parser does not set itself, and only those applicable to
-                the kind (docs/fill-format.md §5.1); replaced wholesale.
+                the kind; replaced wholesale.
               additionalProperties: {oneOf: [{type: string}, {type: number}]}
             attributes:
               type: object
@@ -1396,12 +1399,13 @@ components:
             analogs:
               type: array
               description: |
-                Outgoing directed analog links (plan 03 §8, D8):
-                designations of the same kind or objects with a note on
-                the nature of the substitution. Section semantics is the
-                common one (wholesale replacement); the designation is
-                canonicalized and must exist in the same kind, otherwise
-                — 422 unknown_analog.
+                Outgoing directed analog links: designations of the same
+                kind or objects with a note on the nature of the
+                substitution. Section semantics is the common one
+                (wholesale replacement; only this record's outgoing links
+                change — other records' links to it are not affected);
+                the designation is canonicalized and must exist in the
+                same kind, otherwise — 422 unknown_analog.
               items:
                 oneOf:
                   - type: string
@@ -1413,7 +1417,7 @@ components:
             synonyms:
               type: array
               description: |
-                Historical names of the record (D11): a synonym designation
+                Historical names of the record: a synonym designation
                 is not a record — find and search (q=) resolve it to the
                 owning record. Unique within a kind; creating a record
                 with a designation taken by another record's synonym is a
@@ -1432,9 +1436,9 @@ components:
             sources:
               type: array
               description: |
-                References to the record's data sources (plan 03 §13,
-                D13): registry code strings or objects with a code and a
-                location note. Section semantics is the common one
+                References to the record's data sources: registry code
+                strings or objects with a code and a location note.
+                Section semantics is the common one
                 (replaced wholesale); the code must exist in the registry
                 (definitions come from the import file's root sources
                 section), otherwise — 422 unknown_source.
@@ -1453,8 +1457,8 @@ components:
         attributes:
           type: object
           description: "Attribute code → variant value (construction
-            features differing across variants — docs/fill-format.md §6):
-            string / an array of strings for text_list attributes /
+            features differing across variants): string / an array of
+            strings for text_list attributes /
             number / boolean; the value shape is as in the record's
             attributes, null — the attribute is left unset; replaced
             together with the variants set."
