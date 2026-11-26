@@ -146,7 +146,7 @@ func TestSeedNominalRowEnum(t *testing.T) {
 }
 
 // Пин курирования градаций значимости (план 03 §5): точное множество
-// кодов primary/tertiary сида (92 кода; остальные 154 — secondary по
+// кодов primary/tertiary сида (85 кодов; остальные 161 — secondary по
 // умолчанию, без явного значения) и валидность всех значений. Осознанное
 // изменение курирования — правка этого пина тем же изменением.
 func TestSeedPriorityPin(t *testing.T) {
@@ -165,16 +165,17 @@ func TestSeedPriorityPin(t *testing.T) {
 		// Резисторы.
 		"Rnom": true, "Tolerance": true, "Pnom": true,
 		// Конденсаторы.
-		"Cnom": true, "Vnom": true, "Ileak": true, "Esr": true, "VnomAc": true,
+		"Cnom": true, "Vnom": true, "Ileak": true, "Esr": true, "VnomAc": true, "DF": true,
 		// Реле.
 		"VcoilNom": true, "VswitchMax": true, "IswitchMax": true,
 		// Предельные данные первой необходимости.
 		"VceoMax": true, "VcbMax": true, "IcMax": true, "IdMax": true,
 		"PcMax": true, "PdMax": true, "VdsMax": true, "VrMax": true, "IfMax": true,
+		"Pmax": true,
 		// Климатический диапазон — фильтр первой очереди.
 		"Temp": true, "opTemp": true,
-		// part4: однопереходные и сборки (справочник 1989).
-		"VcerMax": true, "Vc1c2Max": true, "EtaUjt": true, "Rbb": true,
+		// part4: сборки и однопереходные (справочник 1989).
+		"Vc1c2Max": true, "EtaUjt": true, "Rbb": true,
 	}
 	tertiary := map[string]bool{
 		// Пост-тестовые деградационные (…Life/…Shelf-класс).
@@ -186,14 +187,13 @@ func TestSeedPriorityPin(t *testing.T) {
 		"endurancePulse": true, "dVdt": true, "Rdis": true,
 		"Zratio": true, "Z0": true, "Rcoupling": true, "RinsCase": true, "Lnom": true,
 		// Транзисторы: редко нормируемые.
-		"Icer": true, "VcbPulseMax": true, "VcePulseMax": true, "VebPulseMax": true,
+		"Icer": true, "Ices": true, "VcbPulseMax": true, "VcePulseMax": true, "VebPulseMax": true,
 		// part4: терции справочника 1989 (малосигнальные h-величины,
-		// импульсные величины, узкоспециальные).
-		"h12": true, "Cce": true, "Llead": true, "TCVgsDiff": true, "TCRbb": true,
-		"RonMismatch": true, "RinPulse": true, "VcerPulseMax": true,
-		"VdsPulseMax": true, "VgsPulseMax": true, "VdSubMax": true, "VggMax": true,
-		"gfsMismatch": true, "IdssMismatch": true, "VgsOffMismatch": true,
-		"VgsQuadratic": true, "IdssRatio": true, "gfsRatio": true,
+		// импульсные перенапряжения, узкоспециальные).
+		"h12": true, "Cce": true, "Llead": true, "TCRbb": true,
+		"RinPulse": true, "VcerPulseMax": true,
+		"VdsPulseMax": true, "VgsPulseMax": true,
+		"VgsQuadratic": true,
 		// Резисторы: узкоспециальные.
 		"Vnoise": true, "imbalance": true, "staticFrictionTorque": true, "switchAngle": true,
 	}

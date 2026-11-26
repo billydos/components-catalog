@@ -40,7 +40,7 @@
       // Разность напряжений затвор-исток транзисторов подобранной пары
       {"code": "VgsDiff", "group": "electrical", "value_type": "at_most", "unit": "mV", "kinds": ["transistor"], "priority": "secondary", "condition_sets": [{"items": [{"condition": "Vds", "mode": "required"}, {"condition": "Id", "mode": "required"}, {"condition": "temp", "mode": "optional"}]}]},
       // Температурный уход разности напряжений затвор-исток пары
-      {"code": "TCVgsDiff", "group": "electrical", "value_type": "at_most", "unit": "uV_per_degC", "kinds": ["transistor"], "priority": "tertiary", "condition_sets": [{"items": [{"condition": "Vds", "mode": "required"}, {"condition": "Id", "mode": "required"}]}, {"items": [{"condition": "Vds", "mode": "optional"}, {"condition": "Id", "mode": "optional"}]}]},
+      {"code": "TCVgsDiff", "group": "electrical", "value_type": "at_most", "allow_negative": true, "unit": "uV_per_degC", "kinds": ["transistor"], "priority": "secondary", "condition_sets": [{"items": [{"condition": "Vds", "mode": "required"}, {"condition": "Id", "mode": "required"}]}, {"items": [{"condition": "Vds", "mode": "optional"}, {"condition": "Id", "mode": "optional"}]}]},
       // Время установления
       {"code": "tSettle", "group": "electrical", "value_type": "at_most", "unit": "ns", "kinds": ["transistor"], "priority": "secondary", "condition_sets": [{"items": [{"condition": "Ic", "mode": "required"}, {"condition": "Ib", "mode": "required"}]}]},
       // Ток стока при заданном (закрывающем) напряжении затвор-исток
@@ -48,7 +48,7 @@
       // Ток порога
       {"code": "IdTh", "group": "electrical", "value_type": "at_least", "unit": "uA", "kinds": ["transistor"], "priority": "secondary", "condition_sets": [{"items": [{"condition": "Vgs", "mode": "required"}, {"condition": "Vds", "mode": "required"}]}]},
       // Наибольшее напряжение коллектор-эмиттер при заданном Rбэ
-      {"code": "VcerMax", "group": "limiting", "unit": "V", "value_type": "exact", "kinds": ["transistor"], "priority": "primary", "condition_sets": [{"items": [{"condition": "Rbe", "mode": "required"}, {"condition": "Vce", "mode": "optional"}]}, {"items": [{"condition": "Rbe", "mode": "optional"}, {"condition": "Vce", "mode": "optional"}]}]},
+      {"code": "VcerMax", "group": "limiting", "unit": "V", "value_type": "exact", "kinds": ["transistor"], "priority": "secondary", "condition_sets": [{"items": [{"condition": "Rbe", "mode": "required"}, {"condition": "Vce", "mode": "optional"}]}, {"items": [{"condition": "Rbe", "mode": "optional"}, {"condition": "Vce", "mode": "optional"}]}]},
       // Наибольшее импульсное напряжение коллектор-эмиттер при заданном Rбэ
       {"code": "VcerPulseMax", "group": "limiting", "value_type": "exact", "unit": "V", "kinds": ["transistor"], "priority": "tertiary", "condition_sets": [{"items": [{"condition": "pulse_duration", "mode": "required"}, {"condition": "Rbe", "mode": "optional"}]}]},
       // Наибольшее напряжение затвор-сток
@@ -86,15 +86,15 @@
       // Импульсный ток эмиттера
       {"code": "IePulseMax", "group": "limiting", "value_type": "exact", "unit": "mA", "kinds": ["transistor"], "priority": "secondary", "condition_sets": [{"items": [{"condition": "pulse_duration", "mode": "required"}]}]},
       // Сопротивление открытого ключа
-      {"code": "Ron", "group": "electrical", "value_type": "at_most", "unit": "ohm", "kinds": ["transistor"], "priority": "secondary", "condition_sets": [{"items": [{"condition": "Ic", "mode": "required"}, {"condition": "Ib", "mode": "required"}, {"condition": "temp", "mode": "optional"}]}, {"items": [{"condition": "Ie", "mode": "required"}, {"condition": "Ib", "mode": "required"}, {"condition": "temp", "mode": "optional"}]}]},
+      {"code": "ROn", "group": "electrical", "value_type": "at_most", "unit": "ohm", "kinds": ["transistor"], "priority": "secondary", "condition_sets": [{"items": [{"condition": "Ic", "mode": "required"}, {"condition": "Ib", "mode": "required"}, {"condition": "temp", "mode": "optional"}]}, {"items": [{"condition": "Ie", "mode": "required"}, {"condition": "Ib", "mode": "required"}, {"condition": "temp", "mode": "optional"}]}]},
       // Асимметрия сопротивления открытого ключа
-      {"code": "RonMismatch", "group": "electrical", "value_type": "at_most", "unit": "pct", "kinds": ["transistor"], "priority": "tertiary"},
+      {"code": "RonMismatch", "group": "electrical", "value_type": "at_most", "unit": "pct", "kinds": ["transistor"], "priority": "secondary"},
       // Время включения ключа
-      {"code": "tonKey", "group": "electrical", "value_type": "at_most", "unit": "ns", "kinds": ["transistor"], "priority": "secondary"},
+      {"code": "tOnKey", "group": "electrical", "value_type": "at_most", "unit": "ns", "kinds": ["transistor"], "priority": "secondary"},
       // Время выключения ключа
-      {"code": "toffKey", "group": "electrical", "value_type": "at_most", "unit": "ns", "kinds": ["transistor"], "priority": "secondary"},
+      {"code": "tOffKey", "group": "electrical", "value_type": "at_most", "unit": "ns", "kinds": ["transistor"], "priority": "secondary"},
       // Время включения однопереходного транзистора
-      {"code": "tonUjt", "group": "electrical", "value_type": "at_most", "unit": "ns", "kinds": ["transistor"], "priority": "secondary", "condition_sets": [{"items": [{"condition": "temp", "mode": "optional"}]}]},
+      {"code": "tOnUjt", "group": "electrical", "value_type": "at_most", "unit": "ns", "kinds": ["transistor"], "priority": "secondary", "condition_sets": [{"items": [{"condition": "temp", "mode": "optional"}]}]},
       // Ток модуляции однопереходного транзистора
       {"code": "Imod", "group": "electrical", "value_type": "at_least", "unit": "mA", "kinds": ["transistor"], "priority": "secondary"},
       // Температурный коэффициент межбазового сопротивления
@@ -118,11 +118,11 @@
       // Сопротивление базы
       {"code": "Rb", "group": "electrical", "value_type": "at_most", "unit": "ohm", "kinds": ["transistor"], "priority": "secondary", "condition_sets": [{"items": [{"condition": "Vcb", "mode": "optional"}, {"condition": "Ie", "mode": "optional"}, {"condition": "freq", "mode": "optional"}]}]},
       // Пробивное напряжение коллектор-эмиттер
-      {"code": "VbrCeo", "group": "electrical", "value_type": "at_least", "unit": "V", "kinds": ["transistor"], "priority": "secondary", "condition_sets": [{"items": [{"condition": "Ic", "mode": "required"}]}]},
+      {"code": "Vbrceo", "group": "electrical", "value_type": "at_least", "unit": "V", "kinds": ["transistor"], "priority": "secondary", "condition_sets": [{"items": [{"condition": "Ic", "mode": "required"}]}]},
       // Выходная полная проводимость в схеме ОЭ (h22э)
       {"code": "h22e", "group": "electrical", "value_type": "at_most", "unit": "uS", "kinds": ["transistor"], "priority": "secondary", "condition_sets": [{"items": [{"condition": "Ic", "mode": "required"}, {"condition": "Vce", "mode": "required"}, {"condition": "freq", "mode": "optional"}]}]},
       // Пробивное напряжение эмиттер-база при заданном токе эмиттера
-      {"code": "VbrEbo", "group": "electrical", "value_type": "at_least", "unit": "V", "kinds": ["transistor"], "priority": "secondary", "condition_sets": [{"items": [{"condition": "Ie", "mode": "required"}]}]},
+      {"code": "Vbrebo", "group": "electrical", "value_type": "at_least", "unit": "V", "kinds": ["transistor"], "priority": "secondary", "condition_sets": [{"items": [{"condition": "Ie", "mode": "required"}]}]},
       // Падение напряжения на открытом ключе
       {"code": "VonKey", "group": "electrical", "value_type": "at_most", "unit": "V", "kinds": ["transistor"], "priority": "secondary", "condition_sets": [{"items": [{"condition": "Ib", "mode": "required"}, {"condition": "Ic", "mode": "optional"}, {"condition": "temp", "mode": "optional"}]}]},
       // Ток закрытого ключа
@@ -140,7 +140,7 @@
       // Импульсная СВЧ-мощность в цепи эмиттер-база
       {"code": "PebPulseMax", "group": "limiting", "value_type": "exact", "unit": "mW", "kinds": ["transistor"], "priority": "secondary", "condition_sets": [{"items": [{"condition": "pulse_duration", "mode": "required"}, {"condition": "temp", "mode": "optional"}]}]},
       // Обратный ток коллектор-эмиттер при короткозамкнутой цепи база-эмиттер
-      {"code": "Ices", "group": "electrical", "value_type": "at_most", "unit": "uA", "kinds": ["transistor"], "priority": "secondary", "condition_sets": [{"items": [{"condition": "Vce", "mode": "required"}, {"condition": "temp", "mode": "optional"}]}]},
+      {"code": "Ices", "group": "electrical", "value_type": "at_most", "unit": "uA", "kinds": ["transistor"], "priority": "tertiary", "condition_sets": [{"items": [{"condition": "Vce", "mode": "required"}, {"condition": "temp", "mode": "optional"}]}]},
       // Непрерывная (средняя) входная СВЧ-мощность
       {"code": "PinMax", "group": "limiting", "value_type": "at_most", "unit": "mW", "kinds": ["transistor"], "priority": "secondary", "condition_sets": [{"items": [{"condition": "freq", "mode": "optional"}, {"condition": "temp", "mode": "optional"}]}]},
       // Импульсная входная СВЧ-мощность
@@ -158,11 +158,11 @@
       // Ток коллектора в лавинном режиме
       {"code": "IcAvalancheMax", "group": "limiting", "value_type": "exact", "unit": "mA", "kinds": ["transistor"], "priority": "secondary"},
       // Температурный коэффициент разности напряжений эмиттер-база пары
-      {"code": "TCVbeDiff", "group": "electrical", "value_type": "at_most", "unit": "uV_per_degC", "kinds": ["transistor"], "priority": "secondary", "condition_sets": [{"items": [{"condition": "Ic", "mode": "required"}, {"condition": "Vce", "mode": "required"}]}, {"items": [{"condition": "Ie", "mode": "required"}, {"condition": "Vcb", "mode": "required"}]}]},
+      {"code": "TCVbeDiff", "group": "electrical", "value_type": "at_most", "allow_negative": true, "unit": "uV_per_degC", "kinds": ["transistor"], "priority": "secondary", "condition_sets": [{"items": [{"condition": "Ic", "mode": "required"}, {"condition": "Vce", "mode": "required"}]}, {"items": [{"condition": "Ie", "mode": "required"}, {"condition": "Vcb", "mode": "required"}]}]},
       // Температурный коэффициент разности напряжений коллектор-база пары
-      {"code": "TCVcbDiff", "group": "electrical", "value_type": "at_most", "unit": "uV_per_degC", "kinds": ["transistor"], "priority": "secondary", "condition_sets": [{"items": [{"condition": "Ic", "mode": "required"}]}]},
+      {"code": "TCVcbDiff", "group": "electrical", "value_type": "at_most", "allow_negative": true, "unit": "uV_per_degC", "kinds": ["transistor"], "priority": "secondary", "condition_sets": [{"items": [{"condition": "Ic", "mode": "required"}]}]},
       // Температурный коэффициент разности токов базы пары
-      {"code": "TCIbDiff", "group": "electrical", "value_type": "at_most", "unit": "nA_per_degC", "kinds": ["transistor"], "priority": "secondary"},
+      {"code": "TCIbDiff", "group": "electrical", "value_type": "at_most", "allow_negative": true, "unit": "nA_per_degC", "kinds": ["transistor"], "priority": "secondary"},
       // Ток утечки между коллекторами транзисторов сборки
       {"code": "IccLeak", "group": "electrical", "value_type": "at_most", "unit": "nA", "kinds": ["transistor"], "priority": "secondary", "condition_sets": [{"items": [{"condition": "Vc1c2", "mode": "required"}, {"condition": "temp", "mode": "optional"}]}]},
       // Постоянное напряжение между коллекторами транзисторов сборки
@@ -178,11 +178,11 @@
       // Сопротивление изоляции канал-корпус
       {"code": "RinsChannel", "group": "electrical", "value_type": "at_least", "unit": "ohm", "kinds": ["transistor"], "priority": "secondary"},
       // Относительная разность крутизны транзисторов пары
-      {"code": "gfsMismatch", "group": "electrical", "value_type": "at_most", "unit": "pct", "kinds": ["transistor"], "priority": "tertiary", "condition_sets": [{"items": [{"condition": "Vds", "mode": "required"}, {"condition": "Vgs", "mode": "required", "fixed_value": 0}]}]},
+      {"code": "gfsMismatch", "group": "electrical", "value_type": "at_most", "unit": "pct", "kinds": ["transistor"], "priority": "secondary", "condition_sets": [{"items": [{"condition": "Vds", "mode": "required"}, {"condition": "Vgs", "mode": "required", "fixed_value": 0}]}]},
       // Относительная разность начальных токов стока транзисторов пары
-      {"code": "IdssMismatch", "group": "electrical", "value_type": "at_most", "unit": "pct", "kinds": ["transistor"], "priority": "tertiary", "condition_sets": [{"items": [{"condition": "Vds", "mode": "required"}, {"condition": "Vgs", "mode": "required", "fixed_value": 0}]}]},
+      {"code": "IdssMismatch", "group": "electrical", "value_type": "at_most", "unit": "pct", "kinds": ["transistor"], "priority": "secondary", "condition_sets": [{"items": [{"condition": "Vds", "mode": "required"}, {"condition": "Vgs", "mode": "required", "fixed_value": 0}]}]},
       // Относительная разность напряжений отсечки транзисторов пары
-      {"code": "VgsOffMismatch", "group": "electrical", "value_type": "at_most", "unit": "pct", "kinds": ["transistor"], "priority": "tertiary", "condition_sets": [{"items": [{"condition": "Id", "mode": "required"}, {"condition": "Vds", "mode": "required"}]}]},
+      {"code": "VgsOffMismatch", "group": "electrical", "value_type": "at_most", "unit": "pct", "kinds": ["transistor"], "priority": "secondary", "condition_sets": [{"items": [{"condition": "Id", "mode": "required"}, {"condition": "Vds", "mode": "required"}]}]},
       // Полная входная проводимость полевого транзистора на высокой частоте
       {"code": "Yin", "group": "electrical", "value_type": "at_most", "unit": "uS", "kinds": ["transistor"], "priority": "secondary", "condition_sets": [{"items": [{"condition": "Vds", "mode": "required"}, {"condition": "Id", "mode": "required"}, {"condition": "freq", "mode": "required"}]}]},
       // Полная выходная проводимость полевого транзистора на высокой частоте
@@ -190,21 +190,21 @@
       // Входное сопротивление полевого транзистора на высокой частоте
       {"code": "Rin", "group": "electrical", "value_type": "limits", "unit": "ohm", "kinds": ["transistor"], "priority": "secondary", "condition_sets": [{"items": [{"condition": "Vds", "mode": "required"}, {"condition": "Vgs", "mode": "required"}, {"condition": "Id", "mode": "required"}, {"condition": "freq", "mode": "required"}]}]},
       // Участок квадратичности переходной характеристики
-      {"code": "VgsQuadratic", "group": "electrical", "value_type": "limits", "unit": "V", "kinds": ["transistor"], "priority": "tertiary", "condition_sets": [{"items": [{"condition": "Vds", "mode": "required"}, {"condition": "Vgs", "mode": "required"}, {"condition": "Id", "mode": "optional"}, {"condition": "freq", "mode": "optional"}]}]},
+      {"code": "VgsQuadratic", "group": "electrical", "value_type": "limits", "allow_negative": true, "unit": "V", "kinds": ["transistor"], "priority": "tertiary", "condition_sets": [{"items": [{"condition": "Vds", "mode": "required"}, {"condition": "Vgs", "mode": "required"}, {"condition": "Id", "mode": "optional"}, {"condition": "freq", "mode": "optional"}]}]},
       // Крутизна характеристики по второму затвору
       {"code": "gfs2", "group": "electrical", "value_type": "at_least", "unit": "mA_per_V", "kinds": ["transistor"], "priority": "secondary", "condition_sets": [{"items": [{"condition": "Vds", "mode": "required"}, {"condition": "Id", "mode": "required"}, {"condition": "temp", "mode": "optional"}]}]},
       // Наибольшее напряжение сток-подложка
-      {"code": "VdSubMax", "group": "limiting", "value_type": "exact", "unit": "V", "kinds": ["transistor"], "priority": "tertiary"},
+      {"code": "VdSubMax", "group": "limiting", "value_type": "exact", "unit": "V", "kinds": ["transistor"], "priority": "secondary"},
       // Наибольшее напряжение между первым и вторым затворами
-      {"code": "VggMax", "group": "limiting", "value_type": "exact", "unit": "V", "kinds": ["transistor"], "priority": "tertiary"},
+      {"code": "VggMax", "group": "limiting", "value_type": "exact", "unit": "V", "kinds": ["transistor"], "priority": "secondary"},
       // Напряжение затвор-исток при заданном токе стока
       {"code": "Vgs", "group": "electrical", "value_type": "range", "unit": "V", "kinds": ["transistor"], "allow_negative": true, "priority": "secondary", "condition_sets": [{"items": [{"condition": "Id", "mode": "required"}, {"condition": "Vds", "mode": "optional"}]}]},
       // Порог перегрузки
       {"code": "PinOverloadMin", "group": "electrical", "value_type": "at_least", "unit": "mW", "kinds": ["transistor"], "priority": "secondary", "condition_sets": [{"items": [{"condition": "freq", "mode": "optional"}, {"condition": "temp", "mode": "optional"}]}]},
       // Отношение начальных токов стока двух транзисторов пары
-      {"code": "IdssRatio", "group": "electrical", "value_type": "at_least", "kinds": ["transistor"], "priority": "tertiary", "condition_sets": [{"items": [{"condition": "Vds", "mode": "required"}, {"condition": "Vgs", "mode": "required", "fixed_value": 0}]}]},
+      {"code": "IdssRatio", "group": "electrical", "value_type": "at_least", "kinds": ["transistor"], "priority": "secondary", "condition_sets": [{"items": [{"condition": "Vds", "mode": "required"}, {"condition": "Vgs", "mode": "required", "fixed_value": 0}]}]},
       // Отношение крутизны двух транзисторов пары
-      {"code": "gfsRatio", "group": "electrical", "value_type": "at_least", "kinds": ["transistor"], "priority": "tertiary", "condition_sets": [{"items": [{"condition": "Vds", "mode": "required"}, {"condition": "Vgs", "mode": "required", "fixed_value": 0}]}]},
+      {"code": "gfsRatio", "group": "electrical", "value_type": "at_least", "kinds": ["transistor"], "priority": "secondary", "condition_sets": [{"items": [{"condition": "Vds", "mode": "required"}, {"condition": "Vgs", "mode": "required", "fixed_value": 0}]}]},
       // Граничная частота коэффициента передачи тока
       {"code": "fT", "group": "electrical", "unit": "Hz", "value_type": "limits", "kinds": ["transistor"], "priority": "primary", "sort_order": 30, "condition_sets": [{"items": [{"condition": "Ic", "mode": "required"}, {"condition": "Vce", "mode": "required"}]}, {"items": [{"condition": "Ie", "mode": "required"}, {"condition": "Vcb", "mode": "required"}]}, {"items": [{"condition": "Ic", "mode": "required"}, {"condition": "Vcb", "mode": "required"}]}, {"items": [{"condition": "Ie", "mode": "required"}, {"condition": "Vce", "mode": "required"}]}, {"items": [{"condition": "Ic", "mode": "optional"}, {"condition": "Vce", "mode": "optional"}, {"condition": "Ie", "mode": "optional"}, {"condition": "Vcb", "mode": "optional"}]}]},
       // Напряжение отсечки

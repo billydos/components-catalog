@@ -189,7 +189,6 @@ func parameters() []catalog.ParameterDef {
 	di := []domain.Kind{domain.KindDiode}
 	re := []domain.Kind{domain.KindResistor}
 	rl := []domain.Kind{domain.KindRelay}
-	trDiRe := []domain.Kind{domain.KindTransistor, domain.KindDiode, domain.KindResistor}
 	trDiReRl := []domain.Kind{domain.KindTransistor, domain.KindDiode, domain.KindResistor, domain.KindRelay}
 	reCa := []domain.Kind{domain.KindResistor, domain.KindCapacitor}
 	reCaRl := []domain.Kind{domain.KindResistor, domain.KindCapacitor, domain.KindRelay}
@@ -399,17 +398,17 @@ func parameters() []catalog.ParameterDef {
 		{Code: "Rb", Group: "electrical", Unit: "ohm",
 			ValueType: catalog.ValueAtMost, SortOrder: 786, Active: true, Kinds: tr,
 			ConditionSets: []catalog.ConditionSet{set(1, opt("Vcb"), opt("Ie"), opt("freq"))}},
-		{Code: "VbrCeo", Group: "electrical", Unit: "V",
+		{Code: "Vbrceo", Group: "electrical", Unit: "V",
 			ValueType: catalog.ValueAtLeast, SortOrder: 791, Active: true, Kinds: tr,
 			ConditionSets: []catalog.ConditionSet{set(1, req("Ic"))}},
-		{Code: "VbrEbo", Group: "electrical", Unit: "V",
+		{Code: "Vbrebo", Group: "electrical", Unit: "V",
 			ValueType: catalog.ValueAtLeast, SortOrder: 796, Active: true, Kinds: tr,
 			ConditionSets: []catalog.ConditionSet{set(1, req("Ie"))}},
 		{Code: "VbrAvalanche", Group: "electrical", Unit: "V",
 			ValueType: catalog.ValueAtLeast, SortOrder: 801, Active: true, Kinds: tr},
 		// Короткозамкнутая цепь база-эмиттер (JEDEC s), ср. Icer (r).
 		{Code: "Ices", Group: "electrical", Unit: "uA",
-			ValueType: catalog.ValueAtMost, SortOrder: 806, Active: true, Kinds: tr,
+			ValueType: catalog.ValueAtMost, Priority: catalog.PriorityTertiary, SortOrder: 806, Active: true, Kinds: tr,
 			ConditionSets: []catalog.ConditionSet{set(1, req("Vce"), opt("temp"))}},
 		{Code: "Rcb", Group: "electrical", Unit: "ohm",
 			ValueType: catalog.ValueAtMost, SortOrder: 811, Active: true, Kinds: tr,
@@ -435,21 +434,21 @@ func parameters() []catalog.ParameterDef {
 			ValueType: catalog.ValueAtLeast, SortOrder: 846, Active: true, Kinds: tr},
 		{Code: "TCRbb", Group: "electrical", Unit: "pct_per_degC",
 			ValueType: catalog.ValueLimits, AllowNegative: true, Priority: catalog.PriorityTertiary, SortOrder: 851, Active: true, Kinds: tr},
-		{Code: "tonUjt", Group: "electrical", Unit: "ns",
+		{Code: "tOnUjt", Group: "electrical", Unit: "ns",
 			ValueType: catalog.ValueAtMost, SortOrder: 856, Active: true, Kinds: tr,
 			ConditionSets: []catalog.ConditionSet{set(1, opt("temp"))}},
 		// Ключевые (переключательные) транзисторы и монолитные структуры.
-		{Code: "Ron", Group: "electrical", Unit: "ohm",
+		{Code: "ROn", Group: "electrical", Unit: "ohm",
 			ValueType: catalog.ValueAtMost, SortOrder: 861, Active: true, Kinds: tr,
 			ConditionSets: []catalog.ConditionSet{
 				set(1, req("Ic"), req("Ib"), opt("temp")),
 				set(2, req("Ie"), req("Ib"), opt("temp")),
 			}},
 		{Code: "RonMismatch", Group: "electrical", Unit: "pct",
-			ValueType: catalog.ValueAtMost, Priority: catalog.PriorityTertiary, SortOrder: 866, Active: true, Kinds: tr},
-		{Code: "tonKey", Group: "electrical", Unit: "ns",
+			ValueType: catalog.ValueAtMost, SortOrder: 866, Active: true, Kinds: tr},
+		{Code: "tOnKey", Group: "electrical", Unit: "ns",
 			ValueType: catalog.ValueAtMost, SortOrder: 871, Active: true, Kinds: tr},
-		{Code: "toffKey", Group: "electrical", Unit: "ns",
+		{Code: "tOffKey", Group: "electrical", Unit: "ns",
 			ValueType: catalog.ValueAtMost, SortOrder: 876, Active: true, Kinds: tr},
 		{Code: "VonKey", Group: "electrical", Unit: "V",
 			ValueType: catalog.ValueAtMost, SortOrder: 881, Active: true, Kinds: tr,
@@ -483,16 +482,16 @@ func parameters() []catalog.ParameterDef {
 			ValueType: catalog.ValueAtMost, SortOrder: 906, Active: true, Kinds: tr,
 			ConditionSets: []catalog.ConditionSet{set(1, req("Ic"), opt("temp"))}},
 		{Code: "TCVbeDiff", Group: "electrical", Unit: "uV_per_degC",
-			ValueType: catalog.ValueAtMost, SortOrder: 911, Active: true, Kinds: tr,
+			ValueType: catalog.ValueAtMost, AllowNegative: true, SortOrder: 911, Active: true, Kinds: tr,
 			ConditionSets: []catalog.ConditionSet{
 				set(1, req("Ic"), req("Vce")),
 				set(2, req("Ie"), req("Vcb")),
 			}},
 		{Code: "TCVcbDiff", Group: "electrical", Unit: "uV_per_degC",
-			ValueType: catalog.ValueAtMost, SortOrder: 916, Active: true, Kinds: tr,
+			ValueType: catalog.ValueAtMost, AllowNegative: true, SortOrder: 916, Active: true, Kinds: tr,
 			ConditionSets: []catalog.ConditionSet{set(1, req("Ic"))}},
 		{Code: "TCIbDiff", Group: "electrical", Unit: "nA_per_degC",
-			ValueType: catalog.ValueAtMost, SortOrder: 921, Active: true, Kinds: tr},
+			ValueType: catalog.ValueAtMost, AllowNegative: true, SortOrder: 921, Active: true, Kinds: tr},
 		{Code: "IccLeak", Group: "electrical", Unit: "nA",
 			ValueType: catalog.ValueAtMost, SortOrder: 926, Active: true, Kinds: tr,
 			ConditionSets: []catalog.ConditionSet{set(1, req("Vc1c2"), opt("temp"))}},
@@ -579,7 +578,7 @@ func parameters() []catalog.ParameterDef {
 		{Code: "Vnom", Group: "electrical", Unit: "V",
 			ValueType: catalog.ValueExact, Priority: catalog.PriorityPrimary, SortOrder: 420, Active: true, Kinds: []domain.Kind{domain.KindCapacitor}},
 		{Code: "DF", Group: "electrical", Unit: "pct",
-			ValueType: catalog.ValueLimits, SortOrder: 430, Active: true, Kinds: []domain.Kind{domain.KindCapacitor},
+			ValueType: catalog.ValueLimits, Priority: catalog.PriorityPrimary, SortOrder: 430, Active: true, Kinds: []domain.Kind{domain.KindCapacitor},
 			// Набор 2 — нормирование на заданной частоте (WIMA: 1/10/100 кГц).
 			ConditionSets: []catalog.ConditionSet{
 				set(1, opt("temp")),
@@ -766,7 +765,7 @@ func parameters() []catalog.ParameterDef {
 			ValueType: catalog.ValueAtMost, SortOrder: 941, Active: true, Kinds: tr,
 			ConditionSets: []catalog.ConditionSet{set(1, req("Vds"), req("Id"), opt("temp"))}},
 		{Code: "TCVgsDiff", Group: "electrical", Unit: "uV_per_degC",
-			ValueType: catalog.ValueAtMost, Priority: catalog.PriorityTertiary, SortOrder: 946, Active: true, Kinds: tr,
+			ValueType: catalog.ValueAtMost, AllowNegative: true, SortOrder: 946, Active: true, Kinds: tr,
 			ConditionSets: []catalog.ConditionSet{
 				set(1, req("Vds"), req("Id")),
 				set(2, opt("Vds"), opt("Id")),
@@ -798,7 +797,7 @@ func parameters() []catalog.ParameterDef {
 			ValueType: catalog.ValueLimits, SortOrder: 986, Active: true, Kinds: tr,
 			ConditionSets: []catalog.ConditionSet{set(1, req("Vds"), req("Vgs"), req("Id"), req("freq"))}},
 		{Code: "VgsQuadratic", Group: "electrical", Unit: "V",
-			ValueType: catalog.ValueLimits, Priority: catalog.PriorityTertiary, SortOrder: 991, Active: true, Kinds: tr,
+			ValueType: catalog.ValueLimits, AllowNegative: true, Priority: catalog.PriorityTertiary, SortOrder: 991, Active: true, Kinds: tr,
 			ConditionSets: []catalog.ConditionSet{set(1, req("Vds"), req("Vgs"), opt("Id"), opt("freq"))}},
 		// Двухзатворные (тетроды).
 		{Code: "gfs2", Group: "electrical", Unit: "mA_per_V",
@@ -806,19 +805,19 @@ func parameters() []catalog.ParameterDef {
 			ConditionSets: []catalog.ConditionSet{set(1, req("Vds"), req("Id"), opt("temp"))}},
 		// Подобранные пары полевых: разности и отношения.
 		{Code: "gfsMismatch", Group: "electrical", Unit: "pct",
-			ValueType: catalog.ValueAtMost, Priority: catalog.PriorityTertiary, SortOrder: 1001, Active: true, Kinds: tr,
+			ValueType: catalog.ValueAtMost, SortOrder: 1001, Active: true, Kinds: tr,
 			ConditionSets: []catalog.ConditionSet{set(1, req("Vds"), fixed("Vgs", 0))}},
 		{Code: "IdssMismatch", Group: "electrical", Unit: "pct",
-			ValueType: catalog.ValueAtMost, Priority: catalog.PriorityTertiary, SortOrder: 1006, Active: true, Kinds: tr,
+			ValueType: catalog.ValueAtMost, SortOrder: 1006, Active: true, Kinds: tr,
 			ConditionSets: []catalog.ConditionSet{set(1, req("Vds"), fixed("Vgs", 0))}},
 		{Code: "VgsOffMismatch", Group: "electrical", Unit: "pct",
-			ValueType: catalog.ValueAtMost, Priority: catalog.PriorityTertiary, SortOrder: 1011, Active: true, Kinds: tr,
+			ValueType: catalog.ValueAtMost, SortOrder: 1011, Active: true, Kinds: tr,
 			ConditionSets: []catalog.ConditionSet{set(1, req("Id"), req("Vds"))}},
 		{Code: "IdssRatio", Group: "electrical",
-			ValueType: catalog.ValueAtLeast, Priority: catalog.PriorityTertiary, SortOrder: 1016, Active: true, Kinds: tr,
+			ValueType: catalog.ValueAtLeast, SortOrder: 1016, Active: true, Kinds: tr,
 			ConditionSets: []catalog.ConditionSet{set(1, req("Vds"), fixed("Vgs", 0))}},
 		{Code: "gfsRatio", Group: "electrical",
-			ValueType: catalog.ValueAtLeast, Priority: catalog.PriorityTertiary, SortOrder: 1021, Active: true, Kinds: tr,
+			ValueType: catalog.ValueAtLeast, SortOrder: 1021, Active: true, Kinds: tr,
 			ConditionSets: []catalog.ConditionSet{set(1, req("Vds"), fixed("Vgs", 0))}},
 
 		// Транзисторы — предельные эксплуатационные данные (§6.2).
@@ -866,7 +865,7 @@ func parameters() []catalog.ParameterDef {
 			ValueType: catalog.ValueLimits, AllowNegative: true,
 			Priority: catalog.PriorityPrimary, SortOrder: 150, Active: true, Kinds: trDiReRl},
 		{Code: "TempJunctionMax", Group: "limiting", Unit: "degC",
-			ValueType: catalog.ValueExact, SortOrder: 170, Active: true, Kinds: trDiRe},
+			ValueType: catalog.ValueExact, SortOrder: 170, Active: true, Kinds: trDiReCa},
 		{Code: "Rth", Group: "limiting", Unit: "degC_per_W",
 			ValueType: catalog.ValueExact, SortOrder: 180, Active: true, Kinds: trDiReCa},
 
@@ -883,7 +882,7 @@ func parameters() []catalog.ParameterDef {
 			ValueType: catalog.ValueExact, SortOrder: 220, Active: true, Kinds: di,
 			ConditionSets: []catalog.ConditionSet{set(1, req("pulse_duration"))}},
 		{Code: "Pmax", Group: "limiting", Unit: "mW",
-			ValueType: catalog.ValueExact, SortOrder: 230, Active: true, Kinds: di},
+			ValueType: catalog.ValueExact, Priority: catalog.PriorityPrimary, SortOrder: 230, Active: true, Kinds: di},
 		{Code: "IzMin", Group: "limiting", Unit: "mA",
 			ValueType: catalog.ValueExact, SortOrder: 240, Active: true, Kinds: di},
 		{Code: "IzMax", Group: "limiting", Unit: "mA",
@@ -916,7 +915,7 @@ func parameters() []catalog.ParameterDef {
 		// 1989): напряжение с сопротивлением в цепи база-эмиттер (V_CER),
 		// подложка/второй затвор, СВЧ-мощности, сборки и однопереходные.
 		{Code: "VcerMax", Group: "limiting", Unit: "V",
-			ValueType: catalog.ValueExact, Priority: catalog.PriorityPrimary, SortOrder: 420, Active: true, Kinds: tr,
+			ValueType: catalog.ValueExact, SortOrder: 420, Active: true, Kinds: tr,
 			ConditionSets: []catalog.ConditionSet{
 				set(1, req("Rbe"), opt("Vce")),
 				set(2, opt("Rbe"), opt("Vce")),
@@ -959,9 +958,9 @@ func parameters() []catalog.ParameterDef {
 		{Code: "VsbMax", Group: "limiting", Unit: "V",
 			ValueType: catalog.ValueExact, SortOrder: 545, Active: true, Kinds: tr},
 		{Code: "VdSubMax", Group: "limiting", Unit: "V",
-			ValueType: catalog.ValueExact, Priority: catalog.PriorityTertiary, SortOrder: 550, Active: true, Kinds: tr},
+			ValueType: catalog.ValueExact, SortOrder: 550, Active: true, Kinds: tr},
 		{Code: "VggMax", Group: "limiting", Unit: "V",
-			ValueType: catalog.ValueExact, Priority: catalog.PriorityTertiary, SortOrder: 555, Active: true, Kinds: tr},
+			ValueType: catalog.ValueExact, SortOrder: 555, Active: true, Kinds: tr},
 		// Тепловые сопротивления с точкой отсчёта (уточняют Rth) и
 		// температура корпуса.
 		{Code: "RthCase", Group: "limiting", Unit: "degC_per_W",

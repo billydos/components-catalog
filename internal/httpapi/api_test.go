@@ -339,11 +339,11 @@ func TestCatalogAndETag(t *testing.T) {
 		p := &snap.Parameters[i]
 		var want string
 		switch p.Code {
-		case "Cnom", "hfe":
+		case "Cnom", "hfe", "DF":
 			want = "primary"
 		case "EsrLife", "Zratio":
 			want = "tertiary"
-		case "DF", "Icbo":
+		case "Icbo":
 			want = ""
 		default:
 			continue

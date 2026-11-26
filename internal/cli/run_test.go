@@ -521,25 +521,27 @@ func TestCardPriorityTiers(t *testing.T) {
 	}
 
 	// Карточка: значения группируются подзаголовками градаций в порядке
-	// primary → secondary → tertiary (входной порядок строк не важен).
+	// primary → secondary → tertiary (входной порядок строк не важен);
+	// DF — primary вместе с Cnom, у карточки нет промежуточной градации.
 	stdout, stderr, code = run(t, "info", "К10-17", "--db", db)
 	if code != 0 || stderr != "" {
 		t.Fatalf("info: код %d, %q, %q", code, stdout, stderr)
 	}
 	main := strings.Index(stdout, "  Main:\n    nominal capacitance")
-	additional := strings.Index(stdout, "  Additional:\n    dissipation factor")
+	df := strings.Index(stdout, "    dissipation factor")
 	peripheral := strings.Index(stdout, "  Peripheral:\n    equivalent series resistance (ESR) after life test")
-	if main < 0 || additional < 0 || peripheral < 0 ||
-		!(main < additional && additional < peripheral) {
-		t.Fatalf("градации карточки (main=%d additional=%d peripheral=%d):\n%s",
-			main, additional, peripheral, stdout)
+	if main < 0 || df < 0 || peripheral < 0 ||
+		!(main < df && df < peripheral) {
+		t.Fatalf("градации карточки (main=%d df=%d peripheral=%d):\n%s",
+			main, df, peripheral, stdout)
 	}
 
-	// Локаль ru — русские подзаголовки.
+	// Локаль ru — русские подзаголовки; «Дополнительных» на этой
+	// карточке нет (DF — primary вместе с Cnom).
 	stdout, _, code = run(t, "info", "К10-17", "--lang", "ru", "--db", db)
 	if code != 0 || !strings.Contains(stdout, "  Основные:") ||
-		!strings.Contains(stdout, "  Дополнительные:") ||
-		!strings.Contains(stdout, "  Побочные:") {
+		!strings.Contains(stdout, "  Побочные:") ||
+		strings.Contains(stdout, "  Дополнительные:") {
 		t.Fatalf("info (ru):\n%s", stdout)
 	}
 
