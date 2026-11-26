@@ -19,8 +19,8 @@ func TestSeedAppliesCleanly(t *testing.T) {
 		}
 		t.Fatal("стартовый каталог не проходит метасхему")
 	}
-	if len(snap.Parameters) != 155 || len(snap.Attributes) != 22 ||
-		len(snap.Units) != 35 || len(snap.Conditions) != 20 {
+	if len(snap.Parameters) != 246 || len(snap.Attributes) != 22 ||
+		len(snap.Units) != 40 || len(snap.Conditions) != 22 {
 		t.Fatalf("состав каталога: параметры %d, атрибуты %d, единицы %d, условия %d",
 			len(snap.Parameters), len(snap.Attributes), len(snap.Units), len(snap.Conditions))
 	}
@@ -146,7 +146,7 @@ func TestSeedNominalRowEnum(t *testing.T) {
 }
 
 // Пин курирования градаций значимости (план 03 §5): точное множество
-// кодов primary/tertiary сида (70 кодов; остальные 85 — secondary по
+// кодов primary/tertiary сида (92 кода; остальные 154 — secondary по
 // умолчанию, без явного значения) и валидность всех значений. Осознанное
 // изменение курирования — правка этого пина тем же изменением.
 func TestSeedPriorityPin(t *testing.T) {
@@ -173,6 +173,8 @@ func TestSeedPriorityPin(t *testing.T) {
 		"PcMax": true, "PdMax": true, "VdsMax": true, "VrMax": true, "IfMax": true,
 		// Климатический диапазон — фильтр первой очереди.
 		"Temp": true, "opTemp": true,
+		// part4: однопереходные и сборки (справочник 1989).
+		"VcerMax": true, "Vc1c2Max": true, "EtaUjt": true, "Rbb": true,
 	}
 	tertiary := map[string]bool{
 		// Пост-тестовые деградационные (…Life/…Shelf-класс).
@@ -185,6 +187,13 @@ func TestSeedPriorityPin(t *testing.T) {
 		"Zratio": true, "Z0": true, "Rcoupling": true, "RinsCase": true, "Lnom": true,
 		// Транзисторы: редко нормируемые.
 		"Icer": true, "VcbPulseMax": true, "VcePulseMax": true, "VebPulseMax": true,
+		// part4: терции справочника 1989 (малосигнальные h-величины,
+		// импульсные величины, узкоспециальные).
+		"h12": true, "Cce": true, "Llead": true, "TCVgsDiff": true, "TCRbb": true,
+		"RonMismatch": true, "RinPulse": true, "VcerPulseMax": true,
+		"VdsPulseMax": true, "VgsPulseMax": true, "VdSubMax": true, "VggMax": true,
+		"gfsMismatch": true, "IdssMismatch": true, "VgsOffMismatch": true,
+		"VgsQuadratic": true, "IdssRatio": true, "gfsRatio": true,
 		// Резисторы: узкоспециальные.
 		"Vnoise": true, "imbalance": true, "staticFrictionTorque": true, "switchAngle": true,
 	}
@@ -362,9 +371,51 @@ func TestSeedSpotChecks(t *testing.T) {
 		t.Errorf("gfs: единица %q, тип %s, наборы %+v", s.Unit, string(s.ValueType), s.ConditionSets)
 	}
 	vgsOff := check("VgsOff")
-	if !vgsOff.AllowNegative || vgsOff.ValueType != catalog.ValueRange ||
+	if !vgsOff.AllowNegative || vgsOff.ValueType != catalog.ValueLimits ||
 		len(vgsOff.ConditionSets) != 1 || vgsOff.ConditionSets[0].Items[0].Condition != "Id" {
 		t.Errorf("VgsOff: %+v", vgsOff)
+	}
+	// part4 (справочник 1989): переопределения и консолидации.
+	if ft := check("fT"); ft.ValueType != catalog.ValueLimits || len(ft.ConditionSets) != 5 {
+		t.Errorf("fT: тип %s, наборов %d — ожидался limits с пятью наборами", string(ft.ValueType), len(ft.ConditionSets))
+	}
+	if vbe := check("VbeTh"); vbe.ValueType != catalog.ValueLimits || len(vbe.ConditionSets) != 4 {
+		t.Errorf("VbeTh: тип %s, наборов %d — ожидался limits с четырьмя наборами", string(vbe.ValueType), len(vbe.ConditionSets))
+	}
+	if h12 := check("h12"); h12.ValueType != catalog.ValueAtMost || len(h12.ConditionSets) != 2 ||
+		h12.ConditionSets[0].Items[0].Condition != "Ie" || h12.ConditionSets[1].Items[0].Condition != "Ic" {
+		t.Errorf("h12: %+v — ожидался один код с наборами ОБ и ОЭ", h12)
+	}
+	if idss := check("Idss"); idss.ValueType != catalog.ValueLimits ||
+		len(idss.ConditionSets[0].Items) != 3 || idss.ConditionSets[0].Items[2].Condition != "temp" {
+		t.Errorf("Idss: %+v — ожидался limits с опциональным temp", idss)
+	}
+	for _, code := range []string{"Ciss", "Crss"} {
+		if p := check(code); len(p.ConditionSets) != 2 || p.ConditionSets[1].Items[0].FixedValue == nil {
+			t.Errorf("%s: наборы %+v — ожидался второй с фиксированным Vds=0", code, p.ConditionSets)
+		}
+	}
+	if gp := check("Gp"); len(gp.ConditionSets) != 2 || gp.ConditionSets[1].Items[0].Condition != "Vcb" {
+		t.Errorf("Gp: наборы %+v — ожидался второй набор с Vcb", gp.ConditionSets)
+	}
+	if iebo := check("Iebo"); len(iebo.ConditionSets) != 2 || iebo.ConditionSets[1].Items[0].Condition != "Vbb" {
+		t.Errorf("Iebo: наборы %+v — ожидался второй набор с Vbb", iebo.ConditionSets)
+	}
+	if ib := check("IbPulseMax"); len(ib.ConditionSets) != 1 ||
+		ib.ConditionSets[0].Items[0].Condition != "pulse_duration" || ib.ConditionSets[0].Items[0].Mode != catalog.ModeRequired {
+		t.Errorf("IbPulseMax: наборы %+v — импульсное предельное с обязательной длительностью", ib.ConditionSets)
+	}
+	if pin := check("PinPulseMax"); len(pin.ConditionSets) != 1 ||
+		pin.ConditionSets[0].Items[0].Mode != catalog.ModeRequired {
+		t.Errorf("PinPulseMax: наборы %+v", pin.ConditionSets)
+	}
+	if leak := check("IccLeak"); leak.Unit != "nA" ||
+		len(leak.ConditionSets) != 1 || leak.ConditionSets[0].Items[0].Condition != "Vc1c2" {
+		t.Errorf("IccLeak: %+v", leak)
+	}
+	if vbr := check("VcerMax"); len(vbr.ConditionSets) != 2 ||
+		vbr.ConditionSets[0].Items[0].Condition != "Rbe" || vbr.ConditionSets[0].Items[0].Mode != catalog.ModeRequired {
+		t.Errorf("VcerMax: наборы %+v", vbr.ConditionSets)
 	}
 	if c, ok := snap.Condition("Vgs"); !ok || c.Unit != "V" || !c.AllowNegative {
 		t.Errorf("условие Vgs: %+v", c)
