@@ -5,7 +5,7 @@
 Источники истины:
 
 - архитектура и контракты — план `docs/plan/`: `README.md` (решения D1–D13, карта документов — таблица в конце), `01-architecture.md`, `02-database.md`, `03-data-model.md`, `04-module-functionality.md`, `06-examples.md`, `09-schema-migrations.md`, отчёты выверки `07-r1-verification.md` и `08-data-verification.md`; порядок работ — `05-work-plan.md`;
-- пользовательские справочники: `docs/fill-format.md` (регламент наполнения), `docs/class-keys.md` (ключи по классам), контракт REST — `api/openapi.yaml`;
+- пользовательские справочники: `docs/fill-format.md` (регламент наполнения), `docs/class-keys.md` (ключи по классам), контракт REST — `api/openapi.en.yaml` (en — канонический; русская версия — `api/openapi.ru.yaml`);
 - выверенное наполнение — `data/`.
 
 Код не расходится с планом; осознанное изменение решения — отдельный коммит с правкой всех связанных мест плана.

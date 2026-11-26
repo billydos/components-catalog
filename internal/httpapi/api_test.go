@@ -27,7 +27,7 @@ import (
 
 // Тесты хендлеров /api/v1 через httptest (план работ 5.3): статусы, тела,
 // коды ошибок, ETag; дословные тексты транспортных сообщений — контракт.
-// Маршруты сверяются со спецификацией api/openapi.yaml (критерий этапа 5).
+// Маршруты сверяются со спецификацией api/openapi.en.yaml (критерий этапа 5).
 
 // collector — реализация Metrics для проверки хука.
 type collector struct {
@@ -1802,7 +1802,7 @@ func TestMetricsHook(t *testing.T) {
 // TestRoutesMatchSpec — спецификация и реализация не расходятся
 // (критерий этапа 5): маршруты/методы/operationId совпадают дословно.
 func TestRoutesMatchSpec(t *testing.T) {
-	data, err := os.ReadFile("../../api/openapi.yaml")
+	data, err := os.ReadFile("../../api/openapi.en.yaml")
 	if err != nil {
 		t.Fatalf("чтение спецификации: %v", err)
 	}
