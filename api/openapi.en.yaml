@@ -4,45 +4,62 @@ info:
   title: components-catalog REST API
   version: 0.1.0
   description: |
-    An embeddable electronic components reference: the REST /api/v1 is a
-    thin transport over the Go library's service layer. Authentication,
-    authorization, and rate limiting belong to the hosting site that
-    mounts the handler (protected routes are the site's choice).
-    Transport: JSON, UTF-8.
+    An embeddable reference of electronic components. REST `/api/v1`
+    works as a thin transport over the service layer of the Go
+    library. Authentication, authorization, and rate limiting stay
+    with the site that mounts the handler. Protected routes are the
+    site's own choice. Transport: JSON, UTF-8.
 
-    Errors use the `{"code", "message"}` model: `code` is a
-    machine-readable Latin snake_case string; `message` is the message
-    text from the module's catalog per the request locale (en is
-    canonical, ru is a bundle; Accept-Language). Statuses: 400 (bad
-    request), 404 (not found), 405 (method not supported by the route;
-    the Allow header lists the allowed ones), 409 (conflict),
-    422 (record semantics), 500 (internal error). An unknown route —
-    404 api_route_not_found in the same error model.
+    Errors use the `{"code", "message"}` model. The `code` field
+    contains a machine-readable Latin snake_case string. The
+    `message` field carries the text from the module's message
+    catalog in the request language: English is the catalog's
+    canonical language and Russian is a bundle. The language is
+    chosen by the `Accept-Language` header.
 
-    Localization: the module's database is language-neutral — the
-    code fields of responses (kind, system, unit, parameter, attribute,
-    section) are always canonical. Display fields (`name`, `kind_name`,
-    `system_name`, descriptions, unit names and symbols in /catalog) are
-    filled per the request locale from the module's bundles; the locale
-    comes from the Accept-Language header (q-values, base subtag); the
-    default and the fallback for unsupported languages is en (en and ru
-    are supported).
+    Response statuses:
 
-    Section semantics of the record body (attributes, group sections,
-    manufacturers, variants, analogs, synonyms, sources): absent/null —
-    leave unchanged (for POST — unset); present — replace wholesale;
-    `[]`/`{}` — clear; an error in any value — the record is not applied
-    at all. sources references address codes of the global source
-    registry (a registry of bibliographic definitions shared by all
-    records); registry definitions come from the import
-    file's root sources section and POST /api/v1/sources, not from the
+    - `400`: bad request;
+    - `404`: not found; an unknown route yields `404` with the code
+      `api_route_not_found` in the same error model;
+    - `405`: the method is not supported by the route, and the
+      `Allow` header lists the allowed methods;
+    - `409`: conflict;
+    - `422`: record semantics error;
+    - `500`: internal error.
+
+    Localization. The module's database is language-neutral: the code
+    fields of responses (`kind`, `system`, `unit`, `parameter`,
+    `attribute`, `section`) are always canonical. Display fields
+    (`name`, `kind_name`, `system_name`, descriptions, unit names and
+    symbols in `/catalog`) are filled from the module's bundles in
+    the request language. The language is determined by the
+    `Accept-Language` header (q-values, base subtag). Supported
+    languages are `en` and `ru`. The default, and the fallback for
+    unsupported languages, is `en`.
+
+    Sections of the record body (`attributes`, group sections,
+    `manufacturers`, `variants`, `analogs`, `synonyms`, `sources`)
+    follow uniform rules:
+
+    - a section that is absent or `null` leaves the data unchanged;
+      for record creation it means “unset”;
+    - a present section replaces its content wholesale;
+    - an empty section (`[]` or `{}`) clears the data;
+    - an error in at least one value cancels the whole record: no
+      partial application exists.
+
+    The `sources` section references codes of the global source
+    registry. The registry holds bibliographic definitions shared by
+    all records. They are introduced by the import file's root
+    `sources` section and by `POST /api/v1/sources`, not by the
     record body.
 servers: []
 tags:
   - name: catalog
     description: Module reference data (kinds, catalog).
   - name: components
-    description: "Device records: search, card, write, delete."
+    description: "Device records: search, card, create, update, delete."
   - name: sources
     description: "Record data source registry: read, apply, delete."
   - name: service
@@ -59,7 +76,8 @@ paths:
         - $ref: "#/components/parameters/AcceptLanguage"
       responses:
         "200":
-          description: Device kinds (name is localized per the request locale).
+          description: Device kinds. The `name` field is filled per the
+            request locale.
           headers:
             Vary:
               $ref: "#/components/headers/VaryLanguage"
@@ -77,14 +95,19 @@ paths:
       summary: Catalog snapshot
       description: |
         Parameters, attributes, conditions, units, groups, designation
-        systems, families, and the value dictionaries of the designation
-        dictionary fields (material, subclass, adjustment, category) —
-        for building forms and filters. Field keys mirror the fill format
-        (snake_case after catalog table columns); display strings (name,
-        descriptions, unit names and symbols) follow the request locale.
-        The ETag is derived from catalog_revision and the
-        representation locale (different locales — different ETags,
-        RFC 9110): the snapshot is cached until the catalog changes.
+        systems, and families — everything needed to build forms and
+        filters. The snapshot also returns the value dictionaries of
+        the designation dictionary fields: `material`, `subclass`,
+        `adjustment`, and `category`.
+
+        Field keys mirror the fill format: `snake_case` after catalog
+        table columns. Display strings (`name`, descriptions, unit
+        names and symbols) are filled per the request locale.
+
+        The `ETag` is derived from `catalog_revision` and the
+        representation locale: different locales yield different
+        `ETag`s (RFC 9110). The snapshot is cached until the catalog
+        changes.
       parameters:
         - $ref: "#/components/parameters/AcceptLanguage"
       responses:
@@ -92,7 +115,7 @@ paths:
           description: Catalog snapshot.
           headers:
             ETag:
-              description: Strong ETag of the form "catalog-<catalog_revision>-<locale>".
+              description: Strong `ETag` of the form "catalog-<catalog_revision>-<locale>".
               schema: {type: string}
             Vary:
               $ref: "#/components/headers/VaryLanguage"
@@ -100,7 +123,7 @@ paths:
             application/json:
               schema: {$ref: "#/components/schemas/CatalogSnapshot"}
         "304":
-          description: The snapshot has not changed (If-None-Match).
+          description: The snapshot has not changed (checked by `If-None-Match`).
           headers:
             ETag:
               schema: {type: string}
@@ -114,48 +137,67 @@ paths:
     get:
       tags: [service]
       operationId: stats
-      summary: Record counts, schema version, revisions; with kind — kind parameter aggregates
+      summary: Module stats or kind parameter aggregates
       description: |
-        Without kind — module aggregates: record counts by kind, schema
-        version, revisions. With kind — facet aggregates of the kind's
-        parameter values: min/max of numeric parameters for parametric
-        filter sliders (bounds follow the search filter semantics:
-        value_min/value_max and value_exact; at_least contributes only
-        min, at_most — only max, limits — min and/or max as given) and
-        frequencies of text/enum values — the number of records in the
-        kind having the value (a value present in the type data and in
-        several variants of one record counts once). The aggregates
-        include type-level data and variant data — as in search filters;
-        parameters without data in the kind and not applicable to the
-        kind (applicability is catalog data; this includes parameters
-        with data left over after the catalog changed applicability)
-        are excluded from the response; the
-        parameter order is alphabetical by code (as in /catalog), values —
-        by descending frequency, then by text. The facet representation
-        is cacheable: the ETag is derived from catalog_revision
-        (parameter applicability), data_revision, the kind, and the
-        locale; If-None-Match short-circuits to 304 before the aggregate
-        read. A repeated recognized parameter or an unknown query key —
-        400 validation_failed; an unknown kind — 400 validation_failed.
+        Without the `kind` parameter the response contains module
+        aggregates: record counts by kind, the schema version, and
+        the revisions.
+
+        With the `kind` parameter the response contains facet
+        aggregates of the kind's parameter values. Numeric parameters
+        yield `min`/`max` — bounds for parametric filter sliders.
+        Text and enum parameters yield value frequencies. A frequency
+        is the number of records in the kind having the value: a
+        value present in the type data and in several variants of one
+        record counts once.
+
+        The bounds follow the search filter semantics
+        (`value_min`/`value_max` and `value_exact`): `at_least`
+        contributes only `min`, `at_most` — only `max`, and `limits`
+        — `min` and/or `max` as given.
+
+        The aggregates include type-level data and variant data — as
+        the search filters do. Parameters without data in the kind
+        are excluded. So are parameters not applicable to the kind:
+        applicability is catalog data, and the response may also omit
+        parameters that still have data left after the catalog changed
+        their applicability.
+
+        The parameter order is alphabetical by code, as in `/catalog`.
+        The values are ordered by descending frequency, then by text.
+
+        The facet representation is cacheable. The `ETag` is derived
+        from `catalog_revision` (parameter applicability),
+        `data_revision`, the kind, and the locale. `If-None-Match`
+        short-circuits with `304` before the aggregate read.
+
+        A repeated recognized parameter, an unknown query key, and an
+        unknown kind fail with `400` `validation_failed`.
       parameters:
         - $ref: "#/components/parameters/AcceptLanguage"
-        - {name: kind, in: query, schema: {type: string}, description: "Kind code: the response is facet aggregates of this kind's parameter values (without the parameter or with an empty value — module aggregates)."}
+        - {name: kind, in: query, schema: {type: string}, description: "Kind code. With the parameter the response contains facet aggregates of this kind's parameter values. Without the parameter, or with an empty value, module aggregates are returned."}
       responses:
         "200":
-          description: Module aggregates (without kind; no ETag — a cheap
-            count, the revisions are in the response itself) or the kind's
-            facet aggregates (with kind; name follows the request locale,
-            unit is the canonical code, the response carries an ETag).
+          description: |
+            Module aggregates or the kind's facet aggregates.
+
+            Without `kind` the response carries no `ETag`: the count
+            is cheap, and the revisions are returned in the response
+            itself. With `kind` the response carries an `ETag`. The
+            `name` field is filled per the request locale, and `unit`
+            contains the canonical code.
           headers:
             Vary:
-              description: Accept-Language — on the response with kind (the
-                representation is localized); not sent on module aggregates
-                without kind.
+              description: |
+                Set only on the response with `kind`: the
+                representation is localized. Not sent on module
+                aggregates without `kind`.
               schema: {type: string, const: Accept-Language}
             ETag:
-              description: Strong ETag of the form
-                "stats-<catalog_revision>-<data_revision>-<kind>-<locale>" —
-                only on the facet response (with kind).
+              description: |
+                Strong `ETag` of the form
+                "stats-<catalog_revision>-<data_revision>-<kind>-<locale>";
+                set only on the facet response with `kind`.
               schema: {type: string}
           content:
             application/json:
@@ -164,8 +206,9 @@ paths:
                   - $ref: "#/components/schemas/Stats"
                   - $ref: "#/components/schemas/ParameterStats"
         "304":
-          description: The facet aggregates have not changed (If-None-Match;
-            only the response with kind).
+          description: |
+            The facet aggregates have not changed (checked by
+            `If-None-Match`). The response is sent only with `kind`.
           headers:
             ETag:
               schema: {type: string}
@@ -183,36 +226,43 @@ paths:
       operationId: changes
       summary: Record change event stream (change feed)
       description: |
-        Incremental synchronization of the site's derived indexes: events
-        of applied record operations (created/updated/deleted, kind,
-        designation, stable record id) in ascending event id order.
-        Events are written by the same transaction that changes the data:
-        the event and the change are atomic; a Skipped outcome leaves no
-        event (including importer compensating deletions — a regular
-        deleted event).
+        A stream of record change events for incremental
+        synchronization of a site's derived indexes. Each event
+        describes an applied operation on a record: `created`/
+        `updated`/`deleted`, the kind, the designation, and the
+        stable record id. Events are ordered by ascending event id.
 
-        The cursor is the after parameter: the id of the last event
-        received (after=0 — from the feed start); a revision cannot serve
-        as the cursor: its relation to events is a write-path detail
-        (several events in one transaction are possible, as is a revision
-        increment with no event); the id is assigned on insert and remains
-        a dense monotonic cursor. The response carries the current
-        data_revision (consistent with the event page). The feed covers
-        only data changes (data_revision); catalog changes
-        (catalog_revision) are not in the feed — for those, use the ETag
-        of GET /catalog. There are no actors and no before/after states —
-        this is not an audit (change history is the site's domain). There
-        is no automatic retention: growth is bounded by the scale of
-        editorial activity; cleanup is manual (SQL), with no REST cleanup
-        route. A
-        repeated recognized parameter or an unknown query key — 400
-        validation_failed.
+        Events are written by the same transaction that changes the
+        data, so the event and the change are atomic. A `Skipped`
+        outcome leaves no event. Importer compensating deletions
+        produce a regular `deleted` event.
+
+        The cursor is the `after` parameter — the id of the last
+        event received. `after=0` reads the stream from the start. A
+        revision cannot serve as the cursor: its relation to events
+        is a write-path detail (one transaction may produce several
+        events, and an increment may pass without an event). The id
+        is assigned on insert and remains a dense monotonic cursor.
+
+        The response carries the current `data_revision`, consistent
+        with the event page. The stream covers only data changes
+        (`data_revision`). Catalog changes (`catalog_revision`) are
+        not part of it: for those, use the `ETag` of `GET /catalog`.
+
+        Events carry no actors and no before/after states: this is
+        not an audit, and change history remains the site's domain.
+        There is no automatic retention: growth is bounded by the
+        scale of editorial activity, cleanup is performed manually
+        with SQL, and there is no REST cleanup route.
+
+        A repeated recognized parameter and an unknown query key fail
+        with `400` `validation_failed`.
       parameters:
-        - {name: after, in: query, schema: {type: integer, format: int64, minimum: 0, default: 0}, description: "Cursor: the id of the last event received (0 — from the feed start)."}
+        - {name: after, in: query, schema: {type: integer, format: int64, minimum: 0, default: 0}, description: "Cursor: the id of the last event received. 0 reads the stream from the start."}
         - {name: limit, in: query, schema: {type: integer, minimum: 1, maximum: 1000, default: 100}, description: "Number of events in the page (≤ 1000)."}
       responses:
         "200":
-          description: A page of events and the current data_revision.
+          description: A page of events and the current `data_revision`.
           content:
             application/json:
               schema: {$ref: "#/components/schemas/ChangesResponse"}
@@ -228,67 +278,87 @@ paths:
       operationId: components_list
       summary: Search records
       description: |
-        Designation substring, system, a stable-id set filter,
-        field/attribute/parameter filters, sorting, pagination. The
-        response is a list with designation, kind, system, and key
-        fields; the ETag is derived from data_revision, the canonical
-        query string, and the representation locale (different
-        filters/sorts or locales — different ETags, RFC 9110). Repeating
-        any query parameter — 400 validation_failed; the exceptions are
-        the intentionally repeatable id (a filter set, up to 200 values),
-        the dictionary filters material/subclass/adjustment/category
-        (multi-select with OR semantics within a field), and values (the
-        value columns of result rows).
+        Record search: a designation substring, a system, a set of
+        stable ids, field, attribute, and parameter filters, sorting,
+        pagination. The response is a list of records with the
+        designation, kind, system, and key fields.
 
-        Besides the parameters listed above, the following are accepted:
+        The `ETag` is derived from `data_revision`, the canonical
+        query string, and the representation locale: different
+        filters, sorts, or locales yield different `ETag`s
+        (RFC 9110).
 
-        * designation field filters — the field code as the parameter
-          name: textual `material`, `subclass`, `letters`, `construction`,
-          `prefix`, `family`, `series`, `adjustment`, `category`, `base`
-          (the type — the record's base designation, the value is
-          canonicalized as a designation); numeric `junctions`, `group`,
-          `dev_number`, `assembly`, `feature`, `modification`, `chip`
-          (equality); the values of the dictionary fields `material`
-          (`si`, `ge`, `ga`, `in`, `sic`, `other`, `gaas`), `subclass`
-          (`bjt`, `zener`, …), `adjustment` (`fixed`, `variable`,
-          `preset`), and `category` (catalog dictionary codes — the
-          `dictionaries` section of GET /catalog) — a stable dictionary
-          code or a localized display name (canonicalized);
-          dictionary fields are repeatable: each value is canonicalized
-          separately, the set has OR semantics, a duplicate canonical
-          code — 400 validation_failed; the other text fields are
-          normative elements of the designation (for `other` records the
-          `series` field is set by the `fields` section);
-        * `attr.<code>=<value>` — attribute filter (text or number per
-          the attribute type; boolean attributes cannot be filtered; a
-          text filter on a text_list attribute — equality to any element
-          of the list);
-        * `par.<code>.min=`, `par.<code>.max=`, `par.<code>.exact=` —
-          the bounds of a numeric parameter; `par.<code>.text=` or
-          `par.<code>=<text>` — text/enum.
+        Repeating any query parameter fails with `400`
+        `validation_failed`. The exceptions are the intentionally
+        repeatable parameters:
+
+        - `id` — a filter set, up to 200 values;
+        - the dictionary filters `material`/`subclass`/
+          `adjustment`/`category` — multi-select with OR semantics
+          within a field;
+        - `values` — the value columns of result rows.
+
+        Besides the parameters described above, the request accepts:
+
+        - designation field filters: the field code serves as the
+          parameter name. Textual fields: `material`, `subclass`,
+          `letters`, `construction`, `prefix`, `family`, `series`,
+          `adjustment`, `category`, `base`. Numeric fields with
+          equality comparison: `junctions`, `group`, `dev_number`,
+          `assembly`, `feature`, `modification`, `chip`. The `base`
+          field holds the record's base designation, and its value is
+          canonicalized as a designation;
+        - the dictionary fields (`material`, `subclass`,
+          `adjustment`, `category`) accept a stable dictionary code or
+          a localized display name. The value is canonicalized.
+          The dictionary fields are repeatable: each value is
+          canonicalized separately, the set has OR semantics, and a
+          duplicate canonical code fails with `400`
+          `validation_failed`;
+        - allowed dictionary codes:
+          - `material`: `si`, `ge`, `ga`, `in`, `sic`, `other`, `gaas`;
+          - `subclass`: `bjt`, `zener`, …;
+          - `adjustment`: `fixed`, `variable`, `preset`;
+          - `category`: catalog dictionary codes from the
+            `dictionaries` section of the `GET /catalog` response;
+        - the `base` field holds the record's base designation. Its
+          value is canonicalized as a designation;
+        - the other text fields are normative elements of the
+          designation. For `other` records the `series` field is set
+          by the `fields` section;
+        - `attr.<code>=<value>` — an attribute filter: text or number
+          per the attribute type. Boolean attributes cannot be
+          filtered. A text filter on a `text_list` attribute compares
+          against any element of the list;
+        - numeric parameter bounds: `par.<code>.min=`,
+          `par.<code>.max=`, `par.<code>.exact=`;
+        - text or enum: `par.<code>.text=` or `par.<code>=<text>`.
 
         Variant parametric filters apply within a single variant. A
-        filter on a parameter/attribute not applicable to the queried
-        kind — 400 parameter_not_applicable/attribute_not_applicable.
-        An unknown query parameter — 400 validation_failed.
+        filter on a parameter or attribute not applicable to the
+        queried kind fails with `400`
+        `parameter_not_applicable`/`attribute_not_applicable`. An
+        unknown query parameter yields `400` `validation_failed`.
       parameters:
         - {name: kind, in: query, schema: {type: string}, description: "Device kind (transistor, diode, resistor, capacitor, relay)."}
         - {name: system, in: query, schema: {type: string}, description: "Designation system (gost, ost, pro, jedec, jis, other)."}
-        - {name: q, in: query, schema: {type: string}, description: "Substring of a designation or of a record's historical name — a synonym (case-insensitive)."}
+        - {name: q, in: query, schema: {type: string}, description: "Substring of a designation or of a record's historical name (a synonym). Case is ignored."}
         - name: id
           in: query
           description: |
-            Filter by a set of stable record ids — an intentionally
-            repeatable parameter (one of the query strictness exceptions —
-            the other one, the multi-select dictionary filters, is
-            described above): up to 200 values, each a positive integer;
-            a duplicate value — 400 validation_failed. The semantics is
-            intersection with the other filters; an id without a record
-            or one cut off by the other filters simply yields no row (no
-            separate error). Without sort the output order follows the id
-            transmission order (with sort — the requested sorting). Use
-            case: a composite search of “site-side preselection × module
-            parametrics” without duplicating the catalog.
+            Filter by a set of stable record ids. The parameter is
+            intentionally repeatable. Up to 200 values are allowed, each
+            a positive integer. A duplicate value fails with `400`
+            `validation_failed`.
+
+            The filter intersects with the other filters. An id
+            without a record, or an id cut off by the other filters,
+            simply yields no row: there is no separate error. Without
+            `sort` the output follows the id transmission order. With
+            `sort` it follows the requested sorting.
+
+            Use case: a composite search of “site-side preselection ×
+            module parametrics” without duplicating the catalog.
           schema:
             type: array
             items: {type: integer, format: int64, minimum: 1}
@@ -300,21 +370,29 @@ paths:
         - name: values
           in: query
           description: |
-            The value columns of result rows — an intentionally repeatable
-            parameter: a catalog parameter code or attr.<attribute code>,
-            up to 16 codes; a duplicate — 400 validation_failed. The value
-            is a CardValue-shaped element for every code present on the
-            record (no value — no element), in request order: name follows
-            the request locale, unit is the canonical unit code, conditions
-            — parameters only. The value selection rule when a record has
-            several rows (type data + variants): numeric — a MIN/MAX
-            bounds aggregate (a single row keeps its
-            exact/at_least/at_most/limits shape); text/enum — type data
-            over variants. Boolean attributes — 400 validation_failed; an
-            unknown code — 400 unknown_parameter/unknown_attribute; one
-            not applicable to the queried kind — 400
-            parameter_not_applicable/attribute_not_applicable (as with
-            filters).
+            The value columns of result rows. The parameter is
+            intentionally repeatable. A value is a catalog parameter code
+            or `attr.<attribute code>`, up to 16 codes. A duplicate
+            fails with `400` `validation_failed`.
+
+            For every code present on the record, an element of the
+            `CardValue` schema is returned (no value — no element),
+            in request order. The `name` field is filled per the
+            request locale, `unit` contains the canonical unit code,
+            and `conditions` occur only on parameters.
+
+            The value selection rule when a record has several rows
+            (type data plus variants): numeric parameters yield a
+            MIN/MAX bounds aggregate — a single row keeps its
+            `exact`/`at_least`/`at_most`/`limits` shape. Text and
+            enum parameters take the type data over the variants.
+
+            Boolean attributes yield `400` `validation_failed`. An
+            unknown code fails with `400`
+            `unknown_parameter`/`unknown_attribute`. One not
+            applicable to the queried kind yields `400`
+            `parameter_not_applicable`/`attribute_not_applicable`, as
+            with filters.
           schema:
             type: array
             items: {type: string, minLength: 1}
@@ -326,18 +404,21 @@ paths:
           in: query
           schema: {type: string}
           description: |
-            Comma-separated sort keys, “-” for descending: designation,
-            id, a parsed-field code, or the code of a numeric catalog
-            parameter applicable to the queried kind. text/enum parameters
-            and ones not applicable to the kind — 400
-            (validation_failed/parameter_not_applicable). A record's value
-            for a parameter is direction-dependent: ascending — the lower
-            bound (value_min, exact, or the sole upper bound); descending
-            — the upper bound (value_max, exact, or the sole lower bound);
-            type-level and variant values are both considered (as in
-            filters); records without a value go last regardless of
-            direction. A
-            final (kind, designation) ordering is appended to any order.
+            Comma-separated sort keys. A `-` before a key requests
+            descending order. Allowed keys: `designation`, `id`, a
+            parsed-field code, or a numeric catalog parameter code
+            applicable to the queried kind. `text`/`enum` parameters
+            and ones not applicable to the kind yield `400`
+            (`validation_failed`/`parameter_not_applicable`).
+
+            A record's value for a parameter is chosen by the sort
+            direction. Ascending takes the lower bound (`value_min`,
+            the exact value, or the sole upper bound). Descending
+            takes the upper bound (`value_max`, the exact value, or
+            the sole lower bound). Type-level and variant values are
+            both considered, as in filters. Records without a value
+            go last regardless of direction. A final (`kind`,
+            `designation`) ordering is appended to any order.
         - {name: limit, in: query, schema: {type: integer, minimum: 1, maximum: 200, default: 50}, description: "Page size (≤ 200)."}
         - {name: offset, in: query, schema: {type: integer, minimum: 0, default: 0}, description: "Page offset."}
       responses:
@@ -346,11 +427,11 @@ paths:
           headers:
             ETag:
               description: |
-                Strong ETag of the form "data-<data_revision>-<hash>-<locale>":
-                hash is a hash of the canonical query string (parameter
-                names sorted, name=value pairs joined with “&”; the
-                repeatable id contributes each of its values — order is
-                significant).
+                Strong `ETag` of the form "data-<data_revision>-<hash>-<locale>".
+                `hash` is a hash of the canonical query string:
+                parameter names sorted, `name=value` pairs joined with
+                “&”. The repeatable `id` contributes each of its
+                values, and the order is significant.
               schema: {type: string}
             Vary:
               $ref: "#/components/headers/VaryLanguage"
@@ -358,7 +439,7 @@ paths:
             application/json:
               schema: {$ref: "#/components/schemas/SearchPage"}
         "304":
-          description: The data has not changed (If-None-Match).
+          description: The data has not changed (checked by `If-None-Match`).
           headers:
             ETag:
               schema: {type: string}
@@ -375,13 +456,15 @@ paths:
       operationId: components_create
       summary: Create a record
       description: |
-        The body is a fill record: a designation string or a
-        “name/system + sections” object. The kind is determined by
-        designation autodetect; for system `other`, creation is
-        addressed by PUT with the kind in the path. An existing
-        (kind, designation) — 409 already_exists without modifying the
-        record (creation is atomic; a race of concurrent POSTs does not
-        apply sections to someone else's record).
+        The request body is a fill record: a designation string or a
+        “name/system + sections” object. The record's kind is
+        determined by designation autodetect. For system `other`,
+        creation is performed by `PUT` with the kind in the path.
+
+        A (`kind`, `designation`) pair already present in the
+        database yields `409` `already_exists` without modifying the
+        record. Creation is atomic: a race of concurrent `POST`s
+        does not apply sections to someone else's record.
       parameters:
         - $ref: "#/components/parameters/AcceptLanguage"
       requestBody:
@@ -398,8 +481,9 @@ paths:
         "400":
           $ref: "#/components/responses/BadRequest"
         "404":
-          description: A rare race — the record was deleted between applying
-            and reading the card for the response.
+          description: |
+            A rare race: the record was deleted between applying and
+            reading the card for the response.
           headers:
             Vary:
               $ref: "#/components/headers/VaryLanguage"
@@ -419,8 +503,10 @@ paths:
       tags: [components]
       operationId: components_by_id
       summary: Card by stable id
-      description: Designations containing "/" (MIL names) are addressed by
-        this route or by search — a direct route is not guaranteed for them.
+      description: |
+        Designations containing `/` (MIL names) are addressed by this
+        route or by search: a direct route is not guaranteed for
+        them.
       parameters:
         - {name: id, in: path, required: true, schema: {type: integer, format: int64}}
         - $ref: "#/components/parameters/AcceptLanguage"
@@ -447,10 +533,12 @@ paths:
       operationId: components_get
       summary: Record card
       description: |
-        Designation + system + parsed fields, attributes, parameter values
-        by groups with conditions, variants (a “nominal × voltage →
+        The record card shows the designation, the system, and the
+        parsed fields. It also shows attributes, parameter values by
+        groups with conditions, variants (a “nominal × voltage →
         dimensions/mass” matrix), analogs (outgoing and backlinks),
-        manufacturers. The designation in the path is URL-encoded.
+        and manufacturers. The designation in the path is
+        URL-encoded.
       parameters:
         - {$ref: "#/components/parameters/Kind"}
         - {$ref: "#/components/parameters/Designation"}
@@ -477,12 +565,19 @@ paths:
       operationId: components_put
       summary: Record upsert with section semantics
       description: |
-        The body is a fill record (name/system + sections); name must
-        match the path designation (otherwise 422 designation_mismatch).
-        The kind is set by the path (overriding autodetect — the way to
-        create records of system `other`). Outcomes: Added (created),
-        UpdatedExisting (updated), Skipped (the merged state is identical
-        — no database write and no revision increment).
+        The request body is a fill record: `name`/`system` and
+        sections. The `name` field must match the path `designation`,
+        otherwise the request fails with `422`
+        `designation_mismatch`. The kind is set by the path and
+        overrides autodetect — this is how records of system `other`
+        are created.
+
+        Outcomes:
+
+        - `Added` — the record was created;
+        - `UpdatedExisting` — the record was updated;
+        - `Skipped` — the merged state matches the current one: no
+          database write and no revision increment.
       parameters:
         - {$ref: "#/components/parameters/Kind"}
         - {$ref: "#/components/parameters/Designation"}
@@ -501,8 +596,9 @@ paths:
         "400":
           $ref: "#/components/responses/BadRequest"
         "404":
-          description: A rare race — the record was deleted between applying
-            and reading the card for the response.
+          description: |
+            A rare race: the record was deleted between applying and
+            reading the card for the response.
           headers:
             Vary:
               $ref: "#/components/headers/VaryLanguage"
@@ -540,31 +636,38 @@ paths:
       operationId: sources_list
       summary: Source registry page
       description: |
-        The record data source registry (a global registry of
-        bibliographic definitions shared by all records) ordered by
-        code: pagination and substring search over code/title
-        (case-insensitive; PostgreSQL folds case across all alphabets,
-        SQLite only Latin: Cyrillic titles on SQLite are matched with
-        exact case). Persons (authors/editors) and links are read only
-        for the page rows. The ETag is derived from data_revision, the
-        canonical query string, and the representation locale (as in
-        GET /components; registry changes bump data_revision). A repeated
-        recognized parameter or an unknown query key — 400
-        validation_failed. Reading the full registry is an export concern
-        (the Go API ListSources), not REST.
+        The record data source registry — a global registry of
+        bibliographic definitions shared by all records. The response
+        is ordered by code. Pagination and substring search over code
+        or title are available.
+
+        The search is case-insensitive, with a dialect caveat:
+        PostgreSQL folds case across all alphabets, SQLite only
+        Latin, so Cyrillic titles on SQLite are matched with exact
+        case. Persons (authors and editors) and links are read only
+        for the page rows.
+
+        The `ETag` is derived from `data_revision`, the canonical
+        query string, and the representation locale, as in
+        `GET /components`. Registry changes bump `data_revision`. A
+        repeated recognized parameter and an unknown query key fail
+        with `400` `validation_failed`. Reading the full registry
+        remains an export concern (the Go API `ListSources`), not
+        REST.
       parameters:
         - $ref: "#/components/parameters/AcceptLanguage"
-        - {name: q, in: query, schema: {type: string}, description: "Substring over the source code or title (without q — the whole registry, paginated)."}
+        - {name: q, in: query, schema: {type: string}, description: "Substring over the source code or title; without `q` the whole registry is returned, paginated."}
         - {name: limit, in: query, schema: {type: integer, minimum: 1, maximum: 200, default: 50}, description: "Page size (≤ 200)."}
         - {name: offset, in: query, schema: {type: integer, minimum: 0, default: 0}, description: "Page offset."}
       responses:
         "200":
-          description: Registry page (type_name follows the request locale).
+          description: Registry page. The `type_name` field is filled
+            per the request locale.
           headers:
             ETag:
               description: |
-                Strong ETag of the form "data-<data_revision>-<hash>-<locale>":
-                hash is a hash of the canonical query string (as in search).
+                Strong `ETag` of the form "data-<data_revision>-<hash>-<locale>":
+                `hash` is a hash of the canonical query string, as in search.
               schema: {type: string}
             Vary:
               $ref: "#/components/headers/VaryLanguage"
@@ -572,7 +675,7 @@ paths:
             application/json:
               schema: {$ref: "#/components/schemas/SourcesPage"}
         "304":
-          description: The data has not changed (If-None-Match).
+          description: The data has not changed (checked by `If-None-Match`).
           headers:
             ETag:
               schema: {type: string}
@@ -589,16 +692,21 @@ paths:
       operationId: sources_apply
       summary: Apply source definitions
       description: |
-        The body is an array of definitions in the form of the import
-        file's root sources section (code/title/type are mandatory; the
-        same format reader — duplicate keys and unknown fields are
-        rejected). Applying is an upsert by code: an existing definition
-        is updated, persons and links are replaced wholesale; value
-        validation (the code charset, the source_types dictionary, year
-        bounds 1900–2100, duplicate list entries) is the service layer's.
-        The response {applied} is the actual registry change: re-applying
-        without changes — false, data_revision is not bumped
-        (idempotency, as in import).
+        The request body is an array of definitions in the form of
+        the import file's root `sources` section. The
+        `code`/`title`/`type` fields are mandatory. The format reader
+        is the same, so duplicate keys and unknown fields are
+        rejected.
+
+        Applying works as an upsert by code: an existing definition
+        is updated, and persons and links are replaced wholesale.
+        Value validation is performed by the service layer: the code
+        charset, the `source_types` dictionary, the year bounds
+        1900–2100, and duplicate list entries.
+
+        The response `{applied}` reflects the actual registry change.
+        Re-applying without changes yields `false` and does not bump
+        `data_revision` — idempotency, as in import.
       parameters:
         - $ref: "#/components/parameters/AcceptLanguage"
       requestBody:
@@ -611,7 +719,8 @@ paths:
               items: {$ref: "#/components/schemas/SourceDef"}
       responses:
         "200":
-          description: Apply outcome (a change or an idempotent no-op).
+          description: |
+            Apply outcome: a change or an idempotent no-op.
           content:
             application/json:
               schema: {$ref: "#/components/schemas/SourcesApplyResponse"}
@@ -628,14 +737,17 @@ paths:
       tags: [sources]
       operationId: sources_get
       summary: Source definition by code
-      description: The full bibliographic definition with a localized
-        type_name (as in the card sources section, without the location note).
+      description: |
+        The full bibliographic definition. The `type_name` field is
+        localized. Unlike the card's `sources` section, it has no
+        location note.
       parameters:
         - {name: code, in: path, required: true, schema: {type: string}}
         - $ref: "#/components/parameters/AcceptLanguage"
       responses:
         "200":
-          description: Source definition (type_name follows the request locale).
+          description: Source definition. The `type_name` field is
+            filled per the request locale.
           headers:
             Vary:
               $ref: "#/components/headers/VaryLanguage"
@@ -653,19 +765,22 @@ paths:
       operationId: sources_delete
       summary: Delete an unreferenced source
       description: |
-        A source referenced by records (the record's sources section)
-        is not deleted — 409 source_in_use: references are record data,
-        there is no cascade (remove the references by replacing the
-        records' sections; section replacement and record deletion clean
-        up orphaned sources automatically). Deletion is atomic and bumps
-        data_revision without feed events — registry changes, as with
-        applying definitions.
+        A source referenced by records (the record's `sources`
+        section) is not deleted: the request fails with `409`
+        `source_in_use`. References are record data, and there is no
+        cascade. To delete such a source, remove the references by
+        replacing the records' sections. Section replacement and
+        record deletion clean up orphaned sources automatically.
+
+        Deletion is atomic. It bumps `data_revision` without feed
+        events — a registry change, as with applying definitions.
       parameters:
         - {name: code, in: path, required: true, schema: {type: string}}
         - $ref: "#/components/parameters/AcceptLanguage"
       responses:
         "204":
-          description: Source deleted (persons and links cascade).
+          description: Source deleted. Persons and links are removed
+            by cascade.
         "404":
           $ref: "#/components/responses/NotFound"
         "409":
@@ -679,12 +794,14 @@ paths:
       tags: [service]
       operationId: suggest
       summary: Designation prefix autocomplete
-      description: Can be disabled in the module configuration — the handler
-        is not mounted (404 when disabled). A repeated recognized parameter
-        or an unknown query key — 400 validation_failed (typos are not
-        silently ignored).
+      description: |
+        Autocomplete can be disabled in the module configuration: the
+        handler is not mounted, and the disabled route yields `404`.
+        A repeated recognized parameter and an unknown query key fail
+        with `400` `validation_failed` — typos are not silently
+        ignored.
       parameters:
-        - {name: q, in: query, required: true, schema: {type: string}, description: "Prefix of a designation or of a record's historical name — a synonym."}
+        - {name: q, in: query, required: true, schema: {type: string}, description: "Prefix of a designation or of a record's historical name (a synonym)."}
         - {name: kind, in: query, schema: {type: string}, description: "Device kind."}
         - {name: limit, in: query, schema: {type: integer, minimum: 1, maximum: 50, default: 10}}
       responses:
@@ -705,25 +822,36 @@ paths:
       operationId: parse
       summary: Designation parsing
       description: |
-        Parses the designation with the same strict grammars as CLI
-        parse: without system — autodetect (fixed order: semiconductor
-        gost → pro → jedec → jis → resistor gost/ost → capacitor gost);
-        with system — parsing in the explicit system (for `other` the kind
-        is mandatory, otherwise 400 kind_ambiguous). The designation is
-        canonicalized (case, whitespace, and typographic hyphens are
-        insignificant); system/kind override autodetect, a contradiction
-        — 400 designation_mismatch. The response is the kind, system,
-        canonical designation, parsed fields, and candidates: all
-        successful strict parses in autodetect order without duplicate
-        kind/system pairs (with autodetect, the first candidate matches
-        the main result). Strict grammars have no numeric confidence —
-        the candidate list is its equivalent. Repeating any recognized
-        query parameter or an unknown query key — 400 validation_failed
-        (typos are not silently ignored).
+        The designation is parsed with the same strict grammars as
+        the CLI `parse` command.
+
+        Without the `system` parameter, autodetect runs in a fixed
+        order: semiconductor `gost` → `pro` → `jedec` → `jis`,
+        resistor `gost`/`ost`, capacitor `gost`. With the `system`
+        parameter, parsing happens in the explicitly given system.
+        For `other` the `kind` is mandatory, otherwise the request
+        fails with `400` `kind_ambiguous`.
+
+        The designation is canonicalized: case, whitespace, and
+        typographic hyphens are insignificant. The `system`/`kind`
+        parameters override autodetect. A contradiction yields `400`
+        `designation_mismatch`.
+
+        The response contains the kind, the system, the canonical
+        designation, the parsed fields, and the candidates. The
+        candidates are all successful strict parses in autodetect
+        order, without duplicate kind/system pairs. With autodetect,
+        the first candidate matches the main result. Strict grammars
+        have no numeric confidence: the candidate list is its
+        equivalent.
+
+        Repeating any recognized parameter and an unknown query key
+        fail with `400` `validation_failed` — typos are not silently
+        ignored.
       parameters:
         - {name: designation, in: query, required: true, schema: {type: string}, description: "Designation (canonicalized)."}
-        - {name: system, in: query, schema: {type: string, enum: [gost, ost, pro, jedec, jis, other]}, description: "Designation system; without the parameter — autodetect."}
-        - {name: kind, in: query, schema: {type: string}, description: "Device kind (overrides autodetect; mandatory for system=other)."}
+        - {name: system, in: query, schema: {type: string, enum: [gost, ost, pro, jedec, jis, other]}, description: "Designation system. Without the parameter, autodetect is used."}
+        - {name: kind, in: query, schema: {type: string}, description: "Device kind: overrides autodetect; mandatory for `system=other`."}
         - $ref: "#/components/parameters/AcceptLanguage"
       responses:
         "200":
@@ -743,56 +871,70 @@ paths:
       operationId: import
       summary: Import a fill file (NDJSON, jsonc, yaml)
       description: |
-        The body is a fill file; the format is set by the mandatory
-        Content-Type header: application/x-ndjson — an NDJSON stream
-        (one JSON line per entity: wrapper lines `{"<kind>": <record>}`,
-        the catalog block as subsection lines before the records)
-        is read streaming, without loading the whole body
-        and with no request size cap — memory is bounded by the
-        single-line cap (16 MiB); application/json (jsonc, comments
-        allowed) and application/yaml — the document is read in full
-        with a 16 MiB body cap (exceeding it — 400 invalid_import_file;
-        for larger volumes use NDJSON). A missing or unsupported
-        Content-Type — 400 validation_failed; Content-Type parameters
-        (charset) are allowed and ignored. The response is a synchronous
-        report after EOF: outcome counters and the full list of run
-        issues (the Issues model: valid records are applied, invalid
-        ones are not, and a record is never applied partially); 200 is
-        returned for runs with issues too. The only hard failure is
-        format syntax and stream reading (400 invalid_import_file).
-        The only query parameter is dry_run=true: a dry run of the same
-        validation pipeline without writing to the database (the report
-        is marked dry_run); the value must be exactly true or false
-        (anything else and a repeated parameter — 400
-        validation_failed), other keys — 400. No progress is reported
-        over REST — the request is synchronous (run observation is the
-        site's metrics hook); write access is mounted by the site only
-        on protected routes.
+        The request body is a fill file. The format is set by the
+        mandatory `Content-Type` header:
+
+        - `application/x-ndjson` — an NDJSON stream: one JSON line
+          per entity, wrapper lines `{"<kind>": <record>}`, the
+          `catalog` block as subsection lines before the records.
+          The stream is read line by line, without loading the whole
+          body and with no request size cap. Memory is bounded by the
+          single-line cap (16 MiB). For larger volumes, NDJSON is the
+          intended format;
+        - `application/json` — a jsonc document, comments allowed;
+        - `application/yaml` — a yaml document. Both documents are
+          read in full with a 16 MiB body cap. Exceeding it yields
+          `400` `invalid_import_file`.
+
+        A missing or unsupported `Content-Type` fails with `400`
+        `validation_failed`. Parameters of the `Content-Type` header
+        (for example, charset) are allowed and ignored.
+
+        The response is a synchronous report after EOF: outcome
+        counters and the full list of run issues. The `Issues` model:
+        valid records are applied in full, and records with errors
+        are not applied at all. `200` is returned for runs with
+        issues too. There is exactly one hard failure: format syntax
+        and stream reading errors yield `400` `invalid_import_file`.
+
+        The request accepts a single parameter, `dry_run`. With the
+        value `true`, the import runs as a dry run: the validation
+        pipeline is the same, nothing is written to the database, and
+        the report is marked with `dry_run`. The value must be
+        exactly `true` or `false`. Any other value, a repeated
+        parameter, and any other query key fail with `400`
+        `validation_failed`.
+
+        No progress is reported over REST: the request is
+        synchronous, and run observation is the site's metrics hook.
+        Write access is mounted by the site only on protected
+        routes.
       parameters:
         - $ref: "#/components/parameters/AcceptLanguage"
-        - {name: dry_run, in: query, schema: {type: boolean, enum: [true, false], default: false}, description: "Dry run without writing to the database (the value must be exactly true or false)."}
+        - {name: dry_run, in: query, schema: {type: boolean, enum: [true, false], default: false}, description: "Dry run without writing to the database. The value must be exactly `true` or `false`."}
       requestBody:
         required: true
         content:
           application/x-ndjson:
             schema:
               type: string
-              description: An NDJSON stream — one JSON line per entity;
+              description: |
+                An NDJSON stream — one JSON line per entity. There is
                 no request size cap.
           application/json:
             schema:
               type: string
-              description: A jsonc document (// comments allowed); the
-                body is read in full, capped at 16 MiB.
+              description: A jsonc document, `//` comments allowed.
+                The body is read in full, capped at 16 MiB.
           application/yaml:
             schema:
               type: string
-              description: A yaml document; the body is read in full,
+              description: A yaml document. The body is read in full,
                 capped at 16 MiB.
       responses:
         "200":
-          description: Import run report (issue messages follow the
-            request locale).
+          description: Import run report. Issue messages (`message`)
+            follow the request locale.
           content:
             application/json:
               schema: {$ref: "#/components/schemas/ImportReport"}
@@ -805,8 +947,9 @@ paths:
 components:
   headers:
     VaryLanguage:
-      description: Always Accept-Language — the response representation is
-        selected by the request locale; a cache must distinguish
+      description: |
+        Always `Accept-Language`: the response representation is
+        selected by the request locale. A cache must distinguish
         representations of different locales (RFC 9110/9111).
       schema: {type: string, const: Accept-Language}
   parameters:
@@ -826,7 +969,7 @@ components:
       name: Accept-Language
       in: header
       required: false
-      description: "Locale of the response display strings: q-values, base subtag; en and ru are supported; en by default."
+      description: "Locale of the response display strings: q-values and the base subtag. `en` and `ru` are supported, `en` by default."
       schema: {type: string, examples: ["ru", "en-US,en;q=0.8"]}
   responses:
     BadRequest:
@@ -854,11 +997,13 @@ components:
         application/json:
           schema: {$ref: "#/components/schemas/Error"}
     MethodNotAllowed:
-      description: The method is not supported by the route (the Allow
-        header lists the route's allowed methods).
+      description: |
+        The method is not supported by the route. The `Allow` header
+        lists the allowed methods.
       headers:
         Allow:
-          description: Comma-separated list of the route's allowed methods.
+          description: Comma-separated list of the route's allowed
+            methods.
           schema: {type: string}
         Vary:
           $ref: "#/components/headers/VaryLanguage"
@@ -892,8 +1037,8 @@ components:
           examples: [validation_failed]
         message:
           type: string
-          description: Message text per the request locale (Accept-Language;
-            en is canonical).
+          description: Message text per the request locale
+            (`Accept-Language`). English is canonical.
     KindDef:
       type: object
       required: [code, name]
@@ -916,9 +1061,10 @@ components:
         num: {type: number}
     FieldValueDef:
       type: object
-      description: A designation dictionary field value — the stable code
-        (the value of filters and the fields section) and the display
-        name per the request locale.
+      description: |
+        A value of a designation dictionary field. `code` is the
+        stable code: the value of filters and the `fields` section.
+        `name` is the display name per the request locale.
       required: [code, name]
       properties:
         code: {type: string}
@@ -926,12 +1072,13 @@ components:
     FieldDictionaries:
       type: object
       description: |
-        Value dictionaries of the designation dictionary fields — the
-        contents of the multi-select filters: material/subclass/adjustment
-        are constant domain registries; category is a catalog data
-        dictionary (extended by import; extensions without a bundle entry
-        are displayed as their code). The value order is stable (domain
-        registries and snapshot rows).
+        Value dictionaries of the designation dictionary fields
+        define the contents of the multi-select filters. The
+        `material`/`subclass`/`adjustment` dictionaries are constant
+        domain registries. The `category` dictionary is a catalog
+        data dictionary, extended by import. Extensions without a bundle entry are
+        displayed as their code. The value order is stable: domain
+        registries and snapshot rows.
       required: [material, subclass, adjustment, category]
       properties:
         material:
@@ -961,8 +1108,8 @@ components:
         text: {type: string}
         texts:
           type: array
-          description: The note list of a text_list attribute (fill order
-            preserved); omitted for scalar attributes.
+          description: The note list of a `text_list` attribute in
+            fill order. Omitted for scalar attributes.
           items: {type: string}
         num: {type: number}
         bool: {type: boolean}
@@ -989,8 +1136,9 @@ components:
         name: {type: string}
         values:
           type: array
-          description: Values in the catalog's canonical order (parameter
-            sort_order); same-name rows of one parameter keep fill order.
+          description: The values follow the catalog's canonical order
+            (the parameter's `sort_order`). Same-name rows of one
+            parameter keep fill order.
           items: {$ref: "#/components/schemas/CardValue"}
     CardVariant:
       type: object
@@ -1032,14 +1180,14 @@ components:
         unit: {type: string, description: Canonical unit code.}
         values:
           type: array
-          description: Values per record of the group (a record without a
-            value for the parameter has no cell).
+          description: Values per record of the group. A record
+            without a value for the parameter has no cell.
           items: {$ref: "#/components/schemas/CardTypeValue"}
     CardTypeGroup:
       type: object
       required: [base, siblings, diffs]
       properties:
-        base: {type: string, description: Base designation (type) — the designation without the classification letter and tail elements.}
+        base: {type: string, description: Base designation (type): the designation without the classification letter and tail elements.}
         siblings:
           type: array
           description: Sibling records of the same kind with the same type.
@@ -1047,7 +1195,8 @@ components:
         diffs:
           type: array
           description: A mini difference matrix — the parameters whose
-            values differ across the group's records (type-level data).
+            values differ across the group's records (by type-level
+            data).
           items: {$ref: "#/components/schemas/CardTypeDiff"}
     CardLink:
       type: object
@@ -1061,19 +1210,21 @@ components:
       type: object
       required: [designation]
       description: |
-        A historical name of the record (synonym): the designation under
-        which the component was manufactured in other years (С5-35 = ПЭВ);
-        the note is the name's origin, the years are the period of its use.
+        A historical name of the record (a synonym): the designation
+        under which the component was manufactured in other years
+        (С5-35 = ПЭВ). The note holds the name's origin, and the
+        years are the period of its use.
       properties:
         designation: {type: string}
         note: {type: string}
         year_from: {type: integer}
         year_to: {type: integer}
     CardSource:
-      description: A record data source — a book, reference
-        book, datasheet, standard, specification (TU), article, or web
-        page; bibliographic texts are non-localizable data, type_name is
-        the localized display name of the type (sourcetype.<code>).
+      description: |
+        A record data source: a book, a reference book, a datasheet, a
+        standard, a specification (TU), an article, or a web page.
+        Bibliographic texts are not localized. The `type_name` field
+        is the localized display name of the type (`sourcetype.<code>`).
       type: object
       required: [code, title, type, type_name, authors, editors, urls]
       properties:
@@ -1082,11 +1233,11 @@ components:
         type: {type: string}
         type_name: {type: string}
         authors:
-          description: Authors; order is significant.
+          description: Authors. Order is significant.
           type: array
           items: {type: string}
         editors:
-          description: Editors/compilers; order is significant.
+          description: Editors/compilers. Order is significant.
           type: array
           items: {type: string}
         year: {type: integer}
@@ -1094,8 +1245,9 @@ components:
         edition: {type: string}
         isbn: {type: string}
         urls:
-          description: Links to the document (original, mirrors, archived
-            copies; the first entry is preferred).
+          description: |
+            Links to the document: the original, mirrors, archived
+            copies. The first entry is preferred.
           type: array
           items: {type: string}
         note:
@@ -1124,8 +1276,8 @@ components:
           type: array
           items: {$ref: "#/components/schemas/CardVariant"}
         type_group:
-          description: Type group (omitted when there are no sibling
-            records with the same base designation).
+          description: Type group. Omitted when there are no sibling
+            records with the same base designation.
           allOf: [{$ref: "#/components/schemas/CardTypeGroup"}]
         manufacturers:
           type: array
@@ -1140,9 +1292,9 @@ components:
           type: array
           items: {$ref: "#/components/schemas/CardSynonym"}
         sources:
-          description: Record data sources — the full
-            bibliographic definition and the location note; the order is
-            canonical, by code.
+          description: |
+            Record data sources: the full bibliographic definition
+            and the location note. The order is canonical, by code.
           type: array
           items: {$ref: "#/components/schemas/CardSource"}
     Outcome:
@@ -1167,9 +1319,11 @@ components:
           items: {$ref: "#/components/schemas/Field"}
         values:
           type: array
-          description: Values of the requested columns (the values
-            parameter) in request order; a CardValue-shaped element for
-            every code present on the record (no value — no element).
+          description: |
+            Values of the requested columns (the `values` parameter)
+            in request order. For every code present on the record,
+            an element of the `CardValue` schema is returned (no
+            value — no element).
           items: {$ref: "#/components/schemas/CardValue"}
     SearchPage:
       type: object
@@ -1185,19 +1339,19 @@ components:
       type: object
       required: [code, title, type, type_name, authors, editors, urls]
       description: |
-        A registry source definition: the responses of
-        GET /sources and GET /sources/{code} (the SourceDef fields of
-        the POST /sources input are the same, except type_name — it is
-        computed per the locale). Bibliographic texts are non-localizable
-        data; only type_name is localized (the sourcetype.<code>
-        bundle).
+        A registry source definition: the shape of the `GET /sources`
+        and `GET /sources/{code}` responses. The input fields of
+        `POST /sources` are the same, except `type_name` — it is
+        computed per the locale. Bibliographic texts are not
+        localized. Only `type_name` is localized (the
+        `sourcetype.<code>` bundle).
       properties:
         code:
           type: string
           description: Lowercase Latin letters/digits/underscore (the registry key).
         title: {type: string}
         type: {type: string, description: Code of the catalog source_types dictionary.}
-        type_name: {type: string, description: Type name per the request locale (not part of the POST /sources body).}
+        type_name: {type: string, description: Type name per the request locale. Not part of the POST /sources body.}
         authors:
           type: array
           items: {type: string}
@@ -1211,7 +1365,8 @@ components:
         urls:
           type: array
           items: {type: string}
-          description: Original, mirrors, archived copies; order is significant.
+          description: Original, mirrors, archived copies. Order is
+            significant.
     SourcesPage:
       type: object
       required: [items, total, limit, offset]
@@ -1228,8 +1383,10 @@ components:
       properties:
         applied:
           type: boolean
-          description: The registry actually changed (false — an idempotent
-            re-apply with no changes; data_revision is not bumped).
+          description: |
+            The registry actually changed. The value `false` is an
+            idempotent re-apply with no changes. `data_revision` is
+            not bumped.
     Suggestion:
       type: object
       required: [kind, system, designation]
@@ -1264,12 +1421,12 @@ components:
         candidates:
           type: array
           description: |
-            All successful strict parses in the fixed autodetect order
-            without duplicate kind/system pairs; with autodetect the first
-            element matches the main result. Strict grammars have no
-            numeric confidence — the candidate list is its equivalent.
-            Empty for designations outside the strict systems (explicit
-            system other).
+            All successful strict parses in the fixed autodetect
+            order, without duplicate kind/system pairs. With
+            autodetect, the first element matches the main result.
+            Strict grammars have no numeric confidence: the candidate
+            list is its equivalent. The list is empty for designations
+            outside the strict systems (explicit system `other`).
           items: {$ref: "#/components/schemas/ParseCandidate"}
     Stats:
       type: object
@@ -1292,8 +1449,9 @@ components:
         data_revision: {type: integer, format: int64, description: "Data revision consistent with the aggregates."}
         parameters:
           type: array
-          description: The kind's parameters with data, alphabetically by
-            code; numeric — min/max, text/enum — value frequencies.
+          description: The kind's parameters with data, alphabetically
+            by code. Numeric ones yield `min`/`max`. Text and enum
+            ones yield value frequencies.
           items: {$ref: "#/components/schemas/ParameterStat"}
     ParameterStat:
       type: object
@@ -1302,12 +1460,13 @@ components:
         parameter: {type: string}
         name: {type: string, description: Display name per the request locale.}
         unit: {type: string, description: Canonical unit code.}
-        min: {type: number, description: Lower bound of the parameter's values in the kind (omitted when absent).}
-        max: {type: number, description: Upper bound of the parameter's values in the kind (omitted when absent).}
+        min: {type: number, description: Lower bound of the parameter's values in the kind. Omitted when absent.}
+        max: {type: number, description: Upper bound of the parameter's values in the kind. Omitted when absent.}
         values:
           type: array
-          description: Frequencies of text/enum values (numeric parameters
-            produce none); by descending frequency, then by text.
+          description: Frequencies of text and enum values. Numeric
+            parameters produce none. The order is by descending
+            frequency, then by text.
           items: {$ref: "#/components/schemas/ParameterValueFreq"}
     ParameterValueFreq:
       type: object
@@ -1320,7 +1479,7 @@ components:
       description: An event of an applied operation on a device record.
       required: [id, revision, op, kind, designation, device_id]
       properties:
-        id: {type: integer, format: int64, description: Monotonic event id — the consumer's cursor.}
+        id: {type: integer, format: int64, description: Monotonic event id. Serves as the consumer's cursor.}
         revision: {type: integer, format: int64, description: The event transaction's data_revision (after the increment).}
         op: {type: string, enum: [created, updated, deleted]}
         kind: {type: string, description: The record's kind code.}
@@ -1332,17 +1491,19 @@ components:
       properties:
         events:
           type: array
-          description: Events in ascending id order (may be empty).
+          description: Events in ascending id order. The list may be
+            empty.
           items: {$ref: "#/components/schemas/ChangeEvent"}
-        data_revision: {type: integer, format: int64, description: Current data revision (consistent with the page).}
+        data_revision: {type: integer, format: int64, description: "Current data revision, consistent with the page."}
     ImportIssue:
       type: object
-      description: An import run issue (position — when defined).
+      description: An import run issue. The position is given when
+        defined.
       required: [code, message]
       properties:
-        record: {type: string, description: Record designation (omitted for root-level issues).}
-        line: {type: integer, description: NDJSON line number (omitted when undefined).}
-        no: {type: integer, description: Ordinal record number within the document section (omitted when unset).}
+        record: {type: string, description: Record designation. Omitted for root-level issues.}
+        line: {type: integer, description: NDJSON line number. Omitted when undefined.}
+        no: {type: integer, description: Ordinal record number within the document section. Omitted when unset.}
         code: {type: string, description: Machine-readable issue code.}
         message: {type: string, description: Message text per the request locale.}
     ImportReport:
@@ -1354,42 +1515,48 @@ components:
         records: {type: integer, description: Records in the body (including rejected ones).}
         added: {type: integer}
         updated: {type: integer}
-        skipped: {type: integer, description: The merged state matches the current one — no database write and no revision increment.}
+        skipped: {type: integer, description: "The merged state matches the current one: no database write and no revision increment."}
         rejected: {type: integer, description: "Records not applied due to issues."}
-        catalog_applied: {type: boolean, description: "The catalog section was applied with an actual change (re-importing an identical catalog — false, catalog_revision is not incremented)."}
-        sources_applied: {type: boolean, description: "The source registry was changed by the root sources section (a data_revision increment without change_events; a re-import with no changes — false)."}
+        catalog_applied: {type: boolean, description: "The catalog section was applied with an actual change. Re-importing an identical catalog yields false: catalog_revision is not incremented."}
+        sources_applied: {type: boolean, description: "The source registry was changed by the root sources section: data_revision is incremented without change_events. A re-import with no changes yields false."}
         issues:
           type: array
           description: The full list of run issues (may be empty).
           items: {$ref: "#/components/schemas/ImportIssue"}
     DeviceRecord:
       description: |
-        A fill record: a designation string or a “name/system + sections”
-        object. Group sections are uniform lists of {parameter, value,
-        conditions} objects; conditions are adjacent keys by code.
-        Absent/null — leave unchanged; present — replace wholesale;
-        []/{} — clear.
+        A fill record: a designation string or a “name/system +
+        sections” object. Group sections are uniform lists of
+        {parameter, value, conditions} objects. Conditions are given
+        by adjacent keys, by code.
+
+        Section semantics is common:
+
+        - a section that is absent or `null` leaves the data
+          unchanged;
+        - a present section is replaced wholesale;
+        - an empty section (`[]` or `{}`) clears the data.
       oneOf:
         - type: string
         - type: object
           required: [name]
           properties:
             name: {type: string, description: Designation.}
-            system: {type: string, description: "Designation system; mandatory for `other`."}
+            system: {type: string, description: "Designation system. Mandatory for `other`."}
             fields:
               type: object
               description: |
                 Explicit classification fields: a “field code →
-                dictionary value” object (`assembly` is a number 0/1).
-                Sets only the fields that the record's designation-system
-                parser does not set itself, and only those applicable to
-                the kind; replaced wholesale.
+                dictionary value” object. The `assembly` field takes
+                a number 0 or 1. The section sets only the fields that the record's
+                designation-system parser does not set itself, and
+                only those applicable to the kind. Replaced wholesale.
               additionalProperties: {oneOf: [{type: string}, {type: number}]}
             attributes:
               type: object
-              description: "Attribute code → value (string / an array of
-                strings for text_list attributes / number / boolean;
-                null — the attribute is left unset)."
+              description: "Attribute code → value: a string, an array
+                of strings for text_list attributes, a number, or a
+                boolean. A null value leaves the attribute unset."
             manufacturers:
               type: array
               items: {type: string}
@@ -1399,13 +1566,14 @@ components:
             analogs:
               type: array
               description: |
-                Outgoing directed analog links: designations of the same
-                kind or objects with a note on the nature of the
-                substitution. Section semantics is the common one
-                (wholesale replacement; only this record's outgoing links
-                change — other records' links to it are not affected);
-                the designation is canonicalized and must exist in the
-                same kind, otherwise — 422 unknown_analog.
+                Outgoing directed analog links: designations of the
+                same kind or objects with a note on the nature of the
+                substitution. The section is replaced wholesale. Only
+                this record's outgoing links change: other records'
+                links to it are not affected. The designation
+                is canonicalized and must exist in the same kind,
+                otherwise the request fails with `422`
+                `unknown_analog`.
               items:
                 oneOf:
                   - type: string
@@ -1417,12 +1585,13 @@ components:
             synonyms:
               type: array
               description: |
-                Historical names of the record: a synonym designation
-                is not a record — find and search (q=) resolve it to the
-                owning record. Unique within a kind; creating a record
-                with a designation taken by another record's synonym is a
-                conflict (409). Years are integers 1949–2100, with
-                yearFrom preceding yearTo.
+                Historical names of the record. A synonym designation
+                is not a record: find and search (`q=`) resolve it to
+                the owning record. Synonyms are unique within a kind.
+                Creating a record with a designation taken by another
+                record's synonym yields a conflict (`409`). Years are
+                integers 1949–2100, with `yearFrom` preceding
+                `yearTo`.
               items:
                 oneOf:
                   - type: string
@@ -1438,10 +1607,10 @@ components:
               description: |
                 References to the record's data sources: registry code
                 strings or objects with a code and a location note.
-                Section semantics is the common one
-                (replaced wholesale); the code must exist in the registry
-                (definitions come from the import file's root sources
-                section), otherwise — 422 unknown_source.
+                The section is replaced wholesale. The code must exist
+                in the registry (definitions come from the import
+                file's root `sources` section), otherwise the request
+                fails with `422` `unknown_source`.
               items:
                 oneOf:
                   - type: string
@@ -1456,12 +1625,12 @@ components:
         label: {type: string}
         attributes:
           type: object
-          description: "Attribute code → variant value (construction
-            features differing across variants): string / an array of
-            strings for text_list attributes /
-            number / boolean; the value shape is as in the record's
-            attributes, null — the attribute is left unset; replaced
-            together with the variants set."
+          description: "Attribute code → variant value: construction
+            features that differ across variants. The value shape is
+            a string, an array of strings for text_list attributes, a
+            number, or a boolean, as in the record's attributes. A
+            null value leaves the attribute unset. The values are
+            replaced together with the `variants` set."
     UnitDef:
       type: object
       required: [code, name, symbol]
@@ -1515,15 +1684,15 @@ components:
         priority:
           type: string
           enum: [primary, secondary, tertiary]
-          description: Parameter significance grade; omitted — unset (ranked
-            as secondary; on import an existing row keeps its current
-            grade).
+          description: Parameter significance grade. Absent — unset;
+            ranked as `secondary`. On import, an existing row keeps
+            its current grade.
         sort_order: {type: integer, description: Order within the significance grade.}
         is_active: {type: boolean}
         kinds:
           type: array
           items: {type: string}
-          description: Empty — applicable to all kinds.
+          description: An empty list — applicable to all kinds.
         enum_values:
           type: array
           items: {type: string}
